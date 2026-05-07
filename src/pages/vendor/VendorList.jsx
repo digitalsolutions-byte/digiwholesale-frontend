@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useReactTable, getCoreRowModel, getPaginationRowModel, getFilteredRowModel, flexRender } from "@tanstack/react-table";
+import { Icon } from "@iconify/react";
 import {
     FiInfo, FiEdit2, FiTrash2, FiRefreshCw, FiX, FiUser, FiPhone,
     FiMail, FiMapPin, FiFileText, FiCreditCard, FiMessageSquare,
@@ -53,14 +54,14 @@ const InfoRow = ({ label, value }) => (
 
 const SectionTitle = ({ children }) => (
     <div className="flex items-center gap-2 mb-4">
-        <span className="w-0.5 h-4 rounded-full bg-orange-400 inline-block" />
+        <span className="w-0.5 h-4 rounded-full bg-blue-400 inline-block" />
         <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{children}</h3>
     </div>
 );
 
-const fieldCls = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 hover:border-orange-300 transition bg-gray-50 text-gray-700";
+const fieldCls = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 hover:border-blue-300 transition bg-gray-50 text-gray-700";
 const labelCls = "block text-xs font-medium text-gray-600 mb-1.5";
-const iconInputCls = "w-full pl-9 pr-3 py-2.5 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 hover:border-orange-300 transition placeholder-gray-400";
+const iconInputCls = "w-full pl-9 pr-3 py-2.5 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 hover:border-blue-300 transition placeholder-gray-400";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Keyword input with vendor suggestion dropdown
@@ -119,7 +120,7 @@ function VendorKeywordInput({ value, onChange }) {
             <div className="relative">
                 <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={13} />
                 {searching && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border-2 border-orange-300 border-t-transparent rounded-full animate-spin pointer-events-none" />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border-2 border-blue-300 border-t-transparent rounded-full animate-spin pointer-events-none" />
                 )}
                 <input
                     type="text"
@@ -127,7 +128,7 @@ function VendorKeywordInput({ value, onChange }) {
                     onChange={handleChange}
                     onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
                     placeholder="Name or firm..."
-                    className="pl-8 pr-8 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 hover:border-gray-300 transition w-56 text-gray-700 placeholder:text-gray-300"
+                    className="pl-8 pr-8 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100 hover:border-gray-300 transition w-56 text-gray-700 placeholder:text-gray-300"
                 />
                 {value && !searching && (
                     <button onClick={() => { onChange(""); setSuggestions([]); setShowSuggestions(false); }}
@@ -139,16 +140,16 @@ function VendorKeywordInput({ value, onChange }) {
 
             {showSuggestions && suggestions.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
-                    <div className="px-3 py-2 bg-orange-50 border-b border-gray-100">
+                    <div className="px-3 py-2 bg-blue-50 border-b border-gray-100">
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Suggestions</p>
                     </div>
                     <ul className="max-h-52 overflow-y-auto">
                         {suggestions.map((s, i) => (
                             <li key={i}>
                                 <button onMouseDown={() => handleSelect(s)}
-                                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-orange-50 transition text-left">
-                                    <div className="w-7 h-7 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center flex-shrink-0">
-                                        <FiBriefcase size={11} className="text-orange-400" />
+                                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-blue-50 transition text-left">
+                                    <div className="w-7 h-7 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center flex-shrink-0">
+                                        <FiBriefcase size={11} className="text-blue-400" />
                                     </div>
                                     <div className="min-w-0">
                                         <p className="text-sm font-semibold text-gray-800 truncate">{s.name || "-"}</p>
@@ -188,7 +189,8 @@ export default function VendorList() {
     const [showOrderModal, setShowOrderModal] = useState(false);
     const [notes, setNotes] = useState("");
     const dispatch = useDispatch();
-    const permissions = useSelector(s => s?.auth?.user?.permissions || []);
+    const permissions = useSelector(s => s?.auth?.user?.permissions || {});
+    const checkPerm = (p) => Array.isArray(permissions) ? permissions.includes(p) : !!permissions[p];
 
     const todayDate = new Date().toISOString().split("T")[0];
 
@@ -243,7 +245,7 @@ export default function VendorList() {
     const handleRefresh = () => {
         Swal.fire({
             title: "Are you sure?", text: "The page will be refreshed.", icon: "warning",
-            showCancelButton: true, confirmButtonColor: "#ea580c", cancelButtonColor: "#9ca3af",
+            showCancelButton: true, confirmButtonColor: "#2980B9", cancelButtonColor: "#9ca3af",
             confirmButtonText: "Yes, refresh!",
         }).then(r => { if (r.isConfirmed) window.location.reload(); });
     };
@@ -309,7 +311,7 @@ export default function VendorList() {
                             <FiEdit2 size={14} />
                         </button>
                         <button onClick={e => { e.stopPropagation(); setSelectedVendor(v); setViewVendor(true); }}
-                            className="p-1.5 rounded-lg hover:bg-orange-50 text-orange-400 transition" title="View Details">
+                            className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-400 transition" title="View Details">
                             <FiInfo size={14} />
                         </button>
                         <button onClick={e => { e.stopPropagation(); setSelectedVendor(v); setShowOrderModal(true); }}
@@ -331,7 +333,7 @@ export default function VendorList() {
         { header: "Payment Terms", accessorKey: "paymentTerms", cell: ({ getValue }) => getValue() || "-" },
         { header: "Note", accessorKey: "notes", cell: ({ getValue }) => <span className="text-gray-500 text-xs">{getValue() || "-"}</span> },
 
-        ...(permissions.includes("DELETE VENDOR") ? [{
+        ...(checkPerm("DELETE VENDOR") ? [{
             header: "Delete",
             id: "delete",
             cell: ({ row }) => {
@@ -378,7 +380,7 @@ export default function VendorList() {
 
     if (loading) return (
         <div className="flex items-center justify-center h-48 text-gray-400 gap-3">
-            <div className="w-5 h-5 border-2 border-orange-300 border-t-transparent rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-blue-300 border-t-transparent rounded-full animate-spin" />
             <span className="text-sm">Loading vendors...</span>
         </div>
     );
@@ -387,77 +389,99 @@ export default function VendorList() {
         <div className="p-6 min-h-screen bg-gray-50">
 
             {/* ── Filter bar ── */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-5">
-                <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+            <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-gray-100/80 mb-6">
+                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+                    <div className="flex flex-wrap items-end gap-4 flex-1">
+                        <div className="flex flex-col gap-1.5">
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.15em] ml-2">Quick Actions</span>
+                            <button onClick={handleRefresh}
+                                className="flex items-center gap-2 bg-erp-accent/10 hover:bg-erp-accent text-erp-accent hover:text-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-full transition-all duration-300 shadow-sm hover:shadow-md group">
+                                <Icon icon="mdi:refresh" className="text-lg group-hover:rotate-180 transition-transform duration-700" /> Refresh List
+                            </button>
+                        </div>
 
-                    <button onClick={handleRefresh}
-                        className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 text-xs font-semibold rounded-lg transition shadow-sm w-fit">
-                        <FiRefreshCw size={13} /> Refresh
-                    </button>
-
-                    <div className="flex flex-col sm:flex-row gap-3 flex-1 lg:justify-end items-end">
-                        <div className="flex gap-3">
-                            <div className="flex flex-col">
-                                <label className="text-xs font-medium text-gray-500 mb-1">From Date</label>
+                        <div className="flex flex-col gap-1.5">
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.15em] ml-2">Registration Period</span>
+                            <div className="flex items-center gap-2">
                                 <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
-                                    className="border border-gray-200 px-3 py-2 rounded-lg text-sm outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 hover:border-gray-300 transition w-32 sm:w-40 lg:w-44 text-gray-700"
+                                    className="bg-gray-50/50 border border-gray-100 px-4 py-2 rounded-full text-xs font-bold outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 hover:border-erp-accent/20 transition-all w-40 text-gray-700"
                                 />
-                            </div>
-                            <div className="flex flex-col">
-                                <label className="text-xs font-medium text-gray-500 mb-1">To Date</label>
+                                <span className="text-[10px] font-black text-gray-300 uppercase">to</span>
                                 <input type="date" value={toDate} onChange={e => setToDate(e.target.value)}
-                                    className="border border-gray-200 px-3 py-2 rounded-lg text-sm outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 hover:border-gray-300 transition w-32 sm:w-40 lg:w-44 text-gray-700"
+                                    className="bg-gray-50/50 border border-gray-100 px-4 py-2 rounded-full text-xs font-bold outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 hover:border-erp-accent/20 transition-all w-40 text-gray-700"
                                 />
                             </div>
                         </div>
 
-                        <VendorKeywordInput value={keyword} onChange={setKeyword} />
+                        <div className="flex flex-col gap-1.5 flex-1 min-w-[240px]">
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.15em] ml-2">Search By Name / Firm / Mobile</span>
+                            <VendorKeywordInput value={keyword} onChange={setKeyword} />
+                        </div>
+                    </div>
 
+                    <div className="flex gap-2">
+                        {isSearching && (
+                            <button onClick={handleResetSearch}
+                                className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-600 px-6 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-full transition-all">
+                                Clear
+                            </button>
+                        )}
                         <button onClick={searchVendors}
-                            className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 text-xs font-semibold rounded-lg transition shadow-sm">
-                            <FiSearch size={12} /> Search
+                            className="flex items-center gap-2 bg-erp-accent hover:bg-erp-accent/90 text-white px-8 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-full transition-all shadow-lg shadow-erp-accent/20 hover:scale-105 active:scale-95">
+                            <Icon icon="mdi:magnify" className="text-lg" /> Search Vendors
                         </button>
                     </div>
                 </div>
             </div>
 
             {/* ── Table card ── */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-[2rem] shadow-2xl border border-gray-100 overflow-hidden min-h-[600px] flex flex-col">
 
                 {/* Table top bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 px-5 py-4 border-b border-gray-100">
-                    <div className="relative w-full sm:w-56">
-                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={13} />
+                <div className="flex items-center justify-between px-8 py-5 border-b border-gray-50 bg-gray-50/30">
+                    <div className="flex items-center gap-3">
+                        <div className="w-2 h-6 bg-erp-accent rounded-full" />
+                        <h2 className="text-sm font-black text-gray-700 uppercase tracking-wider">Vendor Directory</h2>
+                    </div>
+                    <div className="relative w-64 group">
+                        <Icon icon="mdi:filter-variant" className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-erp-accent transition-colors" />
                         <input type="text" value={globalFilter ?? ""} onChange={e => setGlobalFilter(e.target.value)}
-                            placeholder="Quick search..."
-                            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 transition text-gray-600 placeholder:text-gray-300"
+                            placeholder="Quick filter..."
+                            className="w-full pl-11 pr-4 py-2.5 text-xs font-bold border border-gray-100 rounded-full outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 transition-all text-gray-600 placeholder:text-gray-300 bg-white"
                         />
                     </div>
                 </div>
 
                 {/* Table */}
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm border-collapse">
+                <div className="overflow-x-auto custom-scrollbar flex-1">
+                    <table className="w-full border-collapse min-w-[1200px]">
                         <thead>
                             {table.getHeaderGroups().map(hg => (
-                                <tr key={hg.id} className="bg-gray-200 border-b border-gray-800 border-gray-100">
+                                <tr key={hg.id} className="bg-erp-accent text-white">
                                     {hg.headers.map(h => (
-                                        <th key={h.id} className="px-4 py-3 text-center text-xs font-semibold text-gray-800 whitespace-nowrap uppercase tracking-wider">
+                                        <th key={h.id} className="px-6 py-4 text-center text-[10px] font-black uppercase tracking-[0.2em] border-r border-white/10 last:border-r-0">
                                             {flexRender(h.column.columnDef.header, h.getContext())}
                                         </th>
                                     ))}
                                 </tr>
                             ))}
                         </thead>
-                        <tbody>
+                        <tbody className="divide-y divide-gray-50">
                             {table.getRowModel().rows.length === 0 && (
-                                <tr><td colSpan={columns.length} className="py-14 text-center text-gray-400 text-sm">No vendors found</td></tr>
+                                <tr><td colSpan={columns.length} className="py-24 text-center">
+                                    <div className="flex flex-col items-center gap-3 opacity-20">
+                                        <Icon icon="mdi:account-off-outline" className="text-6xl" />
+                                        <p className="text-sm font-black uppercase tracking-widest">No vendors found</p>
+                                    </div>
+                                </td></tr>
                             )}
                             {table.getRowModel().rows.map(row => (
-                                <tr key={row.id} className="border-b border-gray-50 text-center hover:bg-orange-50 transition-colors">
+                                <tr key={row.id} className="hover:bg-erp-accent/[0.02] transition-colors group">
                                     {row.getVisibleCells().map(cell => (
-                                        <td key={cell.id} className="px-4 py-2.5 text-gray-700 whitespace-nowrap text-sm">
-                                            {flexRender(cell.column.columnDef.cell ?? cell.column.columnDef.accessorKey, cell.getContext())}
+                                        <td key={cell.id} className="px-6 py-4 text-center">
+                                            <div className="text-[11px] font-bold text-gray-600 group-hover:text-gray-900 transition-colors">
+                                                {flexRender(cell.column.columnDef.cell ?? cell.column.columnDef.accessorKey, cell.getContext())}
+                                            </div>
                                         </td>
                                     ))}
                                 </tr>
@@ -467,39 +491,47 @@ export default function VendorList() {
                 </div>
 
                 {/* Pagination */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-4 border-t border-gray-100">
-                    <button
-                        onClick={isSearching ? handleResetSearch : handleLoadMore}
-                        disabled={loadingMore || (!isSearching && !hasMore)}
-                        className={`px-4 py-2 rounded-xl text-xs font-semibold transition
-                            ${loadingMore || (!isSearching && !hasMore)
-                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                : isSearching ? "bg-gray-200 hover:bg-gray-300 text-gray-700"
-                                    : "bg-orange-500 hover:bg-orange-600 text-white"}`}
-                    >
-                        {loadingMore ? "Loading..." : isSearching ? "Reset Search" : "Load More"}
-                    </button>
-
-                    <div className="flex items-center gap-1">
-                        <button onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}
-                            className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition">
-                            <FiChevronLeft size={14} />
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-8 py-6 border-t border-gray-50 bg-gray-50/30">
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={isSearching ? handleResetSearch : handleLoadMore}
+                            disabled={loadingMore || (!isSearching && !hasMore)}
+                            className={`px-8 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all shadow-sm hover:shadow-md
+                                ${loadingMore || (!isSearching && !hasMore)
+                                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                    : isSearching ? "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+                                        : "bg-erp-accent text-white hover:bg-erp-accent/90"}`}
+                        >
+                            {loadingMore ? "Loading..." : isSearching ? "Reset All Filters" : "Load More Vendors"}
                         </button>
-                        {startPage > 0 && (<><button onClick={() => table.setPageIndex(0)} className="w-8 h-8 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold">1</button><span className="text-gray-300 text-xs">…</span></>)}
-                        {pages.map(p => (
-                            <button key={p} onClick={() => table.setPageIndex(p)}
-                                className={`w-8 h-8 text-xs rounded-lg font-semibold transition ${p === currentPage ? "bg-orange-500 text-white shadow-sm" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
-                                {p + 1}
-                            </button>
-                        ))}
-                        {endPage < totalPages && (<><span className="text-gray-300 text-xs">…</span><button onClick={() => table.setPageIndex(totalPages - 1)} className="w-8 h-8 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold">{totalPages}</button></>)}
+                        {!isSearching && (
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                {allData.length} records loaded
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}
+                            className="p-2.5 rounded-full border border-gray-100 text-gray-400 hover:bg-white hover:text-erp-accent disabled:opacity-30 transition-all shadow-sm">
+                            <Icon icon="mdi:chevron-left" className="text-xl" />
+                        </button>
+                        <div className="flex items-center gap-1.5 px-4">
+                            {pages.map(p => (
+                                <button key={p} onClick={() => table.setPageIndex(p)}
+                                    className={`w-9 h-9 text-[10px] font-black rounded-full transition-all shadow-sm ${p === currentPage ? "bg-erp-accent text-white scale-110 shadow-lg shadow-erp-accent/20" : "bg-white text-gray-400 hover:bg-gray-50 hover:text-erp-accent border border-gray-50"}`}>
+                                    {p + 1}
+                                </button>
+                            ))}
+                        </div>
                         <button onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}
-                            className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition">
-                            <FiChevronRight size={14} />
+                            className="p-2.5 rounded-full border border-gray-100 text-gray-400 hover:bg-white hover:text-erp-accent disabled:opacity-30 transition-all shadow-sm">
+                            <Icon icon="mdi:chevron-right" className="text-xl" />
                         </button>
                     </div>
                 </div>
             </div>
+
 
             {/* ── View Vendor Modal ── */}
             {viewVendor && selectedVendor && (
@@ -532,7 +564,7 @@ export default function VendorList() {
                             </div>
                         </div>
                         {selectedVendor.notes && (
-                            <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4">
+                            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
                                 <SectionTitle>Additional Notes</SectionTitle>
                                 <p className="text-sm text-gray-700">{selectedVendor.notes}</p>
                             </div>
@@ -553,7 +585,7 @@ export default function VendorList() {
                     <div className="bg-white w-full max-w-7xl h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
 
                         {/* Header */}
-                        <div className="flex items-center justify-between px-6 py-4 bg-orange-500 text-white flex-shrink-0">
+                        <div className="flex items-center justify-between px-6 py-4 bg-blue-500 text-white flex-shrink-0">
                             <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
                                     <FiShoppingCart size={16} />
@@ -619,7 +651,7 @@ export default function VendorList() {
                                     <div className="mt-4 flex justify-end">
                                         <div className="text-right">
                                             <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-0.5">Row Total</p>
-                                            <p className="text-base font-bold text-orange-500">
+                                            <p className="text-base font-bold text-blue-500">
                                                 ₹ {((Number(row.quantity) || 0) * (Number(row.price) || 0) * (1 + (Number(row.gstPercent) || 0) / 100)).toFixed(2)}
                                             </p>
                                         </div>
@@ -628,7 +660,7 @@ export default function VendorList() {
                             ))}
 
                             <button onClick={handleAddRow}
-                                className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-orange-200 rounded-2xl text-orange-400 hover:border-orange-400 hover:bg-orange-50 text-xs font-semibold transition">
+                                className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-blue-200 rounded-2xl text-blue-400 hover:border-blue-400 hover:bg-blue-50 text-xs font-semibold transition">
                                 <FiPlusCircle size={14} /> Add Product
                             </button>
                         </div>
@@ -641,7 +673,7 @@ export default function VendorList() {
                                     <label className={labelCls}>Notes (Optional)</label>
                                     <textarea rows={3} value={notes} onChange={e => setNotes(e.target.value)}
                                         placeholder="Add any special instructions for vendor..."
-                                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 hover:border-gray-300 transition resize-none text-gray-700 placeholder:text-gray-300"
+                                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100 hover:border-gray-300 transition resize-none text-gray-700 placeholder:text-gray-300"
                                     />
                                 </div>
 
@@ -657,7 +689,7 @@ export default function VendorList() {
                                     </div>
                                     <div className="flex justify-between gap-16 pt-2 border-t border-gray-200">
                                         <span className="text-sm font-bold text-gray-700">Grand Total</span>
-                                        <span className="text-base font-bold text-orange-500">₹ {orderSummary.grandTotal.toFixed(2)}</span>
+                                        <span className="text-base font-bold text-blue-500">₹ {orderSummary.grandTotal.toFixed(2)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -676,7 +708,7 @@ export default function VendorList() {
                                         Cancel
                                     </button>
                                     <button onClick={handleSubmitOrder}
-                                        className="flex items-center gap-2 px-5 py-2 text-xs font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-xl transition shadow-sm">
+                                        className="flex items-center gap-2 px-5 py-2 text-xs font-semibold text-white bg-blue-500 hover:bg-blue-600 rounded-xl transition shadow-sm">
                                         <FiShoppingCart size={12} /> Submit Order
                                     </button>
                                 </div>
@@ -745,8 +777,8 @@ function EditVendorModal({ vendor, onClose, onSuccess }) {
             {/* Header */}
             <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
                 <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center">
-                        <FiBriefcase size={15} className="text-orange-500" />
+                    <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center">
+                        <FiBriefcase size={15} className="text-blue-500" />
                     </div>
                     <div>
                         <h2 className="text-sm font-bold text-gray-800">Edit Vendor</h2>

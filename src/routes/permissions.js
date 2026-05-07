@@ -76,7 +76,20 @@ export const PERMISSIONS_CONFIG = {
         permission: 'CanManageSettings',
         allowedRoles: ['SUPERADMIN'],
         allowedDepartments: ['INVENTORY', 'STORES']
-    }
+    },
+
+    // REPAIR MODULE
+    [PATHS.REPAIR.ADD]: { allowedRoles: ['SUPERADMIN'], allowedDepartments: ['REPAIR', 'PRODUCTION', 'ADMIN'] },
+    [PATHS.REPAIR.LIST]: { allowedRoles: ['SUPERADMIN'], allowedDepartments: ['REPAIR', 'PRODUCTION', 'ADMIN'] },
+
+    // VENDOR MODULE
+    [PATHS.VENDOR.ADD]: { allowedRoles: ['SUPERADMIN'], allowedDepartments: ['INVENTORY', 'PROCUREMENT', 'ADMIN'] },
+    [PATHS.VENDOR.LIST]: { allowedRoles: ['SUPERADMIN'], allowedDepartments: ['INVENTORY', 'PROCUREMENT', 'ADMIN'] },
+    [PATHS.VENDOR.ORDER]: { allowedRoles: ['SUPERADMIN'], allowedDepartments: ['INVENTORY', 'PROCUREMENT', 'ADMIN'] },
+
+    // DETAILED REPORTS
+    [PATHS.REPORTS.DAILY]: { allowedRoles: ['SUPERADMIN'], allowedDepartments: ['ADMIN', 'FINANCE', 'MANAGEMENT'] },
+    [PATHS.REPORTS.MAIN]: { allowedRoles: ['SUPERADMIN'], allowedDepartments: ['ADMIN', 'FINANCE', 'MANAGEMENT'] },
 };
 
 /**

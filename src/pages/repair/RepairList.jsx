@@ -4,28 +4,29 @@ import api from "../../utils/api";
 import { toast } from "react-toastify";
 import { useDispatch, useSelector } from "react-redux";
 import Swal from "sweetalert2";
-import { FiSearch, FiRefreshCw, FiTrash2, FiX, FiPhone, FiChevronRight, FiChevronLeft, FiTool, FiInfo } from "react-icons/fi";
+import { Icon } from "@iconify/react";
 import { hideLoader, showLoader } from "../../features/loader/loaderSlice";
 
 /* ─── Constants ─────────────────────────────────────────────────────────── */
 const STATUS_CFG = {
-  Pending: { cls: "bg-amber-50 text-amber-700 border-amber-200", dot: "bg-amber-400" },
-  "In Progress": { cls: "bg-blue-50 text-blue-700 border-blue-200", dot: "bg-blue-400" },
-  Completed: { cls: "bg-emerald-50 text-emerald-700 border-emerald-200", dot: "bg-emerald-400" },
-  Cancelled: { cls: "bg-rose-50 text-rose-700 border-rose-200", dot: "bg-rose-400" },
+  Pending: { cls: "bg-amber-100 text-amber-700 border-amber-200", icon: "mdi:clock-outline" },
+  "In Progress": { cls: "bg-blue-100 text-blue-700 border-blue-200", icon: "mdi:progress-wrench" },
+  Completed: { cls: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: "mdi:check-circle-outline" },
+  Cancelled: { cls: "bg-rose-100 text-rose-700 border-rose-200", icon: "mdi:close-circle-outline" },
 };
 const ALL_STATUSES = ["Pending", "In Progress", "Completed", "Cancelled"];
 const FETCH_LIMIT = 100;
 const PAGE_SIZE = 100;
 
-const inputCls = "w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all placeholder-gray-300";
+const inputCls = "w-full bg-gray-50/50 border border-gray-100 rounded-full px-5 py-2.5 text-xs font-bold text-gray-700 outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 transition-all placeholder:text-gray-300";
 const fmt = (v) => v ? new Date(v).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
 /* ─── Status Badge ──────────────────────────────────────────────────────── */
 const StatusBadge = ({ status }) => {
-  const cfg = STATUS_CFG[status] || { cls: "bg-gray-100 text-gray-500 border-gray-200", dot: "bg-gray-300" };
+  const cfg = STATUS_CFG[status] || { cls: "bg-gray-100 text-gray-500 border-gray-200", icon: "mdi:help-circle-outline" };
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border ${cfg.cls}`}>
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${cfg.cls}`}>
+      <Icon icon={cfg.icon} className="text-sm" />
       {status || "—"}
     </span>
   );
@@ -48,158 +49,114 @@ const DetailModal = ({ repair, onClose, onStatusChange }) => {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
-      onClick={onClose}
-    >
-      <div
-        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-fadeIn"
-        onClick={e => e.stopPropagation()}
-      >
-        <style>{`
-          @keyframes fadeIn {
-            from { opacity: 0; transform: scale(.97) translateY(6px); }
-            to   { opacity: 1; transform: scale(1) translateY(0); }
-          }
-          .animate-fadeIn { animation: fadeIn .18s ease both; }
-        `}</style>
-
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col scale-in-center" onClick={e => e.stopPropagation()}>
+        
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center">
-              <FiTool size={15} className="text-orange-500" />
+        <div className="bg-erp-accent p-6 text-white flex justify-between items-center relative overflow-hidden">
+          <div className="relative z-10 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center">
+              <Icon icon="mdi:tools" className="text-2xl" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-gray-800">Repair Details</h2>
+              <h2 className="text-xl font-black uppercase tracking-widest">Repair #{repair.repairNumber}</h2>
+              <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest">Details & Status Management</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-full text-gray-400 hover:bg-gray-100 transition cursor-pointer">
-            <FiX size={15} />
+          <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition-colors relative z-10">
+            <Icon icon="mdi:close" className="text-2xl" />
           </button>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16" />
         </div>
 
         {/* Body */}
-        <div className="px-6 py-5 space-y-5">
+        <div className="p-8 overflow-y-auto custom-scrollbar flex-1 space-y-8">
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Customer Info */}
+            <div className="space-y-4">
+              <h3 className="text-erp-accent font-black uppercase text-[10px] tracking-[0.2em] border-b border-erp-accent/10 pb-2">Customer Information</h3>
+              <div className="space-y-4">
+                <DetailItem label="Full Name" value={repair.name} icon="mdi:account" />
+                <DetailItem label="Mobile Number" value={repair.mobile} icon="mdi:phone" />
+                <DetailItem label="Email Address" value={repair.email} icon="mdi:email" />
+              </div>
+            </div>
 
-          {/* Customer */}
-          <div className="bg-gray-50 rounded-2xl border border-gray-100 p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="w-0.5 h-4 rounded-full bg-orange-400 inline-block" />
-              <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Customer</h3>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div>
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Name</p>
-                <p className="text-sm font-semibold text-gray-800">{repair.name || "—"}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Mobile</p>
-                <p className="text-sm font-semibold text-gray-800 flex items-center gap-1"><FiPhone size={10} className="text-orange-400" />{repair.mobile || "—"}</p>
-              </div>
-              {repair.email && (
-                <div>
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Email</p>
-                  <p className="text-sm font-semibold text-gray-800">{repair.email}</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Repair Info */}
-          <div className="bg-gray-50 rounded-2xl border border-gray-100 p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="w-0.5 h-4 rounded-full bg-orange-400 inline-block" />
-              <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Repair Info / </h3>
-              <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{repair.repairNumber}</h3>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Item</p>
-                <p className="text-sm font-semibold text-gray-800">{repair.item || "—"}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Price</p>
-                <p className="text-sm font-bold text-orange-600">₹{repair.price || 0}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Repair Date</p>
-                <p className="text-sm font-semibold text-gray-800">{fmt(repair.repairDate || repair.createdAt)}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Delivery Date</p>
-                <p className="text-sm font-semibold text-gray-800">{fmt(repair.deliveryDate)}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Status</p>
-                <StatusBadge status={repair.status} />
+            {/* Repair Info */}
+            <div className="space-y-4">
+              <h3 className="text-erp-accent font-black uppercase text-[10px] tracking-[0.2em] border-b border-erp-accent/10 pb-2">Repair Particulars</h3>
+              <div className="space-y-4">
+                <DetailItem label="Item Description" value={repair.item} icon="mdi:package-variant" />
+                <DetailItem label="Repair Price" value={repair.price ? `₹${repair.price.toLocaleString()}` : "₹0"} icon="mdi:currency-inr" highlight />
+                <DetailItem label="Repair Date" value={fmt(repair.repairDate || repair.createdAt)} icon="mdi:calendar" />
+                <DetailItem label="Est. Delivery" value={fmt(repair.deliveryDate)} icon="mdi:truck-delivery" />
               </div>
             </div>
           </div>
 
-          {repair.issue && (
-            <div>
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Issue</p>
-              <p className="text-sm text-gray-700 bg-gray-50 rounded-xl border border-gray-100 p-3 leading-relaxed">{repair.issue}</p>
-            </div>
-          )}
-
-          {repair.remark && (
-            <div>
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Remark</p>
-              <p className="text-sm text-gray-700 bg-gray-50 rounded-xl border border-gray-100 p-3 leading-relaxed">{repair.remark}</p>
-            </div>
-          )}
-
-          {/* Photos — click opens in new tab */}
-          {repair.images?.length > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">
-                Photos ({repair.images.length}) — click to open
+          {/* Issues & Remarks */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-3">
+              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Reported Issue</h4>
+              <p className="text-xs font-bold text-gray-700 bg-gray-50 p-4 rounded-2xl border border-gray-100 leading-relaxed min-h-[80px]">
+                {repair.issue || "No specific issue recorded"}
               </p>
-              <div className="grid grid-cols-4 gap-2">
+            </div>
+            <div className="space-y-3">
+              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Internal Remarks</h4>
+              <p className="text-xs font-bold text-gray-700 bg-gray-50 p-4 rounded-2xl border border-gray-100 leading-relaxed min-h-[80px]">
+                {repair.remark || "No internal remarks"}
+              </p>
+            </div>
+          </div>
+
+          {/* Photos */}
+          {repair.images?.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="text-erp-accent font-black uppercase text-[10px] tracking-[0.2em] border-b border-erp-accent/10 pb-2">Verification Photos</h3>
+              <div className="flex flex-wrap gap-4">
                 {repair.images.map((img, i) => (
-                  <a
-                    key={i}
-                    href={img}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="aspect-square rounded-xl overflow-hidden border border-gray-100 shadow-sm hover:opacity-80 hover:shadow-md transition block"
-                  >
-                    <img src={img} alt={`photo-${i + 1}`} className="w-full h-full object-cover" />
+                  <a key={i} href={img} target="_blank" rel="noopener noreferrer" 
+                     className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-gray-100 shadow-sm hover:shadow-xl hover:scale-105 transition-all duration-300">
+                    <img src={img} alt="repair" className="w-full h-full object-cover" />
                   </a>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Update status */}
-          <div>
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Update Status</p>
-            <div className="flex gap-2">
-              <select value={status} onChange={e => setStatus(e.target.value)} className={`${inputCls} flex-1`}>
-                {ALL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+          {/* Status Update */}
+          <div className="bg-gray-50 p-6 rounded-[2rem] border border-gray-100">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Current Status</span>
+                  <StatusBadge status={repair.status} />
+                </div>
+                <Icon icon="mdi:arrow-right" className="text-gray-300 text-xl hidden md:block" />
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Update To</span>
+                  <select value={status} onChange={e => setStatus(e.target.value)} className={inputCls + " w-48"}>
+                    {ALL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
               <button
                 onClick={saveStatus}
                 disabled={saving || status === repair.status}
-                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 active:scale-95 disabled:opacity-40 text-white text-xs font-bold rounded-xl transition cursor-pointer"
+                className="w-full md:w-auto px-8 py-3 bg-erp-accent text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-erp-accent/20 hover:scale-105 active:scale-95 disabled:opacity-50 transition-all"
               >
-                {saving ? "…" : "Save"}
+                {saving ? "Updating..." : "Confirm Update"}
               </button>
             </div>
           </div>
-
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50/60 rounded-b-2xl">
-
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition cursor-pointer"
-          >
-            Close
+        <div className="p-6 bg-gray-50/50 border-t border-gray-50 flex justify-end">
+          <button onClick={onClose} className="px-10 py-3 bg-white border border-gray-100 text-gray-400 text-[10px] font-black uppercase tracking-widest rounded-full hover:bg-gray-50 transition-all">
+            Close Panel
           </button>
         </div>
       </div>
@@ -207,12 +164,25 @@ const DetailModal = ({ repair, onClose, onStatusChange }) => {
   );
 };
 
+const DetailItem = ({ label, value, icon, highlight }) => (
+  <div className="flex items-start gap-3">
+    <div className="w-8 h-8 rounded-full bg-erp-accent/5 flex items-center justify-center flex-shrink-0">
+      <Icon icon={icon} className="text-erp-accent/60" />
+    </div>
+    <div className="flex flex-col">
+      <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest">{label}</span>
+      <span className={`text-[11px] font-bold ${highlight ? 'text-erp-accent' : 'text-gray-700'}`}>{value || "—"}</span>
+    </div>
+  </div>
+);
+
 /* ══════════════════════════════════════════════════════════════════════════
    MAIN PAGE
 ══════════════════════════════════════════════════════════════════════════ */
 export default function RepairList() {
-  const { permissions = [], role } = useSelector(s => s.auth.user || {});
-  const canDelete = role === "ADMIN" || permissions.includes("DELETE REPAIR");
+  const { permissions = {}, role } = useSelector(s => s.auth.user || {});
+  const checkPerm = (p) => Array.isArray(permissions) ? permissions.includes(p) : !!permissions[p];
+  const canDelete = role === "ADMIN" || role === "SUPERADMIN" || checkPerm("DELETE REPAIR");
 
   const [allData, setAllData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
@@ -229,7 +199,6 @@ export default function RepairList() {
 
   const dispatch = useDispatch();
 
-  /* ── Fetch (paginated, appends) ── */
   const fetchRepairs = useCallback(async (pg = 1, append = false) => {
     try {
       pg === 1 ? dispatch(showLoader()) : setLoadingMore(true);
@@ -240,54 +209,29 @@ export default function RepairList() {
         setPage(pg);
       }
     } catch { toast.error("Failed to load repairs"); }
-    finally { dispatch(hideLoader());; setLoadingMore(false); }
+    finally { dispatch(hideLoader()); setLoadingMore(false); }
   }, []);
 
-  /* ── Search ── */
   const searchRepairs = async () => {
-    if (!startDate && !endDate && !keyword) {
-      toast.warning("Please provide at least one filter.");
-      return;
-    }
-
-    if ((startDate && !endDate) || (!startDate && endDate)) {
-      toast.warning("Please select both Start and End dates.");
-      return;
-    }
-
-    if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
-      toast.warning("Start date cannot be greater than End date.");
-      return;
-    }
-
-    if (keyword && keyword.trim().length < 4) {
-      toast.warning("Keyword must be at least 4 characters.");
-      return;
-    }
+    if (!startDate && !endDate && !keyword) return toast.warning("Provide at least one filter");
+    if ((startDate && !endDate) || (!startDate && endDate)) return toast.warning("Select both dates");
+    if (startDate && endDate && new Date(startDate) > new Date(endDate)) return toast.warning("Invalid date range");
+    if (keyword && keyword.trim().length < 4) return toast.warning("Keyword too short");
 
     try {
       setPage(1);
       dispatch(showLoader());
-
       const res = await api.post("/repair/search", {
         keyword: keyword?.trim() || undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
       });
-
       if (res.data.success) {
         setFilteredData(res.data.repairsData || []);
         setIsSearching(true);
-      } else {
-        toast.warning(res.data.message);
-      }
-
-    } catch (err) {
-      console.error("Search error:", err);
-      toast.error("Search failed");
-    } finally {
-      dispatch(hideLoader());
-    }
+      } else toast.warning(res.data.message);
+    } catch { toast.error("Search failed"); }
+    finally { dispatch(hideLoader()); }
   };
 
   const handleResetSearch = () => {
@@ -300,59 +244,48 @@ export default function RepairList() {
     fetchRepairs(page + 1, true);
   };
 
-  /* ── Delete ── */
   const handleDeleteRepair = async (repair) => {
     const result = await Swal.fire({
-      title: "Are you sure?",
-      text: `You won't be able to recover this repair (${repair.name})`,
+      title: "Confirm Deletion",
+      text: `Delete repair #${repair.repairNumber}?`,
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#dc2626",
-      cancelButtonColor: "#6b7280",
-      confirmButtonText: "Yes, delete it",
+      confirmButtonColor: "#EF4444",
+      cancelButtonColor: "#9CA3AF",
+      confirmButtonText: "Yes, Delete"
     });
     if (!result.isConfirmed) return;
     try {
-      Swal.fire({ title: "Deleting...", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+      dispatch(showLoader());
       await api.delete(`/repair/${repair.repairNumber}`);
       setAllData(prev => prev.filter(r => r.repairNumber !== repair.repairNumber));
       setFilteredData(prev => prev.filter(r => r.repairNumber !== repair.repairNumber));
-      Swal.fire({ icon: "success", title: "Deleted!", timer: 1500, showConfirmButton: false });
-    } catch (err) {
-      Swal.fire({ icon: "error", title: "Error", text: err.response?.data?.message || "Something went wrong" });
-    }
+      toast.success("Repair deleted");
+    } catch { toast.error("Delete failed"); }
+    finally { dispatch(hideLoader()); }
   };
 
-  /* ── Status update (from modal) ── */
   const handleStatusChange = (id, newStatus) => {
-    const update = arr => arr.map(r => r._id === id ? { ...r, status: newStatus } : r);
+    const update = arr => arr.map(r => r.repairNumber === id ? { ...r, status: newStatus } : r);
     setAllData(update);
     setFilteredData(update);
-    setSelected(prev => prev?._id === id ? { ...prev, status: newStatus } : prev);
+    setSelected(prev => prev?.repairNumber === id ? { ...prev, status: newStatus } : prev);
   };
 
   useEffect(() => { fetchRepairs(1); }, []);
 
-  /* ── Tanstack columns ── */
   const columns = useMemo(() => [
     {
       header: "Action",
       id: "actions",
-      cell: ({ row }) => {
-        const r = row.original;
-        return (
-          <div className="flex items-center justify-center gap-0.5">
-            <button
-              onClick={e => { e.stopPropagation(); setSelected(r); }}
-              className="p-1.5 rounded-lg hover:bg-orange-50 text-orange-400 transition cursor-pointer"
-              title="View details"
-            >
-              <FiInfo size={14} />
-            </button>
-
-          </div>
-        );
-      },
+      cell: ({ row }) => (
+        <button
+          onClick={e => { e.stopPropagation(); setSelected(row.original); }}
+          className="p-2 rounded-full hover:bg-erp-accent/5 text-erp-accent/60 hover:text-erp-accent transition-all"
+        >
+          <Icon icon="mdi:eye" className="text-lg" />
+        </button>
+      ),
     },
     {
       header: "Date",
@@ -365,21 +298,17 @@ export default function RepairList() {
     {
       header: "Price",
       accessorKey: "price",
-      cell: ({ getValue }) => <span className="font-bold text-gray-800">₹{getValue() || 0}</span>,
+      cell: ({ getValue }) => <span className="font-bold text-erp-accent">₹{getValue() || 0}</span>,
     },
     {
-      header: "Delivery Date",
+      header: "Delivery",
       accessorKey: "deliveryDate",
       cell: ({ getValue }) => fmt(getValue()),
     },
     {
       header: "Status",
       accessorKey: "status",
-      cell: ({ getValue }) => (
-        <div className="flex justify-center">
-          <StatusBadge status={getValue()} />
-        </div>
-      ),
+      cell: ({ getValue }) => <StatusBadge status={getValue()} />,
     },
     {
       header: "Delete",
@@ -387,16 +316,14 @@ export default function RepairList() {
       cell: ({ row }) => canDelete ? (
         <button
           onClick={e => { e.stopPropagation(); handleDeleteRepair(row.original); }}
-          className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-500 transition mx-auto block cursor-pointer"
-          title="Delete"
+          className="p-2 rounded-full hover:bg-red-50 text-red-300 hover:text-red-500 transition-all mx-auto block"
         >
-          <FiTrash2 size={14} />
+          <Icon icon="mdi:trash-can-outline" className="text-lg" />
         </button>
       ) : "—",
     },
   ], [canDelete]);
 
-  /* ── Tanstack table ── */
   const table = useReactTable({
     data: isSearching ? filteredData : allData,
     columns,
@@ -410,120 +337,98 @@ export default function RepairList() {
 
   const currentPage = table.getState().pagination.pageIndex;
   const totalPages = table.getPageCount();
-  const MAX_PAGES = 5;
-  const startPage = Math.max(0, currentPage - Math.floor(MAX_PAGES / 2));
-  const endPage = Math.min(totalPages, startPage + MAX_PAGES);
-  const pages = Array.from({ length: endPage - startPage }, (_, i) => startPage + i);
-
-
-  // const displayData = isSearching ? filteredData : allData;
+  const pages = Array.from({ length: totalPages }, (_, i) => i);
 
   return (
-    <div className="p-6 min-h-screen bg-gray-50">
+    <div className="p-6 min-h-screen bg-gray-50/50">
 
       {/* ── Filter Bar ── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-5">
-        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+      <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-gray-100/80 mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+          <div className="flex flex-wrap items-end gap-6 flex-1">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Quick Refresh</span>
+              <button
+                onClick={isSearching ? handleResetSearch : () => fetchRepairs(1)}
+                className="flex items-center gap-2 bg-erp-accent/10 hover:bg-erp-accent text-erp-accent hover:text-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-full transition-all group"
+              >
+                <Icon icon="mdi:refresh" className="text-lg group-hover:rotate-180 transition-transform duration-700" />
+                {isSearching ? "Reset Filter" : "Reload Repairs"}
+              </button>
+            </div>
 
-          <button
-            onClick={isSearching ? handleResetSearch : () => fetchRepairs(1)}
-            className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 text-xs font-semibold rounded-lg transition shadow-sm w-fit cursor-pointer"
-          >
-            <FiRefreshCw size={13} /> {isSearching ? "Reset" : "Refresh"}
-          </button>
-
-          <div className="flex flex-col sm:flex-row gap-3 flex-1 lg:justify-end items-end">
-
-            {/* Date range */}
-            <div className="flex gap-3">
-              <div className="flex flex-col">
-                <label className="text-xs font-medium text-gray-500 mb-1">From Date</label>
-                <input
-                  type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                  className="border border-gray-200 px-3 py-2 rounded-lg text-sm outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 hover:border-gray-300 transition w-36 text-gray-700"
-                />
-              </div>
-              <div className="flex flex-col">
-                <label className="text-xs font-medium text-gray-500 mb-1">To Date</label>
-                <input
-                  type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-                  className="border border-gray-200 px-3 py-2 rounded-lg text-sm outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 hover:border-gray-300 transition w-36 text-gray-700"
-                />
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Date Range</span>
+              <div className="flex items-center gap-2">
+                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={inputCls + " w-40"} />
+                <span className="text-[10px] font-black text-gray-300 uppercase tracking-tighter">to</span>
+                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className={inputCls + " w-40"} />
               </div>
             </div>
 
-
-            {/* Keyword */}
-            <div className="flex flex-col">
-              <label className="text-xs font-medium text-gray-500 mb-1">Keyword</label>
-              <div className="relative">
-                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={13} />
+            <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Search Keyword</span>
+              <div className="relative group">
+                <Icon icon="mdi:magnify" className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-erp-accent" />
                 <input
-                  type="text"
-                  value={keyword}
-                  onChange={e => setKeyword(e.target.value)}
+                  type="text" value={keyword} onChange={e => setKeyword(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && searchRepairs()}
-                  placeholder="Name, mobile, item…"
-                  className="pl-8 pr-8 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 hover:border-gray-300 transition w-52 text-gray-700 placeholder:text-gray-300"
+                  placeholder="Customer name, mobile or item..."
+                  className={inputCls + " pl-12 pr-4"}
                 />
-                {keyword && (
-                  <button onClick={() => setKeyword("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition cursor-pointer">
-                    <FiX size={12} />
-                  </button>
-                )}
               </div>
             </div>
-
-            <button
-              onClick={searchRepairs}
-              className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 text-xs font-semibold rounded-lg transition shadow-sm cursor-pointer"
-            >
-              <FiSearch size={12} /> Search
-            </button>
           </div>
+
+          <button onClick={searchRepairs} className="px-10 py-3 bg-erp-accent hover:bg-erp-accent/90 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-erp-accent/20 transition-all hover:scale-105 active:scale-95">
+            Filter Results
+          </button>
         </div>
       </div>
 
       {/* ── Table Card ── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-
-        {/* Top bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 px-5 py-4 border-b border-gray-100">
-
-          <div className="relative w-full sm:w-56">
-            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={13} />
+      <div className="bg-white rounded-[2rem] shadow-2xl border border-gray-100 overflow-hidden flex flex-col min-h-[600px]">
+        <div className="px-8 py-5 border-b border-gray-50 flex items-center justify-between bg-gray-50/30">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-6 bg-erp-accent rounded-full" />
+            <h2 className="text-sm font-black text-gray-700 uppercase tracking-widest">Repair Log</h2>
+          </div>
+          <div className="relative w-64 group">
+            <Icon icon="mdi:filter-variant" className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-erp-accent" />
             <input
-              type="text"
-              value={globalFilter ?? ""}
-              onChange={e => setGlobalFilter(e.target.value)}
-              placeholder="Quick search..."
-              className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 transition text-gray-600 placeholder:text-gray-300"
+              type="text" value={globalFilter ?? ""} onChange={e => setGlobalFilter(e.target.value)}
+              placeholder="Quick search records..."
+              className="w-full pl-11 pr-4 py-2.5 text-[10px] font-black border border-gray-100 rounded-full outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 transition-all bg-white"
             />
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse">
+        <div className="overflow-x-auto custom-scrollbar flex-1">
+          <table className="w-full border-collapse">
             <thead>
-              <tr className="bg-gray-200 border-b border-gray-100">
+              <tr className="bg-erp-accent text-white">
                 {table.getHeaderGroups().map(hg => hg.headers.map(h => (
-                  <th key={h.id} className="px-4 py-3 text-center text-xs font-semibold text-gray-800 whitespace-nowrap uppercase tracking-wider">
+                  <th key={h.id} className="px-6 py-4 text-center text-[10px] font-black uppercase tracking-[0.2em] border-r border-white/10 last:border-r-0">
                     {flexRender(h.column.columnDef.header, h.getContext())}
                   </th>
                 )))}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-50">
               {table.getRowModel().rows.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} className="py-14 text-center text-gray-400 text-sm">No repairs found</td>
+                  <td colSpan={columns.length} className="py-32 text-center opacity-20">
+                    <Icon icon="mdi:tools-off" className="text-6xl mx-auto mb-4" />
+                    <p className="text-xs font-black uppercase tracking-widest">No repairs matching criteria</p>
+                  </td>
                 </tr>
               ) : table.getRowModel().rows.map(row => (
-                <tr key={row.id} className="border-b border-gray-50 text-center hover:bg-orange-50 transition-colors">
+                <tr key={row.id} className="hover:bg-erp-accent/[0.02] transition-all group">
                   {row.getVisibleCells().map(cell => (
-                    <td key={cell.id} className="px-4 py-2.5 text-gray-700 whitespace-nowrap text-sm">
-                      {flexRender(cell.column.columnDef.cell ?? cell.column.columnDef.accessorKey, cell.getContext())}
+                    <td key={cell.id} className="px-6 py-4 text-center">
+                      <div className="text-[11px] font-bold text-gray-600 group-hover:text-gray-900 transition-colors">
+                        {flexRender(cell.column.columnDef.cell ?? cell.column.columnDef.accessorKey, cell.getContext())}
+                      </div>
                     </td>
                   ))}
                 </tr>
@@ -533,65 +438,40 @@ export default function RepairList() {
         </div>
 
         {/* Pagination */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-4 border-t border-gray-100">
+        <div className="p-8 border-t border-gray-50 bg-gray-50/30 flex flex-col sm:flex-row items-center justify-between gap-6">
           <button
             onClick={isSearching ? handleResetSearch : handleLoadMore}
             disabled={loadingMore || (!isSearching && !hasMore)}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold transition
+            className={`px-10 py-3 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg transition-all
               ${loadingMore || (!isSearching && !hasMore)
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : isSearching
-                  ? "bg-gray-200 hover:bg-gray-300 text-gray-700 cursor-pointer"
-                  : "bg-orange-500 hover:bg-orange-600 text-white cursor-pointer"
-              }`}
+                ? "bg-gray-100 text-gray-300 shadow-none cursor-not-allowed"
+                : isSearching ? "bg-white border border-gray-100 text-gray-600 hover:bg-gray-50 shadow-gray-200/50"
+                : "bg-erp-accent text-white shadow-erp-accent/20 hover:scale-105 active:scale-95"}`}
           >
-            {loadingMore ? "Loading..." : isSearching ? "Reset Search" : "Load More"}
+            {loadingMore ? "Loading Records..." : isSearching ? "Reset All Filters" : "Load More Data"}
           </button>
 
-          {/* Page buttons */}
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}
-              className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition cursor-pointer"
-            >
-              <FiChevronLeft size={14} />
+          <div className="flex items-center gap-2">
+            <button onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}
+                    className="p-2.5 rounded-full bg-white border border-gray-100 text-gray-400 hover:text-erp-accent disabled:opacity-30 transition-all">
+              <Icon icon="mdi:chevron-left" className="text-xl" />
             </button>
-
-            {startPage > 0 && (
-              <>
-                <button onClick={() => table.setPageIndex(0)} className="w-8 h-8 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold cursor-pointer">1</button>
-                <span className="text-gray-300 text-xs">…</span>
-              </>
-            )}
-
-            {pages.map(p => (
-              <button
-                key={p}
-                onClick={() => table.setPageIndex(p)}
-                className={`w-8 h-8 text-xs rounded-lg font-semibold transition cursor-pointer ${p === currentPage ? "bg-orange-500 text-white shadow-sm" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}
-              >
-                {p + 1}
-              </button>
-            ))}
-
-            {endPage < totalPages && (
-              <>
-                <span className="text-gray-300 text-xs">…</span>
-                <button onClick={() => table.setPageIndex(totalPages - 1)} className="w-8 h-8 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold cursor-pointer">{totalPages}</button>
-              </>
-            )}
-
-            <button
-              onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}
-              className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition cursor-pointer"
-            >
-              <FiChevronRight size={14} />
+            <div className="flex items-center gap-1 px-4">
+              {pages.slice(Math.max(0, currentPage - 2), Math.min(totalPages, currentPage + 3)).map(p => (
+                <button key={p} onClick={() => table.setPageIndex(p)}
+                        className={`w-9 h-9 rounded-full text-[10px] font-black transition-all ${p === currentPage ? "bg-erp-accent text-white shadow-lg shadow-erp-accent/20 scale-110" : "bg-white text-gray-400 border border-gray-100 hover:bg-gray-50"}`}>
+                  {p + 1}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}
+                    className="p-2.5 rounded-full bg-white border border-gray-100 text-gray-400 hover:text-erp-accent disabled:opacity-30 transition-all">
+              <Icon icon="mdi:chevron-right" className="text-xl" />
             </button>
           </div>
         </div>
       </div>
 
-      {/* ── Detail Modal ── */}
       {selected && (
         <DetailModal
           repair={selected}
@@ -599,7 +479,6 @@ export default function RepairList() {
           onStatusChange={handleStatusChange}
         />
       )}
-
     </div>
   );
 }

@@ -71,7 +71,31 @@ const navItems = [
     },
     { label: 'Drafts', icon: 'lucide:file-text', path: PATHS.DRAFTS },
     { label: 'Stores', icon: 'lucide:store', path: PATHS.STORES },
-    { label: 'Reports', icon: 'lucide:chart-column', path: PATHS.OPERATIONS.REPORTS },
+    {
+        label: 'Reports',
+        icon: 'lucide:chart-column',
+        subItems: [
+            { label: 'Daily Report', path: PATHS.REPORTS.DAILY },
+            { label: 'Main Report', path: PATHS.REPORTS.MAIN },
+        ]
+    },
+    {
+        label: 'Repair',
+        icon: 'lucide:tool',
+        subItems: [
+            { label: 'Add Repair', path: PATHS.REPAIR.ADD },
+            { label: 'Repair List', path: PATHS.REPAIR.LIST },
+        ]
+    },
+    {
+        label: 'Vendor',
+        icon: 'lucide:truck',
+        subItems: [
+            { label: 'Add Vendor', path: PATHS.VENDOR.ADD },
+            { label: 'Vendor List', path: PATHS.VENDOR.LIST },
+            { label: 'Vendor Order', path: PATHS.VENDOR.ORDER },
+        ]
+    },
     { label: 'Process 1', icon: 'lucide:droplets', path: PATHS.OPERATIONS.TINT },
     { label: 'Process 2', icon: 'lucide:shield', path: PATHS.OPERATIONS.HARD_COAT },
     { label: 'Process 3', icon: 'lucide:layers-3', path: PATHS.OPERATIONS.ARC },

@@ -18,6 +18,14 @@ import PlaceholderPage from '../pages/PlaceholderPage';
 import AuthWrapper from '../components/AuthWrapper';
 import MainLayout from '../components/layout/MainLayout';
 
+import AddRepair from '../pages/repair/AddRepair';
+import RepairList from '../pages/repair/RepairList';
+import DailyReport from '../pages/reports/DailyReport';
+import MainReport from '../pages/reports/MainReport';
+import AddVendor from '../pages/vendor/AddVendor';
+import VendorList from '../pages/vendor/VendorList';
+import VendorOrder from '../pages/vendor/VendorOrder';
+
 import CustomerLogin from '../pages/CustomerLogin';
 import CustomerLayout from '../components/layout/CustomerLayout';
 import CustomerDashboard from '../pages/CustomerDashboard';
@@ -94,6 +102,22 @@ const OPERATIONS_MODULE = [
     { path: 'new-order', element: OrderWizard },
 ];
 
+const REPAIR_MODULE = [
+    { path: PATHS.REPAIR.ADD, element: AddRepair },
+    { path: PATHS.REPAIR.LIST, element: RepairList }
+];
+
+const VENDOR_MODULE = [
+    { path: PATHS.VENDOR.ADD, element: AddVendor },
+    { path: PATHS.VENDOR.LIST, element: VendorList },
+    { path: PATHS.VENDOR.ORDER, element: VendorOrder }
+];
+
+const REPORTS_MODULE = [
+    { path: PATHS.REPORTS.DAILY, element: DailyReport },
+    { path: PATHS.REPORTS.MAIN, element: MainReport }
+];
+
 /**
  * Combined Routes Configuration
  */
@@ -165,7 +189,10 @@ export const routesConfig = [
                     ...STAFF_MODULE,
                     ...CUSTOMER_MODULE,
                     ...CUSTOMER_CARE_MODULE,
-                    ...OPERATIONS_MODULE
+                    ...OPERATIONS_MODULE,
+                    ...REPAIR_MODULE,
+                    ...VENDOR_MODULE,
+                    ...REPORTS_MODULE
                 ]
             }
         ]

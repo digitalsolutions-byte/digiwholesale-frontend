@@ -140,7 +140,7 @@ const Login = () => {
                         }}
                     >
                         <Box sx={{ mb: 6, textAlign: 'center' }}>
-                            <img src={logo} className='mx-auto' alt="Logo" style={{ height: '50px', marginBottom: '24px' }} />
+                            <img src={logo} className='mx-auto' alt="Logo" style={{ height: '75px', marginBottom: '24px' }} />
 
                         </Box>
 

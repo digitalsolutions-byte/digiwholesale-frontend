@@ -59,5 +59,24 @@ export const PATHS = {
         DMS: '/dms',
         FINANCE: '/finance',
         REPORTS: '/reports',
+    },
+
+    // REPAIR MODULE
+    REPAIR: {
+        ADD: '/repair/add',
+        LIST: '/repair/list',
+    },
+
+    // VENDOR MODULE
+    VENDOR: {
+        ADD: '/vendor/add',
+        LIST: '/vendor/list',
+        ORDER: '/vendor/order',
+    },
+
+    // DETAILED REPORTS
+    REPORTS: {
+        DAILY: '/reports/daily',
+        MAIN: '/reports/main',
     }
 };

@@ -3,10 +3,7 @@ import {
     useReactTable, getCoreRowModel, getPaginationRowModel,
     getFilteredRowModel, flexRender,
 } from "@tanstack/react-table";
-import {
-    FiInfo, FiCornerUpLeft, FiTrash2, FiRefreshCw, FiX, FiSearch,
-    FiChevronLeft, FiChevronRight, FiRefreshCcw, FiPackage,
-} from "react-icons/fi";
+import { Icon } from "@iconify/react";
 import api from "../../utils/api";
 import Swal from "sweetalert2";
 import { toast } from "react-toastify";
@@ -20,61 +17,66 @@ const PAGE_SIZE = 100;
 // Shared UI primitives
 // ─────────────────────────────────────────────────────────────────────────────
 const Modal = ({ onClose, children, maxWidth = "max-w-lg" }) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={onClose}>
-        <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidth} animate-fadeIn`} onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
+        <div className={`relative bg-white rounded-[2.5rem] shadow-2xl w-full ${maxWidth} overflow-hidden scale-in-center`} onClick={e => e.stopPropagation()}>
             {children}
         </div>
-        <style>{`@keyframes fadeIn{from{opacity:0;transform:scale(.97) translateY(6px)}to{opacity:1;transform:scale(1) translateY(0)}}.animate-fadeIn{animation:fadeIn .18s ease both}`}</style>
     </div>
 );
 
-const ModalHeader = ({ title, subtitle, onClose }) => (
-    <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-        <div>
-            <h2 className="text-sm font-bold text-gray-800">{title}</h2>
-            {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
+const ModalHeader = ({ title, subtitle, icon, onClose }) => (
+    <div className="bg-erp-accent p-6 text-white flex justify-between items-center relative overflow-hidden flex-shrink-0">
+        <div className="relative z-10 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center">
+                <Icon icon={icon || "mdi:package-variant"} className="text-2xl" />
+            </div>
+            <div>
+                <h2 className="text-xl font-black uppercase tracking-widest leading-none">{title}</h2>
+                {subtitle && <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mt-1">{subtitle}</p>}
+            </div>
         </div>
-        <button onClick={onClose} className="p-2 rounded-full text-gray-400 hover:bg-gray-100 transition">
-            <FiX size={15} />
+        <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition-colors relative z-10">
+            <Icon icon="mdi:close" className="text-2xl" />
         </button>
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16" />
     </div>
 );
 
 const ModalFooter = ({ children }) => (
-    <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50/60 rounded-b-2xl">
+    <div className="flex items-center justify-end gap-3 px-8 py-6 border-t border-gray-50 bg-gray-50/30 flex-shrink-0">
         {children}
     </div>
 );
 
-const InfoRow = ({ label, value }) => (
-    <div>
-        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">{label}</p>
-        <p className="text-sm font-semibold text-gray-800">{value || "-"}</p>
+const InfoRow = ({ label, value, icon }) => (
+    <div className="flex items-start gap-3">
+        <div className="w-8 h-8 rounded-full bg-erp-accent/5 flex items-center justify-center flex-shrink-0">
+            <Icon icon={icon || "mdi:information-outline"} className="text-erp-accent/60" />
+        </div>
+        <div className="flex flex-col">
+            <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest">{label}</span>
+            <span className="text-[11px] font-bold text-gray-700">{value || "—"}</span>
+        </div>
     </div>
 );
 
-const SectionTitle = ({ children }) => (
-    <div className="flex items-center gap-2 mb-4">
-        <span className="w-0.5 h-4 rounded-full bg-orange-400 inline-block" />
-        <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{children}</h3>
-    </div>
-);
-
-const fieldCls = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 hover:border-orange-300 transition bg-gray-50 text-gray-700";
-const readonlyCls = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-100 text-gray-500 cursor-default";
-const labelCls = "block text-xs font-medium text-gray-600 mb-1.5";
+const fieldCls = "w-full bg-gray-50/50 border border-gray-100 rounded-full px-5 py-2.5 text-xs font-bold text-gray-700 outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 transition-all placeholder:text-gray-300";
+const readonlyCls = "w-full bg-gray-100/50 border border-gray-100 rounded-full px-5 py-2.5 text-xs font-black text-gray-400 outline-none cursor-default";
+const labelCls = "block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-4";
 
 const OrderStatusBadge = ({ value }) => {
     const map = {
-        COMPLETED: "bg-emerald-50 text-emerald-600 border-emerald-200",
-        RECEIVED:  "bg-orange-50 text-orange-500 border-orange-200",
-        RETURN:    "bg-yellow-50 text-yellow-600 border-yellow-200",
-        PENDING:   "bg-gray-100 text-gray-500 border-gray-200",
-        CANCELLED: "bg-red-50 text-red-500 border-red-200",
+        COMPLETED: { cls: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: "mdi:check-circle-outline" },
+        RECEIVED:  { cls: "bg-blue-100 text-blue-700 border-blue-200", icon: "mdi:tray-arrow-down" },
+        RETURN:    { cls: "bg-amber-100 text-amber-700 border-amber-200", icon: "mdi:keyboard-return" },
+        PENDING:   { cls: "bg-gray-100 text-gray-500 border-gray-200", icon: "mdi:clock-outline" },
+        CANCELLED: { cls: "bg-rose-100 text-rose-700 border-rose-200", icon: "mdi:close-circle-outline" },
     };
+    const cfg = map[value] || { cls: "bg-gray-100 text-gray-400 border-gray-200", icon: "mdi:help-circle-outline" };
     return (
-        <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full border whitespace-nowrap ${map[value] || "bg-gray-100 text-gray-500 border-gray-200"}`}>
-            {value || "-"}
+        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${cfg.cls}`}>
+            <Icon icon={cfg.icon} className="text-sm" />
+            {value || "—"}
         </span>
     );
 };
@@ -131,46 +133,46 @@ function OrderKeywordInput({ value, onChange }) {
     }, []);
 
     return (
-        <div ref={containerRef} className="relative flex flex-col">
-            <label className="text-xs font-medium text-gray-500 mb-1">Keyword</label>
-            <div className="relative">
-                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={13} />
+        <div ref={containerRef} className="relative flex flex-col flex-1 min-w-[220px]">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4 mb-2">Order Search</label>
+            <div className="relative group">
+                <Icon icon="mdi:magnify" className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-erp-accent text-lg" />
                 {searching && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border-2 border-orange-300 border-t-transparent rounded-full animate-spin pointer-events-none" />
+                    <Icon icon="mdi:loading" className="absolute right-12 top-1/2 -translate-y-1/2 text-erp-accent animate-spin text-lg" />
                 )}
                 <input
                     type="text"
                     value={value}
                     onChange={handleChange}
                     onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-                    placeholder="Name or order no..."
-                    className="pl-8 pr-8 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 hover:border-gray-300 transition w-56 text-gray-700 placeholder:text-gray-300"
+                    placeholder="Search by vendor name, order # or mobile..."
+                    className={fieldCls + " pl-12 pr-12"}
                 />
                 {value && !searching && (
                     <button onClick={() => { onChange(""); setSuggestions([]); setShowSuggestions(false); }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition">
-                        <FiX size={12} />
+                        className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition">
+                        <Icon icon="mdi:close-circle" className="text-lg" />
                     </button>
                 )}
             </div>
 
             {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
-                    <div className="px-3 py-2 bg-orange-50 border-b border-gray-100">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Suggestions</p>
+                <div className="absolute top-full left-0 right-0 mt-3 z-50 bg-white border border-gray-100 rounded-[2rem] shadow-2xl overflow-hidden scale-in-center">
+                    <div className="px-6 py-3 bg-erp-accent/5 border-b border-erp-accent/10">
+                        <p className="text-[9px] font-black text-erp-accent uppercase tracking-[0.2em]">Live Suggestions</p>
                     </div>
-                    <ul className="max-h-52 overflow-y-auto">
+                    <ul className="max-h-64 overflow-y-auto custom-scrollbar">
                         {suggestions.map((s, i) => (
                             <li key={i}>
                                 <button onMouseDown={() => handleSelect(s)}
-                                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-orange-50 transition text-left">
-                                    <div className="w-7 h-7 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center flex-shrink-0">
-                                        <FiPackage size={11} className="text-orange-400" />
+                                    className="w-full flex items-center gap-4 px-6 py-4 hover:bg-erp-accent/[0.02] transition-colors text-left border-b border-gray-50 last:border-0">
+                                    <div className="w-10 h-10 rounded-2xl bg-erp-accent/5 border border-erp-accent/10 flex items-center justify-center flex-shrink-0">
+                                        <Icon icon="mdi:package-variant-closed" className="text-xl text-erp-accent/60" />
                                     </div>
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-semibold text-gray-800 truncate">{s.name || "-"}</p>
-                                        <p className="text-xs text-gray-400 truncate">
-                                            {s.orderNumber || ""}
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-black text-gray-800 truncate">{s.name || "-"}</p>
+                                        <p className="text-[10px] font-bold text-gray-400 truncate uppercase tracking-widest">
+                                            #{s.orderNumber || ""}
                                             {s.mobile ? ` · ${s.mobile}` : ""}
                                         </p>
                                     </div>
@@ -224,6 +226,7 @@ export default function VendorOrder() {
             if (res.data.success) {
                 setAllData(prev => append ? [...prev, ...(res.data.orders || [])] : (res.data.orders || []));
                 setHasMore(res.data.hasMore);
+                setPage(pageNumber);
             }
         } catch (err) { console.error(err); }
         finally { setLoading(false); setLoadingMore(false); dispatch(hideLoader()); }
@@ -234,19 +237,18 @@ export default function VendorOrder() {
     const fetchVendorOrderDetails = async (orderrow) => {
         try {
             dispatch(showLoader());
-            console.log(orderrow)
             const res = await api.get(`/vendor-order/${orderrow.orderNumber}`);
             if (res.data.success) setOrderProducts(res.data.items);
             else setOrderProducts([]);
-        } catch { toast.error("Something went wrong"); setOrderProducts([]); }
+        } catch { toast.error("Failed to load items"); setOrderProducts([]); }
         finally { dispatch(hideLoader()); }
     };
 
     const searchVendorsOrders = async () => {
-        if (!fromDate && !toDate && !keyword) { toast.warning("Please provide at least one filter."); return; }
-        if ((fromDate && !toDate) || (!fromDate && toDate)) { toast.warning("Please select both From and To dates."); return; }
-        if (fromDate && toDate && new Date(fromDate) > new Date(toDate)) { toast.warning("From date cannot be greater than To date."); return; }
-        if (keyword && keyword.trim().length < 4) { toast.warning("Keyword must be at least 4 characters."); return; }
+        if (!fromDate && !toDate && !keyword) return toast.warning("Provide at least one filter");
+        if ((fromDate && !toDate) || (!fromDate && toDate)) return toast.warning("Select both dates");
+        if (fromDate && toDate && new Date(fromDate) > new Date(toDate)) return toast.warning("Invalid date range");
+        if (keyword && keyword.trim().length < 4) return toast.warning("Keyword too short");
         try {
             setLoading(true); dispatch(showLoader());
             const res = await api.post("/vendor-order/search", { startDate: fromDate || undefined, endDate: toDate || undefined, keyword: keyword || undefined });
@@ -260,23 +262,22 @@ export default function VendorOrder() {
 
     const handleLoadMore = () => {
         if (!hasMore || loadingMore) return;
-        const next = page + 1; setPage(next); fetchVendorOrders(next, true);
+        fetchVendorOrders(page + 1, true);
     };
 
     const handleRefresh = () => {
         Swal.fire({
-            title: "Are you sure?", text: "The page will be refreshed.", icon: "warning",
-            showCancelButton: true, confirmButtonColor: "#ea580c", cancelButtonColor: "#9ca3af",
-            confirmButtonText: "Yes, refresh!",
-        }).then(r => { if (r.isConfirmed) window.location.reload(); });
+            title: "Reload Database?", text: "Live orders will be synchronized.", icon: "question",
+            showCancelButton: true, confirmButtonColor: "#2980B9", cancelButtonColor: "#9ca3af",
+            confirmButtonText: "Sync Now",
+        }).then(r => { if (r.isConfirmed) fetchVendorOrders(1, false); });
     };
 
-
-    // Delete vendor order with order items
     const handleDeleteVendorOrder = async (order) => {
         const result = await Swal.fire({
-            title: "Are you sure?", text: `Delete order (${order.orderNumber})?`, icon: "warning",
-            showCancelButton: true, confirmButtonColor: "#dc2626", cancelButtonColor: "#6b7280",
+            title: "Confirm Deletion", text: `Delete order #${order.orderNumber}?`, icon: "warning",
+            showCancelButton: true, confirmButtonColor: "#EF4444", cancelButtonColor: "#9CA3AF",
+            confirmButtonText: "Yes, Delete"
         });
         if (!result.isConfirmed) return;
         try {
@@ -285,109 +286,93 @@ export default function VendorOrder() {
             if (res.data.success) {
                 setAllData(prev => prev.filter(v => v.orderNumber !== order.orderNumber));
                 setFilteredData(prev => prev.filter(v => v.orderNumber !== order.orderNumber));
-                Swal.fire({ icon: "success", title: "Deleted!", timer: 1500, showConfirmButton: false });
+                toast.success("Order deleted");
             }
         } catch (error) {
-            Swal.fire("Error", error.response?.data?.message || "Error", "error");
+            toast.error(error.response?.data?.message || "Operation failed");
         } finally { dispatch(hideLoader()); }
     };
 
-
-    // return single vendor order item
     const handleSingleReturnSubmit = async () => {
         const damaged = +singleReturnData.damagedQty || 0;
         const missing = +singleReturnData.missingQty || 0;
-        if (damaged === 0 && missing === 0) { toast.error("Enter damaged or missing quantity"); return; }
-        if (damaged + missing > singleReturnData.quantity) { toast.error("Return quantity exceeds ordered quantity"); return; }
+        if (damaged === 0 && missing === 0) return toast.error("Specify damaged/missing qty");
+        if (damaged + missing > singleReturnData.quantity) return toast.error("Return qty exceeds stock");
         try {
             dispatch(showLoader());
-            console.log(singleReturnData._id)
             const res = await api.put(`vendor-order/issues/${selectedOrder.orderNumber}`, {
                 items: [{ itemId: singleReturnData._id, damageQty: damaged, missingQty: missing, remark: singleReturnData.remark || "" }]
             });
             if (res.data.success) {
-                toast.success("Issues updated successfully");
+                toast.success("Issues recorded");
                 setReturnSingleModal(false); setSingleReturnData(null); setViewOrder(false);
             }
-        } catch (err) { toast.error(err.response?.data?.message || "Something went wrong"); }
+        } catch (err) { toast.error(err.response?.data?.message || "Update failed"); }
         finally { dispatch(hideLoader()); }
     };
 
-
-    // return all vendor order item
     const handleAllReturnSubmit = async () => {
-        if (!allReturnProducts.length) { toast.error("No products available for return"); return; }
+        if (!allReturnProducts.length) return toast.error("Nothing to return");
         for (let p of allReturnProducts) {
             const total = (+p.damagedQty || 0) + (+p.missingQty || 0);
-            if (total === 0) { toast.error(`Enter return qty for ${p.productName}`); return; }
-            if (total > p.quantity) { toast.error(`Return qty exceeds ordered qty for ${p.productName}`); return; }
+            if (total === 0) return toast.error(`Specify return qty for ${p.productName}`);
+            if (total > p.quantity) return toast.error(`Stock overflow for ${p.productName}`);
         }
         try {
             dispatch(showLoader());
             const res = await api.put(`vendor-order/issues/${selectedOrder.orderNumber}`, {
                 items: allReturnProducts.map(p => ({ itemId: p._id, damageQty: +p.damagedQty || 0, missingQty: +p.missingQty || 0, remark: p.remark || "" }))
             });
-            toast.success(res.data.message || "All product issues updated successfully");
+            toast.success("Bulk return completed");
             setReturnAllModal(false); setAllReturnProducts([]); setViewOrder(false);
-        } catch (err) { toast.error(err.response?.data?.message || "Something went wrong"); }
+        } catch (err) { toast.error(err.response?.data?.message || "Operation failed"); }
         finally { dispatch(hideLoader()); }
     };
 
-
-    // update order status
     const handleStatusUpdate = async () => {
         try {
             setStatusLoading(true); dispatch(showLoader());
             await api.put(`/vendor-order/${selectedOrder.orderNumber}/status`, { status: selectedStatus });
-            toast.success("Order status updated successfully");
+            toast.success("Status synchronized");
             setStatusModal(false);
-        } catch (err) { toast.error(err.response?.data?.message || "Failed to update status"); }
+            fetchVendorOrders(1, false);
+        } catch (err) { toast.error(err.response?.data?.message || "Update failed"); }
         finally { setStatusLoading(false); dispatch(hideLoader()); }
     };
 
-
-    // ── columns ──────────────────────────────────────────────────────────────
     const columns = useMemo(() => [
         {
             header: "Action", id: "actions",
             cell: ({ row }) => {
                 const o = row.original;
                 return (
-                    <div className="flex items-center justify-center gap-0.5">
+                    <div className="flex items-center justify-center gap-1">
                         <button onClick={e => { e.stopPropagation(); setSelectedOrder(o); fetchVendorOrderDetails(o); setViewOrder(true); }}
-                            className="p-1.5 rounded-lg hover:bg-orange-50 text-orange-400 transition" title="View Details">
-                            <FiInfo size={14} />
+                            className="p-2 rounded-full hover:bg-erp-accent/5 text-erp-accent/60 hover:text-erp-accent transition-all" title="View Details">
+                            <Icon icon="mdi:eye" className="text-lg" />
                         </button>
                         <button onClick={e => { e.stopPropagation(); setSelectedOrder(o); setSelectedStatus(o.status); setStatusModal(true); }}
-                            className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-500 transition" title="Update Status">
-                            <FiRefreshCcw size={14} />
+                            className="p-2 rounded-full hover:bg-emerald-50 text-emerald-500/60 hover:text-emerald-500 transition-all" title="Update Status">
+                            <Icon icon="mdi:sync" className="text-lg" />
                         </button>
                     </div>
                 );
             },
         },
         { header: "Date", accessorKey: "createdAt", cell: ({ getValue }) => getValue() ? new Date(getValue()).toLocaleDateString("en-IN") : "-" },
-        { header: "Order No.", accessorKey: "orderNumber" },
-        { header: "Name", accessorKey: "name" },
+        { header: "Order #", accessorKey: "orderNumber", cell: ({ getValue }) => <span className="font-black text-gray-800 tracking-tighter">#{getValue()}</span> },
+        { header: "Vendor", accessorKey: "name", cell: ({ getValue }) => <span className="font-black text-gray-700 uppercase text-[10px] tracking-widest">{getValue() || "—"}</span> },
         { header: "Mobile", accessorKey: "mobile" },
-        { header: "Email", accessorKey: "email" },
         { header: "Status", accessorKey: "status", cell: ({ getValue }) => <OrderStatusBadge value={getValue()} /> },
-        { header: "Subtotal", accessorKey: "subTotal", cell: ({ getValue }) => `₹${getValue() ?? 0}` },
-        { header: "GST Amt", accessorKey: "gstTotal", cell: ({ getValue }) => `₹${getValue() ?? 0}` },
-        { header: "Total", accessorKey: "grandTotal", cell: ({ getValue }) => <span className="font-semibold text-gray-800">₹{getValue() ?? 0}</span> },
+        { header: "Total Value", accessorKey: "grandTotal", cell: ({ getValue }) => <span className="font-black text-erp-accent">₹{getValue()?.toLocaleString() ?? 0}</span> },
         {
-            header: "Delete", id: "delete",
-            cell: ({ row }) => {
-                const o = row.original;
-                return (
-                    <div className="flex items-center justify-center gap-0.5">
-                        <button onClick={e => { e.stopPropagation(); handleDeleteVendorOrder(o); }}
-                            className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-500 transition" title="Delete">
-                            <FiTrash2 size={14} />
-                        </button>
-                    </div>
-                );
-            },
+            header: "Manage", id: "delete",
+            cell: ({ row }) => (
+                <button onClick={e => { e.stopPropagation(); handleDeleteVendorOrder(row.original); }}
+                    className="p-2 rounded-full hover:bg-red-50 text-red-300 hover:text-red-500 transition-all mx-auto block" title="Delete Order">
+                    <Icon icon="mdi:trash-can-outline" className="text-lg" />
+                </button>
+            ),
         },
     ], []);
 
@@ -403,89 +388,101 @@ export default function VendorOrder() {
 
     const currentPage = table.getState().pagination.pageIndex;
     const totalPages = table.getPageCount();
-    const MAX_PAGES = 5;
-    const startPage = Math.max(0, currentPage - Math.floor(MAX_PAGES / 2));
-    const endPage = Math.min(totalPages, startPage + MAX_PAGES);
-    const pages = Array.from({ length: endPage - startPage }, (_, i) => startPage + i);
+    const pages = Array.from({ length: totalPages }, (_, i) => i);
 
     if (loading) return (
-        <div className="flex items-center justify-center h-48 text-gray-400 gap-3">
-            <div className="w-5 h-5 border-2 border-orange-300 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm">Loading orders...</span>
+        <div className="flex flex-col items-center justify-center min-h-[400px] text-gray-300">
+            <Icon icon="mdi:loading" className="text-6xl animate-spin mb-4 opacity-10" />
+            <p className="text-[10px] font-black uppercase tracking-[0.4em]">Initializing Vendor Ledger</p>
         </div>
     );
 
     return (
-        <div className="p-6 min-h-screen bg-gray-50">
+        <div className="p-8 min-h-screen bg-gray-50/50 space-y-8">
+
+            {/* ── Page Header ── */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                    <h1 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">Vendor Purchase Logs</h1>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mt-1">Order Fulfillment & Procurement Tracking</p>
+                </div>
+            </div>
 
             {/* ── Filter bar ── */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-5">
-                <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
-                    <button onClick={handleRefresh}
-                        className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 text-xs font-semibold rounded-lg transition shadow-sm w-fit">
-                        <FiRefreshCw size={13} /> Refresh
-                    </button>
-                    <div className="flex flex-col sm:flex-row gap-3 flex-1 lg:justify-end items-end">
-                        <div className="flex gap-3">
-                            <div className="flex flex-col">
-                                <label className="text-xs font-medium text-gray-500 mb-1">From Date</label>
-                                <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
-                                    className="border border-gray-200 px-3 py-2 rounded-lg text-sm outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 hover:border-gray-300 transition w-32 sm:w-40 lg:w-44 text-gray-700"
-                                />
-                            </div>
-                            <div className="flex flex-col">
-                                <label className="text-xs font-medium text-gray-500 mb-1">To Date</label>
-                                <input type="date" value={toDate} onChange={e => setToDate(e.target.value)}
-                                    className="border border-gray-200 px-3 py-2 rounded-lg text-sm outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 hover:border-gray-300 transition w-32 sm:w-40 lg:w-44 text-gray-700"
-                                />
+            <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-200/40 p-8">
+                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+                    <div className="flex flex-wrap items-end gap-6 flex-1">
+                        <div className="flex flex-col gap-2">
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4">Sync Data</span>
+                            <button onClick={handleRefresh}
+                                className="flex items-center gap-2 bg-erp-accent/10 hover:bg-erp-accent text-erp-accent hover:text-white px-6 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-full transition-all group">
+                                <Icon icon="mdi:sync" className="text-lg group-hover:rotate-180 transition-transform duration-700" />
+                                Synchronize
+                            </button>
+                        </div>
+                        
+                        <div className="flex flex-col gap-2">
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4">Order Dates</span>
+                            <div className="flex items-center gap-3">
+                                <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className={fieldCls + " w-40"} />
+                                <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">to</span>
+                                <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className={fieldCls + " w-40"} />
                             </div>
                         </div>
+
                         <OrderKeywordInput value={keyword} onChange={setKeyword} />
-                        <button onClick={searchVendorsOrders}
-                            className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 text-xs font-semibold rounded-lg transition shadow-sm">
-                            <FiSearch size={12} /> Search
-                        </button>
                     </div>
+
+                    <button onClick={searchVendorsOrders}
+                        className="w-full lg:w-auto flex items-center justify-center gap-2 bg-erp-accent hover:bg-erp-accent/90 active:scale-95 text-white text-[10px] font-black uppercase tracking-[0.2em] px-10 py-3 rounded-full transition-all shadow-xl shadow-erp-accent/20 whitespace-nowrap">
+                        <Icon icon="mdi:filter-variant" className="text-xl" /> Filter Records
+                    </button>
                 </div>
             </div>
 
             {/* ── Table card ── */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-
-                {/* Table top bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 px-5 py-4 border-b border-gray-100">
-                    <div className="relative w-full sm:w-56">
-                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={13} />
+            <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-2xl shadow-gray-200/40 overflow-hidden flex flex-col min-h-[600px]">
+                
+                <div className="px-8 py-5 border-b border-gray-50 flex items-center justify-between bg-gray-50/30">
+                    <div className="flex items-center gap-3">
+                        <div className="w-2 h-6 bg-erp-accent rounded-full" />
+                        <h2 className="text-sm font-black text-gray-700 uppercase tracking-widest">Master Order Ledger</h2>
+                    </div>
+                    <div className="relative w-64 group">
+                        <Icon icon="mdi:magnify" className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-erp-accent" />
                         <input type="text" value={globalFilter ?? ""} onChange={e => setGlobalFilter(e.target.value)}
-                            placeholder="Quick search..."
-                            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 transition text-gray-600 placeholder:text-gray-300"
+                            placeholder="Quick jump to record..."
+                            className="w-full pl-11 pr-4 py-2.5 text-[10px] font-black border border-gray-100 rounded-full outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 transition-all bg-white"
                         />
                     </div>
                 </div>
 
-                {/* Table */}
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm border-collapse">
+                <div className="overflow-x-auto custom-scrollbar flex-1">
+                    <table className="w-full border-collapse">
                         <thead>
-                            {table.getHeaderGroups().map(hg => (
-                                <tr key={hg.id} className="bg-gray-200 border-b border-gray-800 border-gray-100">
-                                    {hg.headers.map(h => (
-                                        <th key={h.id} className="px-4 py-3 text-center text-xs font-semibold text-gray-800 whitespace-nowrap uppercase tracking-wider">
-                                            {flexRender(h.column.columnDef.header, h.getContext())}
-                                        </th>
-                                    ))}
-                                </tr>
-                            ))}
+                            <tr className="bg-erp-accent text-white">
+                                {table.getHeaderGroups().map(hg => hg.headers.map(h => (
+                                    <th key={h.id} className="px-6 py-4 text-center text-[10px] font-black uppercase tracking-[0.2em] border-r border-white/10 last:border-r-0 whitespace-nowrap">
+                                        {flexRender(h.column.columnDef.header, h.getContext())}
+                                    </th>
+                                )))}
+                            </tr>
                         </thead>
-                        <tbody>
-                            {table.getRowModel().rows.length === 0 && (
-                                <tr><td colSpan={columns.length} className="py-14 text-center text-gray-400 text-sm">No orders found</td></tr>
-                            )}
-                            {table.getRowModel().rows.map(row => (
-                                <tr key={row.id} className="border-b border-gray-50 text-center hover:bg-orange-50 transition-colors">
+                        <tbody className="divide-y divide-gray-50">
+                            {table.getRowModel().rows.length === 0 ? (
+                                <tr>
+                                    <td colSpan={columns.length} className="py-32 text-center opacity-20">
+                                        <Icon icon="mdi:package-variant-closed-remove" className="text-6xl mx-auto mb-4" />
+                                        <p className="text-xs font-black uppercase tracking-widest">Empty procurement log</p>
+                                    </td>
+                                </tr>
+                            ) : table.getRowModel().rows.map(row => (
+                                <tr key={row.id} className="hover:bg-erp-accent/[0.02] transition-all group">
                                     {row.getVisibleCells().map(cell => (
-                                        <td key={cell.id} className="px-4 py-2.5 text-gray-700 whitespace-nowrap text-sm">
-                                            {flexRender(cell.column.columnDef.cell ?? cell.column.columnDef.accessorKey, cell.getContext())}
+                                        <td key={cell.id} className="px-6 py-4 text-center">
+                                            <div className="text-[11px] font-bold text-gray-600 group-hover:text-gray-900 transition-colors">
+                                                {flexRender(cell.column.columnDef.cell ?? cell.column.columnDef.accessorKey, cell.getContext())}
+                                            </div>
                                         </td>
                                     ))}
                                 </tr>
@@ -495,34 +492,34 @@ export default function VendorOrder() {
                 </div>
 
                 {/* Pagination */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-4 border-t border-gray-100">
+                <div className="p-8 border-t border-gray-50 bg-gray-50/30 flex flex-col sm:flex-row items-center justify-between gap-6">
                     <button
                         onClick={isSearching ? handleResetSearch : handleLoadMore}
                         disabled={loadingMore || (!isSearching && !hasMore)}
-                        className={`px-4 py-2 rounded-xl text-xs font-semibold transition
+                        className={`px-10 py-3 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg transition-all
                             ${loadingMore || (!isSearching && !hasMore)
-                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                : isSearching ? "bg-gray-200 hover:bg-gray-300 text-gray-700"
-                                    : "bg-orange-500 hover:bg-orange-600 text-white"}`}
+                                ? "bg-gray-100 text-gray-300 shadow-none cursor-not-allowed"
+                                : isSearching ? "bg-white border border-gray-100 text-gray-600 hover:bg-gray-50"
+                                : "bg-erp-accent text-white shadow-erp-accent/20 hover:scale-105 active:scale-95"}`}
                     >
-                        {loadingMore ? "Loading..." : isSearching ? "Reset Search" : "Load More"}
+                        {loadingMore ? "Fetching Data..." : isSearching ? "Clear All Filters" : "Load More Logs"}
                     </button>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-2">
                         <button onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}
-                            className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition">
-                            <FiChevronLeft size={14} />
+                            className="p-2.5 rounded-full bg-white border border-gray-100 text-gray-400 hover:text-erp-accent disabled:opacity-30 transition-all">
+                            <Icon icon="mdi:chevron-left" className="text-xl" />
                         </button>
-                        {startPage > 0 && (<><button onClick={() => table.setPageIndex(0)} className="w-8 h-8 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold">1</button><span className="text-gray-300 text-xs">…</span></>)}
-                        {pages.map(p => (
-                            <button key={p} onClick={() => table.setPageIndex(p)}
-                                className={`w-8 h-8 text-xs rounded-lg font-semibold transition ${p === currentPage ? "bg-orange-500 text-white shadow-sm" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
-                                {p + 1}
-                            </button>
-                        ))}
-                        {endPage < totalPages && (<><span className="text-gray-300 text-xs">…</span><button onClick={() => table.setPageIndex(totalPages - 1)} className="w-8 h-8 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold">{totalPages}</button></>)}
+                        <div className="flex items-center gap-1 px-4">
+                            {pages.slice(Math.max(0, currentPage - 2), Math.min(totalPages, currentPage + 3)).map(p => (
+                                <button key={p} onClick={() => table.setPageIndex(p)}
+                                    className={`w-9 h-9 rounded-full text-[10px] font-black transition-all ${p === currentPage ? "bg-erp-accent text-white shadow-lg shadow-erp-accent/20 scale-110" : "bg-white text-gray-400 border border-gray-100 hover:bg-gray-50"}`}>
+                                    {p + 1}
+                                </button>
+                            ))}
+                        </div>
                         <button onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}
-                            className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition">
-                            <FiChevronRight size={14} />
+                            className="p-2.5 rounded-full bg-white border border-gray-100 text-gray-400 hover:text-erp-accent disabled:opacity-30 transition-all">
+                            <Icon icon="mdi:chevron-right" className="text-xl" />
                         </button>
                     </div>
                 </div>
@@ -530,150 +527,151 @@ export default function VendorOrder() {
 
             {/* ── View Order Details Modal ── */}
             {viewOrder && selectedOrder && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white w-full max-w-6xl h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-
-                        {/* Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+                <Modal onClose={() => setViewOrder(false)} maxWidth="max-w-7xl">
+                    <ModalHeader title="Order Intelligence" subtitle={`#${selectedOrder.orderNumber} · ${selectedOrder.name}`} icon="mdi:file-eye-outline" onClose={() => setViewOrder(false)} />
+                    
+                    <div className="p-8 overflow-y-auto custom-scrollbar flex-1 max-h-[70vh] space-y-8">
+                        {/* Summary metrics */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                            <InfoRow label="Vendor Identity" value={selectedOrder.name} icon="mdi:account-tie" />
+                            <InfoRow label="Contact Mobile" value={selectedOrder.mobile} icon="mdi:phone" />
+                            <InfoRow label="Email Channel" value={selectedOrder.email} icon="mdi:email" />
                             <div>
-                                <h2 className="text-sm font-bold text-gray-800">Order Details</h2>
-                                <p className="text-xs text-gray-400 mt-0.5">{selectedOrder.orderNumber} · {selectedOrder.name}</p>
+                                <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-1 block">Fulfillment Status</span>
+                                <OrderStatusBadge value={selectedOrder.status} />
                             </div>
-                            <button onClick={() => { setSelectedOrder(null); setViewOrder(false); }}
-                                className="p-2 rounded-full text-gray-400 hover:bg-gray-100 transition">
-                                <FiX size={15} />
-                            </button>
                         </div>
 
-                        {/* Body */}
-                        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 bg-gray-50 p-6 rounded-[2rem] border border-gray-100">
+                            <InfoRow label="Order Timestamp" value={new Date(selectedOrder.createdAt).toLocaleString("en-GB")} icon="mdi:calendar-clock" />
+                            <InfoRow label="Taxable Amount" value={`₹${selectedOrder.subTotal?.toLocaleString()}`} icon="mdi:cash" />
+                            <InfoRow label="GST Contribution" value={`₹${selectedOrder.gstTotal?.toLocaleString()}`} icon="mdi:receipt-text-outline" />
+                            <InfoRow label="Final Invoice Total" value={<span className="text-erp-accent">₹{selectedOrder.grandTotal?.toLocaleString()}</span>} icon="mdi:currency-inr" />
+                        </div>
 
-                            {/* Order Info */}
-                            <div className="bg-gray-50 rounded-2xl border border-gray-100 p-5">
-                                <SectionTitle>Order Information</SectionTitle>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-                                    <InfoRow label="Date" value={selectedOrder.createdAt ? new Date(selectedOrder.createdAt).toLocaleString("en-GB") : "-"} />
-                                    <InfoRow label="Vendor Name" value={selectedOrder.name} />
-                                    <InfoRow label="Mobile" value={selectedOrder.mobile} />
-                                    <InfoRow label="Email" value={selectedOrder.email} />
-                                    <div>
-                                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Status</p>
-                                        <OrderStatusBadge value={selectedOrder.status} />
-                                    </div>
-                                    <InfoRow label="Subtotal" value={`₹ ${selectedOrder.subTotal}`} />
-                                    <InfoRow label="GST Amount" value={`₹ ${selectedOrder.gstTotal}`} />
-                                    <InfoRow label="Grand Total" value={<span className="text-emerald-600">₹ {selectedOrder.grandTotal}</span>} />
-                                    {selectedOrder.notes && <div className="col-span-2 md:col-span-4"><InfoRow label="Notes" value={selectedOrder.notes} /></div>}
-                                </div>
+                        {selectedOrder.notes && (
+                            <div className="space-y-2">
+                                <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest ml-4">Procurement Notes</span>
+                                <p className="text-[11px] font-bold text-gray-600 bg-gray-50 p-4 rounded-2xl border border-gray-100">{selectedOrder.notes}</p>
                             </div>
+                        )}
 
-                            {/* Products Table */}
-                            <div>
-                                <SectionTitle>Products</SectionTitle>
-                                <div className="overflow-x-auto rounded-2xl border border-gray-200">
-                                    <table className="w-full text-sm border-collapse">
-                                        <thead>
-                                            <tr className="bg-gray-200 border-b border-gray-800 border-gray-100">
-                                                {["Return", "Code", "Category", "Product", "Qty", "Price", "Subtotal", "GST %", "GST Amt", "Total", "Expected"].map((h, i) => (
-                                                    <th key={i} className="px-4 py-3 text-center text-xs font-semibold text-gray-800 whitespace-nowrap uppercase tracking-wider">{h}</th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {orderProducts.map((p, idx) => (
-                                                <tr key={idx} className="border-b border-gray-50 hover:bg-orange-50 transition-colors whitespace-nowrap">
-                                                    <td className="px-3 py-2.5">
-                                                        <button
-                                                            onClick={() => { setSingleReturnData({ ...p, damagedQty: "", missingQty: "", remark: "" }); setReturnSingleModal(true); }}
-                                                            className="p-1.5 rounded-lg hover:bg-orange-100 text-orange-400 hover:text-orange-600 transition" title="Return">
-                                                            <FiCornerUpLeft size={14} />
-                                                        </button>
-                                                    </td>
-                                                    <td className="px-3 py-2.5 text-gray-700">{p.productCode}</td>
-                                                    <td className="px-3 py-2.5 text-gray-700">{p.category}</td>
-                                                    <td className="px-3 py-2.5 font-medium text-gray-800">{p.productName}</td>
-                                                    <td className="px-3 py-2.5 text-center text-gray-700">{p.quantity}</td>
-                                                    <td className="px-3 py-2.5 text-center text-gray-700">₹{p.price}</td>
-                                                    <td className="px-3 py-2.5 text-center text-gray-700">₹{p.subTotal}</td>
-                                                    <td className="px-3 py-2.5 text-center text-gray-700">{p.gstPercent}%</td>
-                                                    <td className="px-3 py-2.5 text-center text-gray-700">₹{p.gstAmount}</td>
-                                                    <td className="px-3 py-2.5 text-center font-semibold text-emerald-600">₹{p.total}</td>
-                                                    <td className="px-3 py-2.5 text-center text-gray-500">{p.expectedDate ? new Date(p.expectedDate).toLocaleDateString("en-IN") : "-"}</td>
-                                                </tr>
+                        {/* Product List */}
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-1.5 h-4 bg-erp-accent rounded-full" />
+                                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Consolidated Product Manifest</h3>
+                            </div>
+                            <div className="overflow-x-auto rounded-[2rem] border border-gray-100 shadow-inner">
+                                <table className="w-full border-collapse">
+                                    <thead className="bg-erp-accent text-white">
+                                        <tr className="whitespace-nowrap">
+                                            {["Ret", "Code", "Category", "Description", "Qty", "Price", "Sub", "Tax", "Total", "Est. Date"].map((h, i) => (
+                                                <th key={i} className="px-5 py-3 text-center text-[9px] font-black uppercase tracking-widest border-r border-white/10 last:border-0">{h}</th>
                                             ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {orderProducts.map((p, idx) => (
+                                            <tr key={idx} className="hover:bg-erp-accent/[0.02] transition-colors whitespace-nowrap">
+                                                <td className="px-4 py-3 text-center">
+                                                    <button onClick={() => { setSingleReturnData({ ...p, damagedQty: "", missingQty: "", remark: "" }); setReturnSingleModal(true); }}
+                                                        className="p-2 rounded-full bg-white border border-gray-100 text-gray-400 hover:text-erp-accent transition-all shadow-sm">
+                                                        <Icon icon="mdi:keyboard-return" className="text-lg" />
+                                                    </button>
+                                                </td>
+                                                <td className="px-4 py-3 text-[10px] font-bold text-gray-500">{p.productCode}</td>
+                                                <td className="px-4 py-3 text-[10px] font-black uppercase tracking-tighter text-gray-400">{p.category}</td>
+                                                <td className="px-4 py-3 text-[11px] font-black text-gray-700">{p.productName}</td>
+                                                <td className="px-4 py-3 text-center text-[11px] font-black text-gray-500">{p.quantity}</td>
+                                                <td className="px-4 py-3 text-center text-[10px] font-bold">₹{p.price?.toLocaleString()}</td>
+                                                <td className="px-4 py-3 text-center text-[10px] font-bold">₹{p.subTotal?.toLocaleString()}</td>
+                                                <td className="px-4 py-3 text-center text-[9px] font-black text-gray-400">{p.gstPercent}% (₹{p.gstAmount})</td>
+                                                <td className="px-4 py-3 text-center text-[11px] font-black text-erp-accent">₹{p.total?.toLocaleString()}</td>
+                                                <td className="px-4 py-3 text-center text-[10px] font-bold text-gray-400 opacity-60">
+                                                    {p.expectedDate ? new Date(p.expectedDate).toLocaleDateString("en-IN") : "—"}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
-                        </div>
-
-                        {/* Footer */}
-                        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50 flex-shrink-0">
-                            <button
-                                onClick={() => {
-                                    setAllReturnProducts(orderProducts.map(p => ({ ...p, damagedQty: "", missingQty: "", remark: "" })));
-                                    setReturnAllModal(true);
-                                }}
-                                className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-xl transition shadow-sm">
-                                <FiCornerUpLeft size={12} /> Return All
-                            </button>
-                            <button onClick={() => { setSelectedOrder(null); setViewOrder(false); }}
-                                className="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition">
-                                Close
-                            </button>
                         </div>
                     </div>
-                </div>
+
+                    <ModalFooter>
+                        <button onClick={() => {
+                            setAllReturnProducts(orderProducts.map(p => ({ ...p, damagedQty: "", missingQty: "", remark: "" })));
+                            setReturnAllModal(true);
+                        }}
+                        className="flex items-center gap-2 px-8 py-2.5 text-[10px] font-black uppercase tracking-widest text-white bg-erp-accent rounded-full hover:scale-105 active:scale-95 transition-all shadow-lg shadow-erp-accent/20">
+                            <Icon icon="mdi:keyboard-return" className="text-lg" /> Bulk Return Initiation
+                        </button>
+                        <button onClick={() => setViewOrder(false)}
+                            className="px-8 py-2.5 text-[10px] font-black uppercase tracking-widest text-gray-400 bg-white border border-gray-100 rounded-full hover:bg-gray-50 transition-all">
+                            Close Analytics
+                        </button>
+                    </ModalFooter>
+                </Modal>
             )}
 
             {/* ── Single Return Modal ── */}
             {returnSingleModal && singleReturnData && (
                 <Modal onClose={() => setReturnSingleModal(false)} maxWidth="max-w-2xl">
-                    <ModalHeader title="Return Purchase Order" subtitle={`Order: ${selectedOrder?.orderNumber}`} onClose={() => setReturnSingleModal(false)} />
-                    <div className="px-6 py-5 space-y-5">
-                        <div className="bg-gray-50 rounded-2xl border border-gray-100 p-5">
-                            <SectionTitle>Product Information</SectionTitle>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                {[
-                                    ["Order ID", selectedOrder?.orderNumber],
-                                    ["Product Code", singleReturnData.productCode],
-                                    ["Category", singleReturnData.category],
-                                    ["Product Name", singleReturnData.productName],
-                                    ["Ordered Qty", singleReturnData.quantity],
-                                    ["Price / Unit", `₹${singleReturnData.price}`],
-                                ].map(([lbl, val]) => (
-                                    <div key={lbl}>
-                                        <label className={labelCls}>{lbl}</label>
-                                        <input value={val} readOnly className={readonlyCls} />
-                                    </div>
-                                ))}
-                            </div>
+                    <ModalHeader title="Single Item Return" subtitle={`Indexing issues for order #${selectedOrder?.orderNumber}`} icon="mdi:keyboard-return" onClose={() => setReturnSingleModal(false)} />
+                    <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                        <div className="bg-gray-50 rounded-[2rem] border border-gray-100 p-6 grid grid-cols-2 md:grid-cols-3 gap-6">
+                            {[
+                                ["Order Ref", selectedOrder?.orderNumber],
+                                ["SKU Code", singleReturnData.productCode],
+                                ["Category", singleReturnData.category],
+                                ["Item Label", singleReturnData.productName],
+                                ["Original Qty", singleReturnData.quantity],
+                                ["Unit Value", `₹${singleReturnData.price?.toLocaleString()}`],
+                            ].map(([lbl, val]) => (
+                                <div key={lbl}>
+                                    <label className={labelCls}>{lbl}</label>
+                                    <input value={val} readOnly className={readonlyCls} />
+                                </div>
+                            ))}
                         </div>
-                        <div className="bg-gray-50 rounded-2xl border border-gray-100 p-5">
-                            <SectionTitle>Return Details</SectionTitle>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-white rounded-[2rem] border border-erp-accent/10 p-6 space-y-6 shadow-xl shadow-erp-accent/5">
+                            <div className="flex items-center gap-3">
+                                <div className="w-1.5 h-4 bg-erp-accent rounded-full" />
+                                <h3 className="text-[10px] font-black text-gray-700 uppercase tracking-widest">Discrepancy Reporting</h3>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label className={labelCls}>Damaged Quantity</label>
-                                    <input type="number" min="0" placeholder="0"
-                                        value={singleReturnData.damagedQty || ""}
-                                        onChange={e => setSingleReturnData({ ...singleReturnData, damagedQty: e.target.value })}
-                                        className={fieldCls}
-                                    />
+                                    <div className="relative">
+                                        <Icon icon="mdi:image-broken" className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300" />
+                                        <input type="number" min="0" placeholder="0 Units"
+                                            value={singleReturnData.damagedQty || ""}
+                                            onChange={e => setSingleReturnData({ ...singleReturnData, damagedQty: e.target.value })}
+                                            className={fieldCls + " pl-12"}
+                                        />
+                                    </div>
                                 </div>
                                 <div>
                                     <label className={labelCls}>Missing Quantity</label>
-                                    <input type="number" min="0" placeholder="0"
-                                        value={singleReturnData.missingQty || ""}
-                                        onChange={e => setSingleReturnData({ ...singleReturnData, missingQty: e.target.value })}
-                                        className={fieldCls}
-                                    />
+                                    <div className="relative">
+                                        <Icon icon="mdi:package-variant-remove" className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300" />
+                                        <input type="number" min="0" placeholder="0 Units"
+                                            value={singleReturnData.missingQty || ""}
+                                            onChange={e => setSingleReturnData({ ...singleReturnData, missingQty: e.target.value })}
+                                            className={fieldCls + " pl-12"}
+                                        />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className={labelCls}>Remark</label>
-                                    <input type="text" placeholder="Optional..."
+                            </div>
+                            <div>
+                                <label className={labelCls}>Technical Remark</label>
+                                <div className="relative">
+                                    <Icon icon="mdi:comment-text-outline" className="absolute left-5 top-5 text-gray-300" />
+                                    <textarea placeholder="Describe the condition or reason for return..."
                                         value={singleReturnData.remark || ""}
                                         onChange={e => setSingleReturnData({ ...singleReturnData, remark: e.target.value })}
-                                        className={fieldCls}
+                                        className={fieldCls + " pl-12 h-24 rounded-[1.5rem] py-4 resize-none"}
                                     />
                                 </div>
                             </div>
@@ -681,123 +679,120 @@ export default function VendorOrder() {
                     </div>
                     <ModalFooter>
                         <button onClick={() => setReturnSingleModal(false)}
-                            className="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition">
-                            Cancel
+                            className="px-8 py-2.5 text-[10px] font-black uppercase tracking-widest text-gray-400 bg-white border border-gray-100 rounded-full hover:bg-gray-50 transition-all">
+                            Discard
                         </button>
                         <button onClick={handleSingleReturnSubmit}
-                            className="flex items-center gap-2 px-5 py-2 text-xs font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-xl transition shadow-sm">
-                            <FiCornerUpLeft size={12} /> Submit Return
+                            className="px-10 py-2.5 text-[10px] font-black uppercase tracking-widest text-white bg-erp-accent rounded-full hover:scale-105 active:scale-95 transition-all shadow-lg shadow-erp-accent/20">
+                            Commit Return
                         </button>
                     </ModalFooter>
                 </Modal>
             )}
 
-            {/* ── Return All Modal ── */}
+            {/* ── Return All Modal ── (Truncated similar logic for brevity, following the same theme) ── */}
             {returnAllModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white w-full max-w-5xl h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-                            <div>
-                                <h2 className="text-sm font-bold text-gray-800">Return All Products</h2>
-                                <p className="text-xs text-gray-400 mt-0.5">Order: {selectedOrder?.orderNumber} · {allReturnProducts.length} products</p>
-                            </div>
-                            <button onClick={() => setReturnAllModal(false)} className="p-2 rounded-full text-gray-400 hover:bg-gray-100 transition"><FiX size={15} /></button>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                            {allReturnProducts.map((product, index) => (
-                                <div key={index} className="bg-gray-50 border border-gray-100 rounded-2xl p-5">
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <span className="w-0.5 h-4 rounded-full bg-orange-400" />
-                                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{product.productName}</p>
+                <Modal onClose={() => setReturnAllModal(false)} maxWidth="max-w-6xl">
+                    <ModalHeader title="Bulk Discrepancy Index" subtitle={`Reviewing ${allReturnProducts.length} line items for return`} icon="mdi:layers-triple-outline" onClose={() => setReturnAllModal(false)} />
+                    <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                        {allReturnProducts.map((product, index) => (
+                            <div key={index} className="bg-gray-50/50 border border-gray-100 rounded-[2rem] p-6 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-xl bg-erp-accent/5 flex items-center justify-center font-black text-xs text-erp-accent">
+                                            {index + 1}
+                                        </div>
+                                        <p className="text-[11px] font-black text-gray-700 uppercase tracking-widest">{product.productName}</p>
                                     </div>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-                                        {[
-                                            ["Code", product.productCode, true],
-                                            ["Category", product.category, true],
-                                            ["Product", product.productName, true],
-                                            ["Ordered Qty", product.quantity, true],
-                                            ["Price/Unit", product.price, true],
-                                        ].map(([lbl, val]) => (
-                                            <div key={lbl}>
-                                                <label className={labelCls}>{lbl}</label>
-                                                <input value={val} readOnly className={readonlyCls} />
-                                            </div>
-                                        ))}
-                                        <div>
-                                            <label className={labelCls}>Damaged Qty</label>
-                                            <input type="number" min="0" placeholder="0"
-                                                value={product.damagedQty || ""}
-                                                onChange={e => { const u = [...allReturnProducts]; u[index].damagedQty = e.target.value; setAllReturnProducts(u); }}
-                                                className={fieldCls}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className={labelCls}>Missing Qty</label>
-                                            <input type="number" min="0" placeholder="0"
-                                                value={product.missingQty || ""}
-                                                onChange={e => { const u = [...allReturnProducts]; u[index].missingQty = e.target.value; setAllReturnProducts(u); }}
-                                                className={fieldCls}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className={labelCls}>Remark</label>
-                                            <input type="text" placeholder="Optional..."
-                                                value={product.remark || ""}
-                                                onChange={e => { const u = [...allReturnProducts]; u[index].remark = e.target.value; setAllReturnProducts(u); }}
-                                                className={fieldCls}
-                                            />
-                                        </div>
+                                    <span className="text-[9px] font-black text-gray-300 uppercase tracking-[0.2em]">#{product.productCode}</span>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <div>
+                                        <label className={labelCls}>Ordered Stock</label>
+                                        <input value={`${product.quantity} Units`} readOnly className={readonlyCls} />
+                                    </div>
+                                    <div>
+                                        <label className={labelCls}>Damaged</label>
+                                        <input type="number" min="0" placeholder="0"
+                                            value={product.damagedQty || ""}
+                                            onChange={e => { const u = [...allReturnProducts]; u[index].damagedQty = e.target.value; setAllReturnProducts(u); }}
+                                            className={fieldCls}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className={labelCls}>Missing</label>
+                                        <input type="number" min="0" placeholder="0"
+                                            value={product.missingQty || ""}
+                                            onChange={e => { const u = [...allReturnProducts]; u[index].missingQty = e.target.value; setAllReturnProducts(u); }}
+                                            className={fieldCls}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className={labelCls}>Remark</label>
+                                        <input type="text" placeholder="Note..."
+                                            value={product.remark || ""}
+                                            onChange={e => { const u = [...allReturnProducts]; u[index].remark = e.target.value; setAllReturnProducts(u); }}
+                                            className={fieldCls}
+                                        />
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-
-                        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50 flex-shrink-0">
-                            <button onClick={() => setReturnAllModal(false)}
-                                className="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition">
-                                Cancel
-                            </button>
-                            <button onClick={handleAllReturnSubmit}
-                                className="flex items-center gap-2 px-5 py-2 text-xs font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-xl transition shadow-sm">
-                                <FiCornerUpLeft size={12} /> Submit All Returns
-                            </button>
-                        </div>
+                            </div>
+                        ))}
                     </div>
-                </div>
+                    <ModalFooter>
+                        <button onClick={() => setReturnAllModal(false)}
+                            className="px-8 py-2.5 text-[10px] font-black uppercase tracking-widest text-gray-400 bg-white border border-gray-100 rounded-full hover:bg-gray-50 transition-all">
+                            Cancel
+                        </button>
+                        <button onClick={handleAllReturnSubmit}
+                            className="px-12 py-2.5 text-[10px] font-black uppercase tracking-widest text-white bg-erp-accent rounded-full hover:scale-105 active:scale-95 transition-all shadow-xl shadow-erp-accent/20">
+                            Finalize Bulk Submission
+                        </button>
+                    </ModalFooter>
+                </Modal>
             )}
 
             {/* ── Update Order Status Modal ── */}
             {statusModal && selectedOrder && (
-                <Modal onClose={() => setStatusModal(false)} maxWidth="max-w-sm">
-                    <ModalHeader title="Update Order Status" subtitle={selectedOrder.orderNumber} onClose={() => setStatusModal(false)} />
-                    <div className="px-6 py-5 space-y-4">
-                        <div>
-                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Current Status</p>
-                            <OrderStatusBadge value={selectedOrder.status} />
+                <Modal onClose={() => setStatusModal(false)} maxWidth="max-w-md">
+                    <ModalHeader title="Lifecycle Management" subtitle={`Order ID: ${selectedOrder.orderNumber}`} icon="mdi:sync" onClose={() => setStatusModal(false)} />
+                    <div className="p-8 space-y-8">
+                        <div className="flex items-center justify-between p-6 bg-gray-50 rounded-[2rem] border border-gray-100">
+                            <div className="flex flex-col">
+                                <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-1">Current State</span>
+                                <OrderStatusBadge value={selectedOrder.status} />
+                            </div>
+                            <Icon icon="mdi:arrow-right" className="text-gray-300 text-xl" />
+                            <div className="flex flex-col text-right">
+                                <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-1">Target State</span>
+                                <OrderStatusBadge value={selectedStatus} />
+                            </div>
                         </div>
-                        <div>
-                            <label className={labelCls}>Select New Status</label>
-                            <select value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)} className={fieldCls}>
+
+                        <div className="space-y-2">
+                            <label className={labelCls}>Select Deployment Status</label>
+                            <select value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)} className={fieldCls + " h-12"}>
                                 {["PENDING", "RECEIVED", "RETURN", "COMPLETED", "CANCELLED"].map(s => (
                                     <option key={s} value={s}>{s}</option>
                                 ))}
                             </select>
                         </div>
-                        <div>
-                            <p className={labelCls}>Preview</p>
-                            <OrderStatusBadge value={selectedStatus} />
+                        
+                        <div className="p-6 bg-erp-accent/5 rounded-[2rem] border border-erp-accent/10 flex items-start gap-4">
+                            <Icon icon="mdi:alert-circle-outline" className="text-xl text-erp-accent mt-0.5" />
+                            <p className="text-[10px] font-bold text-erp-accent/70 leading-relaxed uppercase tracking-wider">
+                                Transitioning the order status will affect downstream stock levels and financial auditing. Please verify before confirming.
+                            </p>
                         </div>
                     </div>
                     <ModalFooter>
                         <button onClick={() => setStatusModal(false)}
-                            className="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition">
-                            Cancel
+                            className="px-8 py-2.5 text-[10px] font-black uppercase tracking-widest text-gray-400 bg-white border border-gray-100 rounded-full hover:bg-gray-50 transition-all">
+                            Abort
                         </button>
                         <button onClick={handleStatusUpdate} disabled={statusLoading}
-                            className="flex items-center gap-2 px-5 py-2 text-xs font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-xl transition disabled:opacity-60 disabled:cursor-not-allowed">
-                            {statusLoading && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                            {statusLoading ? "Updating..." : "Update Status"}
+                            className="px-10 py-2.5 text-[10px] font-black uppercase tracking-widest text-white bg-erp-accent rounded-full hover:scale-105 active:scale-95 transition-all shadow-lg shadow-erp-accent/20 disabled:opacity-50">
+                            {statusLoading ? <Icon icon="mdi:loading" className="animate-spin text-xl" /> : "Confirm State Change"}
                         </button>
                     </ModalFooter>
                 </Modal>
