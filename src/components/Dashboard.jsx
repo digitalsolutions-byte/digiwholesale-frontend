@@ -33,7 +33,7 @@ const Dashboard = () => {
                     <div className="text-sm mb-2">{user} ({isSuperAdmin ? 'Admin' : 'User'})</div>
                     <button
                         onClick={() => dispatch(logOut())}
-                        className="w-full py-2 px-4 border border-gray-400 text-gray-400 rounded hover:bg-red-600 hover:text-white hover:border-red-600 transition-all text-xs uppercase tracking-wider"
+                        className="w-full py-2 px-4 border border-gray-400 text-gray-400 rounded hover:bg-red-600 hover:text-white hover:border-red-600 transition-all text-xs uppercase "
                     >
                         Logout
                     </button>
@@ -50,7 +50,7 @@ const Dashboard = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
                     {metrics.map(m => (
                         <div key={m.label} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">{m.label}</h3>
+                            <h3 className="text-sm font-semibold text-gray-500 uppercase  mb-2">{m.label}</h3>
                             <p className={`text-3xl font-bold ${m.color}`}>{m.value}</p>
                         </div>
                     ))}

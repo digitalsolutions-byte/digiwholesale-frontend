@@ -96,7 +96,7 @@ const Welcome = () => {
                             {message}
                         </Typography>
                         <Typography variant="h5" color="text.secondary" fontWeight={500}>
-                            Wishing You A <Box component="span" sx={{ color: 'accent.main', fontWeight: 800 }}>Productive</Box> Day!
+                            Wishing You A <Box component="span" sx={{ color: 'accent.main', fontWeight: 800 }}>Great</Box> Day!
                         </Typography>
                     </Box>
 
@@ -107,7 +107,7 @@ const Welcome = () => {
                             sx={{ color: 'accent.main', mb: 2 }} 
                         />
                         <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase' }}>
-                            Redirecting to dashboard...
+                            Loading...
                         </Typography>
                     </Stack>
 

@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { toast } from "react-toastify";
-import api from "../../utils/api";
+import * as vendorService from "../../services/vendorService";
 import { useDispatch } from "react-redux";
 import { hideLoader, showLoader } from "../../features/loader/loaderSlice";
 import { Icon } from "@iconify/react";
 
-const inputCls = "w-full px-5 py-3 text-sm font-bold border border-gray-100 rounded-[1.2rem] outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 hover:border-erp-accent/20 bg-gray-50/50 text-gray-700 transition-all placeholder:text-gray-300";
-const labelCls = "text-[10px] font-black text-gray-400 uppercase tracking-[0.15em] block mb-2 ml-2";
+const inputCls = "w-full px-5 py-3 text-sm border border-gray-100 rounded-[1.2rem] outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 hover:border-erp-accent/20 bg-gray-50/50 text-gray-700 transition-all placeholder:text-gray-300";
+const labelCls = "text-xs font-semibold text-gray-500 block mb-2 ml-2";
 
 const Field = ({ label, icon, error, children }) => (
     <div className="flex flex-col">
@@ -17,7 +17,7 @@ const Field = ({ label, icon, error, children }) => (
             </span>
         </label>
         {children}
-        {error && <p className="text-[10px] text-red-500 mt-1.5 ml-2 font-black uppercase tracking-wider">{error}</p>}
+        {error && <p className="text-xs text-red-500 mt-1.5 ml-2">{error}</p>}
     </div>
 );
 
@@ -53,7 +53,7 @@ export default function AddVendor() {
         try {
             setLoading(true);
             dispatch(showLoader());
-            const res = await api.post("/vendor", formData);
+            const res = await vendorService.createVendor(formData);
             toast.success(res.data.message);
             setFormData(EMPTY);
             setErrors({});
@@ -68,11 +68,11 @@ export default function AddVendor() {
     const handleReset = () => { setFormData(EMPTY); setErrors({}); };
 
     return (
-        <div className="min-h-screen bg-gray-50/50 p-6">
-            <div className="max-w-6xl mx-auto">
+        <div className="w-full animate-in fade-in duration-500">
+            <div className="w-full">
                 <form onSubmit={handleSubmit} noValidate>
                     <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-erp-accent/5 border border-gray-100 overflow-hidden">
-                        
+
                         {/* Header Section */}
                         <div className="bg-erp-accent p-8 text-white relative overflow-hidden">
                             <div className="relative z-10">
@@ -81,8 +81,8 @@ export default function AddVendor() {
                                         <Icon icon="mdi:account-plus" className="text-2xl" />
                                     </div>
                                     <div>
-                                        <h1 className="text-xl font-black uppercase tracking-widest">New Vendor Registration</h1>
-                                        <p className="text-[10px] font-bold text-white/70 uppercase tracking-[0.2em]">Add a new supplier to your directory</p>
+                                        <h1 className="text-xl font-bold">Add Vendor</h1>
+                                        <p className="text-xs text-white/80">Fill details to add vendor</p>
                                     </div>
                                 </div>
                             </div>
@@ -93,14 +93,14 @@ export default function AddVendor() {
 
                         <div className="p-10">
                             {/* Section label */}
-                            <div className="flex items-center gap-3 mb-8">
+                             <div className="flex items-center gap-3 mb-8">
                                 <div className="w-1.5 h-6 bg-erp-accent rounded-full" />
-                                <span className="text-[11px] font-black text-gray-700 uppercase tracking-[0.2em]">Vendor Particulars</span>
+                                <span className="text-sm font-bold text-gray-700">Vendor Details</span>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-10">
 
-                                <Field label="Contact Name *" icon="mdi:account-outline" error={errors.name}>
+                                <Field label="Name *" icon="mdi:account-outline" error={errors.name}>
                                     <input
                                         name="name" value={formData.name} onChange={handleChange}
                                         placeholder="Full name"
@@ -116,7 +116,7 @@ export default function AddVendor() {
                                     />
                                 </Field>
 
-                                <Field label="Mobile Number *" icon="mdi:phone-outline" error={errors.mobile}>
+                                <Field label="Mobile *" icon="mdi:phone-outline" error={errors.mobile}>
                                     <input
                                         name="mobile" value={formData.mobile} onChange={handleChange}
                                         placeholder="10-digit primary mobile"
@@ -125,7 +125,7 @@ export default function AddVendor() {
                                     />
                                 </Field>
 
-                                <Field label="Email Address *" icon="mdi:email-outline" error={errors.email}>
+                                <Field label="Email *" icon="mdi:email-outline" error={errors.email}>
                                     <input
                                         type="email" name="email" value={formData.email} onChange={handleChange}
                                         placeholder="vendor@company.com"
@@ -155,7 +155,7 @@ export default function AddVendor() {
                                     </select>
                                 </Field>
 
-                                <Field label="Business Address" icon="mdi:map-marker-outline">
+                                <Field label="Address" icon="mdi:map-marker-outline">
                                     <input
                                         name="address" value={formData.address} onChange={handleChange}
                                         placeholder="Full location details"
@@ -163,7 +163,7 @@ export default function AddVendor() {
                                     />
                                 </Field>
 
-                                <Field label="Internal Notes" icon="mdi:note-text-outline">
+                                <Field label="Notes" icon="mdi:note-text-outline">
                                     <input
                                         name="notes" value={formData.notes} onChange={handleChange}
                                         placeholder="Any special instructions"
@@ -178,18 +178,18 @@ export default function AddVendor() {
                                 <button
                                     type="button"
                                     onClick={handleReset}
-                                    className="flex items-center gap-2 px-8 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-erp-accent hover:bg-erp-accent/5 rounded-full transition-all duration-300 group"
+                                    className="flex items-center gap-2 px-8 py-3 text-sm font-semibold text-gray-400 hover:text-erp-accent hover:bg-erp-accent/5 rounded-full transition-all duration-300 group"
                                 >
-                                    <Icon icon="mdi:refresh" className="text-lg group-hover:rotate-180 transition-transform duration-700" /> Reset Form
+                                    <Icon icon="mdi:refresh" className="text-lg group-hover:rotate-180 transition-transform duration-700" /> Reset
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="flex items-center gap-3 px-10 py-4 bg-erp-accent hover:bg-erp-accent/90 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-full transition-all shadow-xl shadow-erp-accent/20 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100"
+                                    className="flex items-center gap-3 px-10 py-4 bg-erp-accent hover:bg-erp-accent/90 text-white text-sm font-bold rounded-full transition-all shadow-xl shadow-erp-accent/20 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100"
                                 >
                                     {loading
-                                        ? <><Icon icon="mdi:loading" className="text-xl animate-spin" /> Processing...</>
-                                        : <><Icon icon="mdi:content-save" className="text-xl" /> Save Vendor</>
+                                        ? <><Icon icon="mdi:loading" className="text-xl animate-spin" /> Saving...</>
+                                        : <><Icon icon="mdi:content-save" className="text-xl" /> Save</>
                                     }
                                 </button>
                             </div>
@@ -199,4 +199,4 @@ export default function AddVendor() {
             </div>
         </div>
     );
-}
+}

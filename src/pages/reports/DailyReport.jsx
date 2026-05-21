@@ -18,7 +18,7 @@ const StatCard = ({ icon, label, value, sub, color = "blue" }) => {
     blue: "bg-blue-50 text-blue-600 border-blue-100",
     teal: "bg-teal-50 text-teal-600 border-teal-100"
   };
-  
+
   return (
     <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm p-6 flex items-start gap-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
       <div className={`p-4 rounded-2xl ${themes[color] || themes.blue} flex-shrink-0 flex items-center justify-center shadow-inner`}>
@@ -27,7 +27,7 @@ const StatCard = ({ icon, label, value, sub, color = "blue" }) => {
       <div className="min-w-0">
         <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">{label}</p>
         <p className="text-xl font-black text-gray-800 truncate">{value}</p>
-        {sub && <p className="text-[11px] font-bold text-gray-400 mt-1 uppercase tracking-wider">{sub}</p>}
+        {sub && <p className="text-[11px] font-bold text-gray-400 mt-1 uppercase  ">{sub}</p>}
       </div>
     </div>
   );
@@ -36,16 +36,16 @@ const StatCard = ({ icon, label, value, sub, color = "blue" }) => {
 const DataCard = ({ title, icon, children, footer }) => (
   <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-200/40 flex flex-col overflow-hidden">
     <div className="px-8 py-5 border-b border-gray-50 flex items-center gap-3 bg-gray-50/30">
-        <Icon icon={icon} className="text-erp-accent text-lg" />
-        <h3 className="text-xs font-black text-gray-700 uppercase tracking-widest">{title}</h3>
+      <Icon icon={icon} className="text-erp-accent text-lg" />
+      <h3 className="text-xs font-black text-gray-700 uppercase tracking-widest">{title}</h3>
     </div>
     <div className="flex-1 overflow-x-auto overflow-y-auto max-h-[400px] custom-scrollbar">
       {children}
     </div>
     {footer !== undefined && (
-        <div className="px-8 py-3 border-t border-gray-50 bg-gray-50/10">
-            <p className="text-[9px] font-black text-gray-300 uppercase tracking-[0.2em]">{footer}</p>
-        </div>
+      <div className="px-8 py-3 border-t border-gray-50 bg-gray-50/10">
+        <p className="text-[9px] font-black text-gray-300 uppercase tracking-[0.2em]">{footer}</p>
+      </div>
     )}
   </div>
 );
@@ -55,9 +55,9 @@ const InnerTable = ({ headers, rows, emptyMsg = "No records available", highligh
     <thead className="sticky top-0 bg-white z-10">
       <tr className="border-b border-gray-50">
         {headers.map((h, i) => (
-            <th key={i} className="px-6 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">
-                {h}
-            </th>
+          <th key={i} className="px-6 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">
+            {h}
+          </th>
         ))}
       </tr>
     </thead>
@@ -70,7 +70,7 @@ const InnerTable = ({ headers, rows, emptyMsg = "No records available", highligh
             <tr key={i} className={`transition-colors group ${hi ? "bg-erp-accent text-white" : "hover:bg-erp-accent/[0.02]"}`}>
               {row.map((cell, j) => (
                 <td key={j} className={`px-6 py-3 whitespace-nowrap text-[11px] font-bold ${hi ? "text-white" : "text-gray-600 group-hover:text-gray-900"}`}>
-                    {cell}
+                  {cell}
                 </td>
               ))}
             </tr>
@@ -104,7 +104,7 @@ export default function DailyReport() {
     if (!validate()) return;
     setLoading(true);
     try {
-      const res = await api.post("/jc/report/daily", form);
+      const res = await api.post("/api/jc/report/daily", form);
       if (res.data.success) {
         setReport(res.data); toast.success("Snapshot generated");
       }
@@ -146,7 +146,7 @@ export default function DailyReport() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-8 space-y-8">
+    <div className="w-full flex flex-col gap-6 animate-in fade-in duration-500">
 
       {/* ══ HEADER ══════════════════════════════════════════════════════ */}
       <div>
@@ -164,7 +164,7 @@ export default function DailyReport() {
             </button>
           ))}
         </div>
-        
+
         <div className="flex flex-col lg:flex-row gap-6 items-end">
           <div className="flex-1 w-full">
             <label className="block text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-4">Start Point</label>
@@ -187,9 +187,9 @@ export default function DailyReport() {
           <button type="button" onClick={handleFetch} disabled={loading}
             className="w-full lg:w-auto flex items-center justify-center gap-3 px-12 py-3.5 bg-erp-accent hover:bg-erp-accent/90 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-full shadow-xl shadow-erp-accent/20 transition-all disabled:opacity-50">
             {loading ? (
-                <Icon icon="mdi:loading" className="animate-spin text-xl" />
+              <Icon icon="mdi:loading" className="animate-spin text-xl" />
             ) : (
-                <Icon icon="mdi:lightning-bolt" className="text-xl" />
+              <Icon icon="mdi:lightning-bolt" className="text-xl" />
             )}
             {loading ? "Analyzing..." : "Generate Analysis"}
           </button>
@@ -279,8 +279,8 @@ export default function DailyReport() {
               <InnerTable
                 headers={["Completed Orders", "Total Collection"]}
                 rows={[[
-                    <div className="flex items-center gap-2"><Icon icon="mdi:package-variant-closed" className="text-erp-accent" /> {d?.jobCards?.deliveredSummary?.count ?? 0}</div>,
-                    <div className="font-black text-emerald-500">{fmt(d?.jobCards?.deliveredSummary?.totalCollected || 0)}</div>
+                  <div className="flex items-center gap-2"><Icon icon="mdi:package-variant-closed" className="text-erp-accent" /> {d?.jobCards?.deliveredSummary?.count ?? 0}</div>,
+                  <div className="font-black text-emerald-500">{fmt(d?.jobCards?.deliveredSummary?.totalCollected || 0)}</div>
                 ]]}
               />
             </DataCard>
@@ -289,8 +289,8 @@ export default function DailyReport() {
               <InnerTable
                 headers={["Certificates Issued", "Total Revenue"]}
                 rows={[[
-                    <div className="flex items-center gap-2"><Icon icon="mdi:eye-outline" className="text-erp-accent" /> {d?.prescriptions?.totalRecords ?? 0}</div>,
-                    <span className="font-black text-emerald-500">{fmt(d?.prescriptions?.totalAmount || 0)}</span>,
+                  <div className="flex items-center gap-2"><Icon icon="mdi:eye-outline" className="text-erp-accent" /> {d?.prescriptions?.totalRecords ?? 0}</div>,
+                  <span className="font-black text-emerald-500">{fmt(d?.prescriptions?.totalAmount || 0)}</span>,
                 ]]}
               />
             </DataCard>

@@ -185,7 +185,7 @@ export default function MainReport() {
         if (end < start) return toast.error("Invalid date range");
         try {
             dispatch(showLoader());
-            const res = await api.post("/jc/report/main", { startDate: start, endDate: end });
+            const res = await api.post("/api/jc/report/main", { startDate: start, endDate: end });
             if (res.data?.success) {
                 const r = res.data;
                 setJobCards(r.jobCards || []);
@@ -224,61 +224,150 @@ export default function MainReport() {
 
     /* ── Columns ── */
     const bookingCols = useMemo(() => [
-        { header: "Date", accessorKey: "createdAt", cell: ({ getValue }) => fmt(getValue()) },
-        { header: "Customer", accessorKey: "name", cell: ({ getValue }) => <span className="font-black text-gray-800">{getValue() || "—"}</span> },
-        { header: "Mobile", accessorKey: "mobile" },
-        { header: "Delivery Date", accessorKey: "deliveryDate", cell: ({ getValue }) => fmt(getValue()) },
-        {
-            header: "Txn", accessorKey: "transactionType",
-            cell: ({ getValue }) => <span className="text-[9px] font-black uppercase text-gray-400 bg-gray-50 border border-gray-100 px-3 py-1 rounded-full">{getValue() || "—"}</span>
+        { 
+            header: "Date", 
+            accessorKey: "createdAt", 
+            cell: ({ row }) => fmt(row.original.createdAt) 
         },
-        { header: "Total", accessorKey: "total", cell: ({ getValue }) => <span className="font-black text-erp-accent">₹{getValue()?.toLocaleString() ?? 0}</span> },
-        { header: "Advance", accessorKey: "advance" },
-        {
-            header: "Balance", accessorKey: "balance",
-            cell: ({ getValue }) => <span className={`font-black ${Number(getValue()) > 0 ? "text-rose-500" : "text-emerald-500"}`}>₹{getValue()?.toLocaleString() ?? 0}</span>
+        { 
+            header: "Customer", 
+            accessorKey: "customer", 
+            cell: ({ row }) => <span className="font-black text-gray-800">{row.original.customer?.customerName || row.original.customerName || "—"}</span> 
         },
-        { header: "Status", accessorKey: "status", cell: ({ getValue }) => <Badge v={getValue()} /> },
-        { header: "Process", accessorKey: "pstatus", cell: ({ getValue }) => <Badge v={getValue()} /> },
+        { 
+            header: "Mobile", 
+            accessorKey: "mobile", 
+            cell: ({ row }) => row.original.customer?.mobile || row.original.customer?.customerMobile || row.original.mobile || "—" 
+        },
+        { 
+            header: "Delivery Date", 
+            accessorKey: "deliveryDate", 
+            cell: ({ row }) => fmt(row.original.deliveryDate || row.original.submittedAt || row.original.createdAt) 
+        },
+        {
+            header: "Txn", 
+            accessorKey: "productMode", 
+            cell: ({ row }) => <span className="text-[9px] font-black uppercase text-gray-400 bg-gray-50 border border-gray-100 px-3 py-1 rounded-full">{row.original.productMode || row.original.transactionType || "—"}</span>
+        },
+        { 
+            header: "Total", 
+            accessorKey: "totalOrderPrice", 
+            cell: ({ row }) => <span className="font-black text-erp-accent">₹{(row.original.totalOrderPrice ?? row.original.total ?? 0).toLocaleString()}</span> 
+        },
+        { 
+            header: "Advance", 
+            accessorKey: "advance", 
+            cell: ({ row }) => `₹${(row.original.advance ?? 0).toLocaleString()}` 
+        },
+        {
+            header: "Balance", 
+            accessorKey: "balance", 
+            cell: ({ row }) => {
+                const total = row.original.totalOrderPrice ?? row.original.total ?? 0;
+                const adv = row.original.advance ?? 0;
+                const bal = row.original.balance ?? (total - adv);
+                return <span className={`font-black ${Number(bal) > 0 ? "text-rose-500" : "text-emerald-500"}`}>₹{bal?.toLocaleString() ?? 0}</span>
+            }
+        },
+        { 
+            header: "Status", 
+            accessorKey: "status", 
+            cell: ({ row }) => <Badge v={row.original.status} /> 
+        },
+        { 
+            header: "Process", 
+            accessorKey: "pstatus", 
+            cell: ({ row }) => <Badge v={row.original.status || row.original.pstatus} /> 
+        },
     ], []);
 
     const deliveredCols = useMemo(() => [
-        { header: "Date", accessorKey: "createdAt", cell: ({ getValue }) => fmt(getValue()) },
-        { header: "Customer", accessorKey: "name", cell: ({ getValue }) => <span className="font-black text-gray-800">{getValue() || "—"}</span> },
-        { header: "Mobile", accessorKey: "mobile" },
-        { header: "Delivered", accessorKey: "deliveredDate", cell: ({ getValue }) => fmt(getValue()) },
-        {
-            header: "Txn", accessorKey: "transactionType",
-            cell: ({ getValue }) => <span className="text-[9px] font-black uppercase text-gray-400 bg-gray-50 border border-gray-100 px-3 py-1 rounded-full">{getValue() || "—"}</span>
+        { 
+            header: "Date", 
+            accessorKey: "createdAt", 
+            cell: ({ row }) => fmt(row.original.createdAt) 
         },
-        { header: "Total", accessorKey: "total", cell: ({ getValue }) => <span className="font-black text-erp-accent">₹{getValue()?.toLocaleString() ?? 0}</span> },
-        { header: "Advance", accessorKey: "advance" },
-        {
-            header: "Balance", accessorKey: "balance",
-            cell: ({ getValue }) => <span className={`font-black ${Number(getValue()) > 0 ? "text-rose-500" : "text-emerald-500"}`}>₹{getValue()?.toLocaleString() ?? 0}</span>
+        { 
+            header: "Customer", 
+            accessorKey: "customer", 
+            cell: ({ row }) => <span className="font-black text-gray-800">{row.original.customer?.customerName || row.original.customerName || "—"}</span> 
         },
-        { header: "Status", accessorKey: "status", cell: ({ getValue }) => <Badge v={getValue()} /> },
-        { header: "Process", accessorKey: "pstatus", cell: ({ getValue }) => <Badge v={getValue()} /> },
+        { 
+            header: "Mobile", 
+            accessorKey: "mobile", 
+            cell: ({ row }) => row.original.customer?.mobile || row.original.customer?.customerMobile || row.original.mobile || "—" 
+        },
+        { 
+            header: "Delivered", 
+            accessorKey: "deliveredDate", 
+            cell: ({ row }) => fmt(row.original.deliveredDate || row.original.updatedAt) 
+        },
+        {
+            header: "Txn", 
+            accessorKey: "productMode", 
+            cell: ({ row }) => <span className="text-[9px] font-black uppercase text-gray-400 bg-gray-50 border border-gray-100 px-3 py-1 rounded-full">{row.original.productMode || row.original.transactionType || "—"}</span>
+        },
+        { 
+            header: "Total", 
+            accessorKey: "totalOrderPrice", 
+            cell: ({ row }) => <span className="font-black text-erp-accent">₹{(row.original.totalOrderPrice ?? row.original.total ?? 0).toLocaleString()}</span> 
+        },
+        { 
+            header: "Advance", 
+            accessorKey: "advance", 
+            cell: ({ row }) => `₹${(row.original.advance ?? 0).toLocaleString()}` 
+        },
+        {
+            header: "Balance", 
+            accessorKey: "balance", 
+            cell: ({ row }) => {
+                const total = row.original.totalOrderPrice ?? row.original.total ?? 0;
+                const adv = row.original.advance ?? 0;
+                const bal = row.original.balance ?? (total - adv);
+                return <span className={`font-black ${Number(bal) > 0 ? "text-rose-500" : "text-emerald-500"}`}>₹{bal?.toLocaleString() ?? 0}</span>
+            }
+        },
+        { 
+            header: "Status", 
+            accessorKey: "status", 
+            cell: ({ row }) => <Badge v={row.original.status} /> 
+        },
+        { 
+            header: "Process", 
+            accessorKey: "pstatus", 
+            cell: ({ row }) => <Badge v={row.original.status || row.original.pstatus} /> 
+        },
     ], []);
 
     const commissionCols = useMemo(() => [
-        { header: "Employee", accessorKey: "bookedByName", cell: ({ getValue }) => <span className="font-black text-gray-800 uppercase tracking-wider">{getValue() || "—"}</span> },
-        { header: "Commission", accessorKey: "totalCommission", cell: ({ getValue }) => <span className="font-black text-orange-500 text-sm">₹{getValue()?.toLocaleString() ?? 0}</span> },
-        { header: "Orders", accessorKey: "count", cell: ({ getValue }) => <span className="font-black text-gray-400">{getValue() ?? 0}</span> },
+        { 
+            header: "Employee", 
+            accessorKey: "bookedByName", 
+            cell: ({ row }) => <span className="font-black text-gray-800 uppercase">{row.original.bookedByName || row.original.employeeName || "—"}</span> 
+        },
+        { 
+            header: "Commission", 
+            accessorKey: "totalCommission", 
+            cell: ({ row }) => <span className="font-black text-orange-500 text-sm">₹{(row.original.totalCommission ?? 0).toLocaleString()}</span> 
+        },
+        { 
+            header: "Orders", 
+            accessorKey: "count", 
+            cell: ({ row }) => <span className="font-black text-gray-400">{row.original.count ?? 0}</span> 
+        },
     ], []);
 
     const bookingTable = useReactTable({ data: jobCards, columns: bookingCols, getCoreRowModel: getCoreRowModel(), getFilteredRowModel: getFilteredRowModel() });
     const deliveredTable = useReactTable({ data: deliveredJC, columns: deliveredCols, getCoreRowModel: getCoreRowModel(), getFilteredRowModel: getFilteredRowModel() });
     const commissionTable = useReactTable({ data: commissionByDelivered, columns: commissionCols, getCoreRowModel: getCoreRowModel(), getFilteredRowModel: getFilteredRowModel() });
 
-    const bookingTotal = (transactionSummary?.CASH?.totalAmount || 0)
-        + (transactionSummary?.CARD?.totalAmount || 0)
-        + (transactionSummary?.UPI?.totalAmount || 0);
+    const bookingTotal = Object.values(transactionSummary).reduce((acc, curr) => acc + (curr.totalAmount || 0), 0)
+        || jobCards.reduce((acc, curr) => acc + (curr.totalOrderPrice || 0), 0);
 
     const inputCls = "w-full bg-gray-50/50 border border-gray-100 rounded-full px-5 py-2.5 text-xs font-bold text-gray-700 outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 transition-all";
 
     return (
-        <div className="min-h-screen bg-gray-50/50 p-8 space-y-8">
+        <div className="w-full flex flex-col gap-6 animate-in fade-in duration-500">
 
             {/* ══ HEADER ══════════════════════════════════════════════════════ */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -353,10 +442,47 @@ export default function MainReport() {
 
             {/* ══ BOOKING SECTION ══════════════════════════════════════════════ */}
             <Section icon="mdi:book-check-outline" title="Booking Performance" badge={jobCards.length}>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                    <TxnPill label="Cash Liquidity" count={transactionSummary?.CASH?.count} amount={transactionSummary?.CASH?.totalAmount} icon="mdi:cash" colorClass="bg-emerald-50 border-emerald-100/50" />
-                    <TxnPill label="Digital UPI" count={transactionSummary?.UPI?.count} amount={transactionSummary?.UPI?.totalAmount} icon="mdi:qrcode-scan" colorClass="bg-sky-50 border-sky-100/50" />
-                    <TxnPill label="Card Terminal" count={transactionSummary?.CARD?.count} amount={transactionSummary?.CARD?.totalAmount} icon="mdi:credit-card-outline" colorClass="bg-indigo-50 border-indigo-100/50" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    {Object.keys(transactionSummary).length > 0 ? (
+                        Object.entries(transactionSummary).map(([key, data]) => {
+                            const icons = {
+                                CASH: "mdi:cash",
+                                UPI: "mdi:qrcode-scan",
+                                CARD: "mdi:credit-card-outline",
+                                Submitted: "mdi:file-document-outline",
+                                Processing: "mdi:clock-outline",
+                                Completed: "mdi:check-circle-outline",
+                                Cancelled: "mdi:close-circle-outline",
+                                Draft: "mdi:file-edit-outline"
+                            };
+                            const colors = {
+                                CASH: "bg-emerald-50 border-emerald-100/50",
+                                UPI: "bg-sky-50 border-sky-100/50",
+                                CARD: "bg-indigo-50 border-indigo-100/50",
+                                Submitted: "bg-amber-50 border-amber-100/50",
+                                Processing: "bg-blue-50 border-blue-100/50",
+                                Completed: "bg-emerald-50 border-emerald-100/50",
+                                Cancelled: "bg-rose-50 border-rose-100/50",
+                                Draft: "bg-gray-50 border-gray-100/50"
+                            };
+                            return (
+                                <TxnPill 
+                                    key={key}
+                                    label={key} 
+                                    count={data?.count} 
+                                    amount={data?.totalAmount} 
+                                    icon={icons[key] || "mdi:chart-bar"} 
+                                    colorClass={colors[key] || "bg-gray-50 border-gray-100/50"} 
+                                />
+                            );
+                        })
+                    ) : (
+                        <>
+                            <TxnPill label="Cash Liquidity" count={0} amount={0} icon="mdi:cash" colorClass="bg-emerald-50 border-emerald-100/50" />
+                            <TxnPill label="Digital UPI" count={0} amount={0} icon="mdi:qrcode-scan" colorClass="bg-sky-50 border-sky-100/50" />
+                            <TxnPill label="Card Terminal" count={0} amount={0} icon="mdi:credit-card-outline" colorClass="bg-indigo-50 border-indigo-100/50" />
+                        </>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10">

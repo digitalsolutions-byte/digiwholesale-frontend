@@ -185,7 +185,7 @@ const Login = () => {
                                 disabled={formik.isSubmitting}
                                 sx={{ py: 2 }}
                             >
-                                {formik.isSubmitting ? 'Authenticating...' : 'Login'}
+                                {formik.isSubmitting ? 'Loading...' : 'Login'}
                             </Button>
                         </Stack>
                     </Box>

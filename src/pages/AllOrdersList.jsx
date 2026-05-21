@@ -330,14 +330,14 @@ const AllOrdersList = () => {
                         <table className="w-full border-collapse min-w-[1240px]">
                             <thead>
                                 <tr className="bg-erp-accent text-white">
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Order Code</th>
-                                    <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Customer / Shop</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Date / Time</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Product Details</th>
-                                    <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Order Total</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">product Name</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Status</th>
-                                    <th className="py-4 px-4 font-semibold text-xs text-center uppercase tracking-wider">Action</th>
+                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Order Code</th>
+                                    <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Customer / Shop</th>
+                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Date / Time</th>
+                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Product Details</th>
+                                    <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Order Total</th>
+                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">product Name</th>
+                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Status</th>
+                                    <th className="py-4 px-4 font-semibold text-xs text-center uppercase ">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="text-gray-600">
@@ -355,7 +355,7 @@ const AllOrdersList = () => {
                                             <td className="px-6 py-2 text-center border-r border-gray-50">
                                                 <div className="flex flex-col">
                                                     <span className="text-sm font-black text-gray-800 tracking-tight">{order?.customer?.customerName || '---'}</span>
-                                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{order?.customer?.customerShipToBranchName || '---'}</span>
+                                                    <span className="text-[10px] text-gray-400 font-bold uppercase ">{order?.customer?.customerShipToBranchName || '---'}</span>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-2 text-center border-r border-gray-50">
@@ -614,7 +614,7 @@ const DetailSection = ({ title, children }) => (
 
 const DetailItem = ({ label, value }) => (
     <div className="flex flex-col">
-        <span className="text-[9px] font-black text-gray-400 uppercase tracking-wider">{label}</span>
+        <span className="text-[9px] font-black text-gray-400 uppercase ">{label}</span>
         <span className="text-xs font-bold text-gray-700">{value || '---'}</span>
     </div>
 );

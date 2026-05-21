@@ -135,7 +135,7 @@ const CorrectionsList = () => {
                                                     <div className="font-black text-gray-800 uppercase tracking-tight text-sm leading-tight leading-4">
                                                         {item.shopName}
                                                     </div>
-                                                    <div className="text-gray-400 font-bold text-[11px] uppercase tracking-wider flex items-center gap-1.5 mt-0.5">
+                                                    <div className="text-gray-400 font-bold text-[11px] uppercase  flex items-center gap-1.5 mt-0.5">
                                                         <Icon icon="mdi:account" className="text-gray-300" />
                                                         {item.ownerName}
                                                     </div>

@@ -23,6 +23,10 @@ const MainLayout = () => {
 
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
+    useEffect(() => {
+        document.documentElement.style.setProperty('--sidebar-width', isSidebarOpen && !isMobile ? '280px' : '0px');
+    }, [isSidebarOpen, isMobile]);
+
     return (
         <Box sx={{ display: 'flex', minHeight: '100vh', minWidth: '100vw', bgcolor: '#F8FAFC', position: 'relative', overflow: 'hidden' }}>
             {/* Decorative Background Elements */}
@@ -109,7 +113,7 @@ const MainLayout = () => {
                                 elevation={0}
                                 sx={{
                                     flexGrow: 1,
-                                    p: { xs: 2, md: 4 },
+                                    p: { xs: 1.5, md: 2.5 },
                                     borderRadius: '28px',
                                     border: '1px solid rgba(0,0,0,0.05)',
                                     background: '#FFFFFF',

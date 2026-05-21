@@ -25,7 +25,7 @@ const CustomToggle = ({
                             key={option.value}
                             type="button"
                             onClick={() => onChange(option.value)}
-                            className={`flex-1 py-2.5 px-4 rounded-xl whitespace-nowrap text-xs font-black uppercase tracking-wider transition-all duration-300 ${isActive
+                            className={`flex-1 py-2.5 px-4 rounded-xl whitespace-nowrap text-xs font-black uppercase  transition-all duration-300 ${isActive
                                 ? 'bg-erp-accent text-white shadow-lg shadow-orange-500/20 scale-[1.02]'
                                 : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200/50'
                                 }`}

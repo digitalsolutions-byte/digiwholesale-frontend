@@ -255,22 +255,22 @@ const CustomerList = () => {
             {/* <div className="bg-gradient-to-r from-indigo-50 to-blue-50 px-5 py-3 rounded-2xl border border-indigo-100/60 flex flex-wrap items-center gap-4 text-[11px]">
                 <div className="flex items-center gap-1.5">
                     <Icon icon="mdi:account-circle" className="text-indigo-400 text-base" />
-                    <span className="font-black text-gray-400 uppercase tracking-wider">Logged in as:</span>
+                    <span className="font-black text-gray-400 uppercase  ">Logged in as:</span>
                     <span className="font-extrabold text-indigo-700">{currentUser?.name || currentUser?.Name || '---'}</span>
                 </div>
                 <span className="text-gray-200">|</span>
                 <div className="flex items-center gap-1.5">
-                    <span className="font-black text-gray-400 uppercase tracking-wider">SubRole:</span>
+                    <span className="font-black text-gray-400 uppercase  ">SubRole:</span>
                     <span className="font-extrabold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">{currentUser?.SubRole?.name || currentUser?.SubRole || '---'}</span>
                 </div>
                 <span className="text-gray-200">|</span>
                 <div className="flex items-center gap-1.5">
-                    <span className="font-black text-gray-400 uppercase tracking-wider">Type:</span>
+                    <span className="font-black text-gray-400 uppercase  ">Type:</span>
                     <span className="font-extrabold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{currentUser?.EmployeeType?.name || currentUser?.EmployeeType || '---'}</span>
                 </div>
                 <span className="text-gray-200">|</span>
                 <div className="flex items-center gap-1.5">
-                    <span className="font-black text-gray-400 uppercase tracking-wider">Dept:</span>
+                    <span className="font-black text-gray-400 uppercase  ">Dept:</span>
                     <span className="font-extrabold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">{currentUser?.Department?.name || currentUser?.Department || '---'}</span>
                 </div>
             </div> */}
@@ -413,15 +413,15 @@ const CustomerList = () => {
                         <table className="w-full border-collapse min-w-[1240px]">
                             <thead>
                                 <tr className="bg-erp-accent text-white">
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Customer Code</th>
-                                    <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Name / Shop</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Account Type</th>
-                                    <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Email / Phone</th>
-                                    <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">City / Country</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Status</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Sales Person / Zone</th>
-                                    {/* <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Done By</th> */}
-                                    <th className="py-4 px-4 font-semibold text-xs text-center uppercase tracking-wider">Action</th>
+                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Customer Code</th>
+                                    <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Name / Shop</th>
+                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Account Type</th>
+                                    <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Email / Phone</th>
+                                    <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">City / Country</th>
+                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Status</th>
+                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Sales Person / Zone</th>
+                                    {/* <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Done By</th> */}
+                                    <th className="py-4 px-4 font-semibold text-xs text-center uppercase  ">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="text-gray-600">
@@ -439,7 +439,7 @@ const CustomerList = () => {
                                             <td className="px-6 py-2 text-center border-r border-gray-50">
                                                 <div className="flex flex-col">
                                                     <span className="text-sm font-black text-gray-800 tracking-tight">{cust?.shopName || '---'}</span>
-                                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{cust?.ownerName || '---'}</span>
+                                                    <span className="text-[10px] text-gray-400 font-bold uppercase  ">{cust?.ownerName || '---'}</span>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-2 text-center border-r border-gray-50">
@@ -828,7 +828,7 @@ const CustomerList = () => {
 
 const DetailItem = ({ label, value }) => (
     <div className="space-y-1">
-        <p className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">{label}</p>
+        <p className="text-[10px] uppercase   text-gray-400 font-bold">{label}</p>
         <p className="text-sm font-semibold text-gray-700">{value || '---'}</p>
     </div>
 );

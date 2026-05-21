@@ -6,7 +6,8 @@ import {
     FiMail, FiMapPin, FiFileText, FiCreditCard, FiMessageSquare,
     FiBriefcase, FiSearch, FiChevronLeft, FiChevronRight, FiShoppingCart, FiPlusCircle,
 } from "react-icons/fi";
-import api from "../../utils/api";
+import * as vendorService from "../../services/vendorService";
+import * as vendorOrderService from "../../services/vendorOrderService";
 import Swal from "sweetalert2";
 import { toast } from "react-toastify";
 import { hideLoader, showLoader } from "../../features/loader/loaderSlice";
@@ -19,7 +20,8 @@ const PAGE_SIZE = 100;
 // Shared UI primitives
 // ─────────────────────────────────────────────────────────────────────────────
 const Modal = ({ onClose, children, maxWidth = "max-w-lg" }) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 transition-all duration-300"
+        onClick={onClose}>
         <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidth} animate-fadeIn`} onClick={e => e.stopPropagation()}>
             {children}
         </div>
@@ -54,14 +56,14 @@ const InfoRow = ({ label, value }) => (
 
 const SectionTitle = ({ children }) => (
     <div className="flex items-center gap-2 mb-4">
-        <span className="w-0.5 h-4 rounded-full bg-blue-400 inline-block" />
-        <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{children}</h3>
+        <span className="w-1 h-5 rounded-full bg-erp-accent inline-block shadow-lg shadow-erp-accent/30" />
+        <h3 className="text-xs font-bold text-gray-500">{children}</h3>
     </div>
 );
 
-const fieldCls = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 hover:border-blue-300 transition bg-gray-50 text-gray-700";
-const labelCls = "block text-xs font-medium text-gray-600 mb-1.5";
-const iconInputCls = "w-full pl-9 pr-3 py-2.5 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 hover:border-blue-300 transition placeholder-gray-400";
+const fieldCls = "w-full bg-gray-50/50 border border-gray-100 rounded-full px-5 py-2.5 text-sm text-gray-700 outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 transition-all placeholder:text-gray-300";
+const labelCls = "text-xs font-semibold text-gray-500 block mb-1.5 ml-4";
+const iconInputCls = "w-full pl-12 pr-5 py-2.5 text-sm text-gray-700 bg-gray-50/50 border border-gray-100 rounded-full outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 transition-all placeholder:text-gray-300";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Keyword input with vendor suggestion dropdown
@@ -77,7 +79,7 @@ function VendorKeywordInput({ value, onChange }) {
         if (!q || q.trim().length < 2) { setSuggestions([]); setShowSuggestions(false); return; }
         try {
             setSearching(true);
-            const res = await api.get("/vendor/suggestion", { params: { q } });
+            const res = await api.get("/api/vendor/suggestion", { params: { q } });
             if (res.data.success) { setSuggestions(res.data.data || []); setShowSuggestions(true); }
         } catch { /* silent */ }
         finally { setSearching(false); }
@@ -141,7 +143,7 @@ function VendorKeywordInput({ value, onChange }) {
             {showSuggestions && suggestions.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
                     <div className="px-3 py-2 bg-blue-50 border-b border-gray-100">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Suggestions</p>
+                        <p className="text-xs font-bold text-gray-400">Suggestions</p>
                     </div>
                     <ul className="max-h-52 overflow-y-auto">
                         {suggestions.map((s, i) => (
@@ -152,7 +154,7 @@ function VendorKeywordInput({ value, onChange }) {
                                         <FiBriefcase size={11} className="text-blue-400" />
                                     </div>
                                     <div className="min-w-0">
-                                        <p className="text-sm font-semibold text-gray-800 truncate">{s.name || "-"}</p>
+                                        <p className="text-sm font-bold text-gray-800 truncate">{s.name || "-"}</p>
                                         <p className="text-xs text-gray-400 truncate">
                                             {s.firm || ""}
                                             {s.mobile ? ` · ${s.mobile}` : ""}
@@ -207,10 +209,10 @@ export default function VendorList() {
         try {
             pageNumber === 1 ? setLoading(true) : setLoadingMore(true);
             dispatch(showLoader());
-            const res = await api.get("/vendor", { params: { page: pageNumber, limit: FETCH_LIMIT } });
-            if (res.data.success) {
-                setAllData(prev => append ? [...prev, ...(res.data.vendors || [])] : (res.data.vendors || []));
-                setHasMore(res.data.hasMore);
+            const data = await vendorService.getAllVendors(pageNumber, FETCH_LIMIT);
+            if (data.success) {
+                setAllData(prev => append ? [...prev, ...(data.vendors || [])] : (data.vendors || []));
+                setHasMore(data.hasMore);
             }
         } catch (err) { console.error(err); }
         finally { setLoading(false); setLoadingMore(false); dispatch(hideLoader()); }
@@ -226,9 +228,9 @@ export default function VendorList() {
         if (keyword && keyword.trim().length < 4) { toast.warning("Keyword must be at least 4 characters."); return; }
         try {
             setLoading(true); dispatch(showLoader());
-            const res = await api.post("/vendor/search", { startDate: fromDate || undefined, endDate: toDate || undefined, keyword: keyword || undefined });
-            if (res.data.success) { setFilteredData(res.data.vendors || []); setIsSearching(true); }
-            else toast.warning(res.data.message);
+            const data = await vendorService.searchVendors({ startDate: fromDate || undefined, endDate: toDate || undefined, keyword: keyword || undefined });
+            if (data.success) { setFilteredData(data.vendors || []); setIsSearching(true); }
+            else toast.warning(data.message);
         } catch (err) { toast.error(err.response?.data?.message || "Search failed"); }
         finally { setLoading(false); dispatch(hideLoader()); }
     };
@@ -259,8 +261,8 @@ export default function VendorList() {
         if (!result.isConfirmed) return;
         try {
             dispatch(showLoader());
-            const res = await api.delete(`/vendor/${vendor.vendorNumber}`);
-            if (res.data.success) {
+            const data = await vendorService.deleteVendor(vendor._id || vendor.vendorNumber);
+            if (data.success) {
                 setAllData(prev => prev.filter(v => v.vendorNumber !== vendor.vendorNumber));
                 setFilteredData(prev => prev.filter(v => v.vendorNumber !== vendor.vendorNumber));
                 Swal.fire({ icon: "success", title: "Deleted!", timer: 1500, showConfirmButton: false });
@@ -271,7 +273,10 @@ export default function VendorList() {
     };
 
     const handleSubmitOrder = async () => {
-        if (!selectedVendor?.vendorNumber) { toast.error("Please select a vendor"); return; }
+        if (!selectedVendor || (!selectedVendor._id && !selectedVendor.vendorNumber)) {
+            toast.error("Please select a vendor");
+            return;
+        }
         if (!orderRows || orderRows.length === 0) { toast.error("Please add at least one product"); return; }
         for (let i = 0; i < orderRows.length; i++) {
             const r = orderRows[i];
@@ -284,15 +289,24 @@ export default function VendorList() {
         }
         try {
             dispatch(showLoader());
-            const { data } = await api.post("/vendor-order/", {
-                vendorNumber: selectedVendor.vendorNumber, notes,
+            const data = await vendorOrderService.createVendorOrder({
+                vendorId: selectedVendor._id || selectedVendor.vendorNumber,
+                notes,
                 items: orderRows.map(r => ({
-                    productCode: r.productCode, category: r.category, productName: r.productName,
-                    quantity: Number(r.quantity), price: Number(r.price),
-                    gstPercent: Number(r.gstPercent || 0), expectedDate: new Date(r.expectedDate),
+                    productCode: r.productCode,
+                    category: r.category,
+                    productName: r.productName,
+                    quantity: Number(r.quantity),
+                    price: Number(r.price),
+                    gstPercent: Number(r.gstPercent || 0),
+                    expectedDate: r.expectedDate,
                 })),
             });
-            if (data.success) { toast.success("Purchase Order Created Successfully"); handleClearOrder(); setShowOrderModal(false); }
+            if (data.success) {
+                toast.success(`Purchase Order Created Successfully: #${data.order?.orderNumber || ''}`);
+                handleClearOrder();
+                setShowOrderModal(false);
+            }
         } catch (error) {
             toast.error(error.response?.data?.message || "Failed to create purchase order");
         } finally { dispatch(hideLoader()); }
@@ -323,7 +337,7 @@ export default function VendorList() {
             },
         },
         { header: "Date", accessorKey: "createdAt", cell: ({ getValue }) => getValue() ? new Date(getValue()).toLocaleDateString("en-IN") : "-" },
-        { header: "ID", accessorKey: "vendorNumber" },
+        // { header: "ID", accessorKey: "vendorNumber" },
         { header: "Name", accessorKey: "name" },
         { header: "Firm", accessorKey: "firm" },
         { header: "Mobile", accessorKey: "mobile" },
@@ -386,49 +400,46 @@ export default function VendorList() {
     );
 
     return (
-        <div className="p-6 min-h-screen bg-gray-50">
+        <div className="w-full flex flex-col gap-6 animate-in fade-in duration-500">
 
             {/* ── Filter bar ── */}
-            <div className="bg-white p-6 rounded-[2rem] shadow-xl border border-gray-100/80 mb-6">
-                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-                    <div className="flex flex-wrap items-end gap-4 flex-1">
-                        <div className="flex flex-col gap-1.5">
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.15em] ml-2">Quick Actions</span>
-                            <button onClick={handleRefresh}
-                                className="flex items-center gap-2 bg-erp-accent/10 hover:bg-erp-accent text-erp-accent hover:text-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-full transition-all duration-300 shadow-sm hover:shadow-md group">
-                                <Icon icon="mdi:refresh" className="text-lg group-hover:rotate-180 transition-transform duration-700" /> Refresh List
-                            </button>
-                        </div>
-
-                        <div className="flex flex-col gap-1.5">
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.15em] ml-2">Registration Period</span>
-                            <div className="flex items-center gap-2">
-                                <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
-                                    className="bg-gray-50/50 border border-gray-100 px-4 py-2 rounded-full text-xs font-bold outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 hover:border-erp-accent/20 transition-all w-40 text-gray-700"
-                                />
-                                <span className="text-[10px] font-black text-gray-300 uppercase">to</span>
-                                <input type="date" value={toDate} onChange={e => setToDate(e.target.value)}
-                                    className="bg-gray-50/50 border border-gray-100 px-4 py-2 rounded-full text-xs font-bold outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 hover:border-erp-accent/20 transition-all w-40 text-gray-700"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col gap-1.5 flex-1 min-w-[240px]">
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.15em] ml-2">Search By Name / Firm / Mobile</span>
-                            <VendorKeywordInput value={keyword} onChange={setKeyword} />
+            <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 mb-6">
+                <div className="flex flex-wrap items-end gap-6">
+                    <div className="flex flex-col gap-1.5">
+                        <span className="text-xs font-bold text-gray-500 ml-2">Period</span>
+                        <div className="flex items-center gap-2">
+                            <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
+                                className="bg-gray-50/50 border border-gray-100 px-4 py-2 rounded-full text-xs font-semibold outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 hover:border-erp-accent/20 transition-all w-40 text-gray-700"
+                            />
+                            <span className="text-xs font-bold text-gray-300">to</span>
+                            <input type="date" value={toDate} onChange={e => setToDate(e.target.value)}
+                                className="bg-gray-50/50 border border-gray-100 px-4 py-2 rounded-full text-xs font-semibold outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 hover:border-erp-accent/20 transition-all w-40 text-gray-700"
+                            />
                         </div>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-1.5 flex-1 min-w-[240px]">
+                        <span className="text-xs font-bold text-gray-500 ml-2">Search</span>
+                        <VendorKeywordInput value={keyword} onChange={setKeyword} />
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <div className="flex flex-col gap-1.5">
+                            <span className="text-xs font-bold text-gray-500 ml-2">Actions</span>
+                            <button onClick={handleRefresh}
+                                className="flex items-center gap-2 bg-erp-accent/10 hover:bg-erp-accent text-erp-accent hover:text-white px-5 py-2.5 text-xs font-bold rounded-full transition-all duration-300 shadow-sm hover:shadow-md group">
+                                <Icon icon="mdi:refresh" className="text-lg group-hover:rotate-180 transition-transform duration-700" /> Refresh
+                            </button>
+                        </div>
                         {isSearching && (
                             <button onClick={handleResetSearch}
-                                className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-600 px-6 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-full transition-all">
+                                className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-600 px-6 py-2.5 text-xs font-bold rounded-full transition-all">
                                 Clear
                             </button>
                         )}
                         <button onClick={searchVendors}
-                            className="flex items-center gap-2 bg-erp-accent hover:bg-erp-accent/90 text-white px-8 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-full transition-all shadow-lg shadow-erp-accent/20 hover:scale-105 active:scale-95">
-                            <Icon icon="mdi:magnify" className="text-lg" /> Search Vendors
+                            className="flex items-center gap-2 bg-erp-accent hover:bg-erp-accent/90 text-white px-8 py-2.5 text-xs font-bold rounded-full transition-all shadow-lg shadow-erp-accent/20 hover:scale-105 active:scale-95">
+                            <Icon icon="mdi:magnify" className="text-lg" /> Search
                         </button>
                     </div>
                 </div>
@@ -441,13 +452,13 @@ export default function VendorList() {
                 <div className="flex items-center justify-between px-8 py-5 border-b border-gray-50 bg-gray-50/30">
                     <div className="flex items-center gap-3">
                         <div className="w-2 h-6 bg-erp-accent rounded-full" />
-                        <h2 className="text-sm font-black text-gray-700 uppercase tracking-wider">Vendor Directory</h2>
+                        <h2 className="text-sm font-bold text-gray-700">Vendors</h2>
                     </div>
                     <div className="relative w-64 group">
                         <Icon icon="mdi:filter-variant" className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-erp-accent transition-colors" />
                         <input type="text" value={globalFilter ?? ""} onChange={e => setGlobalFilter(e.target.value)}
-                            placeholder="Quick filter..."
-                            className="w-full pl-11 pr-4 py-2.5 text-xs font-bold border border-gray-100 rounded-full outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 transition-all text-gray-600 placeholder:text-gray-300 bg-white"
+                            placeholder="Filter..."
+                            className="w-full pl-11 pr-4 py-2.5 text-sm font-semibold border border-gray-100 rounded-full outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 transition-all text-gray-600 placeholder:text-gray-300 bg-white"
                         />
                     </div>
                 </div>
@@ -459,7 +470,7 @@ export default function VendorList() {
                             {table.getHeaderGroups().map(hg => (
                                 <tr key={hg.id} className="bg-erp-accent text-white">
                                     {hg.headers.map(h => (
-                                        <th key={h.id} className="px-6 py-4 text-center text-[10px] font-black uppercase tracking-[0.2em] border-r border-white/10 last:border-r-0">
+                                        <th key={h.id} className="px-6 py-4 text-center text-xs font-bold border-r border-white/10 last:border-r-0">
                                             {flexRender(h.column.columnDef.header, h.getContext())}
                                         </th>
                                     ))}
@@ -471,7 +482,7 @@ export default function VendorList() {
                                 <tr><td colSpan={columns.length} className="py-24 text-center">
                                     <div className="flex flex-col items-center gap-3 opacity-20">
                                         <Icon icon="mdi:account-off-outline" className="text-6xl" />
-                                        <p className="text-sm font-black uppercase tracking-widest">No vendors found</p>
+                                        <p className="text-sm font-bold">No vendors found</p>
                                     </div>
                                 </td></tr>
                             )}
@@ -479,7 +490,7 @@ export default function VendorList() {
                                 <tr key={row.id} className="hover:bg-erp-accent/[0.02] transition-colors group">
                                     {row.getVisibleCells().map(cell => (
                                         <td key={cell.id} className="px-6 py-4 text-center">
-                                            <div className="text-[11px] font-bold text-gray-600 group-hover:text-gray-900 transition-colors">
+                                            <div className="text-xs font-semibold text-gray-600 group-hover:text-gray-900 transition-colors">
                                                 {flexRender(cell.column.columnDef.cell ?? cell.column.columnDef.accessorKey, cell.getContext())}
                                             </div>
                                         </td>
@@ -496,17 +507,17 @@ export default function VendorList() {
                         <button
                             onClick={isSearching ? handleResetSearch : handleLoadMore}
                             disabled={loadingMore || (!isSearching && !hasMore)}
-                            className={`px-8 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all shadow-sm hover:shadow-md
+                            className={`px-8 py-2.5 rounded-full text-xs font-bold transition-all shadow-sm hover:shadow-md
                                 ${loadingMore || (!isSearching && !hasMore)
                                     ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                                     : isSearching ? "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
                                         : "bg-erp-accent text-white hover:bg-erp-accent/90"}`}
                         >
-                            {loadingMore ? "Loading..." : isSearching ? "Reset All Filters" : "Load More Vendors"}
+                            {loadingMore ? "Loading..." : isSearching ? "Reset Filters" : "Load More"}
                         </button>
                         {!isSearching && (
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                                {allData.length} records loaded
+                            <span className="text-xs font-bold text-gray-400">
+                                {allData.length} records
                             </span>
                         )}
                     </div>
@@ -581,135 +592,151 @@ export default function VendorList() {
 
             {/* ── Purchase Order Modal ── */}
             {showOrderModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white w-full max-w-7xl h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+                <div className="fixed inset-0 z-[1001] flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4 animate-fadeIn transition-all duration-300">
+                    <div className="bg-white w-full max-w-7xl h-[88%] sm:h-[92%] rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden border border-white/20">
 
                         {/* Header */}
-                        <div className="flex items-center justify-between px-6 py-4 bg-blue-500 text-white flex-shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
-                                    <FiShoppingCart size={16} />
+                        <div className="flex items-center justify-between px-8 py-6 bg-erp-accent text-white flex-shrink-0 relative overflow-hidden">
+                            <div className="relative z-10 flex items-center gap-5">
+                                <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner">
+                                    <Icon icon="mdi:cart-plus" className="text-2xl" />
                                 </div>
                                 <div>
-                                    <h2 className="text-sm font-bold">Purchase Order</h2>
-                                    {selectedVendor && <p className="text-xs opacity-80 mt-0.5">Vendor: {selectedVendor.name}{selectedVendor.firm ? ` · ${selectedVendor.firm}` : ""}</p>}
+                                    <h2 className="text-xl font-bold">Order</h2>
+                                    {selectedVendor && (
+                                        <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mt-1 flex items-center gap-2">
+                                            <Icon icon="mdi:account-tie" /> Vendor: {selectedVendor.name} {selectedVendor.firm ? `• ${selectedVendor.firm}` : ""}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                             <button onClick={() => { setShowOrderModal(false); handleClearOrder(); }}
-                                className="p-2 rounded-full hover:bg-white/20 transition">
-                                <FiX size={16} />
+                                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all group relative z-10">
+                                <Icon icon="mdi:close" className="text-2xl group-hover:rotate-90 transition-transform" />
                             </button>
+                            {/* Decorative background shape */}
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32" />
                         </div>
 
                         {/* Body */}
-                        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 bg-gray-50">
-                            {orderRows.map((row, index) => (
-                                <div key={index} className="relative bg-white border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Product #{index + 1}</span>
-                                        {orderRows.length > 1 && (
-                                            <button onClick={() => handleRemoveRow(index)}
-                                                className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-500 transition">
-                                                <FiTrash2 size={14} />
-                                            </button>
-                                        )}
-                                    </div>
+                        <div className="flex-1 overflow-y-auto px-8 py-8 space-y-6 bg-gray-50/50 custom-scrollbar">
+                            <div className="space-y-6">
+                                {orderRows.map((row, index) => (
+                                    <div key={index} className="relative bg-white border border-gray-100 rounded-[2rem] p-6 shadow-xl shadow-gray-200/40 hover:shadow-gray-200/60 transition-all animate-slideUp">
+                                        <div className="flex items-center justify-between mb-6 border-b border-gray-50 pb-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-6 h-6 rounded-lg bg-erp-accent/5 flex items-center justify-center">
+                                                    <span className="text-[10px] font-black text-erp-accent">{index + 1}</span>
+                                                </div>
+                                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Product Specification</span>
+                                            </div>
+                                            {orderRows.length > 1 && (
+                                                <button onClick={() => handleRemoveRow(index)}
+                                                    className="w-8 h-8 rounded-full hover:bg-rose-50 text-rose-300 hover:text-rose-500 transition-all flex items-center justify-center">
+                                                    <Icon icon="mdi:trash-can-outline" className="text-lg" />
+                                                </button>
+                                            )}
+                                        </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
-                                        {[
-                                            { label: "Product Code", field: "productCode", type: "text", placeholder: "Code" },
-                                            { label: "Category", field: "category", type: "text", placeholder: "Category" },
-                                            { label: "Product Name", field: "productName", type: "text", placeholder: "Product name" },
-                                            { label: "Quantity", field: "quantity", type: "number", placeholder: "Qty", min: "1", step: "1" },
-                                            { label: "Price / Unit", field: "price", type: "number", placeholder: "Price", min: "0", step: "0.01" },
-                                        ].map(({ label, field, type, placeholder, min, step }) => (
-                                            <div key={field} className="flex flex-col">
-                                                <label className={labelCls}>{label}</label>
-                                                <input type={type} min={min} step={step} placeholder={placeholder}
-                                                    value={row[field]}
-                                                    onChange={e => handleChangeRow(index, field, field === "quantity" ? Math.floor(e.target.value) : e.target.value)}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 sm:gap-6">
+                                            {[
+                                                { label: "Product Code", field: "productCode", type: "text", placeholder: "e.g. PRD-001" },
+                                                { label: "Category", field: "category", type: "text", placeholder: "e.g. Frame" },
+                                                { label: "Product Name", field: "productName", type: "text", placeholder: "Full product description..." },
+                                                { label: "Quantity", field: "quantity", type: "number", placeholder: "Qty", min: "1", step: "1" },
+                                                { label: "Price / Unit", field: "price", type: "number", placeholder: "₹ 0.00", min: "0", step: "0.01" },
+                                            ].map(({ label, field, type, placeholder, min, step }) => (
+                                                <div key={field} className={`flex flex-col ${field === "productName" ? "sm:col-span-2 lg:col-span-1 2xl:col-span-1" : ""}`}>
+                                                    <label className={labelCls}>{label}</label>
+                                                    <input type={type} min={min} step={step} placeholder={placeholder}
+                                                        value={row[field]}
+                                                        onChange={e => handleChangeRow(index, field, field === "quantity" ? Math.floor(e.target.value) : e.target.value)}
+                                                        className={fieldCls}
+                                                    />
+                                                </div>
+                                            ))}
+                                            <div className="flex flex-col">
+                                                <label className={labelCls}>GST %</label>
+                                                <select value={row.gstPercent} onChange={e => handleChangeRow(index, "gstPercent", e.target.value)} className={fieldCls}>
+                                                    <option value="0">Select GST</option>
+                                                    {[5, 12, 18, 28].map(g => <option key={g} value={g}>{g}% Tax</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <label className={labelCls}>Expected Date</label>
+                                                <input type="date" min={todayDate} value={row.expectedDate}
+                                                    onChange={e => handleChangeRow(index, "expectedDate", e.target.value)}
                                                     className={fieldCls}
                                                 />
                                             </div>
-                                        ))}
-                                        <div className="flex flex-col">
-                                            <label className={labelCls}>GST %</label>
-                                            <select value={row.gstPercent} onChange={e => handleChangeRow(index, "gstPercent", e.target.value)} className={fieldCls}>
-                                                <option value="0">Select GST</option>
-                                                {[5, 12, 18, 28].map(g => <option key={g} value={g}>{g}%</option>)}
-                                            </select>
                                         </div>
-                                        <div className="flex flex-col">
-                                            <label className={labelCls}>Expected Date</label>
-                                            <input type="date" min={todayDate} value={row.expectedDate}
-                                                onChange={e => handleChangeRow(index, "expectedDate", e.target.value)}
-                                                className={fieldCls}
-                                            />
-                                        </div>
-                                    </div>
 
-                                    <div className="mt-4 flex justify-end">
-                                        <div className="text-right">
-                                            <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-0.5">Row Total</p>
-                                            <p className="text-base font-bold text-blue-500">
-                                                ₹ {((Number(row.quantity) || 0) * (Number(row.price) || 0) * (1 + (Number(row.gstPercent) || 0) / 100)).toFixed(2)}
-                                            </p>
+                                        <div className="mt-6 flex justify-end pt-4 border-t border-gray-50/50">
+                                            <div className="flex items-center gap-3 bg-erp-accent/[0.03] px-6 py-2 rounded-full border border-erp-accent/5">
+                                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Row Valuation</span>
+                                                <span className="text-sm font-black text-erp-accent">
+                                                    ₹ {((Number(row.quantity) || 0) * (Number(row.price) || 0) * (1 + (Number(row.gstPercent) || 0) / 100)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
 
                             <button onClick={handleAddRow}
-                                className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-blue-200 rounded-2xl text-blue-400 hover:border-blue-400 hover:bg-blue-50 text-xs font-semibold transition">
-                                <FiPlusCircle size={14} /> Add Product
+                                className="w-full flex items-center justify-center gap-3 py-6 border-2 border-dashed border-erp-accent/10 bg-erp-accent/[0.02] hover:bg-erp-accent/5 hover:border-erp-accent/30 rounded-[2rem] transition-all group">
+                                <Icon icon="mdi:plus-circle" className="text-2xl text-erp-accent/40 group-hover:text-erp-accent group-hover:scale-110 transition-all" />
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 group-hover:text-erp-accent">Add Product Line Item</span>
                             </button>
                         </div>
 
                         {/* Footer */}
-                        <div className="px-6 py-5 border-t border-gray-100 bg-white flex-shrink-0">
-                            <div className="flex flex-col md:flex-row justify-between items-start gap-5 mb-5">
+                        <div className="px-10 py-8 border-t border-gray-100 bg-white flex-shrink-0 shadow-[0_-10px_40px_rgba(0,0,0,0.02)]">
+                            <div className="flex flex-col lg:flex-row justify-between items-start gap-8 mb-8">
                                 {/* Notes */}
-                                <div className="w-full md:w-1/2">
-                                    <label className={labelCls}>Notes (Optional)</label>
-                                    <textarea rows={3} value={notes} onChange={e => setNotes(e.target.value)}
-                                        placeholder="Add any special instructions for vendor..."
-                                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100 hover:border-gray-300 transition resize-none text-gray-700 placeholder:text-gray-300"
-                                    />
+                                <div className="w-full lg:w-1/2 space-y-3">
+                                    <label className={labelCls}>Administrative Notes (Optional)</label>
+                                    <div className="relative group">
+                                        <Icon icon="mdi:note-text-outline" className="absolute left-5 top-5 text-gray-300 group-focus-within:text-erp-accent transition-colors" />
+                                        <textarea rows={3} value={notes} onChange={e => setNotes(e.target.value)}
+                                            placeholder="Specify shipping terms, quality benchmarks or special vendor instructions..."
+                                            className="w-full bg-gray-50/50 border border-gray-100 rounded-[1.5rem] pl-12 pr-5 py-4 text-xs font-bold text-gray-700 outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 transition-all placeholder:text-gray-300 resize-none"
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* Totals */}
-                                <div className="w-full md:w-auto bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-right space-y-1.5">
-                                    <div className="flex justify-between gap-16 text-sm text-gray-500">
-                                        <span>Subtotal</span>
-                                        <span className="font-semibold text-gray-800">₹ {orderSummary.subtotal.toFixed(2)}</span>
+                                <div className="w-full lg:w-80 bg-gray-50/50 border border-gray-100 rounded-[2rem] p-6 space-y-3 shadow-inner">
+                                    <div className="flex justify-between items-center px-2">
+                                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Net Amount</span>
+                                        <span className="text-xs font-bold text-gray-700">₹ {orderSummary.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                     </div>
-                                    <div className="flex justify-between gap-16 text-sm text-gray-500">
-                                        <span>Total GST</span>
-                                        <span className="font-semibold text-gray-800">₹ {orderSummary.gstTotal.toFixed(2)}</span>
+                                    <div className="flex justify-between items-center px-2">
+                                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">GST Surcharge</span>
+                                        <span className="text-xs font-bold text-gray-700">₹ {orderSummary.gstTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                     </div>
-                                    <div className="flex justify-between gap-16 pt-2 border-t border-gray-200">
-                                        <span className="text-sm font-bold text-gray-700">Grand Total</span>
-                                        <span className="text-base font-bold text-blue-500">₹ {orderSummary.grandTotal.toFixed(2)}</span>
+                                    <div className="h-px bg-gray-100 mx-2 my-1" />
+                                    <div className="flex justify-between items-center px-2 pt-1">
+                                        <span className="text-[10px] font-black text-erp-accent uppercase tracking-[0.2em]">Grand Total</span>
+                                        <span className="text-xl font-black text-erp-accent">₹ {orderSummary.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Action buttons */}
-                            <div className="flex items-center justify-between gap-3 flex-wrap">
-                                <div className="flex gap-2">
-                                    <button onClick={handleClearOrder}
-                                        className="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition">
-                                        Clear All
-                                    </button>
-                                </div>
-                                <div className="flex gap-2">
+                            <div className="flex items-center justify-between gap-4">
+                                <button onClick={handleClearOrder}
+                                    className="flex items-center gap-2 px-8 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 bg-white border border-gray-100 rounded-full hover:bg-gray-50 hover:text-gray-600 transition-all">
+                                    <Icon icon="mdi:refresh" className="text-lg" /> Reset Order
+                                </button>
+                                <div className="flex gap-4">
                                     <button onClick={() => { setShowOrderModal(false); handleClearOrder(); }}
-                                        className="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition">
+                                        className="px-8 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 hover:text-gray-600 transition-all">
                                         Cancel
                                     </button>
                                     <button onClick={handleSubmitOrder}
-                                        className="flex items-center gap-2 px-5 py-2 text-xs font-semibold text-white bg-blue-500 hover:bg-blue-600 rounded-xl transition shadow-sm">
-                                        <FiShoppingCart size={12} /> Submit Order
+                                        className="flex items-center gap-3 px-12 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] text-white bg-erp-accent hover:bg-erp-accent/90 active:scale-95 rounded-full transition-all shadow-xl shadow-erp-accent/30">
+                                        <Icon icon="mdi:cart-check" className="text-xl" /> Create Order
                                     </button>
                                 </div>
                             </div>
@@ -757,13 +784,13 @@ function EditVendorModal({ vendor, onClose, onSuccess }) {
         if (!form.name.trim()) return setError("Vendor name is required.");
         try {
             setLoading(true);
-            const response = await api.put(`/vendor/${vendor.vendorNumber}`, form);
-            if (response.data.success) {
-                toast.success(response.data.message || "Vendor updated successfully");
+            const response = await vendorService.updateVendor(vendor._id || vendor.vendorNumber, form);
+            if (response.success) {
+                toast.success(response.message || "Vendor updated successfully");
                 onSuccess?.();
                 onClose();
             } else {
-                toast.error(response.data.message);
+                toast.error(response.message);
             }
         } catch (err) {
             setError(err?.response?.data?.message || "Failed to update vendor.");
@@ -773,104 +800,106 @@ function EditVendorModal({ vendor, onClose, onSuccess }) {
     };
 
     return (
-        <Modal onClose={onClose} maxWidth="max-w-xl">
+        <Modal onClose={onClose} maxWidth="max-w-2xl">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-                <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center">
-                        <FiBriefcase size={15} className="text-blue-500" />
+            <div className="flex items-center justify-between px-8 py-6 border-b border-gray-50 bg-gray-50/30 rounded-t-2xl">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-erp-accent/10 flex items-center justify-center text-erp-accent shadow-inner">
+                        <Icon icon="mdi:account-edit" className="text-2xl" />
                     </div>
                     <div>
-                        <h2 className="text-sm font-bold text-gray-800">Edit Vendor</h2>
-                        <p className="text-xs text-gray-400">Update vendor information</p>
+                        <h2 className="text-lg font-black uppercase tracking-widest text-gray-800">Edit Vendor</h2>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Update partner credentials</p>
                     </div>
                 </div>
-                <button onClick={onClose} className="p-2 rounded-full text-gray-400 hover:bg-gray-100 transition">
-                    <FiX size={15} />
+                <button onClick={onClose} className="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 transition-all group">
+                    <Icon icon="mdi:close" className="text-2xl group-hover:rotate-90 transition-transform" />
                 </button>
             </div>
 
             {/* Fields */}
-            <div className="px-6 py-5">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className={labelCls}>Name <span className="text-red-400">*</span></label>
-                        <div className="relative">
-                            <FiUser size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                            <input type="text" placeholder="Vendor name" value={form.name} onChange={update("name")} className={iconInputCls} />
+            <div className="px-8 py-8 space-y-6">
+                {error && (
+                    <div className="bg-rose-50 border border-rose-100 text-rose-500 text-[10px] font-black uppercase tracking-widest px-4 py-3 rounded-xl animate-shake">
+                        {error}
+                    </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-1.5">
+                        <label className={labelCls}>Legal Name <span className="text-rose-400">*</span></label>
+                        <div className="relative group">
+                            <Icon icon="mdi:account-outline" className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-erp-accent transition-colors" />
+                            <input type="text" placeholder="John Doe" value={form.name} onChange={update("name")} className={iconInputCls} />
                         </div>
                     </div>
-                    <div>
-                        <label className={labelCls}>Firm</label>
-                        <div className="relative">
-                            <FiBriefcase size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                            <input type="text" placeholder="Firm / Company name" value={form.firm} onChange={update("firm")} className={iconInputCls} />
+                    <div className="space-y-1.5">
+                        <label className={labelCls}>Firm / Company</label>
+                        <div className="relative group">
+                            <Icon icon="mdi:office-building-outline" className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-erp-accent transition-colors" />
+                            <input type="text" placeholder="Acme Corp" value={form.firm} onChange={update("firm")} className={iconInputCls} />
                         </div>
                     </div>
-                    <div>
-                        <label className={labelCls}>Mobile</label>
-                        <div className="relative">
-                            <FiPhone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                            <input type="tel" placeholder="10-digit mobile" value={form.mobile} onChange={update("mobile")} className={iconInputCls} />
+                    <div className="space-y-1.5">
+                        <label className={labelCls}>Contact Mobile</label>
+                        <div className="relative group">
+                            <Icon icon="mdi:phone-outline" className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-erp-accent transition-colors" />
+                            <input type="tel" placeholder="9876543210" value={form.mobile} onChange={update("mobile")} className={iconInputCls} />
                         </div>
                     </div>
-                    <div>
-                        <label className={labelCls}>Email</label>
-                        <div className="relative">
-                            <FiMail size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                            <input type="email" placeholder="Email address" value={form.email} onChange={update("email")} className={iconInputCls} />
+                    <div className="space-y-1.5">
+                        <label className={labelCls}>Email Address</label>
+                        <div className="relative group">
+                            <Icon icon="mdi:email-outline" className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-erp-accent transition-colors" />
+                            <input type="email" placeholder="vendor@example.com" value={form.email} onChange={update("email")} className={iconInputCls} />
                         </div>
                     </div>
-                    <div>
-                        <label className={labelCls}>GST Number</label>
-                        <div className="relative">
-                            <FiFileText size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                            <input type="text" placeholder="GST number" value={form.gstNumber} onChange={update("gstNumber")} className={iconInputCls} />
+                    <div className="space-y-1.5">
+                        <label className={labelCls}>GST Registration</label>
+                        <div className="relative group">
+                            <Icon icon="mdi:file-certificate-outline" className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-erp-accent transition-colors" />
+                            <input type="text" placeholder="GSTIN-0000" value={form.gstNumber} onChange={update("gstNumber")} className={iconInputCls} />
                         </div>
                     </div>
-                    <div>
+                    <div className="space-y-1.5">
                         <label className={labelCls}>Payment Terms</label>
-                        <div className="relative">
-                            <FiCreditCard size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                            <input type="text" placeholder="e.g. Net 30, Advance" value={form.paymentTerms} onChange={update("paymentTerms")} className={iconInputCls} />
+                        <div className="relative group">
+                            <Icon icon="mdi:credit-card-outline" className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-erp-accent transition-colors" />
+                            <input type="text" placeholder="Net 30 / Advance" value={form.paymentTerms} onChange={update("paymentTerms")} className={iconInputCls} />
                         </div>
                     </div>
-                    <div className="md:col-span-2">
-                        <label className={labelCls}>Address</label>
-                        <div className="relative">
-                            <FiMapPin size={13} className="absolute left-3 top-3 text-gray-400" />
-                            <textarea rows={2} placeholder="Full address" value={form.address} onChange={update("address")}
-                                className="w-full pl-9 pr-3 py-2.5 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 hover:border-orange-300 transition placeholder-gray-400 resize-none"
+                    <div className="md:col-span-2 space-y-1.5">
+                        <label className={labelCls}>Business Address</label>
+                        <div className="relative group">
+                            <Icon icon="mdi:map-marker-outline" className="absolute left-5 top-4 text-gray-300 group-focus-within:text-erp-accent transition-colors" />
+                            <textarea rows={2} placeholder="Full operational address..." value={form.address} onChange={update("address")}
+                                className="w-full bg-gray-50/50 border border-gray-100 rounded-[1.5rem] pl-12 pr-5 py-4 text-xs font-bold text-gray-700 outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 transition-all placeholder:text-gray-300 resize-none"
                             />
                         </div>
                     </div>
-                    <div className="md:col-span-2">
-                        <label className={labelCls}>Notes</label>
-                        <div className="relative">
-                            <FiMessageSquare size={13} className="absolute left-3 top-3 text-gray-400" />
+                    <div className="md:col-span-2 space-y-1.5">
+                        <label className={labelCls}>Internal Observations</label>
+                        <div className="relative group">
+                            <Icon icon="mdi:comment-quote-outline" className="absolute left-5 top-4 text-gray-300 group-focus-within:text-erp-accent transition-colors" />
                             <textarea rows={2} placeholder="Any additional notes..." value={form.notes} onChange={update("notes")}
-                                className="w-full pl-9 pr-3 py-2.5 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 hover:border-orange-300 transition placeholder-gray-400 resize-none"
+                                className="w-full bg-gray-50/50 border border-gray-100 rounded-[1.5rem] pl-12 pr-5 py-4 text-xs font-bold text-gray-700 outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 transition-all placeholder:text-gray-300 resize-none"
                             />
                         </div>
                     </div>
                 </div>
-
-                {error && (
-                    <p className="mt-4 text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
-                )}
             </div>
 
-            <ModalFooter>
-                <button onClick={onClose}
-                    className="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition">
+            {/* Footer */}
+            <div className="px-8 py-6 border-t border-gray-50 bg-gray-50/30 flex justify-end gap-4 rounded-b-2xl">
+                <button onClick={onClose} className="px-8 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-all">
                     Cancel
                 </button>
                 <button onClick={handleSubmit} disabled={loading}
-                    className="flex items-center gap-2 px-5 py-2 text-xs font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-xl transition disabled:opacity-60 disabled:cursor-not-allowed">
-                    {loading && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                    {loading ? "Saving..." : "Save Changes"}
+                    className="flex items-center gap-3 px-10 py-3 text-[10px] font-black uppercase tracking-widest text-white bg-erp-accent hover:bg-erp-accent/90 active:scale-95 disabled:opacity-50 rounded-full transition-all shadow-xl shadow-erp-accent/20">
+                    {loading ? <Icon icon="mdi:loading" className="animate-spin text-lg" /> : <Icon icon="mdi:content-save-check" className="text-lg" />}
+                    {loading ? "Saving Changes..." : "Update Changes"}
                 </button>
-            </ModalFooter>
+            </div>
         </Modal>
     );
 }

@@ -312,13 +312,13 @@ const EmployeeList = () => {
                         <table className="w-full border-collapse min-w-[1000px]">
                             <thead>
                                 <tr className="bg-erp-accent text-white">
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Employee Code</th>
-                                    <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Name</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Department</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Type</th>
-                                    <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Phone</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Status</th>
-                                    <th className="py-4 px-4 font-semibold text-xs text-center uppercase tracking-wider">Action</th>
+                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Employee Code</th>
+                                    <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Name</th>
+                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Department</th>
+                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Type</th>
+                                    <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Phone</th>
+                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Status</th>
+                                    <th className="py-4 px-4 font-semibold text-xs text-center uppercase  ">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="text-gray-600">
@@ -336,7 +336,7 @@ const EmployeeList = () => {
                                             <td className="px-6 py-2 text-center border-r border-gray-50">
                                                 <div className="flex flex-col">
                                                     <span className="text-sm font-black text-gray-800 tracking-tight">{emp?.employeeName || '---'}</span>
-                                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{emp?.username || '---'}</span>
+                                                    <span className="text-[10px] text-gray-400 font-bold uppercase  ">{emp?.username || '---'}</span>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-2 text-center border-r border-gray-50">
@@ -515,7 +515,7 @@ export default EmployeeList;
 const DetailItem = ({ label, value, status, onClick }) => (
     <div className={`space-y-1 ${onClick ? 'cursor-pointer group/item flex items-center gap-2' : ''}`} onClick={onClick}>
         <div className="flex flex-col flex-1">
-            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">{label}</p>
+            <p className="text-[10px] uppercase   text-gray-400 font-bold">{label}</p>
             <p className={`text-sm font-semibold ${status ? (value === 'Active' ? 'text-green-600' : 'text-red-500') : 'text-gray-700'} ${onClick ? 'group-hover/item:text-erp-accent/80 transition-colors' : ''}`}>
                 {value || '---'}
             </p>

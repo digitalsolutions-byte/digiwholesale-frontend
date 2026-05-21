@@ -64,7 +64,7 @@ const SectionTitle = ({ children }) => (
 
 const FieldInput = ({ label, children }) => (
     <div>
-        <label className="text-[10px] font-semibold text-gray-700 uppercase tracking-wider block mb-1">{label}</label>
+        <label className="text-[10px] font-semibold text-gray-700 uppercase   block mb-1">{label}</label>
         {children}
     </div>
 );
@@ -140,7 +140,7 @@ function ProductKeywordInput({ value, onChange }) {
 
     return (
         <div ref={containerRef} className="relative flex flex-col flex-1 sm:w-48">
-            <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Keyword</label>
+            <label className="text-[10px] font-semibold text-gray-400 uppercase   mb-1">Keyword</label>
             <div className="relative">
                 <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" size={12} />
                 {searching && (
@@ -301,7 +301,7 @@ export default function Inventory() {
                     <div className="flex flex-col sm:flex-row items-end gap-3 w-full lg:w-auto">
                         <div className="flex gap-3 w-full sm:w-auto">
                             <div className="flex flex-col flex-1 sm:w-40">
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">From Date</label>
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase   mb-1">From Date</label>
                                 <div className="relative">
                                     <FiCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={12} />
                                     <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
@@ -309,7 +309,7 @@ export default function Inventory() {
                                 </div>
                             </div>
                             <div className="flex flex-col flex-1 sm:w-40">
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">To Date</label>
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase   mb-1">To Date</label>
                                 <div className="relative">
                                     <FiCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={12} />
                                     <input type="date" value={toDate} onChange={e => setToDate(e.target.value)}
@@ -859,7 +859,7 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                         {table.getHeaderGroups().map(hg => (
                             <tr key={hg.id} className="bg-gray-200 border-b border-gray-100">
                                 {hg.headers.map(h => (
-                                    <th key={h.id} className="px-4 py-3 text-center text-xs font-semibold text-gray-800 whitespace-nowrap uppercase tracking-wider">
+                                    <th key={h.id} className="px-4 py-3 text-center text-xs font-semibold text-gray-800 whitespace-nowrap uppercase  ">
                                         {flexRender(h.column.columnDef.header, h.getContext())}
                                     </th>
                                 ))}
@@ -1238,7 +1238,7 @@ const InventoryHistoryModal = ({ product, onClose }) => {
                                 {table.getHeaderGroups().map(hg => (
                                     <tr key={hg.id} className="border-b border-gray-100">
                                         {hg.headers.map(h => (
-                                            <th key={h.id} className="px-4 py-3 text-center text-xs font-semibold text-white bg-erp-accent whitespace-nowrap uppercase tracking-wider">
+                                            <th key={h.id} className="px-4 py-3 text-center text-xs font-semibold text-white bg-erp-accent whitespace-nowrap uppercase  ">
                                                 {h.column.columnDef.header}
                                             </th>
                                         ))}
@@ -1735,7 +1735,7 @@ ${labelsHtml}
 
                 {/* ── Print type toggle ── */}
                 <div className="flex items-center gap-3">
-                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Print type</span>
+                    <span className="text-xs font-semibold text-gray-500 uppercase  ">Print type</span>
                     <div className="flex items-center bg-gray-100 rounded-xl p-1 gap-1">
                         <button
                             type="button"
@@ -1799,7 +1799,7 @@ ${labelsHtml}
 
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-end">
                                     <div className="col-span-2 sm:col-span-1">
-                                        <label className="text-[10px] font-semibold text-gray-700 uppercase tracking-wider block mb-1">
+                                        <label className="text-[10px] font-semibold text-gray-700 uppercase   block mb-1">
                                             {printType === "barcode" ? "Barcode *" : "QR Value *"}
                                         </label>
                                         <div className="relative">
@@ -1819,7 +1819,7 @@ ${labelsHtml}
                                     </div>
 
                                     <div>
-                                        <label className="text-[10px] font-semibold text-gray-700 uppercase tracking-wider block mb-1">Product Code</label>
+                                        <label className="text-[10px] font-semibold text-gray-700 uppercase   block mb-1">Product Code</label>
                                         <input type="text" value={row.productCode}
                                             onChange={e => updateRow(row.id, "productCode", e.target.value)}
                                             placeholder="PRD001" className={inputCls} />
@@ -1827,7 +1827,7 @@ ${labelsHtml}
 
                                     <div>
                                         <div className="flex items-center justify-between mb-1">
-                                            <label className="text-[10px] font-semibold text-gray-700 uppercase tracking-wider">MRP (₹)</label>
+                                            <label className="text-[10px] font-semibold text-gray-700 uppercase  ">MRP (₹)</label>
                                             <label className="flex items-center gap-1 cursor-pointer">
                                                 <input type="checkbox" checked={row.showMrp}
                                                     onChange={e => updateRow(row.id, "showMrp", e.target.checked)}
@@ -1842,7 +1842,7 @@ ${labelsHtml}
                                     </div>
 
                                     <div>
-                                        <label className="text-[10px] font-semibold text-gray-700 uppercase tracking-wider block mb-1">
+                                        <label className="text-[10px] font-semibold text-gray-700 uppercase   block mb-1">
                                             Quantity {qtyBelowOne && <span className="ml-1 text-amber-400 normal-case font-normal">(prints 1)</span>}
                                         </label>
                                         <QtyStepper value={row.qty} onChange={v => updateRow(row.id, "qty", v)} />
@@ -1851,7 +1851,7 @@ ${labelsHtml}
 
                                 {row.barcodeValue.trim() && (
                                     <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-3 flex-wrap">
-                                        <span className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold flex-shrink-0">Preview</span>
+                                        <span className="text-[10px] text-gray-400 uppercase   font-semibold flex-shrink-0">Preview</span>
                                         <PreviewLabel
                                             value={row.barcodeValue.trim()}
                                             productCode={row.productCode.trim()}
@@ -2121,7 +2121,7 @@ function BulkUploadModal({ onClose }) {
                             <table className="w-full text-xs border-collapse">
                                 <thead>
                                     <tr>{["#", "Code", "Name", "Category", "Brand", "Price", "MRP", "Qty", "GST%", "Color", "Type"].map(h => (
-                                        <th key={h} className="px-3 py-2.5 bg-gray-100 text-gray-600 font-semibold text-center whitespace-nowrap uppercase tracking-wider border-b border-gray-200">{h}</th>
+                                        <th key={h} className="px-3 py-2.5 bg-gray-100 text-gray-600 font-semibold text-center whitespace-nowrap uppercase   border-b border-gray-200">{h}</th>
                                     ))}</tr>
                                 </thead>
                                 <tbody>
@@ -2162,7 +2162,7 @@ function BulkUploadModal({ onClose }) {
                                 </div>
                                 {result.generatedCodes?.length > 0 && (
                                     <div className="w-full max-w-lg bg-blue-50 border border-blue-100 rounded-xl px-5 py-4">
-                                        <p className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-2.5">Auto-generated Codes</p>
+                                        <p className="text-xs font-bold text-blue-700 uppercase   mb-2.5">Auto-generated Codes</p>
                                         <div className="flex flex-wrap gap-2">
                                             {result.generatedCodes.map(({ index, productCode }) => (
                                                 <span key={productCode} className="text-xs font-mono bg-white border border-blue-200 text-blue-700 px-2.5 py-1 rounded-lg">
@@ -2183,7 +2183,7 @@ function BulkUploadModal({ onClose }) {
                                     <p className="text-sm text-gray-500 mt-1">{result.message}</p>
                                     {result.existingCodes?.length > 0 && (
                                         <div className="mt-3 bg-erp-accent/5 border border-erp-accent/10 rounded-xl px-4 py-3 text-left">
-                                            <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1.5">Already exist in inventory</p>
+                                            <p className="text-xs font-bold text-amber-700 uppercase   mb-1.5">Already exist in inventory</p>
                                             <div className="flex flex-wrap gap-1.5">
                                                 {result.existingCodes.map(code => <span key={code} className="text-xs font-mono bg-amber-100 text-amber-800 px-2 py-0.5 rounded-lg">{code}</span>)}
                                             </div>

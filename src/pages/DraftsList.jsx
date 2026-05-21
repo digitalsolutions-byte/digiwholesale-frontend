@@ -170,7 +170,7 @@ const DraftsList = () => {
 
                                 <div className="mt-auto flex items-center justify-between pt-6 border-t border-gray-50">
                                     <div className="flex flex-col">
-                                        <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">Reference</span>
+                                        <span className="text-gray-400 text-[10px] font-bold uppercase  ">Reference</span>
                                         <span className="text-gray-600 font-mono text-xs">{draft._id.slice(-8).toUpperCase()}</span>
                                     </div>
                                     <div className="flex gap-2">

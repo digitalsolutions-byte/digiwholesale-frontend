@@ -17,14 +17,14 @@ export const FileUploadField = ({ label, name, placeholder, fileRef: externalFil
         <div className="flex flex-col gap-4 p-6 bg-gray-50/50 rounded-2xl border border-dashed border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300">
             {(!hideInput || label) && (
                 <div className="flex flex-col gap-2">
-                    <span className="text-gray-400 text-[10px] uppercase font-bold tracking-wider ml-1">{label}</span>
+                    <span className="text-gray-400 text-[10px] uppercase font-bold  ml-1">{label}</span>
                     {!hideInput && wrapInput(Input, { label: '', name, placeholder, className: "bg-white" })}
                 </div>
             )}
 
             <div className="flex flex-col gap-4">
                 <input type="file" accept="image/*,application/pdf" hidden ref={ref} onChange={onFileChange} />
-                
+
                 {enableCamera ? (
                     <>
                         <input type="file" accept="image/*" capture="environment" hidden ref={cameraRef} onChange={onFileChange} />
@@ -96,7 +96,7 @@ export const FileUploadField = ({ label, name, placeholder, fileRef: externalFil
 
 export const DetailItem = ({ label, value }) => (
     <div className="flex flex-col gap-1">
-        <span className="text-gray-400 text-[10px] uppercase font-bold tracking-wider">{label}</span>
+        <span className="text-gray-400 text-[10px] uppercase font-bold ">{label}</span>
         <span className="text-gray-700 font-semibold">{value || '---'}</span>
     </div>
 );
@@ -117,7 +117,7 @@ export const SummaryCard = ({ title, icon, color = "var(--color-erp-accent)", ch
 
 export const DocPreview = ({ label, src }) => (
     <div className="flex flex-col gap-2">
-        <span className="text-gray-400 text-[10px] uppercase font-bold tracking-wider">{label}</span>
+        <span className="text-gray-400 text-[10px] uppercase font-bold ">{label}</span>
         {src ? (
             <div className="relative group overflow-hidden rounded-2xl border border-gray-100 aspect-video bg-gray-50 flex items-center justify-center">
                 {isPDF(src) ? (

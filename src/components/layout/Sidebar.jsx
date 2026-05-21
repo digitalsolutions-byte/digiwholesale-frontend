@@ -31,7 +31,7 @@ import logo from '../../assets/logo.png';
 const navItems = [
     { label: 'Dashboard', icon: 'lucide:layout-dashboard', path: PATHS.ROOT },
     {
-        label: 'Registration',
+        label: 'Add New',
         icon: 'lucide:square-pen',
         subItems: [
             { label: 'Register Customer', path: PATHS.CUSTOMER.REGISTER },
@@ -51,19 +51,19 @@ const navItems = [
         subItems: [
             { label: 'Customer List', path: PATHS.CUSTOMER.LIST },
             { label: 'Ship To', path: PATHS.CUSTOMER.SHIP_TO },
-            { label: 'Pending Approvals', path: PATHS.APPROVALS },
-            { label: 'Correction Needed', path: PATHS.CORRECTIONS }
+            { label: 'Approvals', path: PATHS.APPROVALS },
+            { label: 'Errors', path: PATHS.CORRECTIONS }
         ]
     },
     {
-        label: 'Customer Care',
+        label: 'Customer Orders',
         icon: 'lucide:headphones',
         subItems: [
             { label: 'New Order', path: PATHS.CUSTOMER_CARE.NEW_ORDER, isBold: true },
             { label: 'All Orders', path: PATHS.CUSTOMER_CARE.ALL_ORDERS },
             { label: 'Pending Orders', path: PATHS.CUSTOMER_CARE.PENDING_ORDERS },
             { label: 'Order Status', path: PATHS.CUSTOMER_CARE.ORDER_STATUS },
-            { label: 'Service/Goods Order', path: PATHS.CUSTOMER_CARE.SERVICE_GOODS },
+            { label: 'New Service', path: PATHS.CUSTOMER_CARE.SERVICE_GOODS },
             { label: 'View Orders', path: PATHS.CUSTOMER_CARE.VIEW_ORDERS },
             { label: 'Upgrade Orders', path: PATHS.CUSTOMER_CARE.UPGRADE_ORDERS },
             { label: 'Update Customers', path: PATHS.CUSTOMER_CARE.UPDATE_CUSTOMERS },
@@ -81,7 +81,7 @@ const navItems = [
     },
     {
         label: 'Repair',
-        icon: 'lucide:tool',
+        icon: 'lucide:tool-case',
         subItems: [
             { label: 'Add Repair', path: PATHS.REPAIR.ADD },
             { label: 'Repair List', path: PATHS.REPAIR.LIST },
@@ -96,13 +96,13 @@ const navItems = [
             { label: 'Vendor Order', path: PATHS.VENDOR.ORDER },
         ]
     },
-    { label: 'Process 1', icon: 'lucide:droplets', path: PATHS.OPERATIONS.TINT },
-    { label: 'Process 2', icon: 'lucide:shield', path: PATHS.OPERATIONS.HARD_COAT },
-    { label: 'Process 3', icon: 'lucide:layers-3', path: PATHS.OPERATIONS.ARC },
-    { label: 'QC', icon: 'lucide:badge-check', path: PATHS.OPERATIONS.QC },
+    { label: 'Work 1', icon: 'lucide:droplets', path: PATHS.OPERATIONS.TINT },
+    { label: 'Work 2', icon: 'lucide:shield', path: PATHS.OPERATIONS.HARD_COAT },
+    { label: 'Work 3', icon: 'lucide:layers-3', path: PATHS.OPERATIONS.ARC },
+    { label: 'Quality', icon: 'lucide:badge-check', path: PATHS.OPERATIONS.QC },
     { label: 'Fitting', icon: 'lucide:ruler', path: PATHS.OPERATIONS.FITTING },
-    { label: 'Dispatch', icon: 'lucide:truck', path: PATHS.OPERATIONS.DISPATCH },
-    { label: 'Inventory', icon: 'lucide:package-search', path: PATHS.INVENTORY },
+    { label: 'Shipping', icon: 'lucide:truck', path: PATHS.OPERATIONS.DISPATCH },
+    { label: 'Stock', icon: 'lucide:package-search', path: PATHS.INVENTORY },
 ];
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {

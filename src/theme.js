@@ -45,17 +45,17 @@ const theme = createTheme({
     },
   },
   typography: {
-    fontFamily: '"Montserrat", "Inter", "system-ui", "sans-serif"',
-    h1: { fontWeight: 800, color: '#2C3E50' },
-    h2: { fontWeight: 700, color: '#2C3E50' },
-    h3: { fontWeight: 700 },
-    h4: { fontWeight: 600 },
-    h5: { fontWeight: 600 },
-    h6: { fontWeight: 600 },
+    fontFamily: '"system-ui", "-apple-system", "sans-serif"',
+    h1: { fontWeight: 700, color: '#2C3E50' },
+    h2: { fontWeight: 600, color: '#2C3E50' },
+    h3: { fontWeight: 600 },
+    h4: { fontWeight: 500 },
+    h5: { fontWeight: 500 },
+    h6: { fontWeight: 500 },
     button: {
       textTransform: 'none',
-      fontWeight: 700,
-      letterSpacing: '0.02em',
+      fontWeight: 500,
+      letterSpacing: '0',
     },
     body1: {
       color: '#34495E',
@@ -128,7 +128,7 @@ const theme = createTheme({
     MuiTableCell: {
       styleOverrides: {
         head: {
-          fontWeight: 700,
+          fontWeight: 600,
           backgroundColor: '#F8FBFE',
           color: '#2980B9',
         },

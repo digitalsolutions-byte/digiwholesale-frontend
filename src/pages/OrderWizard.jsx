@@ -800,7 +800,7 @@ const OrderWizard = () => {
                 <div className="flex-1 bg-gray-50/50 border border-gray-200/50 rounded-2xl overflow-hidden shadow-sm">
                     <div className="grid grid-cols-6 bg-gray-100/80 border-b border-gray-200">
                         {['SIDE', 'SPH', 'CYLD', 'AXIS', 'ADD', 'DIAMETER'].map(h => (
-                            <div key={h} className="py-2.5 text-[10px] font-black uppercase text-gray-400 tracking-wider text-center border-r border-gray-200 last:border-r-0 ">{h}</div>
+                            <div key={h} className="py-2.5 text-[10px] font-black uppercase text-gray-400   text-center border-r border-gray-200 last:border-r-0 ">{h}</div>
                         ))}
                     </div>
                     {['R', 'L'].map((side, sIdx) => {
@@ -878,7 +878,7 @@ const OrderWizard = () => {
                     <div className="w-full lg:w-72 bg-gray-50/50 border border-gray-200/50 rounded-2xl overflow-hidden shadow-sm animate-in slide-in-from-right-4 duration-300">
                         <div className="grid grid-cols-3 bg-gray-100/80 border-b border-gray-200">
                             {['SIDE', 'PRISM', 'BASE SEL.'].map(h => (
-                                <div key={h} className="py-2.5 text-[10px] font-black uppercase text-gray-400 tracking-wider text-center border-r border-gray-200 last:border-r-0 ">{h}</div>
+                                <div key={h} className="py-2.5 text-[10px] font-black uppercase text-gray-400   text-center border-r border-gray-200 last:border-r-0 ">{h}</div>
                             ))}
                         </div>
                         {['R', 'L'].map((side) => {
@@ -1022,7 +1022,7 @@ const OrderWizard = () => {
                                 <Icon icon="mdi:truck-delivery" className="text-erp-accent" />
                                 Identify Suppliers & Base Type
                             </h5>
-                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider italic">Demo Tool: Check which supplier and base curve will be used for this selection.</p>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase   italic">Demo Tool: Check which supplier and base curve will be used for this selection.</p>
                         </div>
                         <button
                             type="button"
@@ -1048,16 +1048,16 @@ const OrderWizard = () => {
                                                         {item.side}
                                                     </div>
                                                     <div>
-                                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Blank Code</p>
+                                                        <p className="text-[10px] text-gray-400 font-bold uppercase  ">Blank Code</p>
                                                         <p className="text-xs font-black text-gray-800">{item.blankCode}</p>
                                                     </div>
                                                 </div>
                                                 <div className="text-center">
-                                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Base Curve</p>
+                                                    <p className="text-[10px] text-gray-400 font-bold uppercase  ">Base Curve</p>
                                                     <p className="text-xs font-black text-erp-accent/80 ">BC {item.baseCurve}</p>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Supplier</p>
+                                                    <p className="text-[10px] text-gray-400 font-bold uppercase  ">Supplier</p>
                                                     <p className="text-xs font-black text-gray-900 flex items-center gap-1 justify-end">
                                                         <Icon icon="mdi:check-decagram" className="text-green-500 text-[10px]" />
                                                         {item.supplier}
@@ -1118,7 +1118,7 @@ const OrderWizard = () => {
                 <div className="bg-gray-50/50 border border-gray-200/50 rounded-2xl overflow-hidden shadow-sm max-w-4xl">
                     <div className="grid grid-cols-4 bg-gray-100/80 border-b border-gray-200">
                         {['SIDE', 'PD', 'CORRIDOR', 'FITTING HEIGHT'].map(h => (
-                            <div key={h} className="py-2.5 text-[10px] font-black uppercase text-gray-400 tracking-wider text-center border-r border-gray-200 last:border-r-0 ">{h}</div>
+                            <div key={h} className="py-2.5 text-[10px] font-black uppercase text-gray-400   text-center border-r border-gray-200 last:border-r-0 ">{h}</div>
                         ))}
                     </div>
                     {['R', 'L'].map((side) => {
@@ -1281,7 +1281,7 @@ const OrderWizard = () => {
                                                         }`}>
                                                         {label}
                                                     </h3>
-                                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                                                    <p className="text-[10px] text-gray-400 font-bold uppercase  ">
                                                         {isActive ? 'Currently Editing' : isCompleted ? 'Entry Complete' : 'Pending Details'}
                                                     </p>
                                                 </div>

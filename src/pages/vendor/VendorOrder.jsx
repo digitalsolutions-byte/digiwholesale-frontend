@@ -4,7 +4,7 @@ import {
     getFilteredRowModel, flexRender,
 } from "@tanstack/react-table";
 import { Icon } from "@iconify/react";
-import api from "../../utils/api";
+import * as vendorOrderService from "../../services/vendorOrderService";
 import Swal from "sweetalert2";
 import { toast } from "react-toastify";
 import { useDispatch } from "react-redux";
@@ -17,7 +17,8 @@ const PAGE_SIZE = 100;
 // Shared UI primitives
 // ─────────────────────────────────────────────────────────────────────────────
 const Modal = ({ onClose, children, maxWidth = "max-w-lg" }) => (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 transition-all duration-300"
+        onClick={onClose}>
         <div className={`relative bg-white rounded-[2.5rem] shadow-2xl w-full ${maxWidth} overflow-hidden scale-in-center`} onClick={e => e.stopPropagation()}>
             {children}
         </div>
@@ -31,8 +32,8 @@ const ModalHeader = ({ title, subtitle, icon, onClose }) => (
                 <Icon icon={icon || "mdi:package-variant"} className="text-2xl" />
             </div>
             <div>
-                <h2 className="text-xl font-black uppercase tracking-widest leading-none">{title}</h2>
-                {subtitle && <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mt-1">{subtitle}</p>}
+                <h2 className="text-xl font-bold leading-none">{title}</h2>
+                {subtitle && <p className="text-xs text-white/80 mt-1">{subtitle}</p>}
             </div>
         </div>
         <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition-colors relative z-10">
@@ -54,27 +55,27 @@ const InfoRow = ({ label, value, icon }) => (
             <Icon icon={icon || "mdi:information-outline"} className="text-erp-accent/60" />
         </div>
         <div className="flex flex-col">
-            <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest">{label}</span>
-            <span className="text-[11px] font-bold text-gray-700">{value || "—"}</span>
+            <span className="text-xs font-semibold text-gray-400 mb-0.5">{label}</span>
+            <span className="text-sm font-bold text-gray-700">{value || "—"}</span>
         </div>
     </div>
 );
 
-const fieldCls = "w-full bg-gray-50/50 border border-gray-100 rounded-full px-5 py-2.5 text-xs font-bold text-gray-700 outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 transition-all placeholder:text-gray-300";
-const readonlyCls = "w-full bg-gray-100/50 border border-gray-100 rounded-full px-5 py-2.5 text-xs font-black text-gray-400 outline-none cursor-default";
-const labelCls = "block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-4";
+const fieldCls = "w-full bg-gray-50/50 border border-gray-100 rounded-full px-5 py-2.5 text-sm text-gray-700 outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 transition-all placeholder:text-gray-300";
+const readonlyCls = "w-full bg-gray-100/50 border border-gray-100 rounded-full px-5 py-2.5 text-sm font-semibold text-gray-400 outline-none cursor-default";
+const labelCls = "block text-xs font-semibold text-gray-500 mb-1.5 ml-4";
 
 const OrderStatusBadge = ({ value }) => {
     const map = {
         COMPLETED: { cls: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: "mdi:check-circle-outline" },
-        RECEIVED:  { cls: "bg-blue-100 text-blue-700 border-blue-200", icon: "mdi:tray-arrow-down" },
-        RETURN:    { cls: "bg-amber-100 text-amber-700 border-amber-200", icon: "mdi:keyboard-return" },
-        PENDING:   { cls: "bg-gray-100 text-gray-500 border-gray-200", icon: "mdi:clock-outline" },
+        RECEIVED: { cls: "bg-blue-100 text-blue-700 border-blue-200", icon: "mdi:tray-arrow-down" },
+        RETURN: { cls: "bg-amber-100 text-amber-700 border-amber-200", icon: "mdi:keyboard-return" },
+        PENDING: { cls: "bg-gray-100 text-gray-500 border-gray-200", icon: "mdi:clock-outline" },
         CANCELLED: { cls: "bg-rose-100 text-rose-700 border-rose-200", icon: "mdi:close-circle-outline" },
     };
     const cfg = map[value] || { cls: "bg-gray-100 text-gray-400 border-gray-200", icon: "mdi:help-circle-outline" };
     return (
-        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${cfg.cls}`}>
+        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${cfg.cls}`}>
             <Icon icon={cfg.icon} className="text-sm" />
             {value || "—"}
         </span>
@@ -95,8 +96,8 @@ function OrderKeywordInput({ value, onChange }) {
         if (!q || q.trim().length < 2) { setSuggestions([]); setShowSuggestions(false); return; }
         try {
             setSearching(true);
-            const res = await api.get("/vendor-order/suggestion", { params: { q } });
-            if (res.data.success) { setSuggestions(res.data.data || []); setShowSuggestions(true); }
+            const data = await vendorOrderService.getVendorOrderSuggestions(q);
+            if (data.success) { setSuggestions(data.data || []); setShowSuggestions(true); }
         } catch { /* silent */ }
         finally { setSearching(false); }
     };
@@ -109,14 +110,14 @@ function OrderKeywordInput({ value, onChange }) {
 
     const handleSelect = (s) => {
         const q = value.trim().toLowerCase();
-        const nameMatch   = s.name        ? s.name.toLowerCase().includes(q)        : false;
-        const orderMatch  = s.orderNumber ? s.orderNumber.toLowerCase().includes(q) : false;
-        const mobileMatch = s.mobile      ? s.mobile.toLowerCase().includes(q)      : false;
+        const nameMatch = s.name ? s.name.toLowerCase().includes(q) : false;
+        const orderMatch = s._id ? s._id.toLowerCase().includes(q) : false;
+        const mobileMatch = s.mobile ? s.mobile.toLowerCase().includes(q) : false;
 
-        let filled = s.name || s.orderNumber || "";
-        if (orderMatch && !nameMatch && !mobileMatch) filled = s.orderNumber;
+        let filled = s.name || s._id || "";
+        if (orderMatch && !nameMatch && !mobileMatch) filled = s._id;
         else if (mobileMatch && !nameMatch && !orderMatch) filled = s.mobile;
-        else filled = s.name || s.orderNumber || "";
+        else filled = s.name || s._id || "";
 
         onChange(filled);
         setSuggestions([]);
@@ -134,7 +135,7 @@ function OrderKeywordInput({ value, onChange }) {
 
     return (
         <div ref={containerRef} className="relative flex flex-col flex-1 min-w-[220px]">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4 mb-2">Order Search</label>
+            <label className="text-xs font-semibold text-gray-500 ml-4 mb-2">Search</label>
             <div className="relative group">
                 <Icon icon="mdi:magnify" className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-erp-accent text-lg" />
                 {searching && (
@@ -159,7 +160,7 @@ function OrderKeywordInput({ value, onChange }) {
             {showSuggestions && suggestions.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-3 z-50 bg-white border border-gray-100 rounded-[2rem] shadow-2xl overflow-hidden scale-in-center">
                     <div className="px-6 py-3 bg-erp-accent/5 border-b border-erp-accent/10">
-                        <p className="text-[9px] font-black text-erp-accent uppercase tracking-[0.2em]">Live Suggestions</p>
+                        <p className="text-xs font-bold text-erp-accent">Suggestions</p>
                     </div>
                     <ul className="max-h-64 overflow-y-auto custom-scrollbar">
                         {suggestions.map((s, i) => (
@@ -170,9 +171,9 @@ function OrderKeywordInput({ value, onChange }) {
                                         <Icon icon="mdi:package-variant-closed" className="text-xl text-erp-accent/60" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-black text-gray-800 truncate">{s.name || "-"}</p>
-                                        <p className="text-[10px] font-bold text-gray-400 truncate uppercase tracking-widest">
-                                            #{s.orderNumber || ""}
+                                        <p className="text-sm font-bold text-gray-800 truncate">{s.name || "-"}</p>
+                                        <p className="text-xs text-gray-400 truncate">
+                                            #{s._id || ""}
                                             {s.mobile ? ` · ${s.mobile}` : ""}
                                         </p>
                                     </div>
@@ -222,10 +223,10 @@ export default function VendorOrder() {
         try {
             pageNumber === 1 ? setLoading(true) : setLoadingMore(true);
             dispatch(showLoader());
-            const res = await api.get("/vendor-order/", { params: { page: pageNumber, limit: FETCH_LIMIT } });
-            if (res.data.success) {
-                setAllData(prev => append ? [...prev, ...(res.data.orders || [])] : (res.data.orders || []));
-                setHasMore(res.data.hasMore);
+            const data = await vendorOrderService.getAllVendorOrders(pageNumber, FETCH_LIMIT);
+            if (data.success) {
+                setAllData(prev => append ? [...prev, ...(data.orders || [])] : (data.orders || []));
+                setHasMore(data.hasMore);
                 setPage(pageNumber);
             }
         } catch (err) { console.error(err); }
@@ -237,8 +238,9 @@ export default function VendorOrder() {
     const fetchVendorOrderDetails = async (orderrow) => {
         try {
             dispatch(showLoader());
-            const res = await api.get(`/vendor-order/${orderrow.orderNumber}`);
-            if (res.data.success) setOrderProducts(res.data.items);
+            const orderId = orderrow._id || orderrow._id;
+            const data = await vendorOrderService.getVendorOrderById(orderId);
+            if (data.success) setOrderProducts(data.items);
             else setOrderProducts([]);
         } catch { toast.error("Failed to load items"); setOrderProducts([]); }
         finally { dispatch(hideLoader()); }
@@ -251,9 +253,9 @@ export default function VendorOrder() {
         if (keyword && keyword.trim().length < 4) return toast.warning("Keyword too short");
         try {
             setLoading(true); dispatch(showLoader());
-            const res = await api.post("/vendor-order/search", { startDate: fromDate || undefined, endDate: toDate || undefined, keyword: keyword || undefined });
-            if (res.data.success) { setFilteredData(res.data.orders || []); setIsSearching(true); }
-            else toast.warning(res.data.message);
+            const data = await vendorOrderService.searchVendorOrders({ startDate: fromDate || undefined, endDate: toDate || undefined, keyword: keyword || undefined });
+            if (data.success) { setFilteredData(data.orders || []); setIsSearching(true); }
+            else toast.warning(data.message);
         } catch (err) { toast.error(err.response?.data?.message || "Search failed"); }
         finally { setLoading(false); dispatch(hideLoader()); }
     };
@@ -269,23 +271,25 @@ export default function VendorOrder() {
         Swal.fire({
             title: "Reload Database?", text: "Live orders will be synchronized.", icon: "question",
             showCancelButton: true, confirmButtonColor: "#2980B9", cancelButtonColor: "#9ca3af",
-            confirmButtonText: "Sync Now",
+            confirmButtonText: "Reload",
         }).then(r => { if (r.isConfirmed) fetchVendorOrders(1, false); });
     };
 
     const handleDeleteVendorOrder = async (order) => {
+        console.log("order", order)
         const result = await Swal.fire({
-            title: "Confirm Deletion", text: `Delete order #${order.orderNumber}?`, icon: "warning",
+            title: "Confirm Deletion", text: `Delete order #${order._id}?`, icon: "warning",
             showCancelButton: true, confirmButtonColor: "#EF4444", cancelButtonColor: "#9CA3AF",
             confirmButtonText: "Yes, Delete"
         });
         if (!result.isConfirmed) return;
         try {
             dispatch(showLoader());
-            const res = await api.delete(`/vendor-order/${order.orderNumber}`);
-            if (res.data.success) {
-                setAllData(prev => prev.filter(v => v.orderNumber !== order.orderNumber));
-                setFilteredData(prev => prev.filter(v => v.orderNumber !== order.orderNumber));
+            const orderId = order._id || order._id;
+            const data = await vendorOrderService.deleteVendorOrder(orderId);
+            if (data.success) {
+                setAllData(prev => prev.filter(v => (v._id || v._id) !== (order._id || order._id)));
+                setFilteredData(prev => prev.filter(v => (v._id || v._id) !== (order._id || order._id)));
                 toast.success("Order deleted");
             }
         } catch (error) {
@@ -300,10 +304,9 @@ export default function VendorOrder() {
         if (damaged + missing > singleReturnData.quantity) return toast.error("Return qty exceeds stock");
         try {
             dispatch(showLoader());
-            const res = await api.put(`vendor-order/issues/${selectedOrder.orderNumber}`, {
-                items: [{ itemId: singleReturnData._id, damageQty: damaged, missingQty: missing, remark: singleReturnData.remark || "" }]
-            });
-            if (res.data.success) {
+            const orderId = selectedOrder._id || selectedOrder._id;
+            const data = await vendorOrderService.updateVendorOrderIssues(orderId, [{ itemId: singleReturnData._id, damageQty: damaged, missingQty: missing, remark: singleReturnData.remark || "" }]);
+            if (data.success) {
                 toast.success("Issues recorded");
                 setReturnSingleModal(false); setSingleReturnData(null); setViewOrder(false);
             }
@@ -320,9 +323,8 @@ export default function VendorOrder() {
         }
         try {
             dispatch(showLoader());
-            const res = await api.put(`vendor-order/issues/${selectedOrder.orderNumber}`, {
-                items: allReturnProducts.map(p => ({ itemId: p._id, damageQty: +p.damagedQty || 0, missingQty: +p.missingQty || 0, remark: p.remark || "" }))
-            });
+            const orderId = selectedOrder._id || selectedOrder._id;
+            const data = await vendorOrderService.updateVendorOrderIssues(orderId, allReturnProducts.map(p => ({ itemId: p._id, damageQty: +p.damagedQty || 0, missingQty: +p.missingQty || 0, remark: p.remark || "" })));
             toast.success("Bulk return completed");
             setReturnAllModal(false); setAllReturnProducts([]); setViewOrder(false);
         } catch (err) { toast.error(err.response?.data?.message || "Operation failed"); }
@@ -332,11 +334,15 @@ export default function VendorOrder() {
     const handleStatusUpdate = async () => {
         try {
             setStatusLoading(true); dispatch(showLoader());
-            await api.put(`/vendor-order/${selectedOrder.orderNumber}/status`, { status: selectedStatus });
+            const orderId = selectedOrder._id || selectedOrder._id;
+            const data = await vendorOrderService.updateVendorOrderStatus(orderId, selectedStatus);
             toast.success("Status synchronized");
             setStatusModal(false);
             fetchVendorOrders(1, false);
-        } catch (err) { toast.error(err.response?.data?.message || "Update failed"); }
+        } catch (err) {
+            toast.error(err.response?.data?.message || "Update failed");
+            console.log(err, 'err')
+        }
         finally { setStatusLoading(false); dispatch(hideLoader()); }
     };
 
@@ -360,11 +366,11 @@ export default function VendorOrder() {
             },
         },
         { header: "Date", accessorKey: "createdAt", cell: ({ getValue }) => getValue() ? new Date(getValue()).toLocaleDateString("en-IN") : "-" },
-        { header: "Order #", accessorKey: "orderNumber", cell: ({ getValue }) => <span className="font-black text-gray-800 tracking-tighter">#{getValue()}</span> },
-        { header: "Vendor", accessorKey: "name", cell: ({ getValue }) => <span className="font-black text-gray-700 uppercase text-[10px] tracking-widest">{getValue() || "—"}</span> },
+        // { header: "Order #", accessorKey: "Order ID", cell: ({ getValue }) => <span className="font-bold text-gray-800">#{getValue()}</span> },
+        { header: "Vendor", accessorKey: "name", cell: ({ getValue }) => <span className="font-bold text-gray-700 text-xs">{getValue() || "—"}</span> },
         { header: "Mobile", accessorKey: "mobile" },
         { header: "Status", accessorKey: "status", cell: ({ getValue }) => <OrderStatusBadge value={getValue()} /> },
-        { header: "Total Value", accessorKey: "grandTotal", cell: ({ getValue }) => <span className="font-black text-erp-accent">₹{getValue()?.toLocaleString() ?? 0}</span> },
+        { header: "Total", accessorKey: "grandTotal", cell: ({ getValue }) => <span className="font-bold text-erp-accent">₹{getValue()?.toLocaleString() ?? 0}</span> },
         {
             header: "Manage", id: "delete",
             cell: ({ row }) => (
@@ -393,18 +399,18 @@ export default function VendorOrder() {
     if (loading) return (
         <div className="flex flex-col items-center justify-center min-h-[400px] text-gray-300">
             <Icon icon="mdi:loading" className="text-6xl animate-spin mb-4 opacity-10" />
-            <p className="text-[10px] font-black uppercase tracking-[0.4em]">Initializing Vendor Ledger</p>
+            <p className="text-sm font-bold">Loading...</p>
         </div>
     );
 
     return (
-        <div className="p-8 min-h-screen bg-gray-50/50 space-y-8">
+        <div className="w-full flex flex-col gap-6 animate-in fade-in duration-500">
 
             {/* ── Page Header ── */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                    <h1 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">Vendor Purchase Logs</h1>
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mt-1">Order Fulfillment & Procurement Tracking</p>
+                    <h1 className="text-3xl font-bold text-gray-900">Orders</h1>
+                    <p className="text-sm text-gray-500 mt-1">Track orders</p>
                 </div>
             </div>
 
@@ -413,19 +419,19 @@ export default function VendorOrder() {
                 <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
                     <div className="flex flex-wrap items-end gap-6 flex-1">
                         <div className="flex flex-col gap-2">
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4">Sync Data</span>
+                            <span className="text-xs font-semibold text-gray-500 ml-4">Sync</span>
                             <button onClick={handleRefresh}
-                                className="flex items-center gap-2 bg-erp-accent/10 hover:bg-erp-accent text-erp-accent hover:text-white px-6 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-full transition-all group">
+                                className="flex items-center gap-2 bg-erp-accent/10 hover:bg-erp-accent text-erp-accent hover:text-white px-6 py-2.5 text-xs font-bold rounded-full transition-all group">
                                 <Icon icon="mdi:sync" className="text-lg group-hover:rotate-180 transition-transform duration-700" />
-                                Synchronize
+                                Reload
                             </button>
                         </div>
-                        
+
                         <div className="flex flex-col gap-2">
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4">Order Dates</span>
+                            <span className="text-xs font-semibold text-gray-500 ml-4">Dates</span>
                             <div className="flex items-center gap-3">
                                 <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className={fieldCls + " w-40"} />
-                                <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">to</span>
+                                <span className="text-xs font-bold text-gray-300">to</span>
                                 <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className={fieldCls + " w-40"} />
                             </div>
                         </div>
@@ -434,24 +440,24 @@ export default function VendorOrder() {
                     </div>
 
                     <button onClick={searchVendorsOrders}
-                        className="w-full lg:w-auto flex items-center justify-center gap-2 bg-erp-accent hover:bg-erp-accent/90 active:scale-95 text-white text-[10px] font-black uppercase tracking-[0.2em] px-10 py-3 rounded-full transition-all shadow-xl shadow-erp-accent/20 whitespace-nowrap">
-                        <Icon icon="mdi:filter-variant" className="text-xl" /> Filter Records
+                        className="w-full lg:w-auto flex items-center justify-center gap-2 bg-erp-accent hover:bg-erp-accent/90 active:scale-95 text-white text-xs font-bold px-10 py-3 rounded-full transition-all shadow-xl shadow-erp-accent/20 whitespace-nowrap">
+                        <Icon icon="mdi:filter-variant" className="text-xl" /> Search
                     </button>
                 </div>
             </div>
 
             {/* ── Table card ── */}
             <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-2xl shadow-gray-200/40 overflow-hidden flex flex-col min-h-[600px]">
-                
+
                 <div className="px-8 py-5 border-b border-gray-50 flex items-center justify-between bg-gray-50/30">
                     <div className="flex items-center gap-3">
                         <div className="w-2 h-6 bg-erp-accent rounded-full" />
-                        <h2 className="text-sm font-black text-gray-700 uppercase tracking-widest">Master Order Ledger</h2>
+                        <h2 className="text-sm font-black text-gray-700 uppercase tracking-widest">All Orders</h2>
                     </div>
                     <div className="relative w-64 group">
                         <Icon icon="mdi:magnify" className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-erp-accent" />
                         <input type="text" value={globalFilter ?? ""} onChange={e => setGlobalFilter(e.target.value)}
-                            placeholder="Quick jump to record..."
+                            placeholder="Search..."
                             className="w-full pl-11 pr-4 py-2.5 text-[10px] font-black border border-gray-100 rounded-full outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 transition-all bg-white"
                         />
                     </div>
@@ -500,7 +506,7 @@ export default function VendorOrder() {
                             ${loadingMore || (!isSearching && !hasMore)
                                 ? "bg-gray-100 text-gray-300 shadow-none cursor-not-allowed"
                                 : isSearching ? "bg-white border border-gray-100 text-gray-600 hover:bg-gray-50"
-                                : "bg-erp-accent text-white shadow-erp-accent/20 hover:scale-105 active:scale-95"}`}
+                                    : "bg-erp-accent text-white shadow-erp-accent/20 hover:scale-105 active:scale-95"}`}
                     >
                         {loadingMore ? "Fetching Data..." : isSearching ? "Clear All Filters" : "Load More Logs"}
                     </button>
@@ -528,8 +534,8 @@ export default function VendorOrder() {
             {/* ── View Order Details Modal ── */}
             {viewOrder && selectedOrder && (
                 <Modal onClose={() => setViewOrder(false)} maxWidth="max-w-7xl">
-                    <ModalHeader title="Order Intelligence" subtitle={`#${selectedOrder.orderNumber} · ${selectedOrder.name}`} icon="mdi:file-eye-outline" onClose={() => setViewOrder(false)} />
-                    
+                    <ModalHeader title="Order Details" subtitle={`#${selectedOrder._id} · ${selectedOrder.name}`} icon="mdi:file-eye-outline" onClose={() => setViewOrder(false)} />
+
                     <div className="p-8 overflow-y-auto custom-scrollbar flex-1 max-h-[70vh] space-y-8">
                         {/* Summary metrics */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -537,7 +543,7 @@ export default function VendorOrder() {
                             <InfoRow label="Contact Mobile" value={selectedOrder.mobile} icon="mdi:phone" />
                             <InfoRow label="Email Channel" value={selectedOrder.email} icon="mdi:email" />
                             <div>
-                                <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-1 block">Fulfillment Status</span>
+                                <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-1 block">Status</span>
                                 <OrderStatusBadge value={selectedOrder.status} />
                             </div>
                         </div>
@@ -560,7 +566,7 @@ export default function VendorOrder() {
                         <div className="space-y-4">
                             <div className="flex items-center gap-3">
                                 <div className="w-1.5 h-4 bg-erp-accent rounded-full" />
-                                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Consolidated Product Manifest</h3>
+                                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Product List</h3>
                             </div>
                             <div className="overflow-x-auto rounded-[2rem] border border-gray-100 shadow-inner">
                                 <table className="w-full border-collapse">
@@ -575,10 +581,12 @@ export default function VendorOrder() {
                                         {orderProducts.map((p, idx) => (
                                             <tr key={idx} className="hover:bg-erp-accent/[0.02] transition-colors whitespace-nowrap">
                                                 <td className="px-4 py-3 text-center">
-                                                    <button onClick={() => { setSingleReturnData({ ...p, damagedQty: "", missingQty: "", remark: "" }); setReturnSingleModal(true); }}
-                                                        className="p-2 rounded-full bg-white border border-gray-100 text-gray-400 hover:text-erp-accent transition-all shadow-sm">
-                                                        <Icon icon="mdi:keyboard-return" className="text-lg" />
-                                                    </button>
+                                                    {selectedOrder.status === "RECEIVED" && (
+                                                        <button onClick={() => { setSingleReturnData(p); setReturnSingleModal(true); }}
+                                                            className="p-2 rounded-full hover:bg-erp-accent/5 text-erp-accent/60 hover:text-erp-accent transition-all" title="Return Item">
+                                                            <Icon icon="mdi:keyboard-return" className="text-sm" />
+                                                        </button>
+                                                    )}
                                                 </td>
                                                 <td className="px-4 py-3 text-[10px] font-bold text-gray-500">{p.productCode}</td>
                                                 <td className="px-4 py-3 text-[10px] font-black uppercase tracking-tighter text-gray-400">{p.category}</td>
@@ -600,16 +608,18 @@ export default function VendorOrder() {
                     </div>
 
                     <ModalFooter>
-                        <button onClick={() => {
-                            setAllReturnProducts(orderProducts.map(p => ({ ...p, damagedQty: "", missingQty: "", remark: "" })));
-                            setReturnAllModal(true);
-                        }}
-                        className="flex items-center gap-2 px-8 py-2.5 text-[10px] font-black uppercase tracking-widest text-white bg-erp-accent rounded-full hover:scale-105 active:scale-95 transition-all shadow-lg shadow-erp-accent/20">
-                            <Icon icon="mdi:keyboard-return" className="text-lg" /> Bulk Return Initiation
-                        </button>
+                        {selectedOrder.status === "RECEIVED" && (
+                            <button onClick={() => {
+                                setAllReturnProducts(orderProducts.map(p => ({ ...p, damagedQty: "", missingQty: "", remark: "" })));
+                                setReturnAllModal(true);
+                            }}
+                                className="flex items-center gap-2 px-8 py-2.5 text-[10px] font-black uppercase tracking-widest text-white bg-erp-accent rounded-full hover:scale-105 active:scale-95 transition-all shadow-lg shadow-erp-accent/20">
+                                <Icon icon="mdi:keyboard-return" className="text-lg" /> Return All Items
+                            </button>
+                        )}
                         <button onClick={() => setViewOrder(false)}
                             className="px-8 py-2.5 text-[10px] font-black uppercase tracking-widest text-gray-400 bg-white border border-gray-100 rounded-full hover:bg-gray-50 transition-all">
-                            Close Analytics
+                            Close
                         </button>
                     </ModalFooter>
                 </Modal>
@@ -618,11 +628,11 @@ export default function VendorOrder() {
             {/* ── Single Return Modal ── */}
             {returnSingleModal && singleReturnData && (
                 <Modal onClose={() => setReturnSingleModal(false)} maxWidth="max-w-2xl">
-                    <ModalHeader title="Single Item Return" subtitle={`Indexing issues for order #${selectedOrder?.orderNumber}`} icon="mdi:keyboard-return" onClose={() => setReturnSingleModal(false)} />
+                    <ModalHeader title="Return Item" subtitle={`Adding return for order #${selectedOrder?._id}`} icon="mdi:keyboard-return" onClose={() => setReturnSingleModal(false)} />
                     <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
                         <div className="bg-gray-50 rounded-[2rem] border border-gray-100 p-6 grid grid-cols-2 md:grid-cols-3 gap-6">
                             {[
-                                ["Order Ref", selectedOrder?.orderNumber],
+                                ["Order Ref", selectedOrder?._id],
                                 ["SKU Code", singleReturnData.productCode],
                                 ["Category", singleReturnData.category],
                                 ["Item Label", singleReturnData.productName],
@@ -638,7 +648,7 @@ export default function VendorOrder() {
                         <div className="bg-white rounded-[2rem] border border-erp-accent/10 p-6 space-y-6 shadow-xl shadow-erp-accent/5">
                             <div className="flex items-center gap-3">
                                 <div className="w-1.5 h-4 bg-erp-accent rounded-full" />
-                                <h3 className="text-[10px] font-black text-gray-700 uppercase tracking-widest">Discrepancy Reporting</h3>
+                                <h3 className="text-[10px] font-black text-gray-700 uppercase tracking-widest">Return Details</h3>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
@@ -665,7 +675,7 @@ export default function VendorOrder() {
                                 </div>
                             </div>
                             <div>
-                                <label className={labelCls}>Technical Remark</label>
+                                <label className={labelCls}>Note</label>
                                 <div className="relative">
                                     <Icon icon="mdi:comment-text-outline" className="absolute left-5 top-5 text-gray-300" />
                                     <textarea placeholder="Describe the condition or reason for return..."
@@ -684,7 +694,7 @@ export default function VendorOrder() {
                         </button>
                         <button onClick={handleSingleReturnSubmit}
                             className="px-10 py-2.5 text-[10px] font-black uppercase tracking-widest text-white bg-erp-accent rounded-full hover:scale-105 active:scale-95 transition-all shadow-lg shadow-erp-accent/20">
-                            Commit Return
+                            Save Return
                         </button>
                     </ModalFooter>
                 </Modal>
@@ -693,7 +703,7 @@ export default function VendorOrder() {
             {/* ── Return All Modal ── (Truncated similar logic for brevity, following the same theme) ── */}
             {returnAllModal && (
                 <Modal onClose={() => setReturnAllModal(false)} maxWidth="max-w-6xl">
-                    <ModalHeader title="Bulk Discrepancy Index" subtitle={`Reviewing ${allReturnProducts.length} line items for return`} icon="mdi:layers-triple-outline" onClose={() => setReturnAllModal(false)} />
+                    <ModalHeader title="Return All" subtitle={`Reviewing ${allReturnProducts.length} items for return`} icon="mdi:layers-triple-outline" onClose={() => setReturnAllModal(false)} />
                     <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
                         {allReturnProducts.map((product, index) => (
                             <div key={index} className="bg-gray-50/50 border border-gray-100 rounded-[2rem] p-6 space-y-4">
@@ -746,7 +756,7 @@ export default function VendorOrder() {
                         </button>
                         <button onClick={handleAllReturnSubmit}
                             className="px-12 py-2.5 text-[10px] font-black uppercase tracking-widest text-white bg-erp-accent rounded-full hover:scale-105 active:scale-95 transition-all shadow-xl shadow-erp-accent/20">
-                            Finalize Bulk Submission
+                            Save All Returns
                         </button>
                     </ModalFooter>
                 </Modal>
@@ -755,7 +765,7 @@ export default function VendorOrder() {
             {/* ── Update Order Status Modal ── */}
             {statusModal && selectedOrder && (
                 <Modal onClose={() => setStatusModal(false)} maxWidth="max-w-md">
-                    <ModalHeader title="Lifecycle Management" subtitle={`Order ID: ${selectedOrder.orderNumber}`} icon="mdi:sync" onClose={() => setStatusModal(false)} />
+                    <ModalHeader title="Update Status" subtitle={`Order ID: ${selectedOrder._id}`} icon="mdi:sync" onClose={() => setStatusModal(false)} />
                     <div className="p-8 space-y-8">
                         <div className="flex items-center justify-between p-6 bg-gray-50 rounded-[2rem] border border-gray-100">
                             <div className="flex flex-col">
@@ -764,23 +774,23 @@ export default function VendorOrder() {
                             </div>
                             <Icon icon="mdi:arrow-right" className="text-gray-300 text-xl" />
                             <div className="flex flex-col text-right">
-                                <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-1">Target State</span>
+                                <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-1">New Status</span>
                                 <OrderStatusBadge value={selectedStatus} />
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <label className={labelCls}>Select Deployment Status</label>
+                            <label className={labelCls}>Select Status</label>
                             <select value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)} className={fieldCls + " h-12"}>
                                 {["PENDING", "RECEIVED", "RETURN", "COMPLETED", "CANCELLED"].map(s => (
                                     <option key={s} value={s}>{s}</option>
                                 ))}
                             </select>
                         </div>
-                        
+
                         <div className="p-6 bg-erp-accent/5 rounded-[2rem] border border-erp-accent/10 flex items-start gap-4">
                             <Icon icon="mdi:alert-circle-outline" className="text-xl text-erp-accent mt-0.5" />
-                            <p className="text-[10px] font-bold text-erp-accent/70 leading-relaxed uppercase tracking-wider">
+                            <p className="text-[10px] font-bold text-erp-accent/70 leading-relaxed uppercase  ">
                                 Transitioning the order status will affect downstream stock levels and financial auditing. Please verify before confirming.
                             </p>
                         </div>
@@ -788,7 +798,7 @@ export default function VendorOrder() {
                     <ModalFooter>
                         <button onClick={() => setStatusModal(false)}
                             className="px-8 py-2.5 text-[10px] font-black uppercase tracking-widest text-gray-400 bg-white border border-gray-100 rounded-full hover:bg-gray-50 transition-all">
-                            Abort
+                            Cancel
                         </button>
                         <button onClick={handleStatusUpdate} disabled={statusLoading}
                             className="px-10 py-2.5 text-[10px] font-black uppercase tracking-widest text-white bg-erp-accent rounded-full hover:scale-105 active:scale-95 transition-all shadow-lg shadow-erp-accent/20 disabled:opacity-50">
