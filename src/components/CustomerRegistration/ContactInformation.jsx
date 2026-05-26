@@ -9,17 +9,17 @@ export const ContactInformation = ({ wrapInput, configs }) => {
             {wrapInput(Input, { label: 'Mobile No. 1*', name: 'mobileNo1', placeholder: 'Enter Mobile No. 1' })}
             {wrapInput(Input, { label: 'Mobile No. 2', name: 'mobileNo2', placeholder: 'Enter Mobile No. 2' })}
             {wrapInput(Input, { label: 'Official Email', name: 'businessEmail', placeholder: 'Enter Official Email' })}
-            
+
             {wrapInput(Select, {
                 label: 'Zone*',
                 name: 'zoneRefId',
                 options: (Array.isArray(configs.zones) ? configs.zones : []).map(z => ({ value: z._id, label: z.zone }))
             })}
-            
+
             {wrapInput(Select, {
                 label: 'Select Sales Person*',
                 name: 'salesPersonRefId',
-                options: (configs.salesPersons || []).map(s => ({ value: s._id, label: s.employeeName }))
+                options: (configs.salesPersons || []).map(s => ({ value: s._id, label: s.employeeName || s.name }))
             })}
         </div>
     );

@@ -800,7 +800,7 @@ const Registration = () => {
                             type="button"
                             onClick={handleSaveDraft}
                             disabled={savingDraft}
-                            className="px-16 py-4 rounded-full border-2 border-orange-500 text-erp-accent font-bold hover:bg-erp-accent/5 transition-all uppercase tracking-widest min-w-[240px] disabled:opacity-50"
+                            className="px-16 py-4 rounded-full border-2 border-erp-accent text-erp-accent font-bold hover:bg-erp-accent/5 transition-all uppercase tracking-widest min-w-[240px] disabled:opacity-50"
                         >
                             {savingDraft ? 'Saving...' : draftEmployeeId ? 'Update Draft' : 'Save as Draft'}
                         </button>
