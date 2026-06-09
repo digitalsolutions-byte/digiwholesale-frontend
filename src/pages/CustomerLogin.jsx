@@ -97,7 +97,7 @@ const CustomerLogin = () => {
                         <Box
                             sx={{
                                 position: 'absolute',
-                                top: '15%',
+                                top: '10%',
                                 left: '10%',
                                 bgcolor: 'white',
                                 p: 3,
@@ -138,7 +138,7 @@ const CustomerLogin = () => {
                         }}
                     >
                         <Box sx={{ mb: 6, textAlign: 'center' }}>
-                            <img src={logo} alt="Logo" style={{ height: '50px', marginBottom: '24px' }} className='mx-auto' />
+                            <img src={logo} alt="Logo" style={{ height: '50px', marginBottom: '34px' }} className='mx-auto' />
 
                         </Box>
 

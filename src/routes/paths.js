@@ -67,11 +67,22 @@ export const PATHS = {
         LIST: '/repair/list',
     },
 
+    // RETURNS & EXCHANGES
+    RETURNS: {
+        RETURN_REFUND: '/return-refund',
+        EXCHANGE: '/exchange',
+    },
+
     // VENDOR MODULE
     VENDOR: {
         ADD: '/vendor/add',
         LIST: '/vendor/list',
         ORDER: '/vendor/order',
+    },
+
+    // SALES MODULE
+    SALES: {
+        LIST: '/sales/list',
     },
 
     // DETAILED REPORTS

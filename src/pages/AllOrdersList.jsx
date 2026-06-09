@@ -431,10 +431,19 @@ const AllOrdersList = () => {
                                                                 }}
                                                                 className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-gray-600 hover:bg-erp-accent/5 hover:text-erp-accent/80 transition-colors"
                                                             >
-                                                                <Icon icon="mdi:file-document-outline" className="text-base" />
+                                                                <Icon icon="mdi:file-document" className="text-base" />
                                                                 Full Details
                                                             </button>
-
+                                                            <button
+                                                                onClick={() => {
+                                                                    navigate(PATHS.CUSTOMER_CARE.EDIT_ORDER.replace(':id', order._id));
+                                                                    setActiveActionMenu(null);
+                                                                }}
+                                                                className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-erp-accent/80 hover:bg-erp-accent/5 transition-colors"
+                                                            >
+                                                                <Icon icon="mdi:pencil-outline" className="text-base" />
+                                                                Upgrade Order
+                                                            </button>
                                                             {order.status?.toUpperCase() === 'DRAFT' && (
                                                                 <button
                                                                     onClick={() => {

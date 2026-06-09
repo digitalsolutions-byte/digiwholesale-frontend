@@ -115,7 +115,7 @@ const Showcase = () => {
             >
                 <Container maxWidth="lg">
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <img src={logo} alt="DigiOptics" style={{ height: '40px' }} />
+                        <img src={logo} alt="DigiOptics" style={{ height: '50px' }} />
                         <Stack direction="row" spacing={3} alignItems="center">
                             <Button
                                 component={Link}
@@ -280,7 +280,7 @@ const Showcase = () => {
                                 {/* Concentric circles inside */}
                                 <Box sx={{ ...neumorphicStyles.extruded, width: 300, height: 300, borderRadius: '50%', opacity: 0.1, position: 'absolute' }} />
                                 <Box sx={{ ...neumorphicStyles.inset, width: 200, height: 200, borderRadius: '50%', opacity: 0.1, position: 'absolute' }} />
-                                
+
                                 <Box sx={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
                                     <Box
                                         sx={{

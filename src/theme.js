@@ -10,15 +10,15 @@ const theme = createTheme({
       contrastText: '#FFFFFF',
     },
     secondary: {
-      main: '#3498DB',
-      light: '#85C1AE',
+      main: '#2980B9',
+      light: '#5DADE2',
       dark: '#2E86C1',
       contrastText: '#FFFFFF',
     },
     accent: {
-      main: '#85C1AE',
-      light: '#A9DFBF',
-      dark: '#16A085',
+      main: '#5DADE2',
+      light: '#3498DB',
+      dark: '#2980B9',
       contrastText: '#FFFFFF',
     },
     erp: {

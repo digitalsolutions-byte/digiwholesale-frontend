@@ -52,25 +52,34 @@ const navItems = [
             { label: 'Customer List', path: PATHS.CUSTOMER.LIST },
             { label: 'Ship To', path: PATHS.CUSTOMER.SHIP_TO },
             { label: 'Approvals', path: PATHS.APPROVALS },
-            { label: 'Errors', path: PATHS.CORRECTIONS }
+            { label: 'Corrections', path: PATHS.CORRECTIONS }
         ]
     },
     {
-        label: 'Customer Orders',
+        label: 'Orders',
         icon: 'lucide:headphones',
         subItems: [
             { label: 'New Order', path: PATHS.CUSTOMER_CARE.NEW_ORDER, isBold: true },
             { label: 'All Orders', path: PATHS.CUSTOMER_CARE.ALL_ORDERS },
             { label: 'Pending Orders', path: PATHS.CUSTOMER_CARE.PENDING_ORDERS },
-            { label: 'Order Status', path: PATHS.CUSTOMER_CARE.ORDER_STATUS },
-            { label: 'New Service', path: PATHS.CUSTOMER_CARE.SERVICE_GOODS },
-            { label: 'View Orders', path: PATHS.CUSTOMER_CARE.VIEW_ORDERS },
-            { label: 'Upgrade Orders', path: PATHS.CUSTOMER_CARE.UPGRADE_ORDERS },
-            { label: 'Update Customers', path: PATHS.CUSTOMER_CARE.UPDATE_CUSTOMERS },
+            // { label: 'Order Status', path: PATHS.CUSTOMER_CARE.ORDER_STATUS },
+            { label: 'Other Sales', path: PATHS.CUSTOMER_CARE.SERVICE_GOODS },
+            { label: 'Sales List', path: PATHS.SALES.LIST },
+            // { label: 'View Orders', path: PATHS.CUSTOMER_CARE.VIEW_ORDERS },
+            // { label: 'Upgrade Orders', path: PATHS.CUSTOMER_CARE.UPGRADE_ORDERS },
+            // { label: 'Update Customers', path: PATHS.CUSTOMER_CARE.UPDATE_CUSTOMERS },
+        ]
+    },
+    {
+        label: 'Returns & Exchanges',
+        icon: 'lucide:undo-2',
+        subItems: [
+            { label: 'Return & Refund', path: PATHS.RETURNS.RETURN_REFUND },
+            { label: 'Exchange Requests', path: PATHS.RETURNS.EXCHANGE }
         ]
     },
     { label: 'Drafts', icon: 'lucide:file-text', path: PATHS.DRAFTS },
-    { label: 'Stores', icon: 'lucide:store', path: PATHS.STORES },
+    // { label: 'Stores', icon: 'lucide:store', path: PATHS.STORES },
     {
         label: 'Reports',
         icon: 'lucide:chart-column',
@@ -96,13 +105,13 @@ const navItems = [
             { label: 'Vendor Order', path: PATHS.VENDOR.ORDER },
         ]
     },
-    { label: 'Work 1', icon: 'lucide:droplets', path: PATHS.OPERATIONS.TINT },
-    { label: 'Work 2', icon: 'lucide:shield', path: PATHS.OPERATIONS.HARD_COAT },
-    { label: 'Work 3', icon: 'lucide:layers-3', path: PATHS.OPERATIONS.ARC },
+    // { label: 'Work 1', icon: 'lucide:droplets', path: PATHS.OPERATIONS.TINT },
+    // { label: 'Work 2', icon: 'lucide:shield', path: PATHS.OPERATIONS.HARD_COAT },
+    // { label: 'Work 3', icon: 'lucide:layers-3', path: PATHS.OPERATIONS.ARC },
     { label: 'Quality', icon: 'lucide:badge-check', path: PATHS.OPERATIONS.QC },
     { label: 'Fitting', icon: 'lucide:ruler', path: PATHS.OPERATIONS.FITTING },
     { label: 'Shipping', icon: 'lucide:truck', path: PATHS.OPERATIONS.DISPATCH },
-    { label: 'Stock', icon: 'lucide:package-search', path: PATHS.INVENTORY },
+    { label: 'Inventory', icon: 'lucide:package-search', path: PATHS.INVENTORY },
 ];
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {

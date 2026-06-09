@@ -98,7 +98,7 @@ const CustomerLayout = () => {
                                     border: '1px solid rgba(255, 99, 0, 0.1)'
                                 }}
                             >
-                                <img src={logo} alt="DigiOptics" style={{ height: '24px' }} />
+                                <img src={logo} alt="DigiOptics" style={{ height: '34px' }} />
                             </Box>
 
                             <Box sx={{ display: { xs: 'none', md: 'block' } }}>

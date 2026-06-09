@@ -20,11 +20,15 @@ import MainLayout from '../components/layout/MainLayout';
 
 import AddRepair from '../pages/repair/AddRepair';
 import RepairList from '../pages/repair/RepairList';
+import ReturnRefund from '../pages/returns/ReturnRefund';
+import Exchange from '../pages/returns/Exchange';
 import DailyReport from '../pages/reports/DailyReport';
 import MainReport from '../pages/reports/MainReport';
 import AddVendor from '../pages/vendor/AddVendor';
 import VendorList from '../pages/vendor/VendorList';
 import VendorOrder from '../pages/vendor/VendorOrder';
+
+import SalesList from '../pages/sales/SalesList';
 
 import CustomerLogin from '../pages/CustomerLogin';
 import CustomerLayout from '../components/layout/CustomerLayout';
@@ -34,6 +38,8 @@ import { PATHS } from './paths';
 import Inventory from '../pages/Inventory';
 
 import AuthLayout from '../components/layout/AuthLayout';
+import Dashboard from '../components/Dashboard';
+import OtherSales from '../pages/OtherSales';
 
 export { PATHS };
 
@@ -78,7 +84,7 @@ const CUSTOMER_CARE_MODULE = [
     { path: PATHS.CUSTOMER_CARE.ALL_ORDERS, element: AllOrdersList },
     { path: PATHS.CUSTOMER_CARE.PENDING_ORDERS, element: PlaceholderPage, props: { title: 'Pending Orders' } },
     { path: PATHS.CUSTOMER_CARE.ORDER_STATUS, element: PlaceholderPage, props: { title: 'Order Status' } },
-    { path: PATHS.CUSTOMER_CARE.SERVICE_GOODS, element: PlaceholderPage, props: { title: 'Service/Goods Order' } },
+    { path: PATHS.CUSTOMER_CARE.SERVICE_GOODS, element: OtherSales },
     { path: PATHS.CUSTOMER_CARE.VIEW_ORDERS, element: PlaceholderPage, props: { title: 'View Orders' } },
     { path: PATHS.CUSTOMER_CARE.UPGRADE_ORDERS, element: PlaceholderPage, props: { title: 'Upgrade Orders' } },
     { path: PATHS.CUSTOMER_CARE.UPDATE_CUSTOMERS, element: CustomerList, requiredPermission: 'CanManageCustomers' },
@@ -107,10 +113,19 @@ const REPAIR_MODULE = [
     { path: PATHS.REPAIR.LIST, element: RepairList }
 ];
 
+const RETURNS_MODULE = [
+    { path: PATHS.RETURNS.RETURN_REFUND, element: ReturnRefund },
+    { path: PATHS.RETURNS.EXCHANGE, element: Exchange }
+];
+
 const VENDOR_MODULE = [
     { path: PATHS.VENDOR.ADD, element: AddVendor },
     { path: PATHS.VENDOR.LIST, element: VendorList },
     { path: PATHS.VENDOR.ORDER, element: VendorOrder }
+];
+
+const SALES_MODULE = [
+    { path: PATHS.SALES.LIST, element: SalesList, requiredPermission: 'CanManageSales' }
 ];
 
 const REPORTS_MODULE = [
@@ -169,7 +184,7 @@ export const routesConfig = [
                 children: [
                     {
                         index: true,
-                        element: PlaceholderPage,
+                        element: Dashboard,
                         props: { title: 'Dashboard' }
                     },
                     {
@@ -191,7 +206,9 @@ export const routesConfig = [
                     ...CUSTOMER_CARE_MODULE,
                     ...OPERATIONS_MODULE,
                     ...REPAIR_MODULE,
+                    ...RETURNS_MODULE,
                     ...VENDOR_MODULE,
+                    ...SALES_MODULE,
                     ...REPORTS_MODULE
                 ]
             }

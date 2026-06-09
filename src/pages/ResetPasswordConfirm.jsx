@@ -205,7 +205,7 @@ const ResetPasswordConfirm = () => {
                 {/* Right Side */}
                 <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center bg-white">
                     <div className="flex justify-center mb-8">
-                        <img src={logo} alt="DigiOptics" className="h-16 object-contain" />
+                        <img src={logo} alt="DigiOptics" className="h-20 object-contain" />
                     </div>
 
                     <div className="text-center mb-8">

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import Button from './Button';
 
@@ -70,8 +71,8 @@ const CorrectionRequestModal = ({ isOpen, onClose, onSubmit, customerName, loadi
         onSubmit({ fieldsToCorrect: initialFields, remark, targetRole });
     };
 
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
             <div
                 className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 flex flex-col max-h-[90vh]"
                 onClick={(e) => e.stopPropagation()}
@@ -88,7 +89,7 @@ const CorrectionRequestModal = ({ isOpen, onClose, onSubmit, customerName, loadi
                 </div>
 
                 {/* Content */}
-                <div className="p-8 flex-1 custom-scrollbar">
+                <div className="p-8 flex-1 overflow-y-auto custom-scrollbar">
                     <div className="mb-8 p-4 bg-erp-accent/5 rounded-2xl border border-erp-accent/10">
                         <h3 className="text-xs font-black text-amber-800 uppercase tracking-[0.1em] mb-3">Fields Marked for Correction:</h3>
                         <div className="flex flex-wrap gap-2">
@@ -122,28 +123,6 @@ const CorrectionRequestModal = ({ isOpen, onClose, onSubmit, customerName, loadi
                         </div>
                     </div>
 
-                    {/* {showTargetRole && (
-                        <div className="mb-6 animate-in slide-in-from-top-2 duration-300">
-                            <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-3">Send Correction To:</h3>
-                            <div className="flex gap-4 p-1 bg-gray-100 rounded-2xl w-fit">
-                                <button
-                                    type="button"
-                                    onClick={() => setTargetRole('Sales')}
-                                    className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${targetRole === 'Sales' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
-                                >
-                                    Sales Executive
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setTargetRole('Finance')}
-                                    className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${targetRole === 'Finance' ? 'bg-white text-erp-accent shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
-                                >
-                                    Finance Team
-                                </button>
-                            </div>
-                        </div>
-                    )} */}
-
                     <div className="space-y-3">
                         <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Detailed Remark</h3>
                         <textarea
@@ -175,7 +154,8 @@ const CorrectionRequestModal = ({ isOpen, onClose, onSubmit, customerName, loadi
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

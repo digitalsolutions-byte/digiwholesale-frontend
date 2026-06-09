@@ -90,6 +90,10 @@ export const PERMISSIONS_CONFIG = {
     // DETAILED REPORTS
     [PATHS.REPORTS.DAILY]: { allowedRoles: ['SUPERADMIN'], allowedDepartments: ['ADMIN', 'FINANCE', 'MANAGEMENT'] },
     [PATHS.REPORTS.MAIN]: { allowedRoles: ['SUPERADMIN'], allowedDepartments: ['ADMIN', 'FINANCE', 'MANAGEMENT'] },
+
+    // RETURNS & EXCHANGES
+    [PATHS.RETURNS.RETURN_REFUND]: { allowedRoles: ['SUPERADMIN'], allowedDepartments: ['SALES', 'ADMIN'] },
+    [PATHS.RETURNS.EXCHANGE]: { allowedRoles: ['SUPERADMIN'], allowedDepartments: ['SALES', 'ADMIN'] },
 };
 
 /**

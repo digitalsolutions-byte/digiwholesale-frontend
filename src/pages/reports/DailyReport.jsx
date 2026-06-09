@@ -82,7 +82,7 @@ const InnerTable = ({ headers, rows, emptyMsg = "No records available", highligh
 );
 
 const footerText = (arr, label = "entries") =>
-  arr?.length ? `Total ${arr.length} ${label} indexed` : `No ${label} recorded`;
+  arr?.length ? `Total ${arr.length} ${label} found` : `No ${label} recorded`;
 
 export default function DailyReport() {
   const [form, setForm] = useState({ startDate: today(), endDate: today() });
@@ -106,7 +106,7 @@ export default function DailyReport() {
     try {
       const res = await api.post("/api/jc/report/daily", form);
       if (res.data.success) {
-        setReport(res.data); toast.success("Snapshot generated");
+        setReport(res.data); toast.success("Report generated");
       }
       else toast.error(res.data.message || "Operation failed");
     } catch (err) {
@@ -150,8 +150,8 @@ export default function DailyReport() {
 
       {/* ══ HEADER ══════════════════════════════════════════════════════ */}
       <div>
-        <h1 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">Business Health Snapshot</h1>
-        <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mt-1">Real-time Daily Performance Auditing</p>
+        <h1 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">Business Report</h1>
+        <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mt-1">Daily Report</p>
       </div>
 
       {/* Date Filter */}
@@ -167,7 +167,7 @@ export default function DailyReport() {
 
         <div className="flex flex-col lg:flex-row gap-6 items-end">
           <div className="flex-1 w-full">
-            <label className="block text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-4">Start Point</label>
+            <label className="block text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-4">Start Date</label>
             <div className="relative">
               <Icon icon="mdi:calendar-start" className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 text-lg" />
               <input type="date" value={form.startDate} max={today()}
@@ -176,7 +176,7 @@ export default function DailyReport() {
             </div>
           </div>
           <div className="flex-1 w-full">
-            <label className="block text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-4">End Point</label>
+            <label className="block text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-4">End Date</label>
             <div className="relative">
               <Icon icon="mdi:calendar-end" className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 text-lg" />
               <input type="date" value={form.endDate} min={form.startDate} max={today()}
@@ -191,7 +191,7 @@ export default function DailyReport() {
             ) : (
               <Icon icon="mdi:lightning-bolt" className="text-xl" />
             )}
-            {loading ? "Analyzing..." : "Generate Analysis"}
+            {loading ? "Generating..." : "Generate Report"}
           </button>
         </div>
       </div>
@@ -199,7 +199,7 @@ export default function DailyReport() {
       {!report && !loading && (
         <div className="flex flex-col items-center justify-center py-32 text-gray-200">
           <Icon icon="mdi:file-chart-outline" className="text-8xl mb-4 opacity-10" />
-          <p className="text-[10px] font-black uppercase tracking-[0.4em]">Awaiting data parameters</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.4em]">Awaiting date selection</p>
         </div>
       )}
 
@@ -207,37 +207,37 @@ export default function DailyReport() {
         <div className="space-y-8 scale-in-center">
           {/* Primary Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatCard icon="mdi:trending-up" label="Net Collection" value={fmt(ds?.netCollection)} color="green" />
+            <StatCard icon="mdi:trending-up" label="Total Collection" value={fmt(ds?.netCollection)} color="green" />
             <StatCard icon="mdi:chart-bell-curve-cumulative" label="Net Profit" value={fmt(ds?.netProfit)} color={ds?.netProfit >= 0 ? "teal" : "red"} />
-            <StatCard icon="mdi:basket-plus-outline" label="Additional Sales" value={fmt(d?.sales?.totalSalesAmount)} sub={`${d?.sales?.totalRecords} invoices`} color="blue" />
-            <StatCard icon="mdi:trending-down" label="Total Overhead" value={fmt(expense)} sub={`${d?.expenses?.totalRecords} records`} color="red" />
+            <StatCard icon="mdi:basket-plus-outline" label="Other Sales" value={fmt(d?.sales?.totalSalesAmount)} sub={`${d?.sales?.totalRecords} invoices`} color="blue" />
+            <StatCard icon="mdi:trending-down" label="Total Expenses" value={fmt(expense)} sub={`${d?.expenses?.totalRecords} records`} color="red" />
           </div>
 
           {/* Job Card Specifics */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatCard icon="mdi:file-document-multiple-outline" label="Fulfilled JCs" value={d?.jobCards?.deliveredSummary?.count ?? 0} color="blue" />
-            <StatCard icon="mdi:currency-inr" label="JC Face Value" value={fmt(d?.jobCards?.deliveredSummary?.totalAmount)} color="blue" />
-            <StatCard icon="mdi:cash-check" label="Actually Collected" value={fmt(d?.jobCards?.deliveredSummary?.totalCollected)} color="green" />
-            <StatCard icon="mdi:clock-alert-outline" label="JC Receivables" value={fmt(d?.jobCards?.deliveredSummary?.totalBalance)} color="red" />
+            <StatCard icon="mdi:file-document-multiple-outline" label="Completed Orders" value={d?.jobCards?.deliveredSummary?.count ?? 0} color="blue" />
+            <StatCard icon="mdi:currency-inr" label="Total Value" value={fmt(d?.jobCards?.deliveredSummary?.totalAmount)} color="blue" />
+            <StatCard icon="mdi:cash-check" label="Amount Collected" value={fmt(d?.jobCards?.deliveredSummary?.totalCollected)} color="green" />
+            <StatCard icon="mdi:clock-alert-outline" label="Pending Balance" value={fmt(d?.jobCards?.deliveredSummary?.totalBalance)} color="red" />
           </div>
 
           {/* Detailed Data Grids */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-            <DataCard title="Overhead Ledger" icon="mdi:format-list-bulleted" footer={footerText(d?.expenses?.data, "expenses")}>
+            <DataCard title="Expense List" icon="mdi:format-list-bulleted" footer={footerText(d?.expenses?.data, "expenses")}>
               <InnerTable
-                headers={["Date", "Identity", "Category", "Amount"]}
+                headers={["Date", "Name", "Category", "Amount"]}
                 rows={(d?.expenses?.data || []).map(e => [fmtDate(e.createdAt), e.name || e.title || "-", e.type || e.category || "-", fmt(e.amount)])}
               />
             </DataCard>
 
-            <DataCard title="Inventory Depletion" icon="mdi:package-variant" footer={footerText(d?.products?.data, "items")}>
+            <DataCard title="Items Sold" icon="mdi:package-variant" footer={footerText(d?.products?.data, "items")}>
               <InnerTable
-                headers={["Inventory Type", "Product/Model"]}
+                headers={["Category", "Item Name"]}
                 rows={(d?.products?.data || []).map(p => [p.finalCategory || "-", p.finalProductName || "-"])}
               />
             </DataCard>
 
-            <DataCard title="Volume Metrics" icon="mdi:chart-pie" footer={footerText(d?.products?.categoryCount, "categories")}>
+            <DataCard title="Category Sales" icon="mdi:chart-pie" footer={footerText(d?.products?.categoryCount, "categories")}>
               <InnerTable
                 headers={["Category", "Qty Sold"]}
                 rows={(d?.products?.categoryCount || []).map(c => [c._id || "-", c.count])}
@@ -246,9 +246,9 @@ export default function DailyReport() {
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-            <DataCard title="Payment Liquidity" icon="mdi:bank-transfer" footer="Consolidated Payment Matrix">
+            <DataCard title="Cash & Bank Summary" icon="mdi:bank-transfer" footer="Consolidated Payments">
               <InnerTable
-                headers={["Agg. Total", "Credit/Card", "Liquid Cash", "Digital UPI", "Expense", "Cash Surplus"]}
+                headers={["Total Sales", "Card/Credit", "Cash", "UPI", "Expenses", "Cash in Hand"]}
                 rows={[[
                   <span className="font-black text-gray-900">{fmt(totalSales)}</span>,
                   fmt(credit), fmt(cashInHand), fmt(upi), fmt(expense),
@@ -257,13 +257,13 @@ export default function DailyReport() {
               />
             </DataCard>
 
-            <DataCard title="Transaction Dynamics" icon="mdi:swap-horizontal" footer={footerText(txRows, "payment modes")}>
+            <DataCard title="Payment Modes" icon="mdi:swap-horizontal" footer={footerText(txRows, "payment modes")}>
               <InnerTable headers={["Mode", "Amount"]} highlightLast={true} rows={txDisplay} />
             </DataCard>
 
-            <DataCard title="Secondary Sales" icon="mdi:cart-outline" footer={footerText(d?.sales?.data, "sales")}>
+            <DataCard title="Other Sales List" icon="mdi:cart-outline" footer={footerText(d?.sales?.data, "sales")}>
               <InnerTable
-                headers={["Date", "Particulars", "Mode", "Amount"]}
+                headers={["Date", "Item", "Mode", "Amount"]}
                 rows={(d?.sales?.data || []).map(s => [
                   fmtDate(s.createdAt),
                   s.item || "-",
@@ -275,7 +275,7 @@ export default function DailyReport() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pb-8">
-            <DataCard title="Fulfillment Summary" icon="mdi:truck-check-outline" footer="Operational completion metrics">
+            <DataCard title="Orders Summary" icon="mdi:truck-check-outline" footer="Completed orders">
               <InnerTable
                 headers={["Completed Orders", "Total Collection"]}
                 rows={[[
@@ -285,9 +285,9 @@ export default function DailyReport() {
               />
             </DataCard>
 
-            <DataCard title="Clinical Prescription Audit" icon="mdi:file-certificate-outline" footer="Vision screening metrics">
+            <DataCard title="Prescriptions Issued" icon="mdi:file-certificate-outline" footer="Vision test metrics">
               <InnerTable
-                headers={["Certificates Issued", "Total Revenue"]}
+                headers={["Certificates Issued", "Revenue"]}
                 rows={[[
                   <div className="flex items-center gap-2"><Icon icon="mdi:eye-outline" className="text-erp-accent" /> {d?.prescriptions?.totalRecords ?? 0}</div>,
                   <span className="font-black text-emerald-500">{fmt(d?.prescriptions?.totalAmount || 0)}</span>,

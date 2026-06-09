@@ -82,15 +82,16 @@ const Login = () => {
                         sx={{
                             width: '50%',
                             display: { xs: 'none', md: 'flex' },
-                            bgcolor: '#FFF5F0',
+                            bgcolor: '#fff',
                             position: 'relative',
                             flexDirection: 'column',
                             alignItems: 'center',
                             justifyContent: 'center',
                             p: 6,
                             backgroundImage: `url(${loginImage})`,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center'
+                            backgroundSize: 'contain',
+                            backgroundRepeat: 'no-repeat',
+                            backgroundPosition: 'top'
                         }}
                     >
                         <Box sx={{ position: 'absolute', inset: 0, }} />
@@ -99,32 +100,32 @@ const Login = () => {
                         <Box
                             sx={{
                                 position: 'absolute',
-                                top: '15%',
-                                left: '10%',
+                                bottom: '10%',
+                                right: '57%',
                                 bgcolor: 'white',
-                                p: 3,
+                                p: 2,
                                 borderRadius: '24px 24px 24px 0',
                                 boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
                                 zIndex: 10,
                                 maxWidth: '80%'
                             }}
                         >
-                            <Typography variant="h6" fontWeight={800} color="primary.main">
+                            <Typography variant="h6" fontWeight={500} color="primary.main">
                                 Hello!
                             </Typography>
-                            <Typography variant="body2" fontWeight={600} color="text.secondary">
+                            {/* <Typography variant="body2" fontWeight={600} color="text.secondary">
                                 We've been expecting you.
-                            </Typography>
+                            </Typography> */}
                         </Box>
 
                         <Box
                             component="img"
                             src={mascot}
                             sx={{
-                                width: '80%',
+                                width: '50%',
                                 position: 'relative',
                                 zIndex: 5,
-                                transform: 'translateY(149px) translateX(190px)'
+                                transform: 'translateY(200px) translateX(-180px)'
                             }}
                         />
                     </Box>
@@ -140,7 +141,7 @@ const Login = () => {
                         }}
                     >
                         <Box sx={{ mb: 6, textAlign: 'center' }}>
-                            <img src={logo} className='mx-auto' alt="Logo" style={{ height: '75px', marginBottom: '24px' }} />
+                            <img src={logo} className='mx-auto' alt="Logo" style={{ height: '170px', marginBottom: '4px' }} />
 
                         </Box>
 

@@ -62,7 +62,7 @@ const AuthLayout = () => {
                             transform: 'rotate(-5deg)'
                         }}
                     >
-                        <img src={logo} alt="Logo" style={{ height: '24px', filter: 'brightness(0) invert(1)' }} />
+                        <img src={logo} alt="Logo" style={{ height: '34px', filter: 'brightness(0) invert(1)' }} />
                     </Box>
                     <Typography
                         variant="h5"
