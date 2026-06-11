@@ -10,6 +10,7 @@ import Select from '../components/ui/Select';
 import Button from '../components/ui/Button';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import CustomToggle from '../components/ui/CustomToggle';
+import ConfirmationModal from '../components/ui/ConfirmationModal';
 
 import { getAllCustomers, getCustomerById } from '../services/customerService';
 import {
@@ -28,6 +29,7 @@ import { getOrderById, updateOrder } from '../services/orderService';
 const OrderWizard = () => {
     const user = useSelector((state) => state.auth.user);
     const [activeStep, setActiveStep] = useState(0);
+    const [deleteModalState, setDeleteModalState] = useState({ isOpen: false, indexToRemove: null });
     const [customers, setCustomers] = useState([]);
     const [configs, setConfigs] = useState({});
     console.log('configs', configs)
@@ -48,28 +50,25 @@ const OrderWizard = () => {
     const isReadOnly = isViewMode;
 
     const [fetchingOrder, setFetchingOrder] = useState(!!id);
+    const [activeProductIndex, setActiveProductIndex] = useState(0);
+    const [expandedProductIndices, setExpandedProductIndices] = useState([]);
+    const [activeCategories, setActiveCategories] = useState([]);
 
     const steps = ['Customer Details', 'Product Details', 'Advanced Details'];
 
-    // Initial Form Values
-    const initialValues = {
-        // Customer Details
-        customerId: '',
-        shipToId: '',
-        orderReference: '',
-        consumerCardName: '',
-        opticianName: '',
-        customerBalance: '0.00',
-
-        // Product Details
-        powerMode: 'both', // single | both
-        productMode: 'rx', // stock | rx
-        hasPrism: 'no', // yes | no
+    const productTemplate = {
+        qty: 1,
+        unit: 'piece',
+        price: 0,
+        discount: 0,
+        powerMode: 'both',
+        productMode: 'rx',
+        hasPrism: 'no',
         powerTable: {
             R: { sph: '', cyl: '', axis: '', add: '', dia: '70' },
             L: { sph: '', cyl: '', axis: '', add: '', dia: '70' }
         },
-        selectedSide: 'R', // Used when powerMode is 'single'
+        selectedSide: 'R',
         prismTable: {
             R: { prism: '', base: '' },
             L: { prism: '', base: '' }
@@ -84,11 +83,35 @@ const OrderWizard = () => {
         tintId: '',
         tintDetails: '',
         remarks: '',
-        hasMirror: 'no', // yes | no
+        hasMirror: 'no',
         centrationData: {
             R: { pd: '', corridor: '', fittingHeight: '' },
             L: { pd: '', corridor: '', fittingHeight: '' }
         },
+        gstDetails: {
+            gstPercent: '',
+            gstType: '',
+            gstMode: '',
+            gstAmount: '',
+            loyaltyPoints: '',
+            advance: '',
+            transactionType: '',
+            remarks: ''
+        }
+    };
+
+    // Initial Form Values
+    const initialValues = {
+        // Customer Details
+        customerId: '',
+        shipToId: '',
+        orderReference: '',
+        consumerCardName: '',
+        opticianName: '',
+        customerBalance: '0.00',
+
+        // Product Details Array
+        products: Array(5).fill(null).map(() => ({ ...productTemplate })),
 
         // Advanced Details
         hasFlatFitting: 'no', // yes | no
@@ -109,10 +132,14 @@ const OrderWizard = () => {
         customerId: Yup.string().required('Customer selection is required'),
 
         // Step 2: Product Details
-        brandId: Yup.string().required('Brand is required'),
-        categoryId: Yup.string().required('Category is required'),
-        productName: Yup.string().required('Product selection is required'),
-        indexId: Yup.string().required('Lens Index is required'),
+        products: Yup.array().of(
+            Yup.object().shape({
+                brandId: Yup.string().required('Brand is required'),
+                categoryId: Yup.string().required('Category is required'),
+                productName: Yup.string().required('Product selection is required'),
+                indexId: Yup.string().required('Lens Index is required'),
+            })
+        ),
 
         // Step 3: Advanced Details
         pantoscopicAngle: Yup.number().typeError('Must be a number').required('Pantoscopic Angle is required'),
@@ -186,73 +213,109 @@ const OrderWizard = () => {
                             consumerCardName: order.consumerCardName || '',
                             opticianName: order.opticianName || '',
                             customerBalance: order.customer?.customerId?.customerBalance || '0.00',
-
-                            powerMode: order.powers?.length === 1 ? 'single' : 'both',
-                            productMode: order.productMode?.toLowerCase() === 'rx' ? 'rx' : 'stock',
-                            hasPrism: (order.hasPrism || order.prisms?.length > 0) ? 'yes' : 'no',
-                            selectedSide: order.powers?.[0]?.side || 'R',
-
-                            brandId: order.brand?.id || '',
-                            categoryId: order.category?.id || '',
-                            treatmentId: order.treatment?.id || '',
-                            indexId: (order.index !== undefined && order.index !== null) ? order.index.toString() : '',
-                            productName: order.productName?.id || '',
-                            lensTypeId: order.productType?.id || '',
-                            coatingId: order.coating?.id || '',
-                            tintId: order.tint?.id || '',
-                            tintDetails: order.tintDetails || '',
-                            remarks: order.remarks || '',
-                            hasMirror: order.mirror ? 'yes' : 'no',
-
-                            hasFlatFitting: order.fitting?.hasFlatFitting ? 'yes' : 'no',
-                            dbl: order.fitting?.dbl || '',
-                            frameType: order.fitting?.frameType || '',
-                            frameLength: order.fitting?.frameLength || '',
-                            frameHeight: order.fitting?.frameHeight || '',
-
-                            pantoscopicAngle: order.lensData?.pantoscopeAngle || '',
-                            bowAngle: order.lensData?.bowAngle || '',
-                            bvd: order.lensData?.bvd || '',
-
-                            directCustomer: order.directCustomer || '',
-                            shippingCharges: order.shippingCharges || '',
-                            otherCharges: order.otherCharges || ''
                         };
 
-                        // Map Power Table
-                        if (order.powers) {
-                            order.powers.forEach(p => {
-                                mappedValues.powerTable[p.side] = {
-                                    sph: p.sph?.toString() || '',
-                                    cyl: p.cyl?.toString() || '',
-                                    axis: p.axis?.toString() || '',
-                                    add: p.add?.toString() || '',
-                                    dia: p.diameter?.toString() || '70'
+                        // Handle multiple products if backend provides them, otherwise map root level to first product
+                        let products = [];
+                        if (order.products && order.products.length > 0) {
+                            products = order.products.map(prod => {
+                                const prodMapped = {
+                                    ...productTemplate,
+                                    scan: prod.scan || '',
+                                    qty: prod.qty || 1,
+                                    price: prod.price || 0,
+                                    discount: prod.discount || 0,
+                                    powerMode: prod.powers?.length === 1 ? 'single' : 'both',
+                                    productMode: prod.productMode?.toLowerCase() === 'rx' ? 'rx' : 'stock',
+                                    hasPrism: (prod.hasPrism || prod.prisms?.length > 0) ? 'yes' : 'no',
+                                    selectedSide: prod.powers?.[0]?.side || 'R',
+                                    brandId: prod.brand?.id || '',
+                                    categoryId: prod.category?.id || '',
+                                    treatmentId: prod.treatment?.id || '',
+                                    indexId: (prod.index !== undefined && prod.index !== null) ? prod.index.toString() : '',
+                                    productName: prod.productName?.id || '',
+                                    lensTypeId: prod.productType?.id || '',
+                                    coatingId: prod.coating?.id || '',
+                                    tintId: prod.tint?.id || '',
+                                    tintDetails: prod.tintDetails || '',
+                                    remarks: prod.remarks || '',
+                                    hasMirror: prod.mirror ? 'yes' : 'no',
+                                    gstDetails: prod.gstDetails || {
+                                        gstPercent: '', gstType: '', gstMode: '', gstAmount: '',
+                                        loyaltyPoints: '', advance: '', transactionType: '', remarks: ''
+                                    }
                                 };
+
+                                if (prod.powers) {
+                                    prod.powers.forEach(p => {
+                                        prodMapped.powerTable[p.side] = {
+                                            sph: p.sph?.toString() || '', cyl: p.cyl?.toString() || '',
+                                            axis: p.axis?.toString() || '', add: p.add?.toString() || '',
+                                            dia: p.diameter?.toString() || '70'
+                                        };
+                                    });
+                                }
+                                if (prod.prisms) {
+                                    prod.prisms.forEach(p => {
+                                        prodMapped.prismTable[p.side] = { prism: p.prism || '', base: p.base || '' };
+                                    });
+                                }
+                                const centData = prod.centration || prod.centrations;
+                                if (centData) {
+                                    centData.forEach(c => {
+                                        prodMapped.centrationData[c.side] = {
+                                            pd: c.pd?.toString() || '', corridor: c.corridor?.toString() || '',
+                                            fittingHeight: c.fittingHeight?.toString() || ''
+                                        };
+                                    });
+                                }
+                                return prodMapped;
                             });
+                        } else {
+                            // Fallback to single product from root
+                            const singleProd = {
+                                ...productTemplate,
+                                powerMode: order.powers?.length === 1 ? 'single' : 'both',
+                                productMode: order.productMode?.toLowerCase() === 'rx' ? 'rx' : 'stock',
+                                hasPrism: (order.hasPrism || order.prisms?.length > 0) ? 'yes' : 'no',
+                                selectedSide: order.powers?.[0]?.side || 'R',
+                                brandId: order.brand?.id || '',
+                                categoryId: order.category?.id || '',
+                                treatmentId: order.treatment?.id || '',
+                                indexId: (order.index !== undefined && order.index !== null) ? order.index.toString() : '',
+                                productName: order.productName?.id || '',
+                                lensTypeId: order.productType?.id || '',
+                                coatingId: order.coating?.id || '',
+                                tintId: order.tint?.id || '',
+                                tintDetails: order.tintDetails || '',
+                                remarks: order.remarks || '',
+                                hasMirror: order.mirror ? 'yes' : 'no',
+                            };
+                            if (order.powers) {
+                                order.powers.forEach(p => {
+                                    singleProd.powerTable[p.side] = {
+                                        sph: p.sph?.toString() || '', cyl: p.cyl?.toString() || '',
+                                        axis: p.axis?.toString() || '', add: p.add?.toString() || '', dia: p.diameter?.toString() || '70'
+                                    };
+                                });
+                            }
+                            if (order.prisms) {
+                                order.prisms.forEach(p => {
+                                    singleProd.prismTable[p.side] = { prism: p.prism || '', base: p.base || '' };
+                                });
+                            }
+                            const centData = order.centration || order.centrations;
+                            if (centData) {
+                                centData.forEach(c => {
+                                    singleProd.centrationData[c.side] = {
+                                        pd: c.pd?.toString() || '', corridor: c.corridor?.toString() || '', fittingHeight: c.fittingHeight?.toString() || ''
+                                    };
+                                });
+                            }
+                            products = [singleProd];
                         }
 
-                        // Map Prism Table
-                        if (order.prisms) {
-                            order.prisms.forEach(p => {
-                                mappedValues.prismTable[p.side] = {
-                                    prism: p.prism || '',
-                                    base: p.base || ''
-                                };
-                            });
-                        }
-
-                        // Map Centration Data (API uses 'centration' singular)
-                        const centData = order.centration || order.centrations;
-                        if (centData) {
-                            centData.forEach(c => {
-                                mappedValues.centrationData[c.side] = {
-                                    pd: c.pd?.toString() || '',
-                                    corridor: c.corridor?.toString() || '',
-                                    fittingHeight: c.fittingHeight?.toString() || ''
-                                };
-                            });
-                        }
+                        mappedValues.products = products;
 
                         // Inject the current order's product into the options list 
                         // so the searchable select can resolve the label immediately
@@ -291,44 +354,6 @@ const OrderWizard = () => {
     }, [id]);
 
     const formatOrderPayload = (values, status) => {
-        const mapEyeData = (side, data) => ({
-            side,
-            sph: parseFloat(data.sph) || 0,
-            cyl: parseFloat(data.cyl) || 0,
-            axis: parseFloat(data.axis) || 0,
-            add: parseFloat(data.add) || 0,
-            diameter: parseFloat(data.dia) || 70
-        });
-
-        const powers = [];
-        if (values.powerMode === 'both') {
-            powers.push(mapEyeData('R', values.powerTable.R));
-            powers.push(mapEyeData('L', values.powerTable.L));
-        } else {
-            const side = values.selectedSide;
-            powers.push(mapEyeData(side, values.powerTable[side]));
-        }
-
-        const prisms = [];
-        if (values.hasPrism === 'yes') {
-            if (values.powerMode === 'both') {
-                prisms.push({ side: 'R', ...values.prismTable.R });
-                prisms.push({ side: 'L', ...values.prismTable.L });
-            } else {
-                const side = values.selectedSide;
-                prisms.push({ side, ...values.prismTable[side] });
-            }
-        }
-
-        const centration = [];
-        if (values.powerMode === 'both') {
-            centration.push({ side: 'R', ...values.centrationData.R });
-            centration.push({ side: 'L', ...values.centrationData.L });
-        } else {
-            const side = values.selectedSide;
-            centration.push({ side, ...values.centrationData[side] });
-        }
-
         const getFieldData = (field, id) => {
             const configSource = field === 'tints' ? configs.tints : configs[field];
             const item = (configSource || []).find(i => i._id === id || i.id === id);
@@ -340,7 +365,48 @@ const OrderWizard = () => {
             return item ? { id, name: item.label } : { id: id || '', name: '' };
         };
 
+        const items = [];
+
+        values.products.forEach(prod => {
+            const brandData = getFieldData('brand', prod.brandId);
+            const categoryData = getFieldData('category', prod.categoryId);
+            const productData = getProductNameData(prod.productName);
+            const coatingData = getFieldData('coating', prod.coatingId);
+
+            const mapEyeToItem = (side, data) => ({
+                productId: prod.productName, // Assuming productId maps to the selected productName _id
+                orderType: prod.productMode === 'rx' ? 'RX' : 'STOCK',
+                itemName: productData?.name || '',
+                category: categoryData?.name?.toUpperCase() || 'LENS',
+                Brand: brandData?.name || '',
+                price: parseFloat(prod.price) || 0,
+                GST: parseFloat(prod.gstDetails?.gstPercent) || 0,
+                QTY: parseInt(prod.qty) || 1,
+                sph: parseFloat(data.sph) || 0,
+                cyl: parseFloat(data.cyl) || 0,
+                axis: parseFloat(data.axis) || 0,
+                add: parseFloat(data.add) || 0,
+                Index: parseFloat(prod.indexId) || 0,
+                Coating: coatingData?.name || ''
+            });
+
+            if (prod.powerMode === 'both') {
+                items.push(mapEyeToItem('R', prod.powerTable.R));
+                items.push(mapEyeToItem('L', prod.powerTable.L));
+            } else {
+                items.push(mapEyeToItem(prod.selectedSide, prod.powerTable[prod.selectedSide]));
+            }
+        });
+
         return {
+            orders: [
+                {
+                    orderNumber: values.orderReference || undefined,
+                    items,
+                    status: status.toLowerCase()
+                }
+            ],
+            // Sending root-level fields in case other parts of the system expect the old structure
             customer: {
                 customerId: values.customerId,
                 customerShipToId: values.shipToId
@@ -348,37 +414,7 @@ const OrderWizard = () => {
             orderReference: values.orderReference,
             consumerCardName: values.consumerCardName,
             opticianName: values.opticianName,
-            powerType: values.powerMode === 'both' ? 'Both' : 'Single',
-            powers,
-            productMode: values.productMode === 'stock' ? 'Stock Lens' : 'Rx',
-            prisms,
-            brand: getFieldData('brand', values.brandId),
-            category: getFieldData('category', values.categoryId),
-            treatment: getFieldData('treatment', values.treatmentId),
-            index: parseFloat(values.indexId) || 0,
-            productName: getProductNameData(values.productName),
-            coating: getFieldData('coating', values.coatingId),
-            tint: getFieldData('tints', values.tintId),
-            tintDetails: values.tintDetails,
-            remarks: values.remarks,
-            mirror: values.hasMirror === 'yes',
-            centration,
-            fitting: {
-                hasFlatFitting: values.hasFlatFitting === 'yes',
-                dbl: parseFloat(values.dbl) || null,
-                frameType: values.frameType,
-                frameLength: parseFloat(values.frameLength) || null,
-                frameHeight: parseFloat(values.frameHeight) || null
-            },
-            lensData: {
-                pantoscopeAngle: parseFloat(values.pantoscopicAngle) || null,
-                bowAngle: parseFloat(values.bowAngle) || null,
-                bvd: parseFloat(values.bvd) || null
-            },
-            directCustomer: values.directCustomer,
-            shippingCharges: parseFloat(values.shippingCharges) || 0,
-            otherCharges: parseFloat(values.otherCharges) || 0,
-            status
+            status: status
         };
     };
 
@@ -437,80 +473,147 @@ const OrderWizard = () => {
     // Local store for search timer
     const searchTimeout = useRef(null);
 
-    const searchProducts = (search = '') => {
+    const searchProductsForIndex = (search = '', index) => {
         if (searchTimeout.current) clearTimeout(searchTimeout.current);
 
         searchTimeout.current = setTimeout(async () => {
-            const brandName = configs.brand.find(b => b._id === formik.values.brandId)?.name || '';
-            const categoryName = configs.category.find(c => c._id === formik.values.categoryId)?.name || '';
+            const product = formik.values.products[index];
+            const brandId = product?.brandId || '';
+            const categoryId = product?.categoryId || '';
+            const brandName = configs.brand?.find(b => b._id === brandId)?.name || '';
+            const categoryName = configs.category?.find(c => c._id === categoryId)?.name || '';
 
-            console.log('Searching products:', { search, brand: brandName, category: categoryName });
+            console.log('Searching products for index:', index, { search, brand: brandName, category: categoryName });
             setLoadingProductNames(true);
             try {
-                const data = await getProductNames(search, 1, 100, brandName, categoryName);
-                const items = data?.data?.data || data || [];
-                console.log(items, 'data')
+                const data = await getProductNames(search, 1, 100);
+                const items = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+                console.log('Fetched products:', items);
                 setProductNames(items.map(p => ({
                     value: p._id || p.id || p.productName || '',
                     label: p.productName || p.name || '',
-                    price: p.price || p.mrp || 0
+                    price: p.price || p.mrp || 0,
+                    raw: p
                 })));
             } catch (error) {
                 console.error('Failed to fetch product names:', error);
             } finally {
                 setLoadingProductNames(false);
             }
-        }, 500);
+        }, 300);
     };
 
-    // Initial search: Only trigger when filters change
-    useEffect(() => {
-        searchProducts('');
-    }, [formik.values.brandId, formik.values.categoryId]);
+    const handleProductSelection = (index, selectedValue) => {
+        const option = productNames.find(p => p.value === selectedValue);
+        const prefix = `products.${index}.`;
 
-    // Dynamic Category Loading
+        if (option && option.raw) {
+            const rawProd = option.raw;
+            formik.setFieldValue(`${prefix}productId`, rawProd._id || rawProd.id || '');
+            formik.setFieldValue(`${prefix}productName`, rawProd.productName || rawProd.name || '');
+            formik.setFieldValue(`${prefix}itemName`, rawProd.productName || rawProd.name || '');
+            formik.setFieldValue(`${prefix}category`, rawProd.category || '');
+            formik.setFieldValue(`${prefix}Brand`, rawProd.brand || '');
+            formik.setFieldValue(`${prefix}price`, rawProd.price || 0);
+            formik.setFieldValue(`${prefix}MRP`, rawProd.mrp || rawProd.MRP || 0);
+            if (rawProd.qty !== undefined) formik.setFieldValue(`${prefix}qty`, rawProd.qty);
+
+            // Map brandId and categoryId if they exist in configs
+            const matchedCategory = configs.category?.find(c => c.name?.toUpperCase() === rawProd.category?.toUpperCase());
+            if (matchedCategory) {
+                formik.setFieldValue(`${prefix}categoryId`, matchedCategory._id);
+            }
+            const matchedBrand = configs.brand?.find(b => b.name?.toUpperCase() === rawProd.brand?.toUpperCase());
+            if (matchedBrand) {
+                formik.setFieldValue(`${prefix}brandId`, matchedBrand._id);
+            }
+
+            // Set GST details
+            formik.setFieldValue(`${prefix}gstDetails`, {
+                gstPercent: rawProd.gst !== undefined && rawProd.gst !== null ? rawProd.gst.toString() : '',
+                gstType: rawProd.gstType || '',
+                gstMode: rawProd.gstMode || '',
+                gstAmount: rawProd.gstAmount || '',
+                loyaltyPoints: rawProd.loyaltyPoints || '',
+                advance: rawProd.advance || '',
+                transactionType: rawProd.transactionType || '',
+                remarks: rawProd.remarks || ''
+            });
+
+            // Set other properties
+            formik.setFieldValue(`${prefix}color`, rawProd.color || '');
+            formik.setFieldValue(`${prefix}size`, rawProd.size || '');
+            formik.setFieldValue(`${prefix}type`, rawProd.type || '');
+            formik.setFieldValue(`${prefix}shape`, rawProd.shape || '');
+            formik.setFieldValue(`${prefix}material`, rawProd.material || '');
+            formik.setFieldValue(`${prefix}dimensions`, rawProd.dimensions || '');
+            formik.setFieldValue(`${prefix}image`, rawProd.image || '');
+            formik.setFieldValue(`${prefix}code`, rawProd.productCode || rawProd.code || '');
+            formik.setFieldValue(`${prefix}HSNSAC`, rawProd.hsnSac || rawProd.HSNSAC || '');
+
+            // populate power table values from raw product if present (sph, cyl, axis, add, etc.)
+            const powerTable = {
+                R: {
+                    sph: rawProd.sph || '',
+                    cyl: rawProd.cyl || '',
+                    axis: rawProd.axis || '',
+                    add: rawProd.addition || rawProd.add || '',
+                    dia: '70'
+                },
+                L: {
+                    sph: rawProd.sph || '',
+                    cyl: rawProd.cyl || '',
+                    axis: rawProd.axis || '',
+                    add: rawProd.addition || rawProd.add || '',
+                    dia: '70'
+                }
+            };
+            formik.setFieldValue(`${prefix}powerTable`, powerTable);
+
+        } else if (selectedValue) {
+            // Custom RX / freeSolo input
+            formik.setFieldValue(`${prefix}productId`, '');
+            formik.setFieldValue(`${prefix}productName`, selectedValue);
+            formik.setFieldValue(`${prefix}itemName`, selectedValue);
+        }
+    };
+
+    // Initial search and filter changes for active product
+    const activeProduct = formik.values.products[activeProductIndex];
+    const activeProductBrandId = activeProduct?.brandId;
+    const activeProductCategoryId = activeProduct?.categoryId;
+
+    useEffect(() => {
+        if (activeProduct) {
+            searchProductsForIndex('', activeProductIndex);
+        }
+    }, [activeProductIndex, activeProductBrandId, activeProductCategoryId]);
+
+    // Dynamic Category Loading for active brand selection
     useEffect(() => {
         const fetchCategories = async () => {
-            if (!formik.values.brandId) {
-                setConfigs(prev => ({ ...prev, category: [] }));
+            if (!activeProductBrandId) {
+                setActiveCategories(configs.category || []);
                 return;
             }
 
-            const brandName = configs.brand.find(b => b._id === formik.values.brandId)?.name || '';
+            const brandName = configs.brand?.find(b => b._id === activeProductBrandId)?.name || '';
             if (brandName) {
-                setLoadingConfigs(true);
                 try {
                     const filteredCats = await getCategoriesByBrand(brandName);
-                    setConfigs(prev => ({ ...prev, category: filteredCats }));
-
-                    // Only reset downstream if we are NOT currently mapping initial data
-                    if (!isMappingData.current) {
-                        formik.setFieldValue('categoryId', '');
-                        formik.setFieldValue('productName', '');
-                    }
+                    setActiveCategories(filteredCats);
                 } catch (err) {
                     console.error('Failed to filter categories:', err);
-                } finally {
-                    setLoadingConfigs(false);
                 }
+            } else {
+                setActiveCategories(configs.category || []);
             }
         };
         fetchCategories();
-    }, [formik.values.brandId]);
-
-    // Clear Product when Category changes
-    const prevCatRef = useRef(formik.values.categoryId);
-    useEffect(() => {
-        if (prevCatRef.current !== formik.values.categoryId) {
-            if (!isMappingData.current) {
-                formik.setFieldValue('productName', '');
-            }
-            prevCatRef.current = formik.values.categoryId;
-        }
-    }, [formik.values.categoryId, formik.setFieldValue]);
+    }, [activeProductBrandId, configs.brand, configs.category]);
 
     useEffect(() => {
-        console.log('Selected Product Name:', formik.values.productName);
+        console.log('Selected Product Name for active row:', activeProduct?.productName);
     }, [formik.values.productName]);
     const handleResolveBase = async () => {
         setResolvingBase(true);
@@ -637,6 +740,7 @@ const OrderWizard = () => {
         return (
             <Component
                 {...props}
+                size="small"
                 error={fieldTouched && fieldError ? { message: fieldError } : null}
                 onChange={formik.handleChange}
                 onBlur={formik.handleBlur}
@@ -652,8 +756,8 @@ const OrderWizard = () => {
             case 0: // Customer Details
                 return !!values.customerId && !errors.customerId;
             case 1: // Product Details
-                return !!values.brandId && !!values.categoryId && !!values.productName && !!values.indexId &&
-                    !errors.brandId && !errors.categoryId && !errors.productName && !errors.indexId;
+                if (!values.products || values.products.length === 0) return false;
+                return !errors.products;
             case 2: // Advanced Details
                 const techValid = !!values.pantoscopicAngle && !!values.bowAngle && !!values.bvd &&
                     !errors.pantoscopicAngle && !errors.bowAngle && !errors.bvd;
@@ -670,7 +774,7 @@ const OrderWizard = () => {
         // Define fields for each step to validate partially
         const stepFields = [
             ['customerId'], // Step 1
-            ['brandId', 'categoryId', 'productName', 'indexId'], // Step 2
+            ['products'], // Step 2
             ['pantoscopicAngle', 'bowAngle', 'bvd'] // Step 3
         ];
 
@@ -764,407 +868,571 @@ const OrderWizard = () => {
         </div>
     );
 
-    const renderProductDetails = () => (
-        <div className="p-10 space-y-12 bg-white rounded-b-2xl  border-gray-50">
-            {/* Toggles Row */}
-            <div className="flex flex-wrap gap-10 items-end justify-between ">
-                <CustomToggle
-                    label="Power Details"
-                    value={formik.values.powerMode}
-                    onChange={(v) => formik.setFieldValue('powerMode', v)}
-                    options={[{ label: 'Single', value: 'single' }, { label: 'Both', value: 'both' }]}
-                    containerClassName="w-64 "
-                />
+    const renderActiveProductDetails = (index) => {
+        const product = formik.values.products[index];
+        const prefix = `products.${index}.`;
 
-                <CustomToggle
-                    label="Product Type"
-                    value={formik.values.productMode}
-                    onChange={(v) => formik.setFieldValue('productMode', v)}
-                    options={[{ label: 'Stock Lens', value: 'stock' }, { label: 'Rx', value: 'rx' }]}
-                    containerClassName="w-64"
-                />
-                <CustomToggle
-                    label="Has Prism"
-                    value={formik.values.hasPrism}
-                    onChange={(v) => formik.setFieldValue('hasPrism', v)}
-                    options={[{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }]}
-                    containerClassName="w-64"
-                />
+        return (
+            <div className="space-y-4 p-4 bg-gray-50/30 rounded-xl border border-gray-100">
+                {/* Toggles Row */}
+                <div className="flex flex-wrap gap-4 items-center justify-start bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                    <CustomToggle
+                        label="Power Details"
+                        value={product.powerMode}
+                        onChange={(v) => formik.setFieldValue(`${prefix}powerMode`, v)}
+                        options={[{ label: 'Single', value: 'single' }, { label: 'Both', value: 'both' }]}
+                        containerClassName="flex-1 md:flex-none min-w-[200px]"
+                    />
 
-
-            </div>
-
-            {/* Power Tables Row */}
-            <div className="flex flex-col lg:flex-row gap-8">
-                {/* Main Power Table */}
-                <div className="flex-1 bg-gray-50/50 border border-gray-200/50 rounded-2xl overflow-hidden shadow-sm">
-                    <div className="grid grid-cols-6 bg-gray-100/80 border-b border-gray-200">
-                        {['SIDE', 'SPH', 'CYLD', 'AXIS', 'ADD', 'DIAMETER'].map(h => (
-                            <div key={h} className="py-2.5 text-[10px] font-black uppercase text-gray-400   text-center border-r border-gray-200 last:border-r-0 ">{h}</div>
-                        ))}
-                    </div>
-                    {['R', 'L'].map((side, sIdx) => {
-                        const isDisabled = formik.values.powerMode === 'single' && formik.values.selectedSide !== side;
-                        // Find resolution for this eye
-                        const eyeResolve = resolutionResult?.resolved?.resolved?.find(r => r.side === side);
-
-                        return (
-                            <div key={side} className={`grid grid-cols-6 border-b border-gray-100 last:border-b-0 items-center ${side === 'L' ? 'bg-erp-accent/5/20' : ''} ${isDisabled ? 'opacity-30' : ''}`}>
-                                <div
-                                    className={`py-4 flex flex-col items-center justify-center border-r border-gray-100 gap-1 overflow-hidden transition-all duration-300 ${formik.values.powerMode === 'single' ? 'cursor-pointer hover:bg-erp-accent/5/50' : ''}`}
-                                    onClick={() => {
-                                        if (formik.values.powerMode === 'single') {
-                                            formik.setFieldValue('selectedSide', side);
-                                        }
-                                    }}
-                                >
-                                    <div className="flex items-center gap-2">
-                                        {formik.values.powerMode === 'single' && (
-                                            <div className={`w-4 h-4 rounded-sm border transition-all flex items-center justify-center ${formik.values.selectedSide === side
-                                                ? 'bg-erp-accent border-erp-accent shadow-sm'
-                                                : 'bg-white border-gray-200'
-                                                }`}>
-                                                {formik.values.selectedSide === side && <Icon icon="mdi:check" className="text-white text-[10px]" />}
-                                            </div>
-                                        )}
-                                        <span className={`font-black  text-sm ${formik.values.powerMode === 'single' && formik.values.selectedSide === side
-                                            ? 'text-erp-accent'
-                                            : 'text-gray-500'
-                                            }`}>{side}</span>
-                                    </div>
-                                    {eyeResolve && (
-                                        <div className="flex flex-col items-center animate-in zoom-in-50 duration-500">
-                                            <span className="px-1.5 py-0.5 bg-black text-white text-[7px] font-black uppercase tracking-tighter rounded-sm whitespace-nowrap mb-0.5">
-                                                {eyeResolve.blankCode}
-                                            </span>
-                                            {eyeResolve.baseCurve && (
-                                                <span className="text-[7px] text-erp-accent/80 font-black  tracking-tighter mb-0.5">
-                                                    Base: {eyeResolve.baseCurve}
-                                                </span>
-                                            )}
-                                            <span className="text-[7px] text-erp-accent/90 font-extrabold uppercase tracking-tighter truncate max-w-[50px]">
-                                                {eyeResolve.supplier}
-                                            </span>
-                                        </div>
-                                    )}
-                                    {resolvingBase && (
-                                        <div className="animate-pulse flex gap-0.5 mt-1">
-                                            <div className="w-1 h-1 bg-amber-400 rounded-full"></div>
-                                            <div className="w-1 h-1 bg-amber-400 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                                            <div className="w-1 h-1 bg-amber-400 rounded-full animate-bounce [animation-delay:0.4s]"></div>
-                                        </div>
-                                    )}
-                                </div>
-                                {['sph', 'cyl', 'axis', 'add', 'dia'].map(field => (
-                                    <div key={field} className="p-1.5">
-                                        <input
-                                            type="text"
-                                            name={`powerTable.${side}.${field}`}
-                                            value={formik.values.powerTable[side][field]}
-                                            onChange={formik.handleChange}
-                                            disabled={isDisabled}
-                                            className="w-full h-10 border border-gray-200 rounded-lg bg-white text-center font-bold text-gray-700 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-erp-accent/10 transition-all disabled:cursor-not-allowed"
-                                            placeholder="0.00"
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                        );
-                    })}
+                    {/* <CustomToggle
+                        label="Product Type"
+                        value={product.productMode}
+                        onChange={(v) => formik.setFieldValue(`${prefix}productMode`, v)}
+                        options={[{ label: 'Stock Lens', value: 'stock' }, { label: 'Rx', value: 'rx' }]}
+                        containerClassName="flex-1 md:flex-none min-w-[220px]"
+                    /> */}
+                    <CustomToggle
+                        label="Has Prism"
+                        value={product.hasPrism}
+                        onChange={(v) => formik.setFieldValue(`${prefix}hasPrism`, v)}
+                        options={[{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }]}
+                        containerClassName="flex-1 md:flex-none min-w-[180px]"
+                    />
                 </div>
 
-                {/* Prism Table */}
-                {formik.values.hasPrism === 'yes' && (
-                    <div className="w-full lg:w-72 bg-gray-50/50 border border-gray-200/50 rounded-2xl overflow-hidden shadow-sm animate-in slide-in-from-right-4 duration-300">
-                        <div className="grid grid-cols-3 bg-gray-100/80 border-b border-gray-200">
-                            {['SIDE', 'PRISM', 'BASE SEL.'].map(h => (
-                                <div key={h} className="py-2.5 text-[10px] font-black uppercase text-gray-400   text-center border-r border-gray-200 last:border-r-0 ">{h}</div>
+                {/* Power & Prism Tables Row */}
+                <div className="flex flex-col lg:flex-row gap-4">
+                    {/* Main Power Table */}
+                    <div className="flex-1 bg-gray-50/50 border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                        <div className="grid grid-cols-6 bg-gray-100/80 border-b border-gray-200">
+                            {['SIDE', 'SPH', 'CYLD', 'AXIS', 'ADD', 'DIAMETER'].map(h => (
+                                <div key={h} className="py-2 text-[11px] font-black uppercase text-gray-500 text-center border-r border-gray-200 last:border-r-0">{h}</div>
                             ))}
                         </div>
                         {['R', 'L'].map((side) => {
-                            const isDisabled = formik.values.powerMode === 'single' && formik.values.selectedSide !== side;
+                            const isDisabled = product.powerMode === 'single' && product.selectedSide !== side;
+
                             return (
-                                <div key={side} className={`grid grid-cols-3 border-b border-gray-100 last:border-b-0 items-center ${isDisabled ? 'opacity-30' : ''}`}>
+                                <div key={side} className={`grid grid-cols-6 border-b border-gray-100 last:border-b-0 items-center ${side === 'L' ? 'bg-erp-accent/5/20' : ''} ${isDisabled ? 'opacity-30' : ''}`}>
                                     <div
-                                        className={`py-4 flex flex-col items-center justify-center border-r border-gray-100 gap-1 overflow-hidden transition-all duration-300 ${formik.values.powerMode === 'single' ? 'cursor-pointer hover:bg-erp-accent/5/50' : ''}`}
+                                        className={`py-1.5 flex flex-col items-center justify-center border-r border-gray-100 gap-1 overflow-hidden transition-all duration-300 ${product.powerMode === 'single' ? 'cursor-pointer hover:bg-erp-accent/5/50' : ''}`}
                                         onClick={() => {
-                                            if (formik.values.powerMode === 'single') {
-                                                formik.setFieldValue('selectedSide', side);
+                                            if (product.powerMode === 'single') {
+                                                formik.setFieldValue(`${prefix}selectedSide`, side);
                                             }
                                         }}
                                     >
-                                        <div className="flex items-center gap-2">
-                                            {formik.values.powerMode === 'single' && (
-                                                <div className={`w-4 h-4 rounded-sm border transition-all flex items-center justify-center ${formik.values.selectedSide === side
-                                                    ? 'bg-erp-accent border-erp-accent shadow-sm'
-                                                    : 'bg-white border-gray-200'
-                                                    }`}>
-                                                    {formik.values.selectedSide === side && <Icon icon="mdi:check" className="text-white text-[10px]" />}
+                                        <div className="flex items-center gap-1.5">
+                                            {product.powerMode === 'single' && (
+                                                <div className={`w-3 h-3 rounded-sm border transition-all flex items-center justify-center ${product.selectedSide === side ? 'bg-erp-accent border-erp-accent shadow-sm' : 'bg-white border-gray-200'}`}>
+                                                    {product.selectedSide === side && <Icon icon="mdi:check" className="text-white text-[10px]" />}
                                                 </div>
                                             )}
-                                            <span className={`font-black  text-sm ${formik.values.powerMode === 'single' && formik.values.selectedSide === side
-                                                ? 'text-erp-accent'
-                                                : 'text-gray-500'
-                                                }`}>{side}</span>
+                                            <span className={`font-black text-xs ${product.powerMode === 'single' && product.selectedSide === side ? 'text-erp-accent' : 'text-gray-500'}`}>{side}</span>
                                         </div>
                                     </div>
-                                    <div className="p-1.5">
-                                        <input
-                                            type="text"
-                                            name={`prismTable.${side}.prism`}
-                                            value={formik.values.prismTable[side].prism}
-                                            onChange={formik.handleChange}
-                                            disabled={isDisabled}
-                                            className="w-full h-10 border border-gray-200 rounded-lg bg-white text-center font-bold text-gray-700 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-erp-accent/10 transition-all disabled:cursor-not-allowed"
-                                            placeholder="0.00"
-                                        />
-                                    </div>
-                                    <div className="p-1.5">
-                                        <input
-                                            type="text"
-                                            name={`prismTable.${side}.base`}
-                                            value={formik.values.prismTable[side].base}
-                                            onChange={formik.handleChange}
-                                            disabled={isDisabled}
-                                            className="w-full h-10 border border-gray-200 rounded-lg bg-white text-center font-bold text-gray-700 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-erp-accent/10 transition-all disabled:cursor-not-allowed"
-                                            placeholder="Base"
-                                        />
-                                    </div>
+                                    {['sph', 'cyl', 'axis', 'add', 'dia'].map(field => (
+                                        <div key={field} className="p-1">
+                                            <input
+                                                type="text"
+                                                name={`${prefix}powerTable.${side}.${field}`}
+                                                value={product.powerTable[side][field]}
+                                                onChange={formik.handleChange}
+                                                disabled={isDisabled}
+                                                className="w-full h-8 border border-gray-200 rounded bg-white text-center text-xs font-bold text-gray-700 focus:outline-none focus:border-erp-accent focus:ring-1 focus:ring-erp-accent transition-all disabled:cursor-not-allowed"
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                    ))}
                                 </div>
                             );
                         })}
                     </div>
-                )}
-            </div>
 
-            {/* Rest of the Product Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-8">
-                {wrapInput(SearchableSelect, {
-                    label: "Select Brand",
-                    name: "brandId",
-                    options: (Array.isArray(configs.brand) ? configs.brand : []).map(b => ({ value: b._id, label: b.name })),
-                    placeholder: "Select Brand"
-                })}
-                {wrapInput(SearchableSelect, {
-                    label: "Select Category",
-                    name: "categoryId",
-                    options: (Array.isArray(configs.category) ? configs.category : []).map(c => ({ value: c._id, label: c.name })),
-                    placeholder: "Select Category",
-                    disabled: !formik.values.brandId
-                })}
-                <div className="md:col-span-1">
-                    <SearchableSelect
-                        label="Product Name"
-                        name="productName"
-                        value={formik.values.productName}
-                        onChange={(e) => formik.setFieldValue('productName', e.target.value)}
-                        onSearch={(q) => searchProducts(q)}
-                        options={productNames}
-                        loading={loadingProductNames}
-                        placeholder="Search Product Name (e.g. Polarised)..."
-                        disabled={!formik.values.brandId || !formik.values.categoryId || isReadOnly}
-                    />
-
-                </div>
-
-
-
-                {wrapInput(Select, {
-                    label: "Treatment",
-                    name: "treatmentId",
-                    placeholder: "Treatment",
-                    options: (Array.isArray(configs.treatment) ? configs.treatment : []).map(t => ({ value: t._id, label: t.name }))
-                })}
-                {wrapInput(Select, {
-                    label: "Index",
-                    name: "indexId",
-                    placeholder: "Index",
-                    options: (Array.isArray(configs.index) ? configs.index : []).map(i => {
-                        const val = i.value?.toString() || i.toString() || '';
-                        return { value: val, label: val };
-                    })
-                })}
-
-                {wrapInput(Select, {
-                    label: "Coating",
-                    name: "coatingId",
-                    placeholder: "Coating",
-                    options: (Array.isArray(configs.coating) ? configs.coating : []).map(c => ({ value: c._id, label: c.name }))
-                })}
-                {wrapInput(Select, {
-                    label: "Tint",
-                    name: "tintId",
-                    placeholder: "Tint",
-                    options: (Array.isArray(configs.tints) ? configs.tints : []).map(t => ({ value: t._id, label: t.name }))
-                })}
-                {wrapInput(Input, {
-                    label: "Tint Details",
-                    name: "tintDetails",
-                    placeholder: "Tint Details"
-                })}
-                {wrapInput(Input, {
-                    label: "Remarks",
-                    name: "remarks",
-                    placeholder: "Enter Remarks"
-                })}
-                {formik.values.productName && (
-                    <div className="mt-2 flex items-center gap-2">
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest"> Price:</span>
-                        <span className="text-sm font-black text-erp-accent/80">
-                            ₹{productNames.find(p => p.value === formik.values.productName)?.price || '0.00'}
-                        </span>
-                    </div>
-                )}
-                {/* <div className="col-span-full mt-4 p-6 bg-gray-50 rounded-2xl border border-gray-200 shadow-inner">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="space-y-1">
-                            <h5 className="text-sm font-black text-gray-800 uppercase tracking-widest flex items-center gap-2">
-                                <Icon icon="mdi:truck-delivery" className="text-erp-accent" />
-                                Identify Suppliers & Base Type
-                            </h5>
-                            <p className="text-[10px] text-gray-400 font-bold uppercase   italic">Demo Tool: Check which supplier and base curve will be used for this selection.</p>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={handleResolveBase}
-                            disabled={resolvingBase}
-                            className="bg-erp-accent text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2 shadow-lg shadow-orange-500/10 active:scale-95 disabled:opacity-50"
-                        >
-                            {resolvingBase ? <Icon icon="mdi:loading" className="animate-spin text-lg" /> : <Icon icon="mdi:account-search" className="text-lg" />}
-                            Know Suppliers
-                        </button>
-                    </div>
-
-                    {resolutionResult && (
-                        <div className="mt-8 space-y-6 animate-in fade-in slide-in-from-top-6 duration-700">
-                            {Array.isArray(resolutionResult.resolved?.resolved) && (
-                                <div className="space-y-3">
-                                    <h6 className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-2">Product Resolution:</h6>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {resolutionResult.resolved.resolved.map((item, idx) => (
-                                            <div key={idx} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-lg bg-erp-accent flex items-center justify-center font-black text-white italic shadow-sm">
-                                                        {item.side}
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-[10px] text-gray-400 font-bold uppercase  ">Blank Code</p>
-                                                        <p className="text-xs font-black text-gray-800">{item.blankCode}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="text-center">
-                                                    <p className="text-[10px] text-gray-400 font-bold uppercase  ">Base Curve</p>
-                                                    <p className="text-xs font-black text-erp-accent/80 ">BC {item.baseCurve}</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-[10px] text-gray-400 font-bold uppercase  ">Supplier</p>
-                                                    <p className="text-xs font-black text-gray-900 flex items-center gap-1 justify-end">
-                                                        <Icon icon="mdi:check-decagram" className="text-green-500 text-[10px]" />
-                                                        {item.supplier}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {Array.isArray(resolutionResult.resolved?.suppliers) && (
-                                <div className="space-y-3">
-                                    <h6 className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-2">Supplier Priorities:</h6>
-                                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                                        <div className="grid grid-cols-3 bg-gray-50 border-b border-gray-100 py-2 px-4">
-                                            <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Supplier Name</div>
-                                            <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest text-center">Priority</div>
-                                            <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest text-right">Status</div>
-                                        </div>
-                                        {resolutionResult.resolved.suppliers.map((sup, sidx) => (
-                                            <div key={sidx} className="grid grid-cols-3 py-2.5 px-4 border-b border-gray-50 last:border-0 hover:bg-erp-accent/5/10 transition-colors items-center">
-                                                <div className="text-xs font-bold text-gray-700">{sup.name}</div>
-                                                <div className="text-center">
-                                                    <span className="px-2 py-0.5 bg-gray-100 rounded-full text-[9px] font-black text-gray-500">
-                                                        Rank {sup.priority}
-                                                    </span>
-                                                </div>
-                                                <div className="text-right">
-                                                    <span className={`text-[9px] font-black uppercase tracking-widest ${sup.active ? 'text-green-500' : 'text-red-400'}`}>
-                                                        {sup.active ? 'Active' : 'Inactive'}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div> */}
-            </div>
-
-            {/* Mirror Toggle */}
-            <div className="flex items-center gap-10">
-                <CustomToggle
-                    label="Mirror"
-                    value={formik.values.hasMirror}
-                    onChange={(v) => formik.setFieldValue('hasMirror', v)}
-                    options={[{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }]}
-                    containerClassName="w-64"
-                />
-            </div>
-
-            {/* Centration Table */}
-            <div className="space-y-4">
-                <h4 className="text-xs font-black uppercase tracking-widest text-erp-accent ">Centration Data:</h4>
-                <div className="bg-gray-50/50 border border-gray-200/50 rounded-2xl overflow-hidden shadow-sm max-w-4xl">
-                    <div className="grid grid-cols-4 bg-gray-100/80 border-b border-gray-200">
-                        {['SIDE', 'PD', 'CORRIDOR', 'FITTING HEIGHT'].map(h => (
-                            <div key={h} className="py-2.5 text-[10px] font-black uppercase text-gray-400   text-center border-r border-gray-200 last:border-r-0 ">{h}</div>
-                        ))}
-                    </div>
-                    {['R', 'L'].map((side) => {
-                        const isDisabled = formik.values.powerMode === 'single' && formik.values.selectedSide !== side;
-                        return (
-                            <div key={side} className={`grid grid-cols-4 border-b border-gray-100 last:border-b-0 items-center ${isDisabled ? 'opacity-30' : ''}`}>
-                                <div className="py-4 font-black text-gray-500 text-center border-r border-gray-100 ">{side}</div>
-                                {['pd', 'corridor', 'fittingHeight'].map(field => (
-                                    <div key={field} className="p-1.5">
-                                        <input
-                                            type="text"
-                                            name={`centrationData.${side}.${field}`}
-                                            value={formik.values.centrationData[side][field]}
-                                            onChange={formik.handleChange}
-                                            disabled={isDisabled}
-                                            className="w-full h-10 border border-gray-200 rounded-lg bg-white text-center font-bold text-gray-700 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-erp-accent/10 transition-all disabled:cursor-not-allowed"
-                                            placeholder="---"
-                                        />
-                                    </div>
+                    {/* Prism Table */}
+                    {product.hasPrism === 'yes' && (
+                        <div className="w-full lg:w-80 bg-gray-50/50 border border-gray-200 rounded-xl overflow-hidden shadow-sm animate-in slide-in-from-right-4 duration-300">
+                            <div className="grid grid-cols-3 bg-gray-100/80 border-b border-gray-200">
+                                {['SIDE', 'PRISM', 'BASE SEL.'].map(h => (
+                                    <div key={h} className="py-2 text-[11px] font-black uppercase text-gray-500 text-center border-r border-gray-200 last:border-r-0">{h}</div>
                                 ))}
                             </div>
-                        );
+                            {['R', 'L'].map((side) => {
+                                const isDisabled = product.powerMode === 'single' && product.selectedSide !== side;
+                                return (
+                                    <div key={side} className={`grid grid-cols-3 border-b border-gray-100 last:border-b-0 items-center ${isDisabled ? 'opacity-30' : ''}`}>
+                                        <div
+                                            className={`py-1.5 flex flex-col items-center justify-center border-r border-gray-100 gap-1 overflow-hidden transition-all duration-300 ${product.powerMode === 'single' ? 'cursor-pointer hover:bg-erp-accent/5/50' : ''}`}
+                                            onClick={() => {
+                                                if (product.powerMode === 'single') {
+                                                    formik.setFieldValue(`${prefix}selectedSide`, side);
+                                                }
+                                            }}
+                                        >
+                                            <div className="flex items-center gap-1.5">
+                                                {product.powerMode === 'single' && (
+                                                    <div className={`w-3 h-3 rounded-sm border transition-all flex items-center justify-center ${product.selectedSide === side ? 'bg-erp-accent border-erp-accent shadow-sm' : 'bg-white border-gray-200'}`}>
+                                                        {product.selectedSide === side && <Icon icon="mdi:check" className="text-white text-[10px]" />}
+                                                    </div>
+                                                )}
+                                                <span className={`font-black text-xs ${product.powerMode === 'single' && product.selectedSide === side ? 'text-erp-accent' : 'text-gray-500'}`}>{side}</span>
+                                            </div>
+                                        </div>
+                                        <div className="p-1">
+                                            <input
+                                                type="text"
+                                                name={`${prefix}prismTable.${side}.prism`}
+                                                value={product.prismTable[side].prism}
+                                                onChange={formik.handleChange}
+                                                disabled={isDisabled}
+                                                className="w-full h-8 border border-gray-200 rounded bg-white text-center text-xs font-bold text-gray-700 focus:outline-none focus:border-erp-accent focus:ring-1 focus:ring-erp-accent transition-all disabled:cursor-not-allowed"
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                        <div className="p-1">
+                                            <input
+                                                type="text"
+                                                name={`${prefix}prismTable.${side}.base`}
+                                                value={product.prismTable[side].base}
+                                                onChange={formik.handleChange}
+                                                disabled={isDisabled}
+                                                className="w-full h-8 border border-gray-200 rounded bg-white text-center text-xs font-bold text-gray-700 focus:outline-none focus:border-erp-accent focus:ring-1 focus:ring-erp-accent transition-all disabled:cursor-not-allowed"
+                                                placeholder="Base"
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Rest of the Product Fields */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                    {wrapInput(SearchableSelect, {
+                        label: "Select Brand",
+                        name: `${prefix}brandId`,
+                        options: (Array.isArray(configs.brand) ? configs.brand : []).map(b => ({ value: b._id, label: b.name })),
+                        placeholder: "Select Brand"
                     })}
+                    {wrapInput(SearchableSelect, {
+                        label: "Select Category",
+                        name: `${prefix}categoryId`,
+                        options: (Array.isArray(configs.category) ? configs.category : []).map(c => ({ value: c._id, label: c.name })),
+                        placeholder: "Select Category",
+                        disabled: !product.brandId
+                    })}
+                    <div className="md:col-span-1">
+                        <SearchableSelect
+                            label="Product Name"
+                            name={`${prefix}productName`}
+                            value={product.productName}
+                            onChange={(e) => formik.setFieldValue(`${prefix}productName`, e.target.value)}
+                            onSearch={(q) => searchProducts(q)}
+                            options={productNames}
+                            loading={loadingProductNames}
+                            placeholder="Search Product Name (e.g. Polarised)..."
+                            disabled={!product.brandId || !product.categoryId || isReadOnly}
+                        />
+                    </div>
+
+                    {wrapInput(Select, {
+                        label: "Treatment",
+                        name: `${prefix}treatmentId`,
+                        placeholder: "Treatment",
+                        options: (Array.isArray(configs.treatment) ? configs.treatment : []).map(t => ({ value: t._id, label: t.name }))
+                    })}
+                    {wrapInput(Select, {
+                        label: "Index",
+                        name: `${prefix}indexId`,
+                        placeholder: "Index",
+                        options: (Array.isArray(configs.index) ? configs.index : []).map(i => {
+                            const val = i.value?.toString() || i.toString() || '';
+                            return { value: val, label: val };
+                        })
+                    })}
+
+                    {wrapInput(Select, {
+                        label: "Coating",
+                        name: `${prefix}coatingId`,
+                        placeholder: "Coating",
+                        options: (Array.isArray(configs.coating) ? configs.coating : []).map(c => ({ value: c._id, label: c.name }))
+                    })}
+                    {wrapInput(Select, {
+                        label: "Tint",
+                        name: `${prefix}tintId`,
+                        placeholder: "Tint",
+                        options: (Array.isArray(configs.tints) ? configs.tints : []).map(t => ({ value: t._id, label: t.name }))
+                    })}
+                    {wrapInput(Input, {
+                        label: "Tint Details",
+                        name: `${prefix}tintDetails`,
+                        placeholder: "Tint Details"
+                    })}
+                    {wrapInput(Input, {
+                        label: "Remarks",
+                        name: `${prefix}remarks`,
+                        placeholder: "Enter Remarks"
+                    })}
+
+                    {/* Mirror Toggle inside grid for neat alignment */}
+                    <div className="flex items-center">
+                        <CustomToggle
+                            label="Mirror"
+                            value={product.hasMirror}
+                            onChange={(v) => formik.setFieldValue(`${prefix}hasMirror`, v)}
+                            options={[{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }]}
+                            containerClassName="w-full md:w-auto"
+                        />
+                    </div>
+                </div>
+
+                {/* Centration Table */}
+                <div className="space-y-2 mt-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm max-w-4xl">
+                    <h4 className="text-xs font-black uppercase tracking-widest text-erp-accent">Centration Data</h4>
+                    <div className="bg-gray-50/50 border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                        <div className="grid grid-cols-4 bg-gray-100/80 border-b border-gray-200">
+                            {['SIDE', 'PD', 'CORRIDOR', 'FITTING HEIGHT'].map(h => (
+                                <div key={h} className="py-2 text-[11px] font-black uppercase text-gray-500 text-center border-r border-gray-200 last:border-r-0">{h}</div>
+                            ))}
+                        </div>
+                        {['R', 'L'].map((side) => {
+                            const isDisabled = product.powerMode === 'single' && product.selectedSide !== side;
+                            return (
+                                <div key={side} className={`grid grid-cols-4 border-b border-gray-100 last:border-b-0 items-center ${isDisabled ? 'opacity-30' : ''}`}>
+                                    <div className="py-1.5 font-black text-xs text-gray-500 text-center border-r border-gray-100 ">{side}</div>
+                                    {['pd', 'corridor', 'fittingHeight'].map(field => (
+                                        <div key={field} className="p-1">
+                                            <input
+                                                type="text"
+                                                name={`${prefix}centrationData.${side}.${field}`}
+                                                value={product.centrationData[side][field]}
+                                                onChange={formik.handleChange}
+                                                disabled={isDisabled}
+                                                className="w-full h-8 border border-gray-200 rounded bg-white text-center text-xs font-bold text-gray-700 focus:outline-none focus:border-erp-accent focus:ring-1 focus:ring-erp-accent transition-all disabled:cursor-not-allowed"
+                                                placeholder="---"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
             </div>
-        </div>
+        );
+    };
+
+    const handleConfirmRemove = () => {
+        const index = deleteModalState.indexToRemove;
+        if (index !== null) {
+            const newProducts = [...formik.values.products];
+            newProducts.splice(index, 1);
+            formik.setFieldValue('products', newProducts);
+
+            if (activeProductIndex >= index) {
+                setActiveProductIndex(Math.max(0, activeProductIndex - 1));
+            }
+            setExpandedProductIndices(prev => prev.filter(i => i !== index).map(i => i > index ? i - 1 : i));
+        }
+        setDeleteModalState({ isOpen: false, indexToRemove: null });
+    };
+
+    const toggleExpandRow = (index, event) => {
+        event.stopPropagation();
+        if (expandedProductIndices.includes(index)) {
+            setExpandedProductIndices(expandedProductIndices.filter(i => i !== index));
+        } else {
+            setExpandedProductIndices([...expandedProductIndices, index]);
+        }
+    };
+
+    const renderProductDetails = () => (
+        <FieldArray name="products">
+            {({ push, remove }) => (
+                <div className="w-full bg-white rounded-b-2xl border-gray-50  ">
+                    <div className="w-full border border-gray-200 rounded-xl relative overflow-auto overflow-auto max-h-[60vh]">
+                        <table className="w-full min-w-max text-left border-collapse">
+                            <thead className="sticky top-0 z-10 shadow-sm outline outline-1 outline-gray-200">
+                                <tr className="bg-erp-accent text-white text-xs uppercase tracking-wider">
+                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">S. No.</th>
+                                    <th className="p-3 font-semibold border-r border-blue-400/30">Particulars / Item</th>
+                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">Category</th>
+                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">Spl.</th>
+                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">Cyl.</th>
+                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">Axis</th>
+                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">Add</th>
+                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">Unit</th>
+                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">Order Type</th>
+                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">Qty</th>
+                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">Price</th>
+                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">Disc</th>
+                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">GST %</th>
+                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">GST Amt</th>
+                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">Amount</th>
+                                    <th className="p-3 font-semibold text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {formik.values.products.map((product, index) => {
+                                    const isActive = activeProductIndex === index;
+                                    const isExpanded = expandedProductIndices.includes(index);
+
+                                    const categoryName = product.category || configs.category?.find(c => c._id === product.categoryId)?.name || '-';
+                                    const brandName = product.Brand || product.brand || configs.brand?.find(b => b._id === product.brandId)?.name || '-';
+
+                                    const renderPowerField = (field) => {
+                                        if (product.powerMode === 'single') return product.powerTable[product.selectedSide]?.[field] || '';
+                                        return `${product.powerTable.R?.[field] || ''} / ${product.powerTable.L?.[field] || ''}`;
+                                    };
+
+                                    const unitMultiplier = product.unit === 'pair' ? 2 : product.unit === 'box' ? 10 : 1;
+                                    const taxableAmount = (Number(product.price || 0) * Number(product.qty || 0) * unitMultiplier) - Number(product.discount || 0);
+                                    const gstPercent = Number(product.gstDetails?.gstPercent || 0);
+                                    const gstAmt = taxableAmount > 0 ? taxableAmount * (gstPercent / 100) : 0;
+                                    const totalAmount = taxableAmount > 0 ? taxableAmount + gstAmt : 0;
+
+                                    return (
+                                        <React.Fragment key={index}>
+                                            <tr
+                                                className={`cursor-pointer transition-colors border-b border-gray-200 hover:bg-blue-50/50 ${isActive ? 'bg-blue-50' : 'bg-white'}`}
+                                                onClick={() => setActiveProductIndex(index)}
+                                            >
+                                                <td className="p-3 text-xs font-semibold text-gray-700 text-center border-r border-gray-200">{index + 1}</td>
+                                                <td className="p-2 border-r border-gray-200 min-w-[250px]">
+                                                    <SearchableSelect
+                                                        name={`products.${index}.productName`}
+                                                        value={product.productName}
+                                                        onChange={(e) => handleProductSelection(index, e.target.value)}
+                                                        onSearch={(q) => searchProductsForIndex(q, index)}
+                                                        options={productNames}
+                                                        loading={loadingProductNames}
+                                                        placeholder="Search Product Name..."
+                                                        freeSolo
+                                                        disableClearable
+                                                        sx={{
+                                                            '& .MuiOutlinedInput-root': {
+                                                                padding: '2px !important',
+                                                                fontSize: '0.85rem',
+                                                            },
+                                                            '& .MuiInputLabel-root': {
+                                                                display: 'none',
+                                                            }
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td className="p-3 text-xs font-semibold text-gray-700 text-center border-r border-gray-200 whitespace-nowrap">{categoryName}</td>
+                                                <td className="p-3 text-xs font-semibold text-gray-700 text-center border-r border-gray-200 whitespace-nowrap">{renderPowerField('sph')}</td>
+                                                <td className="p-3 text-xs font-semibold text-gray-700 text-center border-r border-gray-200 whitespace-nowrap">{renderPowerField('cyl')}</td>
+                                                <td className="p-3 text-xs font-semibold text-gray-700 text-center border-r border-gray-200 whitespace-nowrap">{renderPowerField('axis')}</td>
+                                                <td className="p-3 text-xs font-semibold text-gray-700 text-center border-r border-gray-200 whitespace-nowrap">{renderPowerField('add')}</td>
+
+                                                <td className="p-2 border-r border-gray-200 min-w-[100px]">
+                                                    <select
+                                                        className="w-full text-xs text-center bg-transparent border border-gray-200 rounded p-1.5 outline-none focus:border-erp-accent transition-colors"
+                                                        name={`products.${index}.unit`}
+                                                        value={product.unit || 'piece'}
+                                                        onChange={formik.handleChange}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <option value="piece">Piece</option>
+                                                        <option value="pair">Pair</option>
+                                                        <option value="box">Box</option>
+                                                    </select>
+                                                </td>
+                                                <td className="p-2 border-r border-gray-200 min-w-[80px]">
+                                                    <select
+                                                        className="w-full text-xs text-center bg-transparent border border-gray-200 rounded p-1.5 outline-none focus:border-erp-accent transition-colors"
+                                                        name={`products.${index}.orderType`}
+                                                        value={product.orderType || 'stock'}
+                                                        onChange={formik.handleChange}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <option value="stock">Stock</option>
+                                                        <option value="rx">Rx</option>
+                                                    </select>
+                                                </td>
+                                                <td className="p-2 border-r border-gray-200 min-w-[80px]">
+                                                    <input
+                                                        type="number"
+                                                        className="w-full text-xs text-center bg-transparent border border-gray-200 rounded p-1.5 outline-none focus:border-erp-accent"
+                                                        name={`products.${index}.qty`}
+                                                        value={product.qty}
+                                                        onChange={formik.handleChange}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                </td>
+                                                <td className="p-2 border-r border-gray-200 min-w-[110px]">
+                                                    <input
+                                                        type="number"
+                                                        className="w-full text-xs text-center bg-transparent border border-gray-200 rounded p-1.5 outline-none focus:border-erp-accent transition-colors"
+                                                        name={`products.${index}.price`}
+                                                        value={product.price}
+                                                        onChange={formik.handleChange}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                </td>
+                                                <td className="p-2 border-r border-gray-200 min-w-[90px]">
+                                                    <input
+                                                        type="number"
+                                                        className="w-full text-xs text-center bg-transparent border border-gray-200 rounded p-1.5 outline-none focus:border-erp-accent transition-colors"
+                                                        name={`products.${index}.discount`}
+                                                        value={product.discount}
+                                                        onChange={formik.handleChange}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                </td>
+                                                <td className="p-2 border-r border-gray-200 min-w-[90px]">
+                                                    <input
+                                                        type="number"
+                                                        className="w-full text-xs text-center bg-transparent border border-gray-200 rounded p-1.5 outline-none focus:border-erp-accent transition-colors"
+                                                        name={`products.${index}.gstDetails.gstPercent`}
+                                                        value={product.gstDetails?.gstPercent}
+                                                        onChange={formik.handleChange}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                </td>
+                                                <td className="p-3 text-xs font-semibold text-gray-700 text-center border-r border-gray-200">
+                                                    {gstAmt.toFixed(2)}
+                                                </td>
+                                                <td className="p-3 text-xs font-bold text-erp-accent text-center border-r border-gray-200">
+                                                    {totalAmount.toFixed(2)}
+                                                </td>
+                                                <td className="p-2 text-center w-24">
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => toggleExpandRow(index, e)}
+                                                            className="text-gray-500 hover:text-gray-700 transition-colors bg-gray-100 hover:bg-gray-200 p-1 rounded-full"
+                                                        >
+                                                            <Icon icon={isExpanded ? "mdi:chevron-up" : "mdi:chevron-down"} className="text-xl" />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (formik.values.products.length > 1) {
+                                                                    setDeleteModalState({ isOpen: true, indexToRemove: index });
+                                                                }
+                                                            }}
+                                                            className="text-red-400 hover:text-red-600 transition-colors bg-red-50 hover:bg-red-100 p-1.5 rounded-full"
+                                                        >
+                                                            <Icon icon="mdi:close" className="text-sm" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+
+                                            {isExpanded && (
+                                                <tr className="bg-white border-b-2 border-blue-400 shadow-inner">
+                                                    <td colSpan="15" className="p-3 bg-blue-50/20">
+                                                        {renderActiveProductDetails(index)}
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </React.Fragment>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div className="flex justify-center items-center gap-4 my-6 p-4 bg-gray-50/80 rounded-xl border border-gray-100">
+                        <span className="text-sm text-gray-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                            <Icon icon="mdi:table-row-plus-after" className="text-xl text-erp-accent" />
+                            Add Rows:
+                        </span>
+                        <div className="flex gap-3">
+                            {[1, 5, 10, 20, 50].map((num) => (
+                                <button
+                                    key={num}
+                                    type="button"
+                                    onClick={() => {
+                                        const newRows = Array(num).fill(null).map(() => ({ ...productTemplate }));
+                                        formik.setFieldValue('products', [...formik.values.products, ...newRows]);
+                                        setActiveProductIndex(formik.values.products.length);
+                                    }}
+                                    className="px-5 py-2 rounded-xl border-2 border-blue-100 text-erp-accent bg-white hover:bg-blue-50 hover:border-blue-400 transition-all text-sm font-black shadow-sm active:scale-95 flex items-center gap-1"
+                                >
+                                    <Icon icon="mdi:plus" className="text-lg" /> {num}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Order Summary & GST section */}
+                    {formik.values.products[activeProductIndex] && (
+                        <div className="flex flex-col lg:flex-row gap-8 items-start bg-gray-50/50 p-6 rounded-2xl border border-gray-200">
+                            <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-6">
+                                <div className="space-y-4 col-span-full md:col-span-4 grid grid-cols-2 md:grid-cols-4 gap-6">
+                                    {/* {wrapInput(Input, { label: "GST%", name: `products.${activeProductIndex}.gstDetails.gstPercent` })} */}
+                                    {wrapInput(Input, { label: "GST Type", name: `products.${activeProductIndex}.gstDetails.gstType` })}
+                                    {wrapInput(Input, { label: "CGST Amount", name: `products.${activeProductIndex}.gstDetails.cgstAmount` })}
+                                    {wrapInput(Input, { label: "SGST Amount", name: `products.${activeProductIndex}.gstDetails.sgstAmount` })}
+                                    {/* {wrapInput(Input, { label: "GST Mode", name: `products.${activeProductIndex}.gstDetails.gstMode` })} */}
+                                    {wrapInput(Input, { label: "Total GST", name: `products.${activeProductIndex}.gstDetails.gstPercent` })}
+                                </div>
+                                <div className="space-y-4 col-span-full md:col-span-4 grid grid-cols-2 md:grid-cols-4 gap-6">
+                                    {wrapInput(Input, { label: "Advance", name: `products.${activeProductIndex}.gstDetails.advance` })}
+                                    {wrapInput(Input, { label: "Transaction Type", name: `products.${activeProductIndex}.gstDetails.transactionType` })}
+                                    <div className="col-span-2">
+                                        {wrapInput(Input, { label: "Remarks", name: `products.${activeProductIndex}.gstDetails.remarks` })}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="w-full lg:w-72 bg-blue-50/30 border border-blue-200 rounded-2xl p-6 shadow-sm">
+                                <h3 className="font-black text-gray-800 mb-6">Order Summary</h3>
+                                <div className="space-y-4">
+                                    <div className="flex justify-between items-center pb-3 border-b border-gray-200/50">
+                                        <span className="text-sm font-semibold text-gray-600">Price</span>
+                                        <span className="text-sm font-black text-gray-900">₹{formik.values.products.reduce((acc, curr) => {
+                                            const multiplier = curr.unit === 'pair' ? 2 : curr.unit === 'box' ? 10 : 1;
+                                            return acc + ((parseFloat(curr.price) || 0) * (parseFloat(curr.qty) || 1) * multiplier);
+                                        }, 0).toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center pb-3 border-b border-gray-200/50">
+                                        <span className="text-sm font-semibold text-gray-600">Loyalty Points</span>
+                                        <span className="text-sm font-black text-gray-900">₹0.00</span>
+                                    </div>
+                                    <div className="flex justify-between items-center pb-3 border-b border-gray-200/50">
+                                        <span className="text-sm font-semibold text-gray-600">Gross Total</span>
+                                        <span className="text-sm font-black text-gray-900">₹{formik.values.products.reduce((acc, curr) => acc + (parseFloat(curr.price) || 0) * (parseFloat(curr.qty) || 1), 0).toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center pt-2">
+                                        <span className="text-base font-black text-gray-800">Final Total</span>
+                                        <span className="text-lg font-black text-[#3b82f6]">₹{formik.values.products.reduce((acc, curr) => {
+                                            const multiplier = curr.unit === 'pair' ? 2 : curr.unit === 'box' ? 10 : 1;
+                                            return acc + ((parseFloat(curr.price) || 0) * (parseFloat(curr.qty) || 1) * multiplier) - (parseFloat(curr.discount) || 0);
+                                        }, 0).toFixed(2)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+        </FieldArray>
     );
 
     const renderAdvancedDetails = () => (
-        <div className="p-10 space-y-12 bg-white rounded-b-2xl border-t border-gray-50">
+        <div className="p-4 space-y-4 bg-white rounded-b-2xl border-t border-gray-50">
             {/* Fitting Selection */}
-            <div className="space-y-6">
+            <div className="space-y-4">
                 <h4 className="text-xs font-black uppercase tracking-widest text-erp-accent ">Advanced Fitting Data</h4>
                 <CustomToggle
                     label="Has Flat Fitting"
                     value={formik.values.hasFlatFitting}
                     onChange={(v) => formik.setFieldValue('hasFlatFitting', v)}
                     options={[{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }]}
-                    containerClassName="w-64"
+                    containerClassName="w-48"
                 />
 
                 {/* Conditional Frame Specifications */}
                 {formik.values.hasFlatFitting === 'yes' && (
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-x-12 gap-y-8 p-10  border border-orange-100 rounded-3xl">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-x-4 gap-y-4 p-4 border border-orange-100 rounded-xl">
                         <div className="col-span-full">
-                            <h3 className="text-[10px] font-black text-erp-accent/80 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+                            <h3 className="text-xs font-black text-erp-accent/80 uppercase tracking-[0.1em] mb-2 flex items-center gap-2">
                                 {/* <Icon icon="mdi:frame-outline" className="text-lg" /> */}
                                 Frame Specifications
                             </h3>
@@ -1182,7 +1450,7 @@ const OrderWizard = () => {
                 )}
 
                 {/* Technical Centration Specs */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-8 p-10 bg-gray-50/50 border border-gray-100 rounded-3xl">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-4 p-4 bg-gray-50/50 border border-gray-100 rounded-xl">
                     <div className="col-span-full">
                         <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
                             {/* <Icon icon="mdi:ruler-square" className="text-lg" /> */}
@@ -1200,7 +1468,7 @@ const OrderWizard = () => {
             {/* Miscellaneous Data */}
             <div className="space-y-6">
                 <h4 className="text-xs font-black uppercase tracking-widest text-erp-accent ">Shipping & Others</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-4">
                     {wrapInput(Input, { label: "Direct Customer", name: "directCustomer", placeholder: "Direct Customer" })}
                     {wrapInput(Input, { label: "Shipping Charges", name: "shippingCharges", placeholder: "Shipping Charges" })}
                     {wrapInput(Input, { label: "Other Charges", name: "otherCharges", placeholder: "Other Charges" })}
@@ -1210,10 +1478,10 @@ const OrderWizard = () => {
     );
 
     return (
-        <div className="min-h-screen p-6 bg-gray-50/50">
+        <div className="h-full bg-gray-50/50  text-sm">
 
 
-            <div className="max-w-6xl mx-auto">
+            <div className="max-w-full mx-auto">
                 <div className="flex items-center justify-between mb-8">
                     <div className="space-y-1">
                         <h1 className="text-3xl font-black text-gray-900 uppercase tracking-tight">
@@ -1293,7 +1561,7 @@ const OrderWizard = () => {
 
                                         {/* Accordion Content */}
                                         <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isActive ? 'max-h-[3000px] opacity-100 pb-12' : 'max-h-0 opacity-0 pointer-events-none'}`}>
-                                            <div className="px-8 md:px-12 pt-0">
+                                            <div className="px-4 pt-0">
                                                 <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-100 to-transparent mb-12" />
                                                 {idx === 0 && renderCustomerDetails()}
                                                 {idx === 1 && renderProductDetails()}
@@ -1366,6 +1634,15 @@ const OrderWizard = () => {
                     </FormikProvider>
                 )}
             </div>
+
+            <ConfirmationModal
+                isOpen={deleteModalState.isOpen}
+                onClose={() => setDeleteModalState({ isOpen: false, indexToRemove: null })}
+                onConfirm={handleConfirmRemove}
+                title="Remove Product"
+                message="Are you sure you want to remove this product?"
+                confirmText="Remove"
+            />
         </div>
     );
 };

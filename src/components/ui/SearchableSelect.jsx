@@ -37,7 +37,7 @@ const SearchableSelect = ({
                     if (typeof option === 'string') return option;
                     return option?.label || '';
                 }}
-                value={options.find(opt => opt.value === value) || null}
+                value={options.find(opt => opt.value === value) || (value ? { value, label: value } : null)}
                 loading={loading}
                 inputValue={inputValue}
                 onInputChange={(event, newInputValue, reason) => {
@@ -48,19 +48,26 @@ const SearchableSelect = ({
                 }}
                 filterOptions={onSearch ? (x) => x : undefined}
                 onChange={(event, newValue) => {
+                    let val = '';
+                    let label = '';
+                    if (newValue) {
+                        if (typeof newValue === 'string') {
+                            val = newValue;
+                            label = newValue;
+                        } else {
+                            val = newValue.value;
+                            label = newValue.label;
+                        }
+                    }
                     if (onChange) {
                         onChange({
                             target: {
                                 name,
-                                value: newValue ? newValue.value : ''
+                                value: val
                             }
                         });
                     }
-                    if (newValue) {
-                        setInputValue(newValue.label || '');
-                    } else {
-                        setInputValue('');
-                    }
+                    setInputValue(label);
                 }}
                 renderInput={(params) => (
                     <TextField
