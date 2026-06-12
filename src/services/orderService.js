@@ -144,3 +144,13 @@ export const deleteOrder = async (id) => {
         throw error.response ? error.response.data : new Error('Failed to delete order');
     }
 };
+
+export const createBulkOrders = async (payload) => {
+    try {
+        const response = await api.post('/api/order/create-bulk-orders', payload);
+        return response.data;
+    } catch (error) {
+        throw error.response ? error.response.data : new Error('Failed to create bulk orders');
+    }
+};
+

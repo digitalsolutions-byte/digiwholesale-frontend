@@ -19,17 +19,23 @@ const SearchableSelect = ({
     const [inputValue, setInputValue] = React.useState('');
     const accentColor = theme.palette.accent.main;
 
+    const isObjectValue = value && typeof value === 'object' && value !== null;
+    const actualValue = isObjectValue ? value.value : value;
+    const actualLabel = isObjectValue ? value.label : undefined;
+
     React.useEffect(() => {
-        const selectedOption = options.find(opt => opt.value === value);
+        const selectedOption = options.find(opt => opt.value === actualValue);
         if (selectedOption) {
             setInputValue(selectedOption.label || '');
-        } else if (!value) {
+        } else if (actualValue) {
+            setInputValue(actualLabel || (typeof actualValue === 'string' ? actualValue : ''));
+        } else {
             setInputValue('');
         }
-    }, [value, options]);
+    }, [actualValue, actualLabel, options]);
 
     return (
-        <Box sx={{ width: '100%' }} className={containerClassName}>
+        <Box sx={{ width: '100%' }} className={`${containerClassName} `}>
             <Autocomplete
                 id={name}
                 options={options}
@@ -37,7 +43,7 @@ const SearchableSelect = ({
                     if (typeof option === 'string') return option;
                     return option?.label || '';
                 }}
-                value={options.find(opt => opt.value === value) || (value ? { value, label: value } : null)}
+                value={options.find(opt => opt.value === actualValue) || (actualValue ? { value: actualValue, label: actualLabel || actualValue } : null)}
                 loading={loading}
                 inputValue={inputValue}
                 onInputChange={(event, newInputValue, reason) => {
@@ -77,6 +83,7 @@ const SearchableSelect = ({
                         error={!!error}
                         helperText={error ? error.message : null}
                         variant="outlined"
+                        className='cursor-pointer'
                         InputLabelProps={{
                             shrink: true,
                         }}
