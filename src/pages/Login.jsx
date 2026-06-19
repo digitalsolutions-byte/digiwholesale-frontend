@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Icon } from '@iconify/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
@@ -32,6 +32,13 @@ const Login = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const theme = useTheme();
+    const greeting = useMemo(() => {
+        const hour = new Date().getHours();
+        if (hour < 12) return 'Hi, Good morning';
+        if (hour < 18) return 'Hi, Good afternoon';
+        return 'Hi, Good evening';
+    }, []);
+
 
     const validationSchema = Yup.object({
         loginId: Yup.string().required('Email or Username is required'),
@@ -101,7 +108,7 @@ const Login = () => {
                             sx={{
                                 position: 'absolute',
                                 bottom: '10%',
-                                right: '57%',
+                                right: '25%',
                                 bgcolor: 'white',
                                 p: 2,
                                 borderRadius: '24px 24px 24px 0',
@@ -111,7 +118,7 @@ const Login = () => {
                             }}
                         >
                             <Typography variant="h6" fontWeight={500} color="primary.main">
-                                Hello!
+                                {greeting}!
                             </Typography>
                             {/* <Typography variant="body2" fontWeight={600} color="text.secondary">
                                 We've been expecting you.

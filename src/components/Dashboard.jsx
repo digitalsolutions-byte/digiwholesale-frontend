@@ -26,47 +26,15 @@ const Dashboard = () => {
                 setAnalytics({
                     customers: { activeUsers: 11 },
                     orders: {
-                        pending: 10,
-                        completed: 0,
-                        daily: 0,
-                        weekly: 0,
-                        monthly: 0,
-                        statusBreakdown: {
-                            Draft: 3,
-                            Submitted: 10,
-                            Processing: 0,
-                            Completed: 0,
-                            Cancelled: 0
-                        }
+                        active: 5,
+                        totalOrders: 21,
+                        delivered: 12,
+                        readyToDeliver: 2,
+                        draft: 2,
                     },
                     staff: { total: 52 },
-                    recentOrders: [
-                        {
-                            _id: "6a1586ded5a9719367ee297f",
-                            orderNumber: "ORD-20260526-0002",
-                            customer: { customerName: "Test Shop" },
-                            totalOrderPrice: 0,
-                            status: "Submitted",
-                            createdAt: "2026-05-26T11:41:18.824Z"
-                        },
-                        {
-                            _id: "6a1544cb0b77ad59d3a03342",
-                            orderNumber: "ORD-20260526-0001",
-                            customer: { customerName: "Test Shop" },
-                            totalOrderPrice: 0,
-                            status: "Submitted",
-                            createdAt: "2026-05-26T06:59:23.754Z"
-                        },
-                        {
-                            _id: "69e1d320a735847dd2e4d464",
-                            orderNumber: "ORD-20260417-0010",
-                            customer: { customerName: "Test Shop" },
-                            totalOrderPrice: 760,
-                            status: "Submitted",
-                            createdAt: "2026-04-17T06:28:48.907Z"
-                        }
-                    ],
-                    generatedAt: "2026-06-01T12:51:49.346Z"
+                    recentOrders: [],
+                    generatedAt: new Date().toISOString()
                 });
             } finally {
                 setLoading(false);
@@ -78,22 +46,31 @@ const Dashboard = () => {
 
     if (loading) {
         return (
-            <div className="flex h-64 items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            <div className="flex min-h-[60vh] items-center justify-center">
+                <div className="relative">
+                    <div className="w-16 h-16 border-4 border-erp-accent/20 border-t-erp-accent rounded-full animate-spin"></div>
+                    <div className="mt-4 text-xs font-black text-gray-400 uppercase tracking-widest text-center animate-pulse">Loading Intelligence</div>
+                </div>
             </div>
         );
     }
 
-    const statusData = analytics?.orders?.statusBreakdown ? Object.keys(analytics.orders.statusBreakdown).map((key) => ({
-        name: key,
-        value: analytics.orders.statusBreakdown[key]
-    })) : [];
-
-    const orderTrends = [
-        { name: 'Daily', orders: analytics?.orders?.daily || 0 },
-        { name: 'Weekly', orders: analytics?.orders?.weekly || 0 },
-        { name: 'Monthly', orders: analytics?.orders?.monthly || 0 },
+    const statusData = [
+        { name: 'Active', value: analytics?.orders?.active || 0, color: '#3B82F6' },
+        { name: 'Ready', value: analytics?.orders?.readyToDeliver || 0, color: '#F59E0B' },
+        { name: 'Delivered', value: analytics?.orders?.delivered || 0, color: '#10B981' },
+        { name: 'Draft', value: analytics?.orders?.draft || 0, color: '#8B5CF6' }
     ];
+
+    // Flatten recent bulk orders to display the specific sub-orders
+    const flattenedOrders = analytics?.recentOrders?.flatMap(doc =>
+        doc.orders?.map(subOrder => ({
+            ...subOrder,
+            parentDate: doc.createdAt,
+            customer: doc.customer,
+            parentId: doc._id
+        })) || []
+    ) || [];
 
     return (
         <div className="w-full flex flex-col gap-6 font-sans">
@@ -108,8 +85,8 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
                     { label: 'Active Customers', value: analytics?.customers?.activeUsers, color: 'text-erp-accent', bg: 'bg-blue-50' },
-                    { label: 'Pending Orders', value: analytics?.orders?.pending, color: 'text-erp-accent', bg: 'bg-orange-50' },
-                    { label: 'Completed Orders', value: analytics?.orders?.completed, color: 'text-erp-accent', bg: 'bg-green-50' },
+                    { label: 'Total Orders', value: analytics?.orders?.totalOrders, color: 'text-erp-accent', bg: 'bg-orange-50' },
+                    { label: 'Active Orders', value: analytics?.orders?.active, color: 'text-erp-accent', bg: 'bg-green-50' },
                     { label: 'Total Staff', value: analytics?.staff?.total, color: 'text-erp-accent', bg: 'bg-purple-50' },
                 ].map((m, idx) => (
                     <div key={idx} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow relative overflow-hidden group">
@@ -122,22 +99,22 @@ const Dashboard = () => {
 
             {/* Charts Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Order Status Pie Chart */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                {/* Order Status Distribution Chart */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
                     <h2 className="text-lg font-bold text-gray-800 mb-6">Order Status Distribution</h2>
-                    <div className="h-72 w-full">
+                    <div className="h-72 w-full flex-grow">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={statusData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                            <BarChart data={statusData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }} barSize={40}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6B7280' }} />
                                 <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280' }} />
                                 <Tooltip
-                                    cursor={{ fill: '#F3F4F6' }}
+                                    cursor={{ fill: '#f8fafc' }}
                                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                                 />
-                                <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={60}>
+                                <Bar dataKey="value" radius={[6, 6, 0, 0]}>
                                     {statusData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        <Cell key={`cell-${index}`} fill={entry.color} />
                                     ))}
                                 </Bar>
                             </BarChart>
@@ -145,65 +122,82 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* Order Trends Bar Chart */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                    <h2 className="text-lg font-bold text-gray-800 mb-6">Order Volume Trends</h2>
-                    <div className="h-72 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={orderTrends} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6B7280' }} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280' }} />
-                                <Tooltip
-                                    cursor={{ fill: '#F3F4F6' }}
-                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                />
-                                <Bar dataKey="orders" fill="#3B82F6" radius={[6, 6, 0, 0]} maxBarSize={60} />
-                            </BarChart>
-                        </ResponsiveContainer>
+                {/* Status Summary Widget */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
+                    <h2 className="text-lg font-bold text-gray-800 mb-6">Order Status Breakdown</h2>
+                    <div className="flex-grow flex items-center justify-center">
+                        <div className="w-full space-y-4">
+                            {statusData.map((status, index) => (
+                                <div key={index} className="flex items-center justify-between p-4 rounded-xl bg-gray-50/50 hover:bg-gray-50 transition-colors">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: status.color }}></div>
+                                        <span className="text-sm font-semibold text-gray-600">{status.name}</span>
+                                    </div>
+                                    <span className="text-lg font-bold text-gray-900">{status.value}</span>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>
 
             {/* Recent Orders Table */}
-            <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mt-4">
                 <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/30">
-                    <h2 className="text-lg font-bold text-gray-800">Recent Orders Pipeline</h2>
+                    <h2 className="text-lg font-bold text-gray-800">Recent Live Orders</h2>
                     <button className="text-sm text-blue-600 font-semibold hover:text-blue-800 transition-colors">View All</button>
                 </div>
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left">
+                    <table className="w-full text-left border-collapse">
                         <thead className="bg-white text-xs text-gray-400 uppercase tracking-wider">
                             <tr>
-                                <th className="px-6 py-4 font-bold border-b border-gray-100">Order Number</th>
+                                <th className="px-6 py-4 font-bold border-b border-gray-100">Order Ref</th>
                                 <th className="px-6 py-4 font-bold border-b border-gray-100">Customer</th>
+                                <th className="px-6 py-4 font-bold border-b border-gray-100">Items</th>
                                 <th className="px-6 py-4 font-bold border-b border-gray-100">Date</th>
-                                <th className="px-6 py-4 font-bold border-b border-gray-100 text-right">Total</th>
-                                <th className="px-6 py-4 font-bold border-b border-gray-100">Status</th>
+                                <th className="px-6 py-4 font-bold border-b border-gray-100 text-right">Status</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                            {analytics?.recentOrders && analytics.recentOrders.length > 0 ? (
-                                analytics.recentOrders.map((order, i) => (
-                                    <tr key={order._id || i} className="hover:bg-gray-50/50 transition-colors">
-                                        <td className="px-6 py-4 font-bold text-gray-900">{order.orderNumber || 'N/A'}</td>
-                                        <td className="px-6 py-4 text-gray-600 font-medium">{order.customer?.customerName || 'N/A'}</td>
-                                        <td className="px-6 py-4 text-gray-500 text-sm">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}</td>
-                                        <td className="px-6 py-4 font-bold text-gray-700 text-right">Rs.{order.totalOrderPrice != null ? Number(order.totalOrderPrice).toFixed(2) : '0.00'}</td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-3 py-1 text-xs font-bold rounded-full ${order.status === 'Processing' ? 'bg-blue-50 text-blue-600' :
-                                                order.status === 'Completed' ? 'bg-green-50 text-green-600' :
-                                                    order.status === 'Cancelled' ? 'bg-red-50 text-red-600' :
-                                                        'bg-gray-100 text-gray-600'
-                                                }`}>
-                                                {order.status || 'Pending'}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))
+                            {flattenedOrders.length > 0 ? (
+                                flattenedOrders.slice(0, 8).map((order, i) => {
+                                    const totalItems = order.items?.reduce((sum, item) => sum + (Number(item.qty) || 0), 0) || 0;
+
+                                    let statusBg = 'bg-gray-100 text-gray-600';
+                                    const statusLower = (order.status || '').toLowerCase();
+                                    if (statusLower === 'submitted' || statusLower === 'processing') statusBg = 'bg-blue-50 text-blue-600';
+                                    else if (statusLower === 'completed' || statusLower === 'delivered') statusBg = 'bg-green-50 text-green-600';
+                                    else if (statusLower === 'cancelled') statusBg = 'bg-red-50 text-red-600';
+                                    else if (statusLower === 'draft') statusBg = 'bg-amber-50 text-amber-600';
+
+                                    return (
+                                        <tr key={order.orderNumber || i} className="hover:bg-gray-50/50 transition-colors">
+                                            <td className="px-6 py-4 font-bold text-gray-900">{order.orderNumber || 'N/A'}</td>
+                                            <td className="px-6 py-4 text-gray-600 font-medium">
+                                                <div className="flex flex-col">
+                                                    <span>{order.customer?.customerName || order.customer?.shopName || 'N/A'}</span>
+                                                    <span className="text-xs text-gray-400">{order.customer?.customerShipToBranchName}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 font-medium text-gray-600">
+                                                {totalItems}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">
+                                                {order.parentDate ? new Date(order.parentDate).toLocaleDateString() : 'N/A'}
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <span className={`px-3 py-1 text-xs font-bold rounded-full ${statusBg}`}>
+                                                    {order.status || 'Pending'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             ) : (
                                 <tr>
-                                    <td colSpan="5" className="px-6 py-8 text-center text-gray-400 font-medium">No recent orders found</td>
+                                    <td colSpan="5" className="px-6 py-8 text-center text-gray-400 font-medium">
+                                        No recent orders found
+                                    </td>
                                 </tr>
                             )}
                         </tbody>

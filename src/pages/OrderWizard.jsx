@@ -18,6 +18,7 @@ import {
     getTints,
     getFrameTypes,
     getProductNames,
+    getProductById,
     resolveProductBase,
     createBulkOrders,
     getCategoriesByBrand
@@ -101,7 +102,28 @@ const OrderWizard = () => {
             advance: '',
             transactionType: '',
             remarks: ''
-        }
+        },
+        // Lens / RX fitting fields (only used when orderType=rx and category=LENS)
+        hasFlatFitting: 'no',
+        dbl: '',
+        frameType: '',
+        frameLength: '',
+        frameHeight: '',
+        pantoscopicAngle: '',
+        bowAngle: '',
+        bvd: '',
+        expiry: '',
+        productCode: '',
+        image: '',
+        color: '',
+        size: '',
+        type: '',
+        shape: '',
+        material: '',
+        dimensions: '',
+        Brand: '',
+        MRP: 0,
+        HSNSAC: ''
     };
 
     // Initial Form Values
@@ -117,15 +139,7 @@ const OrderWizard = () => {
         // Product Details Array
         products: Array(5).fill(null).map(() => ({ ...productTemplate })),
 
-        // Advanced Details
-        hasFlatFitting: 'no', // yes | no
-        dbl: '',
-        frameType: '',
-        frameLength: '',
-        frameHeight: '',
-        pantoscopicAngle: '',
-        bowAngle: '',
-        bvd: '',
+        // Step 3: Shipping only
         directCustomer: '',
         shippingCharges: '',
         otherCharges: ''
@@ -164,32 +178,7 @@ const OrderWizard = () => {
             })
         ),
 
-        // Step 3: Advanced Details
-        pantoscopicAngle: Yup.number().typeError('Must be a number').required('Pantoscopic Angle is required'),
-        bowAngle: Yup.number().typeError('Must be a number').required('Bow Angle is required'),
-        bvd: Yup.number().typeError('Must be a number').required('BVD is required'),
-
-        // Conditional Frame Details
-        frameType: Yup.string().when('hasFlatFitting', {
-            is: 'yes',
-            then: (schema) => schema.required('Frame Type is required'),
-            otherwise: (schema) => schema.notRequired()
-        }),
-        dbl: Yup.string().when('hasFlatFitting', {
-            is: 'yes',
-            then: (schema) => schema.required('DBL is required'),
-            otherwise: (schema) => schema.notRequired()
-        }),
-        frameLength: Yup.string().when('hasFlatFitting', {
-            is: 'yes',
-            then: (schema) => schema.required('Frame Length is required'),
-            otherwise: (schema) => schema.notRequired()
-        }),
-        frameHeight: Yup.string().when('hasFlatFitting', {
-            is: 'yes',
-            then: (schema) => schema.required('Frame Height is required'),
-            otherwise: (schema) => schema.notRequired()
-        }),
+        // Step 3: Shipping & Others (no required fields)
     });
 
     const formik = useFormik({
@@ -266,7 +255,16 @@ const OrderWizard = () => {
                                     gstDetails: prod.gstDetails || {
                                         gstPercent: '', gstType: '', gstMode: '', gstAmount: '',
                                         loyaltyPoints: '', advance: '', transactionType: '', remarks: ''
-                                    }
+                                    },
+                                    // Map fitting/lensData from rx object
+                                    hasFlatFitting: prod.rx?.fitting?.hasFlatFitting ? 'yes' : 'no',
+                                    dbl: prod.rx?.fitting?.dbl?.toString() || '',
+                                    frameType: prod.rx?.fitting?.frameType || '',
+                                    frameLength: prod.rx?.fitting?.frameLength?.toString() || '',
+                                    frameHeight: prod.rx?.fitting?.frameHeight?.toString() || '',
+                                    pantoscopicAngle: prod.rx?.lensData?.pantoscopeAngle?.toString() || '',
+                                    bowAngle: prod.rx?.lensData?.bowAngle?.toString() || '',
+                                    bvd: prod.rx?.lensData?.bvd?.toString() || ''
                                 };
 
                                 if (prod.powers) {
@@ -313,6 +311,15 @@ const OrderWizard = () => {
                                 tintDetails: order.tintDetails || '',
                                 remarks: order.remarks || '',
                                 hasMirror: order.mirror ? 'yes' : 'no',
+                                // Map fitting/lensData from rx object
+                                hasFlatFitting: order.rx?.fitting?.hasFlatFitting ? 'yes' : 'no',
+                                dbl: order.rx?.fitting?.dbl?.toString() || '',
+                                frameType: order.rx?.fitting?.frameType || '',
+                                frameLength: order.rx?.fitting?.frameLength?.toString() || '',
+                                frameHeight: order.rx?.fitting?.frameHeight?.toString() || '',
+                                pantoscopicAngle: order.rx?.lensData?.pantoscopeAngle?.toString() || '',
+                                bowAngle: order.rx?.lensData?.bowAngle?.toString() || '',
+                                bvd: order.rx?.lensData?.bvd?.toString() || ''
                             };
                             if (order.powers) {
                                 order.powers.forEach(p => {
@@ -530,16 +537,16 @@ const OrderWizard = () => {
                     remarks: prod.remarks || '',
                     mirror: prod.hasMirror === 'yes',
                     fitting: {
-                        hasFlatFitting: values.hasFlatFitting === 'yes',
-                        dbl: parseFloat(values.dbl) || 0,
-                        frameType: values.frameType || '',
-                        frameLength: parseFloat(values.frameLength) || 0,
-                        frameHeight: parseFloat(values.frameHeight) || 0
+                        hasFlatFitting: prod.hasFlatFitting === 'yes',
+                        dbl: parseFloat(prod.dbl) || 0,
+                        frameType: prod.frameType || '',
+                        frameLength: parseFloat(prod.frameLength) || 0,
+                        frameHeight: parseFloat(prod.frameHeight) || 0
                     },
                     lensData: {
-                        pantoscopeAngle: parseFloat(values.pantoscopicAngle) || 0,
-                        bowAngle: parseFloat(values.bowAngle) || 0,
-                        bvd: parseFloat(values.bvd) || 0
+                        pantoscopeAngle: parseFloat(prod.pantoscopicAngle) || 0,
+                        bowAngle: parseFloat(prod.bowAngle) || 0,
+                        bvd: parseFloat(prod.bvd) || 0
                     },
                     directCustomer: values.directCustomer || '',
                     shippingCharges: parseFloat(values.shippingCharges) || 0,
@@ -703,7 +710,36 @@ const OrderWizard = () => {
             formik.setFieldValue(`${prefix}dimensions`, rawProd.dimensions || '');
             formik.setFieldValue(`${prefix}image`, rawProd.image || '');
             formik.setFieldValue(`${prefix}code`, rawProd.productCode || rawProd.code || '');
+            formik.setFieldValue(`${prefix}productCode`, rawProd.productCode || rawProd.code || '');
             formik.setFieldValue(`${prefix}HSNSAC`, rawProd.hsnSac || rawProd.HSNSAC || '');
+            formik.setFieldValue(`${prefix}expiry`, rawProd.expiry || '');
+
+            // Map lens-specific fields from raw product
+            if (rawProd.index) {
+                formik.setFieldValue(`${prefix}indexId`, rawProd.index.toString());
+                formik.setFieldValue(`${prefix}index`, rawProd.index.toString());
+            }
+            if (rawProd.coating) {
+                const matchedCoating = configs.coating?.find(c => c.name?.toUpperCase() === rawProd.coating.toUpperCase());
+                formik.setFieldValue(`${prefix}coatingId`, matchedCoating?._id || rawProd.coating);
+                formik.setFieldValue(`${prefix}coating`, rawProd.coating);
+            }
+            if (rawProd.treatment) {
+                const matchedTreatment = configs.treatment?.find(t => t.name?.toUpperCase() === rawProd.treatment.toUpperCase());
+                formik.setFieldValue(`${prefix}treatmentId`, matchedTreatment?._id || rawProd.treatment);
+                formik.setFieldValue(`${prefix}treatment`, rawProd.treatment);
+            }
+            if (rawProd.tint) {
+                const matchedTint = configs.tints?.find(t => t.name?.toUpperCase() === rawProd.tint.toUpperCase());
+                formik.setFieldValue(`${prefix}tintId`, matchedTint?._id || rawProd.tint);
+                formik.setFieldValue(`${prefix}tint`, rawProd.tint);
+            }
+
+            // Set raw power values directly on product for display fallback
+            formik.setFieldValue(`${prefix}sph`, rawProd.sph || '');
+            formik.setFieldValue(`${prefix}cyl`, rawProd.cyl || '');
+            formik.setFieldValue(`${prefix}axis`, rawProd.axis || '');
+            formik.setFieldValue(`${prefix}addition`, rawProd.addition || rawProd.add || '');
 
             // populate power table values from raw product if present (sph, cyl, axis, add, etc.)
             const powerTable = {
@@ -723,6 +759,91 @@ const OrderWizard = () => {
                 }
             };
             formik.setFieldValue(`${prefix}powerTable`, powerTable);
+
+            // Fetch full product details from API to get ALL fields (expiry, coating, etc.)
+            const productId = rawProd._id || rawProd.id;
+            if (productId) {
+                getProductById(productId).then(res => {
+                    const fullProd = res?.data || res?.product || res;
+                    if (!fullProd) return;
+
+                    // Update all fields from full product response
+                    const set = (field, val) => {
+                        if (val !== undefined && val !== null && val !== '') {
+                            formik.setFieldValue(`${prefix}${field}`, val);
+                        }
+                    };
+
+                    set('productCode', fullProd.productCode || '');
+                    set('code', fullProd.productCode || '');
+                    set('category', fullProd.category || '');
+                    set('Brand', fullProd.brand || '');
+                    set('price', fullProd.price || 0);
+                    set('MRP', fullProd.mrp || fullProd.MRP || 0);
+                    set('color', fullProd.color || '');
+                    set('size', fullProd.size || '');
+                    set('type', fullProd.type || '');
+                    set('shape', fullProd.shape || '');
+                    set('material', fullProd.material || '');
+                    set('dimensions', fullProd.dimensions || '');
+                    set('image', fullProd.image || '');
+                    set('HSNSAC', fullProd.hsnSac || fullProd.HSNSAC || '');
+                    set('expiry', fullProd.expiry || '');
+                    set('index', fullProd.index?.toString() || '');
+                    set('coating', fullProd.coating || '');
+                    set('treatment', fullProd.treatment || '');
+                    set('tint', fullProd.tint || '');
+                    set('sph', fullProd.sph || '');
+                    set('cyl', fullProd.cyl || '');
+                    set('axis', fullProd.axis || '');
+                    set('addition', fullProd.addition || fullProd.add || '');
+
+                    if (fullProd.index) {
+                        set('indexId', fullProd.index.toString());
+                        const matchedIndex = configs.index?.find(i => i.value?.toString() === fullProd.index.toString());
+                        if (matchedIndex) set('indexId', matchedIndex._id || fullProd.index.toString());
+                    }
+                    if (fullProd.coating) {
+                        const matchedCoating = configs.coating?.find(c => c.name?.toUpperCase() === fullProd.coating.toUpperCase());
+                        set('coatingId', matchedCoating?._id || fullProd.coating);
+                    }
+                    if (fullProd.treatment) {
+                        const matchedTreatment = configs.treatment?.find(t => t.name?.toUpperCase() === fullProd.treatment.toUpperCase());
+                        set('treatmentId', matchedTreatment?._id || fullProd.treatment);
+                    }
+                    if (fullProd.tint) {
+                        const matchedTint = configs.tints?.find(t => t.name?.toUpperCase() === fullProd.tint.toUpperCase());
+                        set('tintId', matchedTint?._id || fullProd.tint);
+                    }
+                    if (fullProd.gst !== undefined && fullProd.gst !== null) {
+                        formik.setFieldValue(`${prefix}gstDetails`, {
+                            ...formik.values.products[index]?.gstDetails,
+                            gstPercent: fullProd.gst.toString()
+                        });
+                    }
+
+                    // Update power table from full product
+                    const fullPowerTable = {
+                        R: {
+                            sph: fullProd.sph || '',
+                            cyl: fullProd.cyl || '',
+                            axis: fullProd.axis || '',
+                            add: fullProd.addition || fullProd.add || '',
+                            dia: '70'
+                        },
+                        L: {
+                            sph: fullProd.sph || '',
+                            cyl: fullProd.cyl || '',
+                            axis: fullProd.axis || '',
+                            add: fullProd.addition || fullProd.add || '',
+                            dia: '70'
+                        }
+                    };
+                    set('powerTable', fullPowerTable);
+                }).catch(err => {
+                    console.error('Failed to fetch full product details:', err);
+                });
+            }
 
         } else if (selectedValue) {
             // Custom RX / freeSolo input
@@ -912,13 +1033,8 @@ const OrderWizard = () => {
             case 1: // Product Details
                 if (!values.products || values.products.length === 0) return false;
                 return !errors.products;
-            case 2: // Advanced Details
-                const techValid = !!values.pantoscopicAngle && !!values.bowAngle && !!values.bvd &&
-                    !errors.pantoscopicAngle && !errors.bowAngle && !errors.bvd;
-                if (values.hasFlatFitting === 'yes') {
-                    return techValid && !!values.frameType && !!values.dbl && !!values.frameLength && !!values.frameHeight;
-                }
-                return techValid;
+            case 2: // Shipping & Others – no required fields
+                return true;
             default:
                 return false;
         }
@@ -928,14 +1044,9 @@ const OrderWizard = () => {
         // Define fields for each step to validate partially
         const stepFields = [
             ['customerId'], // Step 1
-            ['products'], // Step 2
-            ['pantoscopicAngle', 'bowAngle', 'bvd'] // Step 3
+            ['products'],   // Step 2
+            []              // Step 3: no required fields
         ];
-
-        // Handle conditional fields for Step 3
-        if (formik.values.hasFlatFitting === 'yes') {
-            stepFields[2].push('frameType', 'dbl', 'frameLength', 'frameHeight');
-        }
 
         const currentFields = stepFields[activeStep] || [];
 
@@ -1088,140 +1199,137 @@ const OrderWizard = () => {
 
         return (
             <div className="space-y-4 p-4 bg-gray-50/30 rounded-xl border border-gray-100">
-                {/* Toggles Row */}
-                <div className="flex flex-wrap gap-4 items-center justify-start bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
-                    <CustomToggle
-                        label="Power Details"
-                        value={product.powerMode}
-                        onChange={(v) => formik.setFieldValue(`${prefix}powerMode`, v)}
-                        options={[{ label: 'Single', value: 'single' }, { label: 'Both', value: 'both' }]}
-                        containerClassName="flex-1 md:flex-none min-w-[200px]"
-                        disabled={isStock || isReadOnly}
-                    />
+                {!isStock && (
+                    <>
+                        {/* Toggles Row */}
+                        <div className="flex flex-wrap gap-4 items-center justify-start bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                            <CustomToggle
+                                label="Power Details"
+                                value={product.powerMode}
+                                onChange={(v) => formik.setFieldValue(`${prefix}powerMode`, v)}
+                                options={[{ label: 'Single', value: 'single' }, { label: 'Both', value: 'both' }]}
+                                containerClassName="flex-1 md:flex-none min-w-[200px]"
+                                disabled={isReadOnly}
+                            />
 
-                    {/* <CustomToggle
-                        label="Product Type"
-                        value={product.productMode}
-                        onChange={(v) => formik.setFieldValue(`${prefix}productMode`, v)}
-                        options={[{ label: 'Stock Lens', value: 'stock' }, { label: 'Rx', value: 'rx' }]}
-                        containerClassName="flex-1 md:flex-none min-w-[220px]"
-                    /> */}
-                    <CustomToggle
-                        label="Has Prism"
-                        value={product.hasPrism}
-                        onChange={(v) => formik.setFieldValue(`${prefix}hasPrism`, v)}
-                        options={[{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }]}
-                        containerClassName="flex-1 md:flex-none min-w-[180px]"
-                        disabled={isStock || isReadOnly}
-                    />
-                </div>
-
-                {/* Power & Prism Tables Row */}
-                <div className="flex flex-col lg:flex-row gap-4">
-                    {/* Main Power Table */}
-                    <div className="flex-1 bg-gray-50/50 border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                        <div className="grid grid-cols-6 bg-gray-100/80 border-b border-gray-200">
-                            {['SIDE', 'SPH', 'CYLD', 'AXIS', 'ADD', 'DIAMETER'].map(h => (
-                                <div key={h} className="py-2 text-[11px] font-black uppercase text-gray-500 text-center border-r border-gray-200 last:border-r-0">{h}</div>
-                            ))}
+                            <CustomToggle
+                                label="Has Prism"
+                                value={product.hasPrism}
+                                onChange={(v) => formik.setFieldValue(`${prefix}hasPrism`, v)}
+                                options={[{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }]}
+                                containerClassName="flex-1 md:flex-none min-w-[180px]"
+                                disabled={isReadOnly}
+                            />
                         </div>
-                        {['R', 'L'].map((side) => {
-                            const isDisabled = product.powerMode === 'single' && product.selectedSide !== side;
 
-                            return (
-                                <div key={side} className={`grid grid-cols-6 border-b border-gray-100 last:border-b-0 items-center ${side === 'L' ? 'bg-erp-accent/5/20' : ''} ${isDisabled ? 'opacity-30' : ''}`}>
-                                    <div
-                                        className={`py-1.5 flex flex-col items-center justify-center border-r border-gray-100 gap-1 overflow-hidden transition-all duration-300 ${product.powerMode === 'single' ? 'cursor-pointer hover:bg-erp-accent/5/50' : ''}`}
-                                        onClick={() => {
-                                            if (product.powerMode === 'single') {
-                                                formik.setFieldValue(`${prefix}selectedSide`, side);
-                                            }
-                                        }}
-                                    >
-                                        <div className="flex items-center gap-1.5">
-                                            {product.powerMode === 'single' && (
-                                                <div className={`w-3 h-3 rounded-sm border transition-all flex items-center justify-center ${product.selectedSide === side ? 'bg-erp-accent border-erp-accent shadow-sm' : 'bg-white border-gray-200'}`}>
-                                                    {product.selectedSide === side && <Icon icon="mdi:check" className="text-white text-[10px]" />}
-                                                </div>
-                                            )}
-                                            <span className={`font-black text-xs ${product.powerMode === 'single' && product.selectedSide === side ? 'text-erp-accent' : 'text-gray-500'}`}>{side}</span>
-                                        </div>
-                                    </div>
-                                    {['sph', 'cyl', 'axis', 'add', 'dia'].map(field => (
-                                        <div key={field} className="p-1">
-                                            <input
-                                                type="text"
-                                                name={`${prefix}powerTable.${side}.${field}`}
-                                                value={product.powerTable[side][field]}
-                                                onChange={formik.handleChange}
-                                                disabled={isStock || isDisabled}
-                                                className="w-full h-8 border border-gray-200 rounded bg-white text-center text-xs font-bold text-gray-700 focus:outline-none focus:border-erp-accent focus:ring-1 focus:ring-erp-accent transition-all disabled:cursor-not-allowed"
-                                                placeholder="0.00"
-                                            />
-                                        </div>
+                        {/* Power & Prism Tables Row */}
+                        <div className="flex flex-col lg:flex-row gap-4">
+                            {/* Main Power Table */}
+                            <div className="flex-1 bg-gray-50/50 border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                                <div className="grid grid-cols-6 bg-gray-100/80 border-b border-gray-200">
+                                    {['SIDE', 'SPH', 'CYLD', 'AXIS', 'ADD', 'DIAMETER'].map(h => (
+                                        <div key={h} className="py-2 text-[11px] font-black uppercase text-gray-500 text-center border-r border-gray-200 last:border-r-0">{h}</div>
                                     ))}
                                 </div>
-                            );
-                        })}
-                    </div>
+                                {['R', 'L'].map((side) => {
+                                    const isDisabled = product.powerMode === 'single' && product.selectedSide !== side;
 
-                    {/* Prism Table */}
-                    {product.hasPrism === 'yes' && (
-                        <div className="w-full lg:w-80 bg-gray-50/50 border border-gray-200 rounded-xl overflow-hidden shadow-sm animate-in slide-in-from-right-4 duration-300">
-                            <div className="grid grid-cols-3 bg-gray-100/80 border-b border-gray-200">
-                                {['SIDE', 'PRISM', 'BASE SEL.'].map(h => (
-                                    <div key={h} className="py-2 text-[11px] font-black uppercase text-gray-500 text-center border-r border-gray-200 last:border-r-0">{h}</div>
-                                ))}
-                            </div>
-                            {['R', 'L'].map((side) => {
-                                const isDisabled = product.powerMode === 'single' && product.selectedSide !== side;
-                                return (
-                                    <div key={side} className={`grid grid-cols-3 border-b border-gray-100 last:border-b-0 items-center ${isDisabled ? 'opacity-30' : ''}`}>
-                                        <div
-                                            className={`py-1.5 flex flex-col items-center justify-center border-r border-gray-100 gap-1 overflow-hidden transition-all duration-300 ${product.powerMode === 'single' ? 'cursor-pointer hover:bg-erp-accent/5/50' : ''}`}
-                                            onClick={() => {
-                                                if (product.powerMode === 'single') {
-                                                    formik.setFieldValue(`${prefix}selectedSide`, side);
-                                                }
-                                            }}
-                                        >
-                                            <div className="flex items-center gap-1.5">
-                                                {product.powerMode === 'single' && (
-                                                    <div className={`w-3 h-3 rounded-sm border transition-all flex items-center justify-center ${product.selectedSide === side ? 'bg-erp-accent border-erp-accent shadow-sm' : 'bg-white border-gray-200'}`}>
-                                                        {product.selectedSide === side && <Icon icon="mdi:check" className="text-white text-[10px]" />}
-                                                    </div>
-                                                )}
-                                                <span className={`font-black text-xs ${product.powerMode === 'single' && product.selectedSide === side ? 'text-erp-accent' : 'text-gray-500'}`}>{side}</span>
+                                    return (
+                                        <div key={side} className={`grid grid-cols-6 border-b border-gray-100 last:border-b-0 items-center ${side === 'L' ? 'bg-erp-accent/5/20' : ''} ${isDisabled ? 'opacity-30' : ''}`}>
+                                            <div
+                                                className={`py-1.5 flex flex-col items-center justify-center border-r border-gray-100 gap-1 overflow-hidden transition-all duration-300 ${product.powerMode === 'single' ? 'cursor-pointer hover:bg-erp-accent/5/50' : ''}`}
+                                                onClick={() => {
+                                                    if (product.powerMode === 'single') {
+                                                        formik.setFieldValue(`${prefix}selectedSide`, side);
+                                                    }
+                                                }}
+                                            >
+                                                <div className="flex items-center gap-1.5">
+                                                    {product.powerMode === 'single' && (
+                                                        <div className={`w-3 h-3 rounded-sm border transition-all flex items-center justify-center ${product.selectedSide === side ? 'bg-erp-accent border-erp-accent shadow-sm' : 'bg-white border-gray-200'}`}>
+                                                            {product.selectedSide === side && <Icon icon="mdi:check" className="text-white text-[10px]" />}
+                                                        </div>
+                                                    )}
+                                                    <span className={`font-black text-xs ${product.powerMode === 'single' && product.selectedSide === side ? 'text-erp-accent' : 'text-gray-500'}`}>{side}</span>
+                                                </div>
                                             </div>
+                                            {['sph', 'cyl', 'axis', 'add', 'dia'].map(field => (
+                                                <div key={field} className="p-1">
+                                                    <input
+                                                        type="text"
+                                                        name={`${prefix}powerTable.${side}.${field}`}
+                                                        value={product.powerTable[side][field]}
+                                                        onChange={formik.handleChange}
+                                                        disabled={isDisabled}
+                                                        className="w-full h-8 border border-gray-200 rounded bg-white text-center text-xs font-bold text-gray-700 focus:outline-none focus:border-erp-accent focus:ring-1 focus:ring-erp-accent transition-all disabled:cursor-not-allowed"
+                                                        placeholder="0.00"
+                                                    />
+                                                </div>
+                                            ))}
                                         </div>
-                                        <div className="p-1">
-                                            <input
-                                                type="text"
-                                                name={`${prefix}prismTable.${side}.prism`}
-                                                value={product.prismTable[side].prism}
-                                                onChange={formik.handleChange}
-                                                disabled={isStock || isDisabled}
-                                                className="w-full h-8 border border-gray-200 rounded bg-white text-center text-xs font-bold text-gray-700 focus:outline-none focus:border-erp-accent focus:ring-1 focus:ring-erp-accent transition-all disabled:cursor-not-allowed"
-                                                placeholder="0.00"
-                                            />
-                                        </div>
-                                        <div className="p-1">
-                                            <input
-                                                type="text"
-                                                name={`${prefix}prismTable.${side}.base`}
-                                                value={product.prismTable[side].base}
-                                                onChange={formik.handleChange}
-                                                disabled={isStock || isDisabled}
-                                                className="w-full h-8 border border-gray-200 rounded bg-white text-center text-xs font-bold text-gray-700 focus:outline-none focus:border-erp-accent focus:ring-1 focus:ring-erp-accent transition-all disabled:cursor-not-allowed"
-                                                placeholder="Base"
-                                            />
-                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Prism Table */}
+                            {product.hasPrism === 'yes' && (
+                                <div className="w-full lg:w-80 bg-gray-50/50 border border-gray-200 rounded-xl overflow-hidden shadow-sm animate-in slide-in-from-right-4 duration-300">
+                                    <div className="grid grid-cols-3 bg-gray-100/80 border-b border-gray-200">
+                                        {['SIDE', 'PRISM', 'BASE SEL.'].map(h => (
+                                            <div key={h} className="py-2 text-[11px] font-black uppercase text-gray-500 text-center border-r border-gray-200 last:border-r-0">{h}</div>
+                                        ))}
                                     </div>
-                                );
-                            })}
+                                    {['R', 'L'].map((side) => {
+                                        const isDisabled = product.powerMode === 'single' && product.selectedSide !== side;
+                                        return (
+                                            <div key={side} className={`grid grid-cols-3 border-b border-gray-100 last:border-b-0 items-center ${isDisabled ? 'opacity-30' : ''}`}>
+                                                <div
+                                                    className={`py-1.5 flex flex-col items-center justify-center border-r border-gray-100 gap-1 overflow-hidden transition-all duration-300 ${product.powerMode === 'single' ? 'cursor-pointer hover:bg-erp-accent/5/50' : ''}`}
+                                                    onClick={() => {
+                                                        if (product.powerMode === 'single') {
+                                                            formik.setFieldValue(`${prefix}selectedSide`, side);
+                                                        }
+                                                    }}
+                                                >
+                                                    <div className="flex items-center gap-1.5">
+                                                        {product.powerMode === 'single' && (
+                                                            <div className={`w-3 h-3 rounded-sm border transition-all flex items-center justify-center ${product.selectedSide === side ? 'bg-erp-accent border-erp-accent shadow-sm' : 'bg-white border-gray-200'}`}>
+                                                                {product.selectedSide === side && <Icon icon="mdi:check" className="text-white text-[10px]" />}
+                                                            </div>
+                                                        )}
+                                                        <span className={`font-black text-xs ${product.powerMode === 'single' && product.selectedSide === side ? 'text-erp-accent' : 'text-gray-500'}`}>{side}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="p-1">
+                                                    <input
+                                                        type="text"
+                                                        name={`${prefix}prismTable.${side}.prism`}
+                                                        value={product.prismTable[side].prism}
+                                                        onChange={formik.handleChange}
+                                                        disabled={isDisabled}
+                                                        className="w-full h-8 border border-gray-200 rounded bg-white text-center text-xs font-bold text-gray-700 focus:outline-none focus:border-erp-accent focus:ring-1 focus:ring-erp-accent transition-all disabled:cursor-not-allowed"
+                                                        placeholder="0.00"
+                                                    />
+                                                </div>
+                                                <div className="p-1">
+                                                    <input
+                                                        type="text"
+                                                        name={`${prefix}prismTable.${side}.base`}
+                                                        value={product.prismTable[side].base}
+                                                        onChange={formik.handleChange}
+                                                        disabled={isDisabled}
+                                                        className="w-full h-8 border border-gray-200 rounded bg-white text-center text-xs font-bold text-gray-700 focus:outline-none focus:border-erp-accent focus:ring-1 focus:ring-erp-accent transition-all disabled:cursor-not-allowed"
+                                                        placeholder="Base"
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
-                    )}
-                </div>
+                    </>
+                )}
 
                 {/* Rest of the Product Fields */}
                 {isStock ? (
@@ -1249,56 +1357,137 @@ const OrderWizard = () => {
                                     disabled: isReadOnly
                                 })}
                             </div> */}
-                            <div className="w-full md:w-1/3">
-                                {wrapInput(Select, {
-                                    label: "Tint",
-                                    name: `${prefix}tintId`,
-                                    placeholder: "Select Tint",
-                                    options: (Array.isArray(configs.tints) ? configs.tints : []).map(t => ({ value: t._id, label: t.name })),
-                                    disabled: isReadOnly
-                                })}
-                            </div>
+                            {/* {(() => {
+                                const catName = (product.category || configs.category?.find(c => c._id === product.categoryId)?.name || '').toUpperCase();
+                                if (catName === 'LENS' || catName === 'CONTACT_LENS') {
+                                    return (
+                                        <div className="w-full md:w-1/3">
+                                            {wrapInput(Select, {
+                                                label: "Tint",
+                                                name: `${prefix}tintId`,
+                                                placeholder: "Select Tint",
+                                                options: (Array.isArray(configs.tints) ? configs.tints : []).map(t => ({ value: t._id, label: t.name })),
+                                                disabled: isReadOnly
+                                            })}
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()} */}
                         </div>
                         {product.productName && (
-                            <details open className="group border border-gray-200 rounded-lg bg-gray-50/50 overflow-hidden mt-1">
-                                <summary className="flex justify-between items-center font-bold cursor-pointer list-none p-3 text-xs text-gray-700 hover:bg-gray-100 transition-colors focus:outline-none">
-                                    <span className="flex items-center gap-2">
-                                        <Icon icon="mdi:information-outline" className="text-erp-accent text-lg" />
-                                        Stock Details & Specifications
-                                    </span>
-                                    <span className="transition group-open:rotate-180">
-                                        <Icon icon="mdi:chevron-down" className="text-lg text-gray-500" />
-                                    </span>
-                                </summary>
-                                <div className="p-4 border-t border-gray-200 text-sm transition-all duration-300">
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-6">
-                                        {(product.Brand || product.brand || product.brandId) && (
-                                            <div className="flex flex-col"><span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">Brand</span><span className="font-semibold text-gray-800">{product.Brand || product.brand || configs.brand?.find(b => b._id === product.brandId)?.name}</span></div>
-                                        )}
-                                        {(product.category || product.categoryId) && (
-                                            <div className="flex flex-col"><span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">Category</span><span className="font-semibold text-gray-800">{product.category || configs.category?.find(c => c._id === product.categoryId)?.name}</span></div>
-                                        )}
-                                        {product.indexId && (
-                                            <div className="flex flex-col"><span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">Index</span><span className="font-semibold text-gray-800">{product.indexId}</span></div>
-                                        )}
-                                        {product.coatingId && (
-                                            <div className="flex flex-col"><span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">Coating</span><span className="font-semibold text-gray-800">{configs.coating?.find(c => c._id === product.coatingId)?.name || product.coatingId}</span></div>
-                                        )}
-                                        {product.treatmentId && (
-                                            <div className="flex flex-col"><span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">Treatment</span><span className="font-semibold text-gray-800">{configs.treatment?.find(t => t._id === product.treatmentId)?.name}</span></div>
-                                        )}
-                                        {product.tintId && (
-                                            <div className="flex flex-col"><span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">Tint</span><span className="font-semibold text-gray-800">{configs.tints?.find(t => t._id === product.tintId)?.name}</span></div>
-                                        )}
-                                        {product.tintDetails && (
-                                            <div className="flex flex-col"><span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">Tint Details</span><span className="font-semibold text-gray-800">{product.tintDetails}</span></div>
-                                        )}
-                                        {product.HSNSAC && (
-                                            <div className="flex flex-col"><span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">HSN/SAC</span><span className="font-semibold text-gray-800">{product.HSNSAC}</span></div>
-                                        )}
+                            <div className="mt-8 bg-white w-full px-2">
+                                {/* Product Name & Image Header */}
+                                <div className="flex items-center gap-4 mb-6 pb-4 border-b border-gray-100">
+                                    {product.image && (
+                                        <div className="w-16 h-16 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
+                                            <img src={product.image} alt={product.productName} className="w-full h-full object-cover" />
+                                        </div>
+                                    )}
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Product Name</span>
+                                        <span className="font-bold text-gray-900 text-[17px]">{product.productName}</span>
                                     </div>
                                 </div>
-                            </details>
+
+                                <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
+
+                                    {/* COLUMN 1: PRODUCT INFO */}
+                                    <div className="flex flex-col">
+                                        <h5 className="text-[11px] font-black text-[#3b82f6] uppercase tracking-widest border-b border-blue-100 pb-2 mb-5">Product Info</h5>
+                                        <div className="space-y-5">
+                                            {[
+                                                { label: 'Product Code', value: product.productCode || product.code },
+                                                { label: 'Brand', value: product.Brand || product.brand || configs.brand?.find(b => b._id === product.brandId)?.name },
+                                                { label: 'Category', value: product.category || configs.category?.find(c => c._id === product.categoryId)?.name },
+                                                { label: 'Type', value: product.type },
+                                                { label: 'Material', value: product.material }
+                                            ].map((item, i) => item.value ? (
+                                                <div key={i} className="flex flex-col">
+                                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">{item.label}</span>
+                                                    <span className="font-semibold text-gray-800 text-[15px]">{item.value}</span>
+                                                </div>
+                                            ) : null)}
+                                        </div>
+                                    </div>
+
+                                    {/* COLUMN 2: SPECIFICATIONS */}
+                                    <div className="flex flex-col">
+                                        <h5 className="text-[11px] font-black text-[#3b82f6] uppercase tracking-widest border-b border-blue-100 pb-2 mb-5">Specifications</h5>
+                                        <div className="space-y-5">
+                                            {[
+                                                { label: 'Index', value: product.index || product.indexId || configs.index?.find(i => i._id === product.indexId)?.value?.toString() },
+                                                { label: 'Coating', value: product.coating || configs.coating?.find(c => c._id === product.coatingId)?.name || product.coatingId },
+                                                { label: 'Treatment', value: product.treatment || configs.treatment?.find(t => t._id === product.treatmentId)?.name || product.treatmentId },
+                                                { label: 'Tint', value: product.tint || configs.tints?.find(t => t._id === product.tintId)?.name || product.tintId },
+                                                { label: 'Shape', value: product.shape }
+                                            ].map((item, i) => item.value ? (
+                                                <div key={i} className="flex flex-col">
+                                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">{item.label}</span>
+                                                    <span className="font-semibold text-gray-800 text-[15px]">{item.value}</span>
+                                                </div>
+                                            ) : null)}
+                                        </div>
+                                    </div>
+
+                                    {/* COLUMN 3: POWERS */}
+                                    <div className="flex flex-col">
+                                        <h5 className="text-[11px] font-black text-[#3b82f6] uppercase tracking-widest border-b border-blue-100 pb-2 mb-5">Powers & Dimensions</h5>
+                                        <div className="space-y-5">
+                                            {[
+                                                { label: 'SPH', value: product.sph || product.powerTable?.R?.sph || product.powerTable?.L?.sph },
+                                                { label: 'CYL', value: product.cyl || product.powerTable?.R?.cyl || product.powerTable?.L?.cyl },
+                                                { label: 'AXIS', value: product.axis || product.powerTable?.R?.axis || product.powerTable?.L?.axis },
+                                                { label: 'ADD', value: product.addition || product.powerTable?.R?.add || product.powerTable?.L?.add },
+                                                { label: 'Size', value: product.size },
+                                                { label: 'Dimensions', value: product.dimensions }
+                                            ].map((item, i) => item.value ? (
+                                                <div key={i} className="flex flex-col">
+                                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">{item.label}</span>
+                                                    <span className="font-semibold text-gray-800 text-[15px]">{item.value}</span>
+                                                </div>
+                                            ) : null)}
+                                        </div>
+                                    </div>
+
+                                    {/* COLUMN 4: OTHER DETAILS */}
+                                    <div className="flex flex-col">
+                                        <h5 className="text-[11px] font-black text-[#3b82f6] uppercase tracking-widest border-b border-blue-100 pb-2 mb-5">Other Details</h5>
+                                        <div className="space-y-5">
+                                            {[
+                                                { label: 'Color', value: product.color },
+                                                { label: 'HSN/SAC', value: product.HSNSAC || product.hsnSac },
+                                                // { label: 'Available Quantity', value: product.qty || product.qty },
+                                                { label: 'Expiry', value: product.expiry ? new Date(product.expiry).toLocaleDateString() : null }
+                                            ].map((item, i) => item.value ? (
+                                                <div key={i} className="flex flex-col">
+                                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">{item.label}</span>
+                                                    <span className="font-semibold text-gray-800 text-[15px]">{item.value}</span>
+                                                </div>
+                                            ) : null)}
+                                        </div>
+                                    </div>
+
+                                    {/* COLUMN 5: PRICING & STOCK */}
+                                    <div className="flex flex-col">
+                                        <h5 className="text-[11px] font-black text-[#3b82f6] uppercase tracking-widest border-b border-blue-100 pb-2 mb-5">Pricing & Stock</h5>
+                                        <div className="space-y-5">
+                                            {[
+                                                { label: 'Price', value: product.price ? `₹${product.price}` : null },
+                                                { label: 'MRP', value: product.MRP ? `₹${product.MRP}` : null },
+                                                { label: 'GST', value: product.gstDetails?.gstPercent ? `${product.gstDetails.gstPercent}%` : null },
+                                                { label: 'Quantity', value: product.qty || null }
+                                            ].map((item, i) => item.value ? (
+                                                <div key={i} className="flex flex-col">
+                                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">{item.label}</span>
+                                                    <span className="font-semibold text-gray-800 text-[15px]">{item.value}</span>
+                                                </div>
+                                            ) : null)}
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
                         )}
                     </div>
                 ) : (
@@ -1389,14 +1578,14 @@ const OrderWizard = () => {
                             />
                         </div>
 
-                        {product.orderType === 'rx' && wrapInput(SearchableSelect, {
+                        {product.orderType === 'rx' && (product.category?.toUpperCase().includes('LENS') || (configs.category?.find(c => c._id === product.categoryId)?.name?.toUpperCase().includes('LENS'))) && wrapInput(SearchableSelect, {
                             label: "Select Vendor",
                             name: `${prefix}vendorId`,
                             options: (Array.isArray(configs.vendors) ? configs.vendors : []).map(v => ({ value: v._id || v.vendorNumber, label: v.name })),
                             placeholder: "Select Vendor",
                             disabled: isReadOnly
                         })}
-                        {product.orderType === 'rx' && wrapInput(Input, {
+                        {product.orderType === 'rx' && (product.category?.toUpperCase().includes('LENS') || (configs.category?.find(c => c._id === product.categoryId)?.name?.toUpperCase().includes('LENS'))) && wrapInput(Input, {
                             label: "Lab Name",
                             name: `${prefix}labName`,
                             placeholder: "Enter Lab Name",
@@ -1437,6 +1626,92 @@ const OrderWizard = () => {
                         })}
                     </div>
                 </div>
+
+                {/* Fitting & Lens Details (Only for Lens/Contact Lens in Rx mode) */}
+                {!isStock && (() => {
+                    const catName = (product.category || configs.category?.find(c => c._id === product.categoryId)?.name || '').toUpperCase();
+                    if (catName === 'LENS' || catName === 'CONTACT_LENS' || catName.includes('LENS')) {
+                        return (
+                            <div className="mt-4 bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-6 max-w-4xl">
+                                {/* Fitting Details */}
+                                <div>
+                                    <h4 className="text-xs font-black uppercase tracking-widest text-erp-accent mb-4 border-b pb-2">Fitting Details</h4>
+
+                                    <div className="mb-4">
+                                        <CustomToggle
+                                            label="Flat Fitting"
+                                            value={product.hasFlatFitting}
+                                            onChange={(v) => formik.setFieldValue(`${prefix}hasFlatFitting`, v)}
+                                            options={[{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }]}
+                                            containerClassName="w-full md:w-auto"
+                                            disabled={isReadOnly}
+                                        />
+                                    </div>
+
+                                    {product.hasFlatFitting === 'yes' && (
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end animate-in fade-in slide-in-from-top-2 duration-300">
+                                            {wrapInput(Input, {
+                                                label: "DBL",
+                                                name: `${prefix}dbl`,
+                                                placeholder: "Enter DBL",
+                                                disabled: isReadOnly
+                                            })}
+                                            {wrapInput(Select, {
+                                                label: "Frame Type",
+                                                name: `${prefix}frameType`,
+                                                placeholder: "Select Type",
+                                                options: (Array.isArray(configs.frameTypes) ? configs.frameTypes : []).map(f => {
+                                                    const val = f.name || f._id || f;
+                                                    const lab = f.name || f.label || f;
+                                                    return { value: val, label: lab };
+                                                }),
+                                                disabled: isReadOnly
+                                            })}
+                                            {wrapInput(Input, {
+                                                label: "Frame Length",
+                                                name: `${prefix}frameLength`,
+                                                placeholder: "Enter Length",
+                                                disabled: isReadOnly
+                                            })}
+                                            {wrapInput(Input, {
+                                                label: "Frame Height",
+                                                name: `${prefix}frameHeight`,
+                                                placeholder: "Enter Height",
+                                                disabled: isReadOnly
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Lens Details */}
+                                <div>
+                                    <h4 className="text-xs font-black uppercase tracking-widest text-erp-accent mb-4 border-b pb-2">Lens Details</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        {wrapInput(Input, {
+                                            label: "Pantoscopic Angle",
+                                            name: `${prefix}pantoscopicAngle`,
+                                            placeholder: "Enter Angle",
+                                            disabled: isReadOnly
+                                        })}
+                                        {wrapInput(Input, {
+                                            label: "Bow Angle",
+                                            name: `${prefix}bowAngle`,
+                                            placeholder: "Enter Bow Angle",
+                                            disabled: isReadOnly
+                                        })}
+                                        {wrapInput(Input, {
+                                            label: "BVD",
+                                            name: `${prefix}bvd`,
+                                            placeholder: "Enter BVD",
+                                            disabled: isReadOnly
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    }
+                    return null;
+                })()}
             </div>
         );
     };
@@ -1517,7 +1792,7 @@ const OrderWizard = () => {
                                                 className={`cursor-pointer transition-colors border-b border-gray-200 hover:bg-blue-50/50 ${isActive ? 'bg-blue-50' : 'bg-white'}`}
                                                 onClick={() => setActiveProductIndex(index)}
                                             >
-                                                <td className="p-3 text-xs font-semibold text-gray-700 text-center border-r border-gray-200">{index + 1}</td>
+                                                <td className={`p-3 text-xs font-semibold text-gray-700 text-center border-r border-gray-200 ${product.orderType === 'rx' ? 'bg-yellow-200' : ''}`}>{index + 1}</td>
                                                 <td className="p-2 border-r border-gray-200 min-w-[250px]">
                                                     <SearchableSelect
                                                         name={`products.${index}.productName`}
@@ -1573,7 +1848,7 @@ const OrderWizard = () => {
                                                         onClick={(e) => e.stopPropagation()}
                                                     >
                                                         <option value="stock">Stock</option>
-                                                        <option value="rx">Rx</option>
+                                                        {(product.category?.toUpperCase().includes('LENS') || (configs.category?.find(c => c._id === product.categoryId)?.name?.toUpperCase().includes('LENS'))) && <option value="rx">Rx</option>}
                                                     </select>
                                                 </td>
                                                 <td className="p-2 border-r border-gray-200 min-w-[80px]">
@@ -1705,7 +1980,7 @@ const OrderWizard = () => {
                         <div className="flex flex-col lg:flex-row gap-8 items-start bg-gray-50/50 p-6 rounded-2xl border border-gray-200">
                             <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-6">
                                 <div className="space-y-4 col-span-full md:col-span-4 grid grid-cols-2 md:grid-cols-4 gap-6">
-                                    {wrapInput(Input, { label: "GST Type", name: `products.${activeProductIndex}.gstDetails.gstType` })}
+                                    {wrapInput(Select, { label: "GST Type", name: `products.${activeProductIndex}.gstDetails.gstType`, options: [{ value: "included", label: "Included" }, { value: "excluded", label: "Excluded" }], placeholder: "Select GST Type" })}
                                     {/* {(() => {
                                         const prod = formik.values.products[activeProductIndex];
                                         const price = parseFloat(prod.price) || 0;
@@ -1716,7 +1991,7 @@ const OrderWizard = () => {
                                         const cgst = (total / 2).toFixed(2);
                                         const sgst = (total / 2).toFixed(2);
                                         return (
-                                            <div className="col-span-full md:col-span-4 grid grid-cols-2 md:grid-cols-3 gap-4">
+                                            <div className="col-span-full md:col-span-4 grid grid-cols-2 md:grid-cols-3 gap-4">  
                                                 <div className="flex flex-col">
                                                     <span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">Total GST</span>
                                                     <span className="font-semibold text-gray-800">₹{total}</span>
@@ -1816,54 +2091,6 @@ const OrderWizard = () => {
 
     const renderAdvancedDetails = () => (
         <div className="p-4 space-y-4 bg-white rounded-b-2xl border-t border-gray-50">
-            {/* Fitting Selection */}
-            <div className="space-y-4">
-                <h4 className="text-xs font-black uppercase tracking-widest text-erp-accent ">Advanced Fitting Data</h4>
-                <CustomToggle
-                    label="Has Flat Fitting"
-                    value={formik.values.hasFlatFitting}
-                    onChange={(v) => formik.setFieldValue('hasFlatFitting', v)}
-                    options={[{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }]}
-                    containerClassName="w-48"
-                />
-
-                {/* Conditional Frame Specifications */}
-                {formik.values.hasFlatFitting === 'yes' && (
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-x-4 gap-y-4 p-4 border border-orange-100 rounded-xl">
-                        <div className="col-span-full">
-                            <h3 className="text-xs font-black text-erp-accent/80 uppercase tracking-[0.1em] mb-2 flex items-center gap-2">
-                                {/* <Icon icon="mdi:frame-outline" className="text-lg" /> */}
-                                Frame Specifications
-                            </h3>
-                        </div>
-                        {wrapInput(Select, {
-                            label: "Frame Type",
-                            name: "frameType",
-                            options: (Array.isArray(configs.frameTypes) ? configs.frameTypes : []).map(f => ({ value: f.name || f, label: f.name || f })),
-                            placeholder: "Select Frame Type"
-                        })}
-                        {wrapInput(Input, { label: "DBL", name: "dbl", placeholder: "mm" })}
-                        {wrapInput(Input, { label: "Frame Length", name: "frameLength", placeholder: "mm" })}
-                        {wrapInput(Input, { label: "Frame Height", name: "frameHeight", placeholder: "mm" })}
-                    </div>
-                )}
-
-                {/* Technical Centration Specs */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-4 p-4 bg-gray-50/50 border border-gray-100 rounded-xl">
-                    <div className="col-span-full">
-                        <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
-                            {/* <Icon icon="mdi:ruler-square" className="text-lg" /> */}
-                            Technical Centration & Angles
-                        </h3>
-                    </div>
-                    {wrapInput(Input, { label: "Pantoscopic Angle", name: "pantoscopicAngle", placeholder: "Eg. 7°" })}
-                    {wrapInput(Input, { label: "Bow Angle", name: "bowAngle", placeholder: "Eg. 5°" })}
-                    {wrapInput(Input, { label: "BVD", name: "bvd", placeholder: "Eg. 12mm" })}
-                </div>
-            </div>
-
-            <hr className="border-gray-50" />
-
             {/* Miscellaneous Data */}
             <div className="space-y-6">
                 <h4 className="text-xs font-black uppercase tracking-widest text-erp-accent ">Shipping & Others</h4>

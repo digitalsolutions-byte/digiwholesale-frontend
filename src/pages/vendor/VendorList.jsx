@@ -196,13 +196,18 @@ export default function VendorList() {
 
     const todayDate = new Date().toISOString().split("T")[0];
 
-    const emptyRow = { productCode: "", category: "", productName: "", quantity: 1, price: "", gstPercent: "0", expectedDate: "" };
-    const [orderRows, setOrderRows] = useState([emptyRow]);
+    const emptyRow = { productCode: "", category: "", productName: "", quantity: 1, price: "", gstPercent: "0", expectedDate: "", sph: "", cyl: "", add: "" };
+    const [activeTab, setActiveTab] = useState('lens');
+    const [lensOrderRows, setLensOrderRows] = useState([emptyRow]);
+    const [frameOrderRows, setFrameOrderRows] = useState([emptyRow]);
 
-    const handleAddRow = () => setOrderRows(prev => [...prev, emptyRow]);
-    const handleRemoveRow = (i) => setOrderRows(prev => prev.filter((_, idx) => idx !== i));
-    const handleChangeRow = (i, field, val) => setOrderRows(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
-    const handleClearOrder = () => { setOrderRows([emptyRow]); setNotes(""); };
+    const activeRows = activeTab === 'lens' ? lensOrderRows : frameOrderRows;
+    const setActiveRows = activeTab === 'lens' ? setLensOrderRows : setFrameOrderRows;
+
+    const handleAddRow = () => setActiveRows(prev => [...prev, emptyRow]);
+    const handleRemoveRow = (i) => setActiveRows(prev => prev.filter((_, idx) => idx !== i));
+    const handleChangeRow = (i, field, val) => setActiveRows(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
+    const handleClearOrder = () => { setLensOrderRows([emptyRow]); setFrameOrderRows([emptyRow]); setNotes(""); };
 
     // ============ fetch Vendor data pagination ============
     const fetchVendors = async (pageNumber = 1, append = false) => {
@@ -273,13 +278,14 @@ export default function VendorList() {
     };
 
     const handleSubmitOrder = async () => {
+        const allOrderRows = [...lensOrderRows, ...frameOrderRows].filter(r => r.productCode || r.category || r.productName || r.price);
         if (!selectedVendor || (!selectedVendor._id && !selectedVendor.vendorNumber)) {
             toast.error("Please select a vendor");
             return;
         }
-        if (!orderRows || orderRows.length === 0) { toast.error("Please add at least one product"); return; }
-        for (let i = 0; i < orderRows.length; i++) {
-            const r = orderRows[i];
+        if (!allOrderRows || allOrderRows.length === 0) { toast.error("Please add at least one product"); return; }
+        for (let i = 0; i < allOrderRows.length; i++) {
+            const r = allOrderRows[i];
             if (!r.productCode) { toast.error(`Row ${i + 1}: Product Code is required`); return; }
             if (!r.category) { toast.error(`Row ${i + 1}: Category is required`); return; }
             if (!r.productName) { toast.error(`Row ${i + 1}: Product Name is required`); return; }
@@ -292,7 +298,7 @@ export default function VendorList() {
             const data = await vendorOrderService.createVendorOrder({
                 vendorId: selectedVendor._id || selectedVendor.vendorNumber,
                 notes,
-                items: orderRows.map(r => ({
+                items: allOrderRows.map(r => ({
                     productCode: r.productCode,
                     category: r.category,
                     productName: r.productName,
@@ -385,7 +391,8 @@ export default function VendorList() {
     const pages = Array.from({ length: endPage - startPage }, (_, i) => startPage + i);
 
     // order summary
-    const orderSummary = orderRows.reduce((acc, r) => {
+    const allOrderRows = [...lensOrderRows, ...frameOrderRows].filter(r => r.productCode || r.category || r.productName || r.price);
+    const orderSummary = allOrderRows.reduce((acc, r) => {
         const base = (Number(r.quantity) || 0) * (Number(r.price) || 0);
         const gst = (base * (Number(r.gstPercent) || 0)) / 100;
         acc.subtotal += base; acc.gstTotal += gst; acc.grandTotal += base + gst;
@@ -620,74 +627,122 @@ export default function VendorList() {
 
                         {/* Body */}
                         <div className="flex-1 overflow-y-auto px-8 py-8 space-y-6 bg-gray-50/50 custom-scrollbar">
-                            <div className="space-y-6">
-                                {orderRows.map((row, index) => (
-                                    <div key={index} className="relative bg-white border border-gray-100 rounded-[2rem] p-6 shadow-xl shadow-gray-200/40 hover:shadow-gray-200/60 transition-all animate-slideUp">
-                                        <div className="flex items-center justify-between mb-6 border-b border-gray-50 pb-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-6 h-6 rounded-lg bg-erp-accent/5 flex items-center justify-center">
-                                                    <span className="text-[10px] font-black text-erp-accent">{index + 1}</span>
-                                                </div>
-                                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Product Specification</span>
-                                            </div>
-                                            {orderRows.length > 1 && (
-                                                <button onClick={() => handleRemoveRow(index)}
-                                                    className="w-8 h-8 rounded-full hover:bg-rose-50 text-rose-300 hover:text-rose-500 transition-all flex items-center justify-center">
-                                                    <Icon icon="mdi:trash-can-outline" className="text-lg" />
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 sm:gap-6">
-                                            {[
-                                                { label: "Product Code", field: "productCode", type: "text", placeholder: "e.g. PRD-001" },
-                                                { label: "Category", field: "category", type: "text", placeholder: "e.g. Frame" },
-                                                { label: "Product Name", field: "productName", type: "text", placeholder: "Full product description..." },
-                                                { label: "Quantity", field: "quantity", type: "number", placeholder: "Qty", min: "1", step: "1" },
-                                                { label: "Price / Unit", field: "price", type: "number", placeholder: "₹ 0.00", min: "0", step: "0.01" },
-                                            ].map(({ label, field, type, placeholder, min, step }) => (
-                                                <div key={field} className={`flex flex-col ${field === "productName" ? "sm:col-span-2 lg:col-span-1 2xl:col-span-1" : ""}`}>
-                                                    <label className={labelCls}>{label}</label>
-                                                    <input type={type} min={min} step={step} placeholder={placeholder}
-                                                        value={row[field]}
-                                                        onChange={e => handleChangeRow(index, field, field === "quantity" ? Math.floor(e.target.value) : e.target.value)}
-                                                        className={fieldCls}
-                                                    />
-                                                </div>
-                                            ))}
-                                            <div className="flex flex-col">
-                                                <label className={labelCls}>GST %</label>
-                                                <select value={row.gstPercent} onChange={e => handleChangeRow(index, "gstPercent", e.target.value)} className={fieldCls}>
-                                                    <option value="0">Select GST</option>
-                                                    {[5, 12, 18, 28].map(g => <option key={g} value={g}>{g}% Tax</option>)}
-                                                </select>
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <label className={labelCls}>Expected Date</label>
-                                                <input type="date" min={todayDate} value={row.expectedDate}
-                                                    onChange={e => handleChangeRow(index, "expectedDate", e.target.value)}
-                                                    className={fieldCls}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="mt-6 flex justify-end pt-4 border-t border-gray-50/50">
-                                            <div className="flex items-center gap-3 bg-erp-accent/[0.03] px-6 py-2 rounded-full border border-erp-accent/5">
-                                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Row Valuation</span>
-                                                <span className="text-sm font-black text-erp-accent">
-                                                    ₹ {((Number(row.quantity) || 0) * (Number(row.price) || 0) * (1 + (Number(row.gstPercent) || 0) / 100)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
+                            <div className="flex space-x-8 border-b border-gray-200 mb-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('lens')}
+                                    className={`py-3 px-2 text-[13px] font-black uppercase tracking-widest border-b-2 transition-colors ${activeTab === 'lens' ? 'border-[#2980B9] text-[#2980B9]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                                >
+                                    Lens
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('frame')}
+                                    className={`py-3 px-2 text-[13px] font-black uppercase tracking-widest border-b-2 transition-colors ${activeTab === 'frame' ? 'border-[#2980B9] text-[#2980B9]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                                >
+                                    Frame
+                                </button>
                             </div>
+                            <div className="bg-white border border-gray-200 rounded-[1.5rem] shadow-sm overflow-hidden flex flex-col">
+                                <div className="overflow-x-auto custom-scrollbar">
+                                    <table className="w-full min-w-[900px] border-collapse">
+                                        <thead>
+                                            <tr className="bg-[#2980B9] text-white">
+                                                <th className="px-4 py-3 text-center text-[11px] font-black uppercase tracking-widest w-16 border-r border-white/10">S.NO.</th>
+                                                <th className="px-4 py-3 text-left text-[11px] font-black uppercase tracking-widest border-r border-white/10 min-w-[120px]">Product Code</th>
+                                                <th className="px-4 py-3 text-left text-[11px] font-black uppercase tracking-widest border-r border-white/10 min-w-[120px]">Category</th>
+                                                <th className="px-4 py-3 text-left text-[11px] font-black uppercase tracking-widest border-r border-white/10 min-w-[200px]">Product Name</th>
+                                                {activeTab === 'lens' && (
+                                                    <>
+                                                        <th className="px-4 py-3 text-center text-[11px] font-black uppercase tracking-widest w-24 border-r border-white/10">Sph</th>
+                                                        <th className="px-4 py-3 text-center text-[11px] font-black uppercase tracking-widest w-24 border-r border-white/10">Cyl</th>
+                                                        <th className="px-4 py-3 text-center text-[11px] font-black uppercase tracking-widest w-24 border-r border-white/10">Add</th>
+                                                    </>
+                                                )}
+                                                <th className="px-4 py-3 text-center text-[11px] font-black uppercase tracking-widest w-24 border-r border-white/10">QTY</th>
+                                                <th className="px-4 py-3 text-center text-[11px] font-black uppercase tracking-widest w-32 border-r border-white/10">PRICE</th>
+                                                <th className="px-4 py-3 text-center text-[11px] font-black uppercase tracking-widest w-28 border-r border-white/10">GST %</th>
+                                                <th className="px-4 py-3 text-center text-[11px] font-black uppercase tracking-widest w-40 border-r border-white/10">Expected Date</th>
+                                                <th className="px-4 py-3 text-center text-[11px] font-black uppercase tracking-widest w-16"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 bg-white">
+                                            {activeRows.map((row, index) => (
+                                                <tr key={index} className="hover:bg-blue-50/30 transition-colors group">
+                                                    <td className="px-4 py-2 text-center text-[13px] font-bold text-gray-700 border-r border-gray-100 bg-gray-50/50">{index + 1}</td>
+                                                    <td className="px-2 py-2 border-r border-gray-100">
+                                                        <input type="text" placeholder="Code..." value={row.productCode} onChange={e => handleChangeRow(index, "productCode", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-3 py-2 text-[13px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" />
+                                                    </td>
+                                                    <td className="px-2 py-2 border-r border-gray-100">
+                                                        <input type="text" placeholder="Category" value={row.category} onChange={e => handleChangeRow(index, "category", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-3 py-2 text-[13px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" />
+                                                    </td>
 
-                            <button onClick={handleAddRow}
-                                className="w-full flex items-center justify-center gap-3 py-6 border-2 border-dashed border-erp-accent/10 bg-erp-accent/[0.02] hover:bg-erp-accent/5 hover:border-erp-accent/30 rounded-[2rem] transition-all group">
-                                <Icon icon="mdi:plus-circle" className="text-2xl text-erp-accent/40 group-hover:text-erp-accent group-hover:scale-110 transition-all" />
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 group-hover:text-erp-accent">Add Product Line Item</span>
-                            </button>
+                                                    <td className="px-2 py-2 border-r border-gray-100">
+                                                        <input type="text" placeholder="Full product description..." value={row.productName} onChange={e => handleChangeRow(index, "productName", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-3 py-2 text-[13px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" />
+                                                    </td>
+                                                    {activeTab === 'lens' && (
+                                                        <>
+                                                            <td className="px-2 py-2 border-r border-gray-100">
+                                                                <input type="text" placeholder="Sph" value={row.sph} onChange={e => handleChangeRow(index, "sph", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-3 py-2 text-[13px] font-medium text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" />
+                                                            </td>
+                                                            <td className="px-2 py-2 border-r border-gray-100">
+                                                                <input type="text" placeholder="Cyl" value={row.cyl} onChange={e => handleChangeRow(index, "cyl", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-3 py-2 text-[13px] font-medium text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" />
+                                                            </td>
+                                                            <td className="px-2 py-2 border-r border-gray-100">
+                                                                <input type="text" placeholder="Add" value={row.add} onChange={e => handleChangeRow(index, "add", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-3 py-2 text-[13px] font-medium text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" />
+                                                            </td>
+                                                        </>
+                                                    )}
+                                                    <td className="px-2 py-2 border-r border-gray-100">
+                                                        <input type="number" min="1" step="1" placeholder="1" value={row.quantity} onChange={e => handleChangeRow(index, "quantity", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-3 py-2 text-[13px] font-bold text-gray-700 text-center outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" />
+                                                    </td>
+                                                    <td className="px-2 py-2 border-r border-gray-100">
+                                                        <input type="number" min="0" step="0.01" placeholder="0.00" value={row.price} onChange={e => handleChangeRow(index, "price", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-3 py-2 text-[13px] font-bold text-gray-700 text-center outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" />
+                                                    </td>
+                                                    <td className="px-2 py-2 border-r border-gray-100">
+                                                        <select value={row.gstPercent} onChange={e => handleChangeRow(index, "gstPercent", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-3 py-2 text-[13px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all">
+                                                            <option value="0">0%</option>
+                                                            <option value="5">5%</option>
+                                                            <option value="12">12%</option>
+                                                            <option value="18">18%</option>
+                                                            <option value="28">28%</option>
+                                                        </select>
+                                                    </td>
+                                                    <td className="px-2 py-2 border-r border-gray-100">
+                                                        <input type="date" min={todayDate} value={row.expectedDate} onChange={e => handleChangeRow(index, "expectedDate", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[12px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all" />
+                                                    </td>
+                                                    <td className="px-2 py-2 text-center bg-gray-50/30 group-hover:bg-white transition-colors">
+                                                        <button onClick={() => handleRemoveRow(index)} className="w-8 h-8 rounded-full hover:bg-rose-50 text-rose-300 hover:text-rose-500 transition-all inline-flex items-center justify-center">
+                                                            <Icon icon="mdi:trash-can-outline" className="text-xl" />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                {/* Add Rows buttons & Remove Empty */}
+                                <div className="p-5 border-t border-gray-100 flex items-center justify-center sm:justify-start gap-4 flex-wrap bg-gray-50/80">
+                                    <div className="flex items-center gap-2">
+                                        <Icon icon="mdi:table-row-plus-after" className="text-[#2980B9] text-xl" />
+                                        <span className="text-[12px] font-black uppercase tracking-widest text-gray-500 ml-1 mr-2">ADD ROWS:</span>
+                                    </div>
+                                    {[1, 5, 10, 20, 50].map(num => (
+                                        <button key={num} onClick={() => setActiveRows(prev => [...prev, ...Array(num).fill(emptyRow)])}
+                                            className="px-5 py-2 bg-white border-2 border-blue-50 text-[#2980B9] rounded-2xl text-[13px] font-black hover:bg-blue-50 hover:border-blue-100 hover:scale-105 active:scale-95 transition-all shadow-sm">
+                                            + {num}
+                                        </button>
+                                    ))}
+                                    <button onClick={() => {
+                                        const filledRows = activeRows.filter(r => r.productCode || r.category || r.productName || r.price || r.quantity > 1 || r.expectedDate || r.gstPercent !== "0");
+                                        setActiveRows(filledRows.length ? filledRows : [emptyRow]);
+                                    }}
+                                        className="ml-auto px-6 py-2.5 bg-white border-2 border-rose-50 text-rose-500 rounded-2xl text-[13px] font-black hover:bg-rose-50 hover:border-rose-100 hover:scale-105 active:scale-95 transition-all shadow-sm flex items-center gap-2">
+                                        <Icon icon="mdi:trash-can-outline" className="text-lg" /> Remove Empty
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Footer */}

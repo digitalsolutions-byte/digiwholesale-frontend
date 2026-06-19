@@ -81,6 +81,16 @@ export const getProductNames = async (search = '', page = 1, limit = 100) => {
     }
 };
 
+export const getProductById = async (id) => {
+    try {
+        const response = await api.get(`/api/digi/product/${id}`);
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching product by ID:', error);
+        return null;
+    }
+};
+
 export const getCategoriesByBrand = async (brandName) => {
     try {
         const response = await api.get(`/api/order/product-fields/category?brand=${encodeURIComponent(brandName)}`);
