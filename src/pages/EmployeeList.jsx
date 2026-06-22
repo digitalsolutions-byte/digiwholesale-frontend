@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import { getAllEmployees, deleteEmployee } from '../services/employeeService';
 import ConfirmationModal from '../components/ui/ConfirmationModal';
+import EditEmployeeModal from '../components/EditEmployeeModal';
 import { getAllDepartments } from '../services/departmentService';
 import { getSystemConfigs } from '../services/configService';
 import { toast } from 'react-toastify';
@@ -48,6 +49,7 @@ const EmployeeList = () => {
     const [selectedEmployeeForDelete, setSelectedEmployeeForDelete] = useState(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [viewLoading, setViewLoading] = useState(false);
+    const [editEmployeeId, setEditEmployeeId] = useState(null);
 
     // Filter States
     const [filters, setFilters] = useState({
@@ -377,7 +379,12 @@ const EmployeeList = () => {
                                                                 <Icon icon="mdi:eye" className="text-lg" />
                                                                 View
                                                             </button>
-                                                            <button className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors border-y border-gray-50">
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEditEmployeeId(emp._id);
+                                                                    setActiveActionMenu(null);
+                                                                }}
+                                                                className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors border-y border-gray-50">
                                                                 <Icon icon="mdi:pencil" className="text-lg" />
                                                                 Edit
                                                             </button>
@@ -506,6 +513,20 @@ const EmployeeList = () => {
                 confirmText="Delete"
                 type="danger"
             />
+
+            {editEmployeeId && (
+                <EditEmployeeModal
+                    employeeId={editEmployeeId}
+                    onClose={() => setEditEmployeeId(null)}
+                    onSaved={(updatedUser) => {
+                        if (updatedUser?._id) {
+                            setEmployees(prev =>
+                                prev.map(emp => emp._id === updatedUser._id ? { ...emp, ...updatedUser } : emp)
+                            );
+                        }
+                    }}
+                />
+            )}
         </div>
     );
 };
