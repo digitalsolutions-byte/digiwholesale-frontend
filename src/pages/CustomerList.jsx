@@ -11,6 +11,8 @@ import { PATHS } from '../routes/paths';
 import { useNavigate } from 'react-router-dom';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
+import usePermissions from '../hooks/usePermissions';
+import PermissionWrapper from '../components/PermissionWrapper';
 
 const datePickerStyles = {
     '& .MuiOutlinedInput-root': {
@@ -45,8 +47,7 @@ const datePickerStyles = {
 const CustomerList = () => {
     const navigate = useNavigate();
     const currentUser = useSelector(selectCurrentUser);
-    const [customers, setCustomers] = useState([]);
-    console.log(customers, "customers")
+    const { hasPermission } = usePermissions();
     const [loading, setLoading] = useState(true);
     const [configs, setConfigs] = useState({ businessTypes: [], zones: [] });
     const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1 });
@@ -59,8 +60,7 @@ const CustomerList = () => {
     const [deactivateLoading, setDeactivateLoading] = useState(false);
     const [correctionLoading, setCorrectionLoading] = useState(false);
 
-    const user = useSelector((state) => state.auth.user);
-    const isFinance = ['FINANCE', 'F&A', 'F&A CFO', 'ACCOUNTING MODULE', 'SUPERADMIN', 'ADMIN'].includes(user?.Department?.name?.toUpperCase() || user?.Department?.toUpperCase());
+    const [customers, setCustomers] = useState([]);
 
 
     const toggleRow = (id) => {
@@ -500,33 +500,41 @@ const CustomerList = () => {
                                                                 <Icon icon="mdi:eye" className="text-lg" />
                                                                 View
                                                             </button>
-                                                            <button
-                                                                onClick={() => navigate(`${PATHS.CUSTOMER.SHIP_TO}?customerId=${cust._id}`)}
-                                                                className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-emerald-600 hover:bg-emerald-50 transition-colors"
-                                                            >
-                                                                <Icon icon="mdi:truck-delivery-outline" className="text-lg" />
-                                                                Edit Ship-To
-                                                            </button>
-                                                            <button className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-blue-500 hover:bg-blue-50 border-y border-gray-50 transition-colors">
-                                                                <Icon icon="mdi:pencil" className="text-lg" />
-                                                                Edit
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDeactivateClick(cust)}
-                                                                className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors"
-                                                            >
-                                                                <Icon icon="mdi:account-off" className="text-lg" />
-                                                                Deactivate
-                                                            </button>
-                                                            {isFinance && (cust.approvalStatus === 'PENDING_FINANCE' || !cust.approvalStatus) && (
+                                                            <PermissionWrapper permission="UPDATE_CUSTOMER">
                                                                 <button
-                                                                    onClick={() => handleCorrectionClick(cust)}
-                                                                    className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-erp-accent/80 hover:bg-erp-accent/5 transition-colors border-t border-gray-50"
+                                                                    onClick={() => navigate(`${PATHS.CUSTOMER.SHIP_TO}?customerId=${cust._id}`)}
+                                                                    className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-emerald-600 hover:bg-emerald-50 transition-colors"
                                                                 >
-                                                                    <Icon icon="mdi:comment-alert" className="text-lg" />
-                                                                    Correction
+                                                                    <Icon icon="mdi:truck-delivery-outline" className="text-lg" />
+                                                                    Edit Ship-To
                                                                 </button>
-                                                            )}
+                                                            </PermissionWrapper>
+                                                            <PermissionWrapper permission="UPDATE_CUSTOMER">
+                                                                <button className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-blue-500 hover:bg-blue-50 border-y border-gray-50 transition-colors">
+                                                                    <Icon icon="mdi:pencil" className="text-lg" />
+                                                                    Edit
+                                                                </button>
+                                                            </PermissionWrapper>
+                                                            <PermissionWrapper permission="DELETE_CUSTOMER">
+                                                                <button
+                                                                    onClick={() => handleDeactivateClick(cust)}
+                                                                    className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors"
+                                                                >
+                                                                    <Icon icon="mdi:account-off" className="text-lg" />
+                                                                    Deactivate
+                                                                </button>
+                                                            </PermissionWrapper>
+                                                            <PermissionWrapper permission="APPROVE_ORDER">
+                                                                {(cust.approvalStatus === 'PENDING_FINANCE' || !cust.approvalStatus) && (
+                                                                    <button
+                                                                        onClick={() => handleCorrectionClick(cust)}
+                                                                        className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-erp-accent/80 hover:bg-erp-accent/5 transition-colors border-t border-gray-50"
+                                                                    >
+                                                                        <Icon icon="mdi:comment-alert" className="text-lg" />
+                                                                        Correction
+                                                                    </button>
+                                                                )}
+                                                            </PermissionWrapper>
                                                         </div>
                                                     </>
                                                 )}
