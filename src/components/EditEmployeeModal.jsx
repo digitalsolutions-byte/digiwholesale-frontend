@@ -36,34 +36,31 @@ const PAGE_ACCESS_OPTIONS = [
 ];
 
 const ACCESS_PERMISSION_OPTIONS = [
-    { value: 'ADD_USER', label: 'Add User' },
-    { value: 'UPDATE_USER', label: 'Update User' },
-    { value: 'DELETE_USER', label: 'Delete User' },
-    { value: 'ADD_CUSTOMER', label: 'Add Customer' },
-    { value: 'UPDATE_CUSTOMER', label: 'Update Customer' },
-    { value: 'DELETE_CUSTOMER', label: 'Delete Customer' },
-    { value: 'ADD_STAFF', label: 'Add Staff' },
-    { value: 'UPDATE_STAFF', label: 'Update Staff' },
-    { value: 'DELETE_STAFF', label: 'Delete Staff' },
-    { value: 'ADD_ORDER', label: 'Add Order' },
-    { value: 'UPDATE_ORDER', label: 'Update Order' },
-    { value: 'DELETE_ORDER', label: 'Delete Order' },
-    { value: 'APPROVE_ORDER', label: 'Approve Order' },
-    { value: 'ADD_DRAFT', label: 'Add Draft' },
-    { value: 'UPDATE_DRAFT', label: 'Update Draft' },
-    { value: 'DELETE_DRAFT', label: 'Delete Draft' },
-    { value: 'ADD_REPAIR', label: 'Add Repair' },
-    { value: 'UPDATE_REPAIR', label: 'Update Repair' },
-    { value: 'DELETE_REPAIR', label: 'Delete Repair' },
-    { value: 'ADD_VENDOR', label: 'Add Vendor' },
-    { value: 'UPDATE_VENDOR', label: 'Update Vendor' },
-    { value: 'DELETE_VENDOR', label: 'Delete Vendor' },
-    { value: 'UPDATE_QUALITY', label: 'Update Quality' },
-    { value: 'UPDATE_FITTING', label: 'Update Fitting' },
-    { value: 'UPDATE_SHIPPING', label: 'Update Shipping' },
-    { value: 'UPDATE_INVENTORY', label: 'Update Inventory' },
-    { value: 'VIEW_REPORTS', label: 'View Reports' },
-    { value: 'EXPORT_REPORTS', label: 'Export Reports' },
+    { value: 'ADD_STAFF',         label: 'Add Staff' },
+    { value: 'UPDATE_STAFF',      label: 'Update Staff' },
+    { value: 'DELETE_STAFF',      label: 'Delete Staff' },
+    { value: 'ADD_CUSTOMER',      label: 'Add Customer' },
+    { value: 'UPDATE_CUSTOMER',   label: 'Update Customer' },
+    { value: 'DELETE_CUSTOMER',   label: 'Delete Customer' },
+    { value: 'ADD_ORDER',         label: 'Add Order' },
+    { value: 'UPDATE_ORDER',      label: 'Update Order' },
+    { value: 'DELETE_ORDER',      label: 'Delete Order' },
+    { value: 'APPROVE_ORDER',     label: 'Approve Order' },
+    { value: 'ADD_DRAFT',         label: 'Add Draft' },
+    { value: 'UPDATE_DRAFT',      label: 'Update Draft' },
+    { value: 'DELETE_DRAFT',      label: 'Delete Draft' },
+    { value: 'ADD_REPAIR',        label: 'Add Repair' },
+    { value: 'UPDATE_REPAIR',     label: 'Update Repair' },
+    { value: 'DELETE_REPAIR',     label: 'Delete Repair' },
+    { value: 'ADD_VENDOR',        label: 'Add Vendor' },
+    { value: 'UPDATE_VENDOR',     label: 'Update Vendor' },
+    { value: 'DELETE_VENDOR',     label: 'Delete Vendor' },
+    { value: 'UPDATE_QUALITY',    label: 'Update Quality' },
+    { value: 'UPDATE_FITTING',    label: 'Update Fitting' },
+    { value: 'UPDATE_SHIPPING',   label: 'Update Shipping' },
+    { value: 'UPDATE_INVENTORY',  label: 'Update Inventory' },
+    { value: 'VIEW_REPORTS',      label: 'View Reports' },
+    { value: 'EXPORT_REPORTS',    label: 'Export Reports' },
 ];
 
 const SectionHeader = ({ title, onToggleAll, allSelected }) => (
@@ -144,7 +141,6 @@ const EditEmployeeModal = ({ employeeId, onClose, onSaved }) => {
 
     const [pageAccess, setPageAccess] = useState([]);
     const [accessPermissions, setAccessPermissions] = useState([]);
-    const [permissions, setPermissions] = useState({});
 
     // Fetch employee on mount
     useEffect(() => {
@@ -155,8 +151,11 @@ const EditEmployeeModal = ({ employeeId, onClose, onSaved }) => {
                 const user = res?.data?.user || res?.data || res;
                 setEmployee(user);
                 setPageAccess(user.pageAccess || []);
-                setAccessPermissions(user.accessPermissions || []);
-                setPermissions(user.permissions || {});
+                // Strip any legacy _USER values the backend no longer accepts
+                const VALID_PERMISSIONS = new Set(ACCESS_PERMISSION_OPTIONS.map(o => o.value));
+                setAccessPermissions(
+                    (user.accessPermissions || []).filter(p => VALID_PERMISSIONS.has(p))
+                );
             } catch (err) {
                 toast.error(err?.message || 'Failed to load employee details');
                 onClose();
@@ -184,17 +183,12 @@ const EditEmployeeModal = ({ employeeId, onClose, onSaved }) => {
         setList(list.length === options.length ? [] : options.map(o => o.value));
     };
 
-    const togglePermission = (key) => {
-        setPermissions(prev => ({ ...prev, [key]: !prev[key] }));
-    };
-
     const handleSave = async () => {
         setSaving(true);
         try {
             const response = await updateEmployee(employeeId, {
                 pageAccess,
                 accessPermissions,
-                permissions,
             });
             toast.success('Employee updated successfully');
             onSaved(response?.data?.user || response?.data || null);
