@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import { getPendingStageCustomers } from '../services/customerService';
-import { useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import { PATHS } from '../routes/paths';
 import Button from '../components/ui/Button';
+import usePermissions from '../hooks/usePermissions';
 
 const ApprovalsList = () => {
     const navigate = useNavigate();
@@ -13,29 +13,36 @@ const ApprovalsList = () => {
     const [loading, setLoading] = useState(true);
     const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1 });
 
-    const user = useSelector((state) => state.auth.user);
+    const { hasPermission } = usePermissions();
 
     const fetchApprovals = async (page = 1) => {
         setLoading(true);
         try {
-            const isSalesHead = user?.Department?.name?.toUpperCase() === 'SALES' && user?.EmployeeType?.toUpperCase() === 'ADMIN';
-            const isFinanceUser = ['FINANCE', 'F&A', 'F&A CFO', 'ACCOUNTING'].includes(user?.Department?.name?.toUpperCase()) || user?.EmployeeType?.toUpperCase() === 'SUPERADMIN';
-            const isSalesExecutive = user?.Department?.name?.toUpperCase() === 'SALES' && user?.EmployeeType?.toUpperCase() === 'EMPLOYEE';
-            console.log(user?.Department, user?.EmployeeType, 'isSalesExecutive');
+            // Derive workflow stages from accessPermissions[].
+            // No Department.name or EmployeeType string checks.
+            const stages = new Set();
 
-            let stages = [];
-            if (isSalesHead) stages.push('salesHead');
-            if (isFinanceUser) stages.push('finance');
-
-            // Per user request: Sales Executive checks approval pending at 'finance' stage
-            if (isSalesExecutive && stages.length === 0) stages.push('finance');
-
-            // If still empty and superadmin, show both
-            if (stages.length === 0 && user?.EmployeeType === 'SUPERADMIN') {
-                stages = ['salesHead', 'finance'];
+            // APPROVE_ORDER permission → can approve at both workflow stages
+            if (hasPermission('APPROVE_ORDER')) {
+                stages.add('salesHead');
+                stages.add('finance');
+            }
+            // UPDATE_CUSTOMER permission → sales-head review stage
+            if (hasPermission('UPDATE_CUSTOMER')) {
+                stages.add('salesHead');
+            }
+            // ADD_CUSTOMER permission → can see pending-finance items
+            if (hasPermission('ADD_CUSTOMER')) {
+                stages.add('finance');
             }
 
-            const response = await getPendingStageCustomers(stages.join(','), page, 10);
+            // Fallback: show all stages so the page is never silently blank
+            if (stages.size === 0) {
+                stages.add('salesHead');
+                stages.add('finance');
+            }
+
+            const response = await getPendingStageCustomers([...stages].join(','), page, 10);
             if (response.success) {
                 let customers = response.data.customers || [];
 

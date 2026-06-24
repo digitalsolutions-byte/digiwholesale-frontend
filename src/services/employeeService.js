@@ -71,6 +71,15 @@ export const getMyDraftEmployees = async (page = 1, limit = 10) => {
     }
 };
 
+export const updateEmployee = async (id, userData) => {
+    try {
+        const response = await api.put(`/api/employee/management/update-employee/${id}`, userData);
+        return response.data;
+    } catch (error) {
+        throw error.response ? error.response.data : new Error('Failed to update employee');
+    }
+};
+
 export const deleteEmployee = async (id) => {
     try {
         const response = await api.delete(`/api/employee/management/delete-employee/${id}`);

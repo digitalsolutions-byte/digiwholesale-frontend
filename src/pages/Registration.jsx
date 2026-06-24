@@ -18,6 +18,64 @@ import { PATHS } from '../routes/paths';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
 
+const PAGE_ACCESS_OPTIONS = [
+    { value: 'DASHBOARD', label: 'Dashboard' },
+    { value: 'REGISTER_CUSTOMER', label: 'Register Customer' },
+    { value: 'REGISTER_STAFF', label: 'Register Staff' },
+    { value: 'STAFF_LIST', label: 'Staff List' },
+    { value: 'CUSTOMER_LIST', label: 'Customer List' },
+    { value: 'SHIP_TO', label: 'Ship To' },
+    { value: 'APPROVALS', label: 'Approvals' },
+    { value: 'CORRECTIONS', label: 'Corrections' },
+    { value: 'NEW_ORDER', label: 'New Order' },
+    { value: 'ALL_ORDERS', label: 'All Orders' },
+    { value: 'PENDING_ORDERS', label: 'Pending Orders' },
+    { value: 'OTHER_SALES', label: 'Other Sales' },
+    { value: 'SALES_LIST', label: 'Sales List' },
+    { value: 'RETURN_REFUND', label: 'Return & Refund' },
+    { value: 'EXCHANGE_REQUESTS', label: 'Exchange Requests' },
+    { value: 'DRAFTS', label: 'Drafts' },
+    { value: 'DAILY_REPORT', label: 'Daily Report' },
+    { value: 'MAIN_REPORT', label: 'Main Report' },
+    { value: 'ADD_REPAIR', label: 'Add Repair' },
+    { value: 'REPAIR_LIST', label: 'Repair List' },
+    { value: 'ADD_VENDOR', label: 'Add Vendor' },
+    { value: 'VENDOR_LIST', label: 'Vendor List' },
+    { value: 'VENDOR_ORDER', label: 'Vendor Order' },
+    { value: 'QUALITY', label: 'Quality' },
+    { value: 'FITTING', label: 'Fitting' },
+    { value: 'SHIPPING', label: 'Shipping' },
+    { value: 'INVENTORY', label: 'Inventory' },
+];
+
+const ACCESS_PERMISSION_OPTIONS = [
+    { value: 'ADD_STAFF',         label: 'Add Staff' },
+    { value: 'UPDATE_STAFF',      label: 'Update Staff' },
+    { value: 'DELETE_STAFF',      label: 'Delete Staff' },
+    { value: 'ADD_CUSTOMER',      label: 'Add Customer' },
+    { value: 'UPDATE_CUSTOMER',   label: 'Update Customer' },
+    { value: 'DELETE_CUSTOMER',   label: 'Delete Customer' },
+    { value: 'ADD_ORDER',         label: 'Add Order' },
+    { value: 'UPDATE_ORDER',      label: 'Update Order' },
+    { value: 'DELETE_ORDER',      label: 'Delete Order' },
+    { value: 'APPROVE_ORDER',     label: 'Approve Order' },
+    { value: 'ADD_DRAFT',         label: 'Add Draft' },
+    { value: 'UPDATE_DRAFT',      label: 'Update Draft' },
+    { value: 'DELETE_DRAFT',      label: 'Delete Draft' },
+    { value: 'ADD_REPAIR',        label: 'Add Repair' },
+    { value: 'UPDATE_REPAIR',     label: 'Update Repair' },
+    { value: 'DELETE_REPAIR',     label: 'Delete Repair' },
+    { value: 'ADD_VENDOR',        label: 'Add Vendor' },
+    { value: 'UPDATE_VENDOR',     label: 'Update Vendor' },
+    { value: 'DELETE_VENDOR',     label: 'Delete Vendor' },
+    { value: 'UPDATE_QUALITY',    label: 'Update Quality' },
+    { value: 'UPDATE_FITTING',    label: 'Update Fitting' },
+    { value: 'UPDATE_SHIPPING',   label: 'Update Shipping' },
+    { value: 'UPDATE_INVENTORY',  label: 'Update Inventory' },
+    { value: 'VIEW_REPORTS',      label: 'View Reports' },
+    { value: 'EXPORT_REPORTS',    label: 'Export Reports' },
+];
+
 const datePickerStyles = {
     '& .MuiOutlinedInput-root': {
         borderRadius: '12px',
@@ -80,6 +138,24 @@ const Registration = () => {
     const [loadingDraft, setLoadingDraft] = useState(false);
     const [savingDraft, setSavingDraft] = useState(false);
     const [draftEmployeeId, setDraftEmployeeId] = useState('');
+
+    // Page Access & Permission state
+    const [pageAccess, setPageAccess] = useState([]);
+    const [accessPermissions, setAccessPermissions] = useState([]);
+
+    const toggleItem = (list, setList, value) => {
+        setList(prev =>
+            prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]
+        );
+    };
+
+    const toggleAll = (options, list, setList) => {
+        if (list.length === options.length) {
+            setList([]);
+        } else {
+            setList(options.map(o => o.value));
+        }
+    };
 
     useEffect(() => {
         const fetchInitialData = async () => {
@@ -323,6 +399,9 @@ const Registration = () => {
                         payload.zoneRefId = values.zoneRefId;
                     }
                 }
+
+                payload.pageAccess = pageAccess;
+                payload.accessPermissions = accessPermissions;
 
                 const response = await createSupervisorUser(payload);
                 if (response.success) {
@@ -785,6 +864,94 @@ const Registration = () => {
                                     </div>
                                 </div>
                             </div>
+                        )}
+                    </div>
+
+                    {/* Page Access */}
+                    <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-6 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-black uppercase tracking-widest text-erp-accent">Page Access</h3>
+                            <button
+                                type="button"
+                                onClick={() => toggleAll(PAGE_ACCESS_OPTIONS, pageAccess, setPageAccess)}
+                                className="text-[10px] font-black uppercase tracking-widest text-erp-accent/70 hover:text-erp-accent border border-erp-accent/20 hover:border-erp-accent/50 px-3 py-1.5 rounded-full transition-all hover:bg-erp-accent/5"
+                            >
+                                {pageAccess.length === PAGE_ACCESS_OPTIONS.length ? 'Deselect All' : 'Select All'}
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-3">
+                            {PAGE_ACCESS_OPTIONS.map(option => (
+                                <label
+                                    key={option.value}
+                                    className="flex items-center gap-2.5 cursor-pointer group"
+                                >
+                                    <div className="relative flex-shrink-0">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only peer"
+                                            checked={pageAccess.includes(option.value)}
+                                            onChange={() => toggleItem(pageAccess, setPageAccess, option.value)}
+                                        />
+                                        <div className="w-4 h-4 rounded border-2 border-gray-300 peer-checked:bg-erp-accent peer-checked:border-erp-accent transition-all group-hover:border-erp-accent/50 flex items-center justify-center">
+                                            {pageAccess.includes(option.value) && (
+                                                <Icon icon="mdi:check" className="text-white text-[10px]" />
+                                            )}
+                                        </div>
+                                    </div>
+                                    <span className="text-[11px] font-bold text-gray-600 group-hover:text-gray-800 transition-colors leading-tight">
+                                        {option.label}
+                                    </span>
+                                </label>
+                            ))}
+                        </div>
+                        {pageAccess.length > 0 && (
+                            <p className="text-[10px] font-black text-erp-accent/60 uppercase tracking-widest">
+                                {pageAccess.length} page{pageAccess.length !== 1 ? 's' : ''} selected
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Access Permissions */}
+                    <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-6 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-black uppercase tracking-widest text-erp-accent">Access Permissions</h3>
+                            <button
+                                type="button"
+                                onClick={() => toggleAll(ACCESS_PERMISSION_OPTIONS, accessPermissions, setAccessPermissions)}
+                                className="text-[10px] font-black uppercase tracking-widest text-erp-accent/70 hover:text-erp-accent border border-erp-accent/20 hover:border-erp-accent/50 px-3 py-1.5 rounded-full transition-all hover:bg-erp-accent/5"
+                            >
+                                {accessPermissions.length === ACCESS_PERMISSION_OPTIONS.length ? 'Deselect All' : 'Select All'}
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-3">
+                            {ACCESS_PERMISSION_OPTIONS.map(option => (
+                                <label
+                                    key={option.value}
+                                    className="flex items-center gap-2.5 cursor-pointer group"
+                                >
+                                    <div className="relative flex-shrink-0">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only peer"
+                                            checked={accessPermissions.includes(option.value)}
+                                            onChange={() => toggleItem(accessPermissions, setAccessPermissions, option.value)}
+                                        />
+                                        <div className="w-4 h-4 rounded border-2 border-gray-300 peer-checked:bg-erp-accent peer-checked:border-erp-accent transition-all group-hover:border-erp-accent/50 flex items-center justify-center">
+                                            {accessPermissions.includes(option.value) && (
+                                                <Icon icon="mdi:check" className="text-white text-[10px]" />
+                                            )}
+                                        </div>
+                                    </div>
+                                    <span className="text-[11px] font-bold text-gray-600 group-hover:text-gray-800 transition-colors leading-tight">
+                                        {option.label}
+                                    </span>
+                                </label>
+                            ))}
+                        </div>
+                        {accessPermissions.length > 0 && (
+                            <p className="text-[10px] font-black text-erp-accent/60 uppercase tracking-widest">
+                                {accessPermissions.length} permission{accessPermissions.length !== 1 ? 's' : ''} selected
+                            </p>
                         )}
                     </div>
 

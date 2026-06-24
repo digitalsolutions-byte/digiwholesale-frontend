@@ -23,116 +23,117 @@ import {
 } from '@mui/material';
 import { logoutUser } from '../../services/authService';
 import { logOut, selectCurrentUser } from '../../store/slices/authSlice';
-import { hasAccess } from '../../routes/permissions';
+import usePermissions from '../../hooks/usePermissions';
 import { resetRegistration } from '../../store/slices/customerRegistrationSlice';
 import logo from '../../assets/logo.png';
 
-
+// ── Nav item definitions ─────────────────────────────────────────────────────
+// `page` must match a pageAccess[] key from the backend login response.
+// Items without a `page` key are visible to all authenticated users.
 const navItems = [
-    { label: 'Dashboard', icon: 'lucide:layout-dashboard', path: PATHS.ROOT },
+    { label: 'Dashboard', icon: 'lucide:layout-dashboard', path: PATHS.ROOT, page: 'DASHBOARD' },
     {
         label: 'Add New',
         icon: 'lucide:square-pen',
         subItems: [
-            { label: 'Register Customer', path: PATHS.CUSTOMER.REGISTER },
-            { label: 'Register Staff', path: PATHS.STAFF.REGISTER }
-        ]
+            { label: 'Register Customer', path: PATHS.CUSTOMER.REGISTER, page: 'REGISTER_CUSTOMER' },
+            { label: 'Register Staff', path: PATHS.STAFF.REGISTER, page: 'REGISTER_STAFF' },
+        ],
     },
     {
         label: 'Staff',
         icon: 'lucide:users',
         subItems: [
-            { label: 'Staff List', path: PATHS.STAFF.LIST }
-        ]
+            { label: 'Staff List', path: PATHS.STAFF.LIST, page: 'STAFF_LIST' },
+        ],
     },
     {
         label: 'Customer',
         icon: 'lucide:user-round',
         subItems: [
-            { label: 'Customer List', path: PATHS.CUSTOMER.LIST },
-            { label: 'Ship To', path: PATHS.CUSTOMER.SHIP_TO },
-            { label: 'Approvals', path: PATHS.APPROVALS },
-            { label: 'Corrections', path: PATHS.CORRECTIONS }
-        ]
+            { label: 'Customer List', path: PATHS.CUSTOMER.LIST, page: 'CUSTOMER_LIST' },
+            { label: 'Ship To', path: PATHS.CUSTOMER.SHIP_TO, page: 'SHIP_TO' },
+            { label: 'Approvals', path: PATHS.APPROVALS, page: 'APPROVALS' },
+            { label: 'Corrections', path: PATHS.CORRECTIONS, page: 'CORRECTIONS' },
+        ],
     },
     {
         label: 'Orders',
         icon: 'lucide:headphones',
         subItems: [
-            { label: 'New Order', path: PATHS.CUSTOMER_CARE.NEW_ORDER, isBold: true },
-            { label: 'All Orders', path: PATHS.CUSTOMER_CARE.ALL_ORDERS },
-            { label: 'Pending Orders', path: PATHS.CUSTOMER_CARE.PENDING_ORDERS },
-            // { label: 'Order Status', path: PATHS.CUSTOMER_CARE.ORDER_STATUS },
-            { label: 'Other Sales', path: PATHS.CUSTOMER_CARE.SERVICE_GOODS },
-            { label: 'Sales List', path: PATHS.SALES.LIST },
-            // { label: 'View Orders', path: PATHS.CUSTOMER_CARE.VIEW_ORDERS },
-            // { label: 'Upgrade Orders', path: PATHS.CUSTOMER_CARE.UPGRADE_ORDERS },
-            // { label: 'Update Customers', path: PATHS.CUSTOMER_CARE.UPDATE_CUSTOMERS },
-        ]
+            { label: 'New Order', path: PATHS.CUSTOMER_CARE.NEW_ORDER, page: 'NEW_ORDER', isBold: true },
+            { label: 'All Orders', path: PATHS.CUSTOMER_CARE.ALL_ORDERS, page: 'ALL_ORDERS' },
+            { label: 'Pending Orders', path: PATHS.CUSTOMER_CARE.PENDING_ORDERS, page: 'PENDING_ORDERS' },
+            { label: 'Other Sales', path: PATHS.CUSTOMER_CARE.SERVICE_GOODS, page: 'OTHER_SALES' },
+            { label: 'Sales List', path: PATHS.SALES.LIST, page: 'SALES_LIST' },
+        ],
     },
     {
         label: 'Returns & Exchanges',
         icon: 'lucide:undo-2',
         subItems: [
-            { label: 'Return & Refund', path: PATHS.RETURNS.RETURN_REFUND },
-            { label: 'Exchange Requests', path: PATHS.RETURNS.EXCHANGE }
-        ]
+            { label: 'Return & Refund', path: PATHS.RETURNS.RETURN_REFUND, page: 'RETURN_REFUND' },
+            { label: 'Exchange Requests', path: PATHS.RETURNS.EXCHANGE, page: 'EXCHANGE_REQUESTS' },
+        ],
     },
-    { label: 'Drafts', icon: 'lucide:file-text', path: PATHS.DRAFTS },
-    // { label: 'Stores', icon: 'lucide:store', path: PATHS.STORES },
+    { label: 'Drafts', icon: 'lucide:file-text', path: PATHS.DRAFTS, page: 'DRAFTS' },
     {
         label: 'Reports',
         icon: 'lucide:chart-column',
         subItems: [
-            { label: 'Daily Report', path: PATHS.REPORTS.DAILY },
-            { label: 'Main Report', path: PATHS.REPORTS.MAIN },
-        ]
+            { label: 'Daily Report', path: PATHS.REPORTS.DAILY, page: 'DAILY_REPORT' },
+            { label: 'Main Report', path: PATHS.REPORTS.MAIN, page: 'MAIN_REPORT' },
+        ],
     },
     {
         label: 'Repair',
         icon: 'lucide:tool-case',
         subItems: [
-            { label: 'Add Repair', path: PATHS.REPAIR.ADD },
-            { label: 'Repair List', path: PATHS.REPAIR.LIST },
-        ]
+            { label: 'Add Repair', path: PATHS.REPAIR.ADD, page: 'ADD_REPAIR' },
+            { label: 'Repair List', path: PATHS.REPAIR.LIST, page: 'REPAIR_LIST' },
+        ],
     },
     {
         label: 'Vendor',
         icon: 'lucide:truck',
         subItems: [
-            { label: 'Add Vendor', path: PATHS.VENDOR.ADD },
-            { label: 'Vendor List', path: PATHS.VENDOR.LIST },
-            { label: 'Vendor Order', path: PATHS.VENDOR.ORDER },
-        ]
+            { label: 'Add Vendor', path: PATHS.VENDOR.ADD, page: 'ADD_VENDOR' },
+            { label: 'Vendor List', path: PATHS.VENDOR.LIST, page: 'VENDOR_LIST' },
+            { label: 'Vendor Order', path: PATHS.VENDOR.ORDER, page: 'VENDOR_ORDER' },
+        ],
     },
-    // { label: 'Work 1', icon: 'lucide:droplets', path: PATHS.OPERATIONS.TINT },
-    // { label: 'Work 2', icon: 'lucide:shield', path: PATHS.OPERATIONS.HARD_COAT },
-    // { label: 'Work 3', icon: 'lucide:layers-3', path: PATHS.OPERATIONS.ARC },
-    // { label: 'Quality', icon: 'lucide:badge-check', path: PATHS.OPERATIONS.QC },
-    // { label: 'Fitting', icon: 'lucide:ruler', path: PATHS.OPERATIONS.FITTING },
-    { label: 'Shipping', icon: 'lucide:truck', path: PATHS.OPERATIONS.DISPATCH },
-    { label: 'Inventory', icon: 'lucide:package-search', path: PATHS.INVENTORY },
+    { label: 'Quality', icon: 'lucide:badge-check', path: PATHS.OPERATIONS.QC, page: 'QUALITY' },
+    { label: 'Fitting', icon: 'lucide:ruler', path: PATHS.OPERATIONS.FITTING, page: 'FITTING' },
+    { label: 'Shipping', icon: 'lucide:send', path: PATHS.OPERATIONS.DISPATCH, page: 'SHIPPING' },
+    { label: 'Inventory', icon: 'lucide:package-search', path: PATHS.INVENTORY, page: 'INVENTORY' },
 ];
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
     const dispatch = useDispatch();
     const location = useLocation();
     const user = useSelector(selectCurrentUser);
+    const { hasPageAccess } = usePermissions();
     const theme = useTheme();
     const [openSubmenus, setOpenSubmenus] = useState({});
 
+    // Filter nav items using user.pageAccess[] only.
+    // Items without a `page` key are always shown.
+    // Parent groups are hidden when ALL their children are hidden.
     const filteredNavItems = useMemo(() => {
         return navItems
             .map(item => {
                 if (item.subItems) {
-                    const filteredSubItems = item.subItems.filter(sub => hasAccess(sub.path, user));
-                    if (filteredSubItems.length === 0) return null;
-                    return { ...item, subItems: filteredSubItems };
+                    const filteredSubs = item.subItems.filter(sub =>
+                        sub.page ? hasPageAccess(sub.page) : true
+                    );
+                    if (filteredSubs.length === 0) return null;
+                    return { ...item, subItems: filteredSubs };
                 }
-                return hasAccess(item.path, user) ? item : null;
+                return (item.page ? hasPageAccess(item.page) : true) ? item : null;
             })
             .filter(Boolean);
-    }, [user]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user]);  // re-filter whenever the stored user changes
 
     useEffect(() => {
         const newOpenSubmenus = {};

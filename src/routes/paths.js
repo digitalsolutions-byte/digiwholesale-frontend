@@ -3,6 +3,7 @@ export const PATHS = {
     ROOT: '/',
     LOGIN: '/login',
     WELCOME: '/welcome',
+    UNAUTHORIZED: '/unauthorized',
 
     // PASSWORD RESET
     FORGOT_PASSWORD: '/forgot-password',
