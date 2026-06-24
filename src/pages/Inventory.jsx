@@ -10,7 +10,7 @@ import { toast } from "react-toastify";
 import {
     FiInfo, FiShoppingCart, FiEdit2, FiTrash2, FiX, FiRefreshCw,
     FiImage, FiSearch, FiPlus, FiChevronLeft, FiChevronRight,
-    FiPackage, FiCalendar, FiPrinter, FiTag, FiCheckSquare
+    FiPackage, FiCalendar, FiPrinter, FiTag, FiCheckSquare, FiLayout, FiBox, FiLayers, FiAward, FiAlignLeft, FiDollarSign, FiEyeOff, FiSave, FiBarChart2, FiGrid, FiSliders, FiHash, FiEye, FiMove, FiArrowDown, FiColumns
 } from "react-icons/fi";
 import Swal from "sweetalert2";
 import { v4 as uuidv4 } from "uuid";
@@ -34,8 +34,8 @@ const ModalHeader = ({ title, subtitle, onClose, icon: Icon }) => (
     <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
         <div className="flex items-center gap-3">
             {Icon && (
-                <div className="w-8 h-8 rounded-xl bg-erp-accent/5 flex items-center justify-center">
-                    <Icon size={15} className="text-erp-accent" />
+                <div className="w-8 h-8 rounded-xl bg-[#2980b9]/10 flex items-center justify-center">
+                    <Icon size={15} className="text-[#2980b9]" />
                 </div>
             )}
             <div>
@@ -57,7 +57,7 @@ const ModalFooter = ({ children }) => (
 
 const SectionTitle = ({ children }) => (
     <div className="flex items-center gap-2 mb-4">
-        <div className="w-0.5 h-4 bg-erp-accent/80 rounded-full" />
+        <div className="w-0.5 h-4 bg-[#2980b9] rounded-full" />
         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{children}</span>
     </div>
 );
@@ -69,7 +69,7 @@ const FieldInput = ({ label, children }) => (
     </div>
 );
 
-const inputCls = "w-full px-3 py-2 text-sm border border-gray-300 rounded-xl outline-none focus:border-erp-accent/30 focus:ring-2 focus:ring-erp-accent/10 hover:border-gray-400 bg-gray-50 text-gray-700 transition placeholder:text-gray-300";
+const inputCls = "w-full px-3 py-2 text-sm border border-gray-300 rounded-xl outline-none focus:border-[#2980b9]/40 focus:ring-2 focus:ring-[#2980b9]/20 hover:border-gray-400 bg-gray-50 text-gray-700 transition placeholder:text-gray-300";
 const selectCls = inputCls;
 
 const FETCH_LIMIT = 100;
@@ -87,7 +87,7 @@ function RowCheckbox({ checked, onChange, indeterminate = false }) {
             type="checkbox"
             checked={checked}
             onChange={onChange}
-            className="w-3.5 h-3.5 rounded accent-erp-accent cursor-pointer"
+            className="w-3.5 h-3.5 rounded accent-[#2980b9] cursor-pointer"
         />
     );
 }
@@ -144,7 +144,7 @@ function ProductKeywordInput({ value, onChange }) {
             <div className="relative">
                 <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" size={12} />
                 {searching && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border-2 border-erp-accent/30 border-t-transparent rounded-full animate-spin pointer-events-none" />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border-2 border-[#2980b9]/40 border-t-transparent rounded-full animate-spin pointer-events-none" />
                 )}
                 <input
                     type="text"
@@ -152,7 +152,7 @@ function ProductKeywordInput({ value, onChange }) {
                     onChange={handleChange}
                     onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
                     placeholder="Code, brand, category..."
-                    className="w-full pl-8 pr-8 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-erp-accent/30 focus:ring-2 focus:ring-erp-accent/10 bg-gray-50 text-gray-700 transition placeholder:text-gray-300"
+                    className="w-full pl-8 pr-8 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-[#2980b9]/40 focus:ring-2 focus:ring-[#2980b9]/20 bg-gray-50 text-gray-700 transition placeholder:text-gray-300"
                 />
                 {value && !searching && (
                     <button onClick={() => { onChange(""); setSuggestions([]); setShowSuggestions(false); }}
@@ -163,16 +163,16 @@ function ProductKeywordInput({ value, onChange }) {
             </div>
             {showSuggestions && suggestions.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
-                    <div className="px-3 py-2 bg-erp-accent/5 border-b border-gray-100">
+                    <div className="px-3 py-2 bg-[#2980b9]/10 border-b border-gray-100">
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Suggestions</p>
                     </div>
                     <ul className="max-h-52 overflow-y-auto">
                         {suggestions.map((s, i) => (
                             <li key={i}>
                                 <button onMouseDown={() => handleSelect(s)}
-                                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-erp-accent/5 transition text-left">
-                                    <div className="w-7 h-7 rounded-full bg-erp-accent/5 border border-orange-100 flex items-center justify-center flex-shrink-0">
-                                        <FiPackage size={11} className="text-erp-accent/80" />
+                                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#2980b9]/10 transition text-left">
+                                    <div className="w-7 h-7 rounded-full bg-[#2980b9]/10 border border-[#2980b9]/20 flex items-center justify-center flex-shrink-0">
+                                        <FiPackage size={11} className="text-[#2980b9]" />
                                     </div>
                                     <div className="min-w-0">
                                         <p className="text-sm font-semibold text-gray-800 truncate">
@@ -285,15 +285,15 @@ export default function Inventory() {
                 <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <button onClick={() => setShowAddProductModal(true)}
-                            className="flex items-center gap-1.5 px-4 py-2 bg-erp-accent hover:bg-erp-accent/90 text-white text-xs font-semibold rounded-xl transition shadow-sm">
+                            className="flex items-center gap-1.5 px-4 py-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white text-xs font-semibold rounded-xl transition shadow-sm">
                             <FiPlus size={13} /> Add Product
                         </button>
                         <button onClick={() => setShowBulkUploadModal(true)}
-                            className="flex items-center gap-1.5 px-4 py-2 bg-white border border-erp-accent/30 hover:bg-erp-accent/5 text-erp-accent/90 text-xs font-semibold rounded-xl transition shadow-sm">
+                            className="flex items-center gap-1.5 px-4 py-2 bg-white border border-[#2980b9]/40 hover:bg-[#2980b9]/10 text-[#2980b9]/90 text-xs font-semibold rounded-xl transition shadow-sm">
                             <FiUpload size={13} /> Bulk Upload
                         </button>
                         <button onClick={handleRefresh}
-                            className="flex items-center gap-2 bg-erp-accent hover:bg-erp-accent/90 text-white px-4 py-2 text-xs font-semibold rounded-lg transition shadow-sm w-fit">
+                            className="flex items-center gap-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white px-4 py-2 text-xs font-semibold rounded-lg transition shadow-sm w-fit">
                             <FiRefreshCw size={13} /> Refresh
                         </button>
                     </div>
@@ -305,7 +305,7 @@ export default function Inventory() {
                                 <div className="relative">
                                     <FiCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={12} />
                                     <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
-                                        className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-erp-accent/30 focus:ring-2 focus:ring-erp-accent/10 bg-gray-50 text-gray-700 transition" />
+                                        className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-[#2980b9]/40 focus:ring-2 focus:ring-[#2980b9]/20 bg-gray-50 text-gray-700 transition" />
                                 </div>
                             </div>
                             <div className="flex flex-col flex-1 sm:w-40">
@@ -313,14 +313,14 @@ export default function Inventory() {
                                 <div className="relative">
                                     <FiCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={12} />
                                     <input type="date" value={toDate} onChange={e => setToDate(e.target.value)}
-                                        className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-erp-accent/30 focus:ring-2 focus:ring-erp-accent/10 bg-gray-50 text-gray-700 transition" />
+                                        className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-[#2980b9]/40 focus:ring-2 focus:ring-[#2980b9]/20 bg-gray-50 text-gray-700 transition" />
                                 </div>
                             </div>
                         </div>
                         <ProductKeywordInput value={keyword} onChange={setKeyword} />
                         <div className="flex gap-2 flex-shrink-0">
                             <button onClick={() => setTriggerSearch(prev => prev + 1)}
-                                className="px-4 py-2 bg-erp-accent hover:bg-erp-accent/90 text-white text-xs font-semibold rounded-xl transition shadow-sm">
+                                className="px-4 py-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white text-xs font-semibold rounded-xl transition shadow-sm">
                                 Search
                             </button>
                         </div>
@@ -345,7 +345,7 @@ export default function Inventory() {
                             {rows.map((row, i) => (
                                 <div key={row.id} className="bg-gray-50 rounded-2xl border border-gray-100 p-4">
                                     <div className="flex items-center justify-between mb-3">
-                                        <span className="text-[10px] font-bold text-erp-accent uppercase tracking-widest">Product #{i + 1}</span>
+                                        <span className="text-[10px] font-bold text-[#2980b9] uppercase tracking-widest">Product #{i + 1}</span>
                                         {rows.length > 1 && (
                                             <button type="button" onClick={() => removeRow(row.id)}
                                                 className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 transition">
@@ -430,7 +430,7 @@ export default function Inventory() {
                                 </div>
                             ))}
                             <button type="button" onClick={addRow}
-                                className="w-full py-3 border-2 border-dashed border-erp-accent/20 hover:border-erp-accent/40 text-erp-accent/80 hover:text-erp-accent/90 text-xs font-semibold rounded-2xl transition flex items-center justify-center gap-2">
+                                className="w-full py-3 border-2 border-dashed border-[#2980b9]/40 hover:border-[#2980b9]/60 text-[#2980b9] hover:text-[#2980b9]/90 text-xs font-semibold rounded-2xl transition flex items-center justify-center gap-2">
                                 <FiPlus size={14} /> Add Another Product
                             </button>
                         </div>
@@ -440,7 +440,7 @@ export default function Inventory() {
                                 Cancel
                             </button>
                             <button type="submit"
-                                className="px-5 py-2 bg-erp-accent hover:bg-erp-accent/90 text-white text-xs font-semibold rounded-xl transition shadow-sm">
+                                className="px-5 py-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white text-xs font-semibold rounded-xl transition shadow-sm">
                                 Submit Products
                             </button>
                         </ModalFooter>
@@ -693,7 +693,7 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                 return (
                     <div className="flex items-center justify-center gap-0.5">
                         <button onClick={e => { e.stopPropagation(); setSelectedProduct(product); setOpenEditProductModal(true); }}
-                            className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 transition" title="Edit">
+                            className="p-1.5 rounded-lg hover:bg-[#2980b9]/10 text-[#2980b9] transition" title="Edit">
                             <FiEdit2 size={14} />
                         </button>
                         <button onClick={e => {
@@ -715,7 +715,7 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                             <BsUpcScan size={14} />
                         </button>
                         <button onClick={e => { e.stopPropagation(); setOpenInventoryHistoryTableModal(true); setSelectedProduct(product); }}
-                            className="p-1.5 rounded-lg hover:bg-erp-accent/5 text-erp-accent/80 transition" title="Inventory History">
+                            className="p-1.5 rounded-lg hover:bg-[#2980b9]/10 text-[#2980b9] transition" title="Inventory History">
                             <FiInfo size={14} />
                         </button>
                     </div>
@@ -798,7 +798,7 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
         return (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center justify-center py-20">
                 <div className="flex flex-col items-center gap-3">
-                    <div className="w-8 h-8 border-2 border-erp-accent/30 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-8 h-8 border-2 border-[#2980b9]/40 border-t-transparent rounded-full animate-spin" />
                     <span className="text-sm text-gray-400">Loading inventory...</span>
                 </div>
             </div>
@@ -815,9 +815,9 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                 {selectedCount > 0 ? (
                     <div className="flex items-center gap-3 flex-wrap">
                         {/* Selection summary badge */}
-                        <div className="flex items-center gap-2 bg-erp-accent/5 border border-erp-accent/20 rounded-xl px-3 py-1.5">
-                            <FiCheckSquare size={13} className="text-erp-accent" />
-                            <span className="text-xs font-bold text-orange-700">
+                        <div className="flex items-center gap-2 bg-[#2980b9]/10 border border-[#2980b9]/40 rounded-xl px-3 py-1.5">
+                            <FiCheckSquare size={13} className="text-[#2980b9]" />
+                            <span className="text-xs font-bold text-[#2980b9]/90">
                                 {selectedCount} row{selectedCount > 1 ? "s" : ""} selected
                             </span>
                         </div>
@@ -848,7 +848,7 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                     <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={13} />
                     <input type="text" value={globalFilter ?? ""} onChange={e => setGlobalFilter(e.target.value)}
                         placeholder="Quick search..."
-                        className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-erp-accent/30 focus:ring-2 focus:ring-erp-accent/10 transition text-gray-600 placeholder:text-gray-300" />
+                        className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-[#2980b9]/40 focus:ring-2 focus:ring-[#2980b9]/20 transition text-gray-600 placeholder:text-gray-300" />
                 </div>
             </div>
 
@@ -875,7 +875,7 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                             return (
                                 <tr key={row.id}
                                     className={`border-b border-gray-50 text-center transition-colors cursor-pointer
-                                        ${isChecked ? "bg-erp-accent/5/70 hover:bg-erp-accent/5" : "hover:bg-erp-accent/5"}`}
+                                        ${isChecked ? "bg-[#2980b9]/10/70 hover:bg-[#2980b9]/10" : "hover:bg-[#2980b9]/10"}`}
                                     onClick={() => toggleRow(row.original)}
                                 >
                                     {row.getVisibleCells().map(cell => (
@@ -905,7 +905,7 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                         ${loadingMore || (!isSearching && !hasMore)
                             ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                             : isSearching ? "bg-gray-200 hover:bg-gray-300 text-gray-700"
-                                : "bg-erp-accent hover:bg-erp-accent/90 text-white"}`}>
+                                : "bg-[#2980b9] hover:bg-[#2980b9]/90 text-white"}`}>
                     {loadingMore ? "Loading..." : isSearching ? "Reset Search" : "Load More"}
                 </button>
                 <div className="flex items-center gap-1">
@@ -916,7 +916,7 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                     {startPage > 0 && (<><button onClick={() => table.setPageIndex(0)} className="w-8 h-8 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold">1</button><span className="text-gray-300 text-xs">…</span></>)}
                     {pages.map(p => (
                         <button key={p} onClick={() => table.setPageIndex(p)}
-                            className={`w-8 h-8 text-xs rounded-lg font-semibold transition ${p === currentPage ? "bg-erp-accent text-white shadow-sm" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                            className={`w-8 h-8 text-xs rounded-lg font-semibold transition ${p === currentPage ? "bg-[#2980b9] text-white shadow-sm" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
                             {p + 1}
                         </button>
                     ))}
@@ -1082,7 +1082,7 @@ function EditProductModal({ product, settings, onClose }) {
                     <button type="button" onClick={onClose}
                         className="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition">Cancel</button>
                     <button type="submit" disabled={saving}
-                        className="flex items-center gap-2 px-5 py-2 bg-erp-accent hover:bg-erp-accent/90 text-white text-xs font-semibold rounded-xl transition shadow-sm disabled:opacity-60">
+                        className="flex items-center gap-2 px-5 py-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white text-xs font-semibold rounded-xl transition shadow-sm disabled:opacity-60">
                         {saving && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                         {saving ? "Saving..." : "Save Changes"}
                     </button>
@@ -1116,7 +1116,7 @@ const InventoryModal = ({ open, onClose, inventoryRows, updateRow, addRow, remov
                     {inventoryRows.map((row, index) => (
                         <div key={index} className="bg-gray-50 rounded-2xl border border-gray-100 p-4">
                             <div className="flex items-center justify-between mb-3">
-                                <span className="text-[10px] font-bold text-erp-accent uppercase tracking-widest">
+                                <span className="text-[10px] font-bold text-[#2980b9] uppercase tracking-widest">
                                     Row #{index + 1}
                                     {bulkProducts?.[index]?.productCode && (
                                         <span className="ml-2 font-mono text-gray-400 normal-case font-normal">
@@ -1153,7 +1153,7 @@ const InventoryModal = ({ open, onClose, inventoryRows, updateRow, addRow, remov
                                     </select>
                                 </FieldInput>
                                 <FieldInput label="Total">
-                                    <input type="number" value={row.total} readOnly className={`${inputCls} bg-erp-accent/5 text-emerald-600 font-semibold`} />
+                                    <input type="number" value={row.total} readOnly className={`${inputCls} bg-[#2980b9]/10 text-emerald-600 font-semibold`} />
                                 </FieldInput>
                                 <FieldInput label="MRP">
                                     <input type="number" value={row.mrp} onChange={e => updateRow(index, "mrp", e.target.value)}
@@ -1175,7 +1175,7 @@ const InventoryModal = ({ open, onClose, inventoryRows, updateRow, addRow, remov
                     ))}
 
                     <button type="button" onClick={addRow}
-                        className="w-full py-3 border-2 border-dashed border-erp-accent/20 hover:border-erp-accent/40 text-erp-accent/80 hover:text-erp-accent/90 text-xs font-semibold rounded-2xl transition flex items-center justify-center gap-2">
+                        className="w-full py-3 border-2 border-dashed border-[#2980b9]/40 hover:border-[#2980b9]/60 text-[#2980b9] hover:text-[#2980b9]/90 text-xs font-semibold rounded-2xl transition flex items-center justify-center gap-2">
                         <FiPlus size={14} /> Add Row
                     </button>
                 </div>
@@ -1184,7 +1184,7 @@ const InventoryModal = ({ open, onClose, inventoryRows, updateRow, addRow, remov
                     <button type="button" onClick={onClose}
                         className="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition">Cancel</button>
                     <button type="submit"
-                        className="px-5 py-2 bg-erp-accent hover:bg-erp-accent/90 text-white text-xs font-semibold rounded-xl transition shadow-sm">Submit</button>
+                        className="px-5 py-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white text-xs font-semibold rounded-xl transition shadow-sm">Submit</button>
                 </ModalFooter>
             </form>
         </Modal>
@@ -1229,7 +1229,7 @@ const InventoryHistoryModal = ({ product, onClose }) => {
             <div className="flex-1 min-h-0 overflow-y-auto p-6">
                 {loading ? (
                     <div className="flex items-center justify-center py-12">
-                        <div className="w-6 h-6 border-2 border-erp-accent/30 border-t-transparent rounded-full animate-spin" />
+                        <div className="w-6 h-6 border-2 border-[#2980b9]/40 border-t-transparent rounded-full animate-spin" />
                     </div>
                 ) : (
                     <div className="overflow-x-auto rounded-xl border border-gray-100">
@@ -1238,7 +1238,7 @@ const InventoryHistoryModal = ({ product, onClose }) => {
                                 {table.getHeaderGroups().map(hg => (
                                     <tr key={hg.id} className="border-b border-gray-100">
                                         {hg.headers.map(h => (
-                                            <th key={h.id} className="px-4 py-3 text-center text-xs font-semibold text-white bg-erp-accent whitespace-nowrap uppercase  ">
+                                            <th key={h.id} className="px-4 py-3 text-center text-xs font-semibold text-white bg-[#2980b9] whitespace-nowrap uppercase  ">
                                                 {h.column.columnDef.header}
                                             </th>
                                         ))}
@@ -1250,7 +1250,7 @@ const InventoryHistoryModal = ({ product, onClose }) => {
                                     <tr><td colSpan={columns.length} className="py-10 text-center text-gray-400">No inventory data found</td></tr>
                                 )}
                                 {table.getRowModel().rows.map(row => (
-                                    <tr key={row.id} className="border-b border-gray-50 hover:bg-erp-accent/5 transition-colors">
+                                    <tr key={row.id} className="border-b border-gray-50 hover:bg-[#2980b9]/10 transition-colors">
                                         {row.getVisibleCells().map(cell => (
                                             <td key={cell.id} className="px-4 py-2.5 text-gray-700 text-center whitespace-nowrap">
                                                 {cell.renderValue()}
@@ -1272,624 +1272,1313 @@ const InventoryHistoryModal = ({ product, onClose }) => {
 };
 
 
-// ─── PreviewLabel ─────────────────────────────────────────────────────────────
-function PreviewLabel({ value, productCode, printType = "barcode" }) {
-    const svgRef = useRef(null);
-    const canvasRef = useRef(null);
-    const [qrDataUrl, setQrDataUrl] = useState("");
+// ─── BarcodePrintModal ────────────────────────────────────────────────────────
 
-    useEffect(() => {
-        if (!value) return;
-        if (printType === "barcode" && svgRef.current) {
-            try {
-                JsBarcode(svgRef.current, value, {
-                    format: "CODE128", width: 1.8, height: 36,
-                    displayValue: false, margin: 0,
-                    background: "#ffffff", lineColor: "#000000",
-                });
-            } catch (e) { console.error(e); }
-        }
-        if (printType === "qr") {
-            QRCode.toDataURL(value, { width: 80, margin: 1, color: { dark: "#000000", light: "#ffffff" } })
-                .then(url => setQrDataUrl(url))
-                .catch(console.error);
-        }
-    }, [value, printType]);
+const STORAGE_KEY = "printModalSettings_v7";
 
-    if (!value) return null;
+// ─── Field definitions ────────────────────────────────────────────────────────
+const ALL_FIELDS = [
+    { key: "storeName", label: "Store Name", icon: FiLayout, sub: "e.g. MY SHOP" },
+    { key: "productName", label: "Product Name", icon: FiBox, sub: "e.g. Blue Pen" },
+    { key: "category", label: "Category", icon: FiLayers, sub: "e.g. Stationery" },
+    { key: "brand", label: "Brand", icon: FiAward, sub: "e.g. BIC" },
+    { key: "description", label: "Description", icon: FiAlignLeft, sub: "Promo / note" },
+    { key: "mrp", label: "MRP / Price", icon: FiDollarSign, sub: "₹ value" },
+    { key: "productCode", label: "Product Code", icon: FiTag, sub: "Below image" },
+];
 
+const FONT_FIELDS = [
+    { key: "storeName", label: "Store Name", def: 7.5 },
+    { key: "productName", label: "Product Name", def: 8.5 },
+    { key: "category", label: "Category", def: 7.5 },
+    { key: "brand", label: "Brand", def: 7 },
+    { key: "description", label: "Description", def: 7 },
+    { key: "mrp", label: "MRP / Price", def: 9 },
+    { key: "productCode", label: "Product Code", def: 7 },
+];
+
+const SHOW_KEY_MAP = {
+    storeName: "showStoreName",
+    productName: "showProductName",
+    category: "showCategory",
+    brand: "showBrand",
+    description: "showDescription",
+    mrp: "showMrp",
+    productCode: "showProductCode",
+};
+
+const ZONES = ["leftAbove", "leftOfImage", "rightOfImage", "leftBelow", "right", "hidden"];
+
+const SIZE_PRESETS = [
+    { label: "100×13 mm", width: 100, height: 13 },
+    { label: "100×25 mm", width: 100, height: 25 },
+    { label: "50×25 mm", width: 50, height: 25 },
+];
+const N_PRESETS = [1, 2, 3, 4];
+
+// imageSide: where the image column sits
+// "hidden" only hides the graphic — the column structure is unchanged
+const IMAGE_SIDE_OPTIONS = [
+    { value: "left", label: "Image Left", icon: FiChevronLeft, desc: "Barcode/QR column on the left, text on the right." },
+    { value: "right", label: "Image Right", icon: FiChevronRight, desc: "Text column on the left, Barcode/QR on the right." },
+    { value: "hidden", label: "Hide Image", icon: FiEyeOff, desc: "Image graphic hidden — column layout & all text fields still print." },
+];
+
+const DEFAULT_LAYOUT = {
+    leftAbove: [],
+    leftOfImage: [],
+    rightOfImage: [],
+    leftBelow: ["productCode"],
+    right: ["storeName", "productName", "category", "description", "mrp"],
+    hidden: ["brand"],
+};
+
+const DEFAULT_GLOBAL_FIELDS = {
+    storeName: "",
+    showStoreName: true,
+    showProductName: true,
+    showCategory: true,
+    showBrand: false,
+    showMrp: true,
+    showDescription: true,
+    showProductCode: true,
+};
+
+const DEFAULT_TYPO = {
+    gap: 0.3,
+    imgPct: 70,
+    leftZonePct: 44,
+    imageSide: "left",
+    lpad: { top: 0.5, bottom: 0.5, left: 0.5, right: 0.5 },
+    rpad: { top: 0.5, bottom: 0.5, left: 0.6, right: 0.4 },
+    fonts: {
+        storeName: 7.5, productName: 8.5, category: 7.5,
+        brand: 7, description: 7, mrp: 9, productCode: 7,
+    },
+};
+
+// ─── Storage helpers ──────────────────────────────────────────────────────────
+function loadFromStorage() {
+    try { const r = localStorage.getItem(STORAGE_KEY); return r ? JSON.parse(r) : null; }
+    catch { return null; }
+}
+function saveToStorage(data) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); return true; }
+    catch { return false; }
+}
+
+// ─── Pad normaliser ───────────────────────────────────────────────────────────
+function normPad(v, def) {
+    if (!v) return { ...def };
+    if (typeof v === "object" && "top" in v) return { ...def, ...v };
+    const n = parseFloat(v) || def.top;
+    return { top: n, bottom: n, left: n, right: n };
+}
+
+// ─── StatusBadge ─────────────────────────────────────────────────────────────
+function StatusBadge({ status }) {
+    const map = {
+        loading: { cls: "bg-[#2980b9]/10 text-[#2980b9] border-[#2980b9]/20", label: "Looking up…" },
+        found: { cls: "bg-green-50 text-green-600 border-green-100", label: "Found" },
+        notfound: { cls: "bg-amber-50 text-amber-500 border-amber-100", label: "Not found" },
+        error: { cls: "bg-red-50 text-red-400 border-red-100", label: "Error" },
+    };
+    if (!map[status]) return null;
+    const { cls, label } = map[status];
+    return <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border ${cls}`}>{label}</span>;
+}
+
+// ─── QtyStepper ───────────────────────────────────────────────────────────────
+function QtyStepper({ value, onChange, label = "Qty", size = "normal" }) {
+    const parsed = Math.max(1, parseInt(value) || 1);
+    const sm = size === "small";
     return (
-        <div className="flex flex-col items-center justify-center bg-white border border-gray-200 rounded-lg p-2 shadow-sm"
-            style={{ width: printType === "qr" ? "80px" : "120px", minHeight: "64px" }}>
-            {printType === "barcode"
-                ? <svg ref={svgRef} style={{ maxWidth: "100%", height: "36px" }} />
-                : qrDataUrl
-                    ? <img src={qrDataUrl} alt="QR" style={{ width: "56px", height: "56px" }} />
-                    : <div className="w-14 h-14 bg-gray-100 animate-pulse rounded" />
-            }
-            <p className="text-[8px] font-mono font-bold text-gray-800 mt-0.5 text-center leading-tight">{value}</p>
-            {productCode && productCode !== value && (
-                <p className="text-[7px] text-gray-500 text-center leading-tight">{productCode}</p>
+        <div className="flex flex-col gap-1">
+            {label && (
+                <span className={`${sm ? "text-[8px]" : "text-[9px]"} font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1`}>
+                    <FiHash size={sm ? 8 : 9} /> {label}
+                </span>
+            )}
+            <div className="flex items-center gap-1">
+                <button type="button" onClick={() => onChange(Math.max(1, parsed - 1))}
+                    className={`${sm ? "w-6 h-6 text-[10px]" : "w-7 h-7 text-xs"} rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 font-bold flex items-center justify-center`}>
+                    −
+                </button>
+                <input type="number" min={1} value={value} onChange={e => onChange(e.target.value)}
+                    className={`${sm ? "w-10 text-[10px] py-0.5" : "w-12 text-xs py-1"} text-center font-semibold rounded-lg border border-gray-200 outline-none focus:border-[#2980b9]/60 text-gray-700`} />
+                <button type="button" onClick={() => onChange(parsed + 1)}
+                    className={`${sm ? "w-6 h-6 text-[10px]" : "w-7 h-7 text-xs"} rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 font-bold flex items-center justify-center`}>
+                    +
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// ─── SliderRow ────────────────────────────────────────────────────────────────
+function SliderRow({ label, min, max, step = 0.1, value, unit = "", onChange }) {
+    return (
+        <div className="mb-3">
+            <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] text-gray-400">{label}</span>
+                <span className="text-[10px] font-semibold text-[#2980b9]">
+                    {typeof value === "number" ? value.toFixed(step < 1 ? 1 : 0) : value}{unit}
+                </span>
+            </div>
+            <input type="range" min={min} max={max} step={step} value={value}
+                onChange={e => onChange(parseFloat(e.target.value))}
+                className="w-full accent-[#2980b9] h-1.5" />
+        </div>
+    );
+}
+
+// ─── LabelSize ────────────────────────────────────────────────────────────────
+function LabelSize({ width, height, onChange }) {
+    const [customOpen, setCustomOpen] = useState(false);
+    const isPreset = SIZE_PRESETS.some(s => s.width === width && s.height === height);
+    return (
+        <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Size</span>
+            {SIZE_PRESETS.map(s => {
+                const active = !customOpen && s.width === width && s.height === height;
+                return (
+                    <button key={s.label} type="button"
+                        onClick={() => { onChange({ width: s.width, height: s.height }); setCustomOpen(false); }}
+                        className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition
+              ${active ? "border-[#2980b9]/60 bg-[#2980b9]/10 text-[#2980b9]/90" : "border-gray-200 bg-white text-gray-500 hover:border-[#2980b9]/40 hover:text-[#2980b9]"}`}>
+                        {s.label}
+                    </button>
+                );
+            })}
+            <button type="button" onClick={() => setCustomOpen(v => !v)}
+                className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition
+          ${customOpen || !isPreset ? "border-[#2980b9]/60 bg-[#2980b9]/10 text-[#2980b9]/90" : "border-gray-200 bg-white text-gray-500 hover:border-[#2980b9]/40 hover:text-[#2980b9]"}`}>
+                Custom
+            </button>
+            {(customOpen || !isPreset) && (
+                <div className="flex items-center gap-1">
+                    <input type="number" value={width} onChange={e => onChange({ width: +e.target.value, height })}
+                        className="w-14 text-center text-xs rounded-lg border border-gray-200 py-1 outline-none focus:border-[#2980b9]/60" placeholder="W" />
+                    <span className="text-gray-400 text-xs">×</span>
+                    <input type="number" value={height} onChange={e => onChange({ width, height: +e.target.value })}
+                        className="w-14 text-center text-xs rounded-lg border border-gray-200 py-1 outline-none focus:border-[#2980b9]/60" placeholder="H" />
+                    <span className="text-gray-400 text-xs">mm</span>
+                </div>
             )}
         </div>
     );
 }
 
-
-// ─── QtyStepper ───────────────────────────────────────────────────────────────
-function QtyStepper({ value, onChange }) {
+// ─── FieldChip ────────────────────────────────────────────────────────────────
+function FieldChip({ fieldKey, zone, layout, dragging, onDragStart, onDragEnd, onReorder, onHide }) {
+    const field = ALL_FIELDS.find(f => f.key === fieldKey);
+    if (!field) return null;
+    const Icon = field.icon;
+    const arr = layout[zone] || [];
+    const idx = arr.indexOf(fieldKey);
     return (
-        <div className="flex items-center border border-gray-300 rounded-xl overflow-hidden bg-gray-50 focus-within:border-erp-accent/30 focus-within:ring-2 focus-within:ring-orange-100 transition">
-            <button type="button" onClick={() => onChange((parseInt(value) || 0) - 1)}
-                className="px-3 py-2 text-gray-500 hover:bg-gray-100 transition text-base font-semibold flex-shrink-0 select-none">−</button>
-            <input
-                type="number"
-                value={value}
-                onChange={e => {
-                    const raw = e.target.value;
-                    if (raw === "" || raw === "-") { onChange(""); return; }
-                    const n = parseInt(raw);
-                    if (!isNaN(n)) onChange(n);
-                }}
-                className="flex-1 py-2 text-sm text-center text-gray-700 bg-transparent outline-none min-w-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
-            <button type="button" onClick={() => onChange((parseInt(value) || 0) + 1)}
-                className="px-3 py-2 text-gray-500 hover:bg-gray-100 transition text-base font-semibold flex-shrink-0 select-none">+</button>
+        <div
+            draggable
+            onDragStart={() => onDragStart(fieldKey)}
+            onDragEnd={onDragEnd}
+            className={`flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-2.5 py-2 cursor-grab text-xs text-gray-700 transition
+        ${dragging === fieldKey ? "opacity-40 scale-95" : "hover:border-[#2980b9]/40 hover:shadow-sm"}`}
+        >
+            <FiMove size={10} className="text-gray-300 flex-shrink-0" />
+            <Icon size={11} className="text-[#2980b9] flex-shrink-0" />
+            <span className="flex-1 font-medium">{field.label}</span>
+            <span className="text-[9px] text-gray-400">{field.sub}</span>
+            {zone !== "hidden" && (
+                <div className="flex flex-col gap-0.5 ml-1">
+                    <button type="button" onClick={() => onReorder(zone, fieldKey, -1)} disabled={idx === 0}
+                        className="p-0.5 rounded hover:bg-[#2980b9]/10 text-gray-300 hover:text-[#2980b9] disabled:opacity-20 transition">
+                        <FiArrowUp size={9} />
+                    </button>
+                    <button type="button" onClick={() => onReorder(zone, fieldKey, 1)} disabled={idx === arr.length - 1}
+                        className="p-0.5 rounded hover:bg-[#2980b9]/10 text-gray-300 hover:text-[#2980b9] disabled:opacity-20 transition">
+                        <FiArrowDown size={9} />
+                    </button>
+                </div>
+            )}
+            <button type="button" onClick={() => onHide(fieldKey)} title="Hide"
+                className="p-1 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 transition">
+                <FiX size={10} />
+            </button>
+        </div>
+    );
+}
+
+// ─── DropZone ─────────────────────────────────────────────────────────────────
+function DropZone({ zoneId, label, icon, hint, overZone, layout, onDragOver, onDragLeave, onDrop, children }) {
+    return (
+        <div
+            onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
+            className={`border-2 border-dashed rounded-2xl p-3 min-h-[72px] transition
+        ${overZone === zoneId ? "border-[#2980b9] bg-[#2980b9]/10" : "border-gray-200 bg-gray-50"}`}
+        >
+            <div className="flex items-center gap-1.5 mb-2">
+                <span className="text-[#2980b9]">{icon}</span>
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{label}</span>
+                <span className="text-[9px] text-gray-400 ml-1">{hint}</span>
+            </div>
+            <div className="space-y-1.5">
+                {children}
+                {(layout[zoneId] || []).length === 0 && (
+                    <div className="text-[10px] text-gray-300 text-center py-2">Drop fields here</div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ─── LayoutDesigner ───────────────────────────────────────────────────────────
+function LayoutDesigner({ layout, onChange, printType }) {
+    const [dragging, setDragging] = useState(null);
+    const [overZone, setOverZone] = useState(null);
+
+    const moveField = (key, toZone) => {
+        const next = {};
+        ZONES.forEach(z => { next[z] = (layout[z] || []).filter(k => k !== key); });
+        next[toZone] = [...(next[toZone] || []), key];
+        onChange(next);
+    };
+
+    const reorder = (zone, key, dir) => {
+        const arr = [...(layout[zone] || [])];
+        const idx = arr.indexOf(key);
+        if (idx < 0) return;
+        const ni = idx + dir;
+        if (ni < 0 || ni >= arr.length) return;
+        [arr[idx], arr[ni]] = [arr[ni], arr[idx]];
+        onChange({ ...layout, [zone]: arr });
+    };
+
+    const handleDragEnd = () => { setDragging(null); setOverZone(null); };
+    const chipProps = {
+        layout, dragging,
+        onDragStart: setDragging,
+        onDragEnd: handleDragEnd,
+        onReorder: reorder,
+        onHide: k => moveField(k, "hidden"),
+    };
+    const dzProps = zoneId => ({
+        zoneId, overZone, layout,
+        onDragOver: e => { e.preventDefault(); setOverZone(zoneId); },
+        onDragLeave: () => setOverZone(null),
+        onDrop: e => { e.preventDefault(); if (dragging) moveField(dragging, zoneId); setOverZone(null); },
+    });
+
+    const allKeysInLayout = ZONES.flatMap(z => layout[z] || []);
+    const unplaced = ALL_FIELDS.filter(f => !allKeysInLayout.includes(f.key));
+
+    return (
+        <div className="space-y-3">
+            {/* Image column zones */}
+            <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
+                    Image column — {printType === "qr" ? "QR" : "Barcode"} area
+                </div>
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                    <DropZone {...dzProps("leftAbove")} label="Above image" icon={<FiArrowUp size={11} />} hint="above code">
+                        {(layout.leftAbove || []).map(k => <FieldChip key={k} fieldKey={k} zone="leftAbove" {...chipProps} />)}
+                    </DropZone>
+                    <DropZone {...dzProps("leftBelow")} label="Below image" icon={<FiArrowDown size={11} />} hint="below code">
+                        {(layout.leftBelow || []).map(k => <FieldChip key={k} fieldKey={k} zone="leftBelow" {...chipProps} />)}
+                    </DropZone>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                    <DropZone {...dzProps("leftOfImage")} label="Left of image" icon={<FiAlignLeft size={11} />} hint="beside image, left">
+                        {(layout.leftOfImage || []).map(k => <FieldChip key={k} fieldKey={k} zone="leftOfImage" {...chipProps} />)}
+                    </DropZone>
+                    <DropZone {...dzProps("rightOfImage")} label="Right of image" icon={<FiAlignRight size={11} />} hint="beside image, right">
+                        {(layout.rightOfImage || []).map(k => <FieldChip key={k} fieldKey={k} zone="rightOfImage" {...chipProps} />)}
+                    </DropZone>
+                </div>
+            </div>
+
+            {/* Right + Hidden */}
+            <div className="grid grid-cols-2 gap-3">
+                <DropZone {...dzProps("right")} label="Right text column" icon={<FiAlignRight size={11} />} hint="top → bottom order">
+                    {(layout.right || []).map(k => <FieldChip key={k} fieldKey={k} zone="right" {...chipProps} />)}
+                </DropZone>
+                <DropZone {...dzProps("hidden")} label="Hidden (not printed)" icon={<FiEyeOff size={11} />} hint="">
+                    {(layout.hidden || []).map(k => <FieldChip key={k} fieldKey={k} zone="hidden" {...chipProps} />)}
+                </DropZone>
+            </div>
+
+            {unplaced.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                    <span className="text-[9px] text-gray-400 uppercase tracking-widest font-bold">Unplaced:</span>
+                    {unplaced.map(f => (
+                        <button key={f.key} type="button" onClick={() => moveField(f.key, "right")}
+                            className="text-[10px] px-2 py-1 rounded-lg border border-dashed border-[#2980b9]/60 text-[#2980b9] hover:bg-[#2980b9]/10 transition">
+                            + {f.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─── PaddingEditor ────────────────────────────────────────────────────────────
+function PaddingEditor({ label, value, onChange }) {
+    const set = (side, v) => onChange({ ...value, [side]: parseFloat(v) || 0 });
+    return (
+        <div className="mb-4">
+            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{label}</div>
+            <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center gap-1">
+                    <span className="text-[9px] text-gray-400 w-12 text-right">top</span>
+                    <input type="number" min={0} max={5} step={0.1} value={value.top} onChange={e => set("top", e.target.value)}
+                        className="w-14 text-center text-[11px] rounded-lg border border-gray-200 py-1 outline-none focus:border-[#2980b9]/60 text-gray-700" />
+                    <span className="text-[9px] text-gray-400">mm</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="flex flex-col items-center gap-0.5">
+                        <span className="text-[9px] text-gray-400">left</span>
+                        <input type="number" min={0} max={5} step={0.1} value={value.left} onChange={e => set("left", e.target.value)}
+                            className="w-14 text-center text-[11px] rounded-lg border border-gray-200 py-1 outline-none focus:border-[#2980b9]/60 text-gray-700" />
+                        <span className="text-[9px] text-gray-400">mm</span>
+                    </div>
+                    <div className="w-12 h-8 border-2 border-dashed border-[#2980b9]/40 rounded-md bg-[#2980b9]/10 flex items-center justify-center">
+                        <span className="text-[8px] text-[#2980b9]/60 font-bold">zone</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-0.5">
+                        <span className="text-[9px] text-gray-400">right</span>
+                        <input type="number" min={0} max={5} step={0.1} value={value.right} onChange={e => set("right", e.target.value)}
+                            className="w-14 text-center text-[11px] rounded-lg border border-gray-200 py-1 outline-none focus:border-[#2980b9]/60 text-gray-700" />
+                        <span className="text-[9px] text-gray-400">mm</span>
+                    </div>
+                </div>
+                <div className="flex items-center gap-1">
+                    <span className="text-[9px] text-gray-400 w-12 text-right">bottom</span>
+                    <input type="number" min={0} max={5} step={0.1} value={value.bottom} onChange={e => set("bottom", e.target.value)}
+                        className="w-14 text-center text-[11px] rounded-lg border border-gray-200 py-1 outline-none focus:border-[#2980b9]/60 text-gray-700" />
+                    <span className="text-[9px] text-gray-400">mm</span>
+                </div>
+            </div>
+            <div className="mt-1.5 text-center text-[9px] text-[#2980b9] font-mono">
+                {value.top} · {value.right} · {value.bottom} · {value.left} mm
+            </div>
+        </div>
+    );
+}
+
+// ─── ImageSideToggle ──────────────────────────────────────────────────────────
+function ImageSideToggle({ value, onChange }) {
+    const active = IMAGE_SIDE_OPTIONS.find(o => o.value === value);
+    return (
+        <div className="mb-2">
+            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                Barcode / QR position
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+                {IMAGE_SIDE_OPTIONS.map(opt => {
+                    const Icon = opt.icon;
+                    const isActive = value === opt.value;
+                    return (
+                        <button key={opt.value} type="button" onClick={() => onChange(opt.value)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition
+                ${isActive ? "border-[#2980b9] bg-[#2980b9]/10 text-[#2980b9]/90" : "border-gray-200 bg-white text-gray-500 hover:border-[#2980b9]/40 hover:text-[#2980b9]"}`}>
+                            <Icon size={12} /> {opt.label}
+                        </button>
+                    );
+                })}
+            </div>
+            {active && (
+                <p className="text-[9px] text-gray-400 mt-1.5">{active.desc}</p>
+            )}
+        </div>
+    );
+}
+
+// ─── TypographyPanel ─────────────────────────────────────────────────────────
+function TypographyPanel({ typo, onChange }) {
+    const set = (path, val) => {
+        if (path.startsWith("fonts.")) {
+            onChange({ ...typo, fonts: { ...typo.fonts, [path.slice(6)]: val } });
+        } else {
+            onChange({ ...typo, [path]: val });
+        }
+    };
+    const lpad = normPad(typo.lpad, DEFAULT_TYPO.lpad);
+    const rpad = normPad(typo.rpad, DEFAULT_TYPO.rpad);
+    return (
+        <div className="space-y-5">
+            <ImageSideToggle value={typo.imageSide || "left"} onChange={v => onChange({ ...typo, imageSide: v })} />
+            <div className="grid grid-cols-2 gap-6">
+                <div>
+                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Font sizes (pt)</div>
+                    {FONT_FIELDS.map(f => (
+                        <SliderRow key={f.key} label={f.label} min={5} max={14} step={0.5}
+                            value={typo.fonts[f.key] ?? f.def} unit="pt" onChange={v => set(`fonts.${f.key}`, v)} />
+                    ))}
+                </div>
+                <div>
+                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Spacing &amp; image</div>
+                    <SliderRow label="Gap between fields" min={0} max={3} step={0.1} value={typo.gap} unit="mm" onChange={v => set("gap", v)} />
+                    <SliderRow label="Image / code size" min={0} max={100} step={1} value={typo.imgPct} unit="%" onChange={v => set("imgPct", v)} />
+                    <SliderRow label="Image/text split" min={20} max={80} step={1} value={typo.leftZonePct} unit="%" onChange={v => set("leftZonePct", v)} />
+                    <div className="border-t border-gray-100 my-3" />
+                    <div className="grid grid-cols-2 gap-4">
+                        <PaddingEditor label="Image zone padding" value={lpad} onChange={v => onChange({ ...typo, lpad: v })} />
+                        <PaddingEditor label="Text zone padding" value={rpad} onChange={v => onChange({ ...typo, rpad: v })} />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── Section (collapsible) ───────────────────────────────────────────────────
+function Section({ title, icon: Icon, defaultOpen = false, children, badge }) {
+    const [open, setOpen] = useState(defaultOpen);
+    return (
+        <div className="border border-gray-200 rounded-2xl overflow-hidden">
+            <button type="button" onClick={() => setOpen(v => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition text-left">
+                <div className="flex items-center gap-2">
+                    {Icon && <Icon size={13} className="text-[#2980b9]" />}
+                    <span className="text-xs font-semibold text-gray-700">{title}</span>
+                    {badge && <span className="text-[9px] px-2 py-0.5 rounded-full bg-[#2980b9]/20 text-[#2980b9]/90 font-semibold">{badge}</span>}
+                </div>
+                <FiArrowDown size={13} className={`text-gray-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+            </button>
+            {open && <div className="px-4 py-4 bg-white">{children}</div>}
+        </div>
+    );
+}
+
+// ─── LivePreviewLabel ─────────────────────────────────────────────────────────
+const MM_TO_PX = 3.7795;
+
+function LivePreviewLabel({ value, row, layout, printType, globalFields, typo, labelSize }) {
+    const barcodeCanvasRef = useRef(null);
+    const [qrUrl, setQrUrl] = useState(null);
+
+    const imageSide = typo.imageSide || "left";
+    // "hidden" means: suppress the <canvas>/<img> graphic only.
+    // The left column (imageCol) still renders its text fields.
+    const suppressImg = imageSide === "hidden";
+
+    const W = Math.round(labelSize.width * MM_TO_PX);
+    const H = Math.round(labelSize.height * MM_TO_PX);
+
+    const hasRightZone = (layout.right || []).length > 0;
+    const lzPct = hasRightZone ? typo.leftZonePct : 100;
+    const lzW = Math.round(W * lzPct / 100);
+
+    const fScale = Math.max(0.5, Math.min(1.4, lzW / (50 * MM_TO_PX)));
+    const gapPx = Math.round(typo.gap * MM_TO_PX * fScale);
+
+    const lpad = normPad(typo.lpad, DEFAULT_TYPO.lpad);
+    const rpad = normPad(typo.rpad, DEFAULT_TYPO.rpad);
+    const px = mm => Math.round(mm * MM_TO_PX);
+
+    const imgH = Math.round(H * typo.imgPct / 100);
+    const imgW = Math.max(20, lzW - px(lpad.left) - px(lpad.right));
+
+    const resolve = useCallback(key => {
+        const sk = SHOW_KEY_MAP[key];
+        if (sk && !globalFields[sk] && key !== "productCode") return "";
+        return ({
+            storeName: globalFields.storeName || "",
+            productName: row.productName || "",
+            category: row.category || "",
+            brand: row.brand || "",
+            description: row.description || "",
+            mrp: row.mrp ? `₹${row.mrp}/-` : "",
+            productCode: row.productCode || value || "",
+        })[key] ?? "";
+    }, [row, globalFields, value]);
+
+    const fieldStyle = key => ({
+        fontSize: `${(typo.fonts[key] || 8) * fScale}px`,
+        fontWeight: ["storeName", "productName", "mrp"].includes(key) ? "700" : "400",
+        textTransform: key === "storeName" ? "uppercase" : "none",
+        letterSpacing: key === "storeName" ? "0.3px" : "normal",
+        fontFamily: key === "productCode" ? "monospace" : "inherit",
+        textAlign: key === "productCode" ? "center" : "left",
+        color: key === "description" ? "#666" : "#111",
+        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        maxWidth: "100%", marginBottom: `${gapPx}px`, lineHeight: 1.4,
+    });
+
+    // Only render barcode/QR canvas when NOT suppressed
+    useEffect(() => {
+        if (suppressImg || printType !== "barcode" || !barcodeCanvasRef.current || !value) return;
+        try {
+            JsBarcode(barcodeCanvasRef.current, value, {
+                format: "CODE128",
+                width: Math.max(1, Math.round(imgW / 40)),
+                height: imgH, displayValue: false, margin: 1,
+                background: "#ffffff", lineColor: "#000000",
+            });
+        } catch { }
+    }, [value, printType, imgW, imgH, suppressImg]);
+
+    useEffect(() => {
+        if (suppressImg || printType !== "qr" || !value) { setQrUrl(null); return; }
+        QRCode.toDataURL(value, { width: Math.max(40, imgH * 2), margin: 1 })
+            .then(setQrUrl).catch(() => setQrUrl(null));
+    }, [value, printType, imgH, suppressImg]);
+
+    if (!value?.trim()) {
+        return (
+            <div style={{ width: W, height: H, border: "0.5px solid #d1d5db", borderRadius: 2, background: "#fafafa", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ fontSize: 9, color: "#9ca3af" }}>No code</span>
+            </div>
+        );
+    }
+
+    const hasLeftOfImg = (layout.leftOfImage || []).length > 0;
+    const hasRightOfImg = (layout.rightOfImage || []).length > 0;
+
+    const renderZoneFields = (zone, extraStyle = {}) =>
+        (layout[zone] || []).map(k => {
+            const v = resolve(k);
+            return v ? <div key={k} style={{ ...fieldStyle(k), ...extraStyle }}>{v}</div> : null;
+        });
+
+    // The image graphic element — null when suppressed
+    const imgGraphic = suppressImg ? null : (
+        printType === "barcode"
+            ? <canvas ref={barcodeCanvasRef} style={{ maxWidth: "100%", maxHeight: imgH, display: "block", flexShrink: 1 }} />
+            : qrUrl
+                ? <img src={qrUrl} alt="QR" style={{ width: imgH, height: imgH, objectFit: "contain", imageRendering: "pixelated", flexShrink: 1 }} />
+                : null
+    );
+
+    // Show a placeholder outline where the image would be, so the user can see the zone
+    const imgPlaceholder = suppressImg ? (
+        <div style={{ width: imgH * 1.5, height: imgH, border: "0.8px dashed #fbbf24", borderRadius: 2, background: "#fffbeb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 1 }}>
+            <span style={{ fontSize: 7, color: "#f59e0b", fontWeight: 600 }}>hidden</span>
+        </div>
+    ) : null;
+
+    // imageRow: leftOfImage | [graphic or placeholder] | rightOfImage
+    const imageRow = (
+        <div style={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: `${gapPx}px`, flexShrink: 1, minHeight: 0, width: "100%" }}>
+            {hasLeftOfImg && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "center", gap: `${gapPx}px`, flexShrink: 0, overflow: "hidden", maxWidth: "35%" }}>
+                    {renderZoneFields("leftOfImage", { textAlign: "right", whiteSpace: "nowrap" })}
+                </div>
+            )}
+            <div style={{ flexShrink: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {imgGraphic || imgPlaceholder}
+            </div>
+            {hasRightOfImg && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "center", gap: `${gapPx}px`, flexShrink: 0, overflow: "hidden", maxWidth: "35%" }}>
+                    {renderZoneFields("rightOfImage", { whiteSpace: "nowrap" })}
+                </div>
+            )}
+        </div>
+    );
+
+    // imageCol contains: leftAbove + imageRow + leftBelow
+    const imageColStyle = {
+        width: lzW, flexShrink: 0, height: "100%",
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        padding: `${px(lpad.top)}px ${px(lpad.right)}px ${px(lpad.bottom)}px ${px(lpad.left)}px`,
+        gap: `${gapPx}px`, overflow: "hidden",
+    };
+
+    const imageColBorder = hasRightZone
+        ? (imageSide === "right" ? { borderLeft: "0.5px solid #e5e7eb" } : { borderRight: "0.5px solid #e5e7eb" })
+        : {};
+
+    const imageCol = (
+        <div style={{ ...imageColStyle, ...imageColBorder }}>
+            {renderZoneFields("leftAbove")}
+            {imageRow}
+            {renderZoneFields("leftBelow")}
+        </div>
+    );
+
+    // textCol contains: right zone fields
+    const textCol = hasRightZone ? (
+        <div style={{
+            flex: 1, minWidth: 0, height: "100%",
+            display: "flex", flexDirection: "column", justifyContent: "center",
+            padding: `${px(rpad.top)}px ${px(rpad.right)}px ${px(rpad.bottom)}px ${px(rpad.left)}px`,
+            gap: `${gapPx}px`, overflow: "hidden",
+        }}>
+            {renderZoneFields("right")}
+        </div>
+    ) : null;
+
+    return (
+        <div style={{ width: W, height: H, display: "flex", flexDirection: "row", border: "0.5px solid #d1d5db", borderRadius: 2, background: "#fff", overflow: "hidden", flexShrink: 0 }}>
+            {imageSide === "right" ? <>{textCol}{imageCol}</> : <>{imageCol}{textCol}</>}
+        </div>
+    );
+}
+
+// ─── Row factory ─────────────────────────────────────────────────────────────
+let _rowCounter = 0;
+function makeRow(overrides = {}) {
+    return {
+        id: `r${++_rowCounter}`,
+        barcodeValue: "", productCode: "", productName: "",
+        category: "", brand: "", description: "", mrp: "",
+        qty: 1, _status: "idle",
+        ...overrides,
+    };
+}
+
+// ─── BarcodePrintModal ────────────────────────────────────────────────────────
+function BarcodePrintModal({
+    product = null,
+    bulkProducts = null,
+    inventoryData = [],
+    onClose,
+    settings = {},
+    api = null,
+}) {
+    const saved = useMemo(() => loadFromStorage(), []);
+
+    const [printType, setPrintType] = useState(saved?.printType || "barcode");
+    const [labelSize, setLabelSize] = useState(saved?.labelSize || { width: 100, height: 13 });
+    const [nup, setNup] = useState(saved?.nup || 1);
+    const [layout, setLayout] = useState(saved?.layout || settings?.layoutConfig || DEFAULT_LAYOUT);
+    const [globalFields, setGlobalFields] = useState(() => ({
+        ...DEFAULT_GLOBAL_FIELDS,
+        storeName: settings?.storeName || "",
+        ...(saved?.globalFields || {}),
+    }));
+    const [typo, setTypo] = useState(() => {
+        const sv = saved?.typo || {};
+        return {
+            ...DEFAULT_TYPO, ...sv,
+            imageSide: sv.imageSide || DEFAULT_TYPO.imageSide,
+            lpad: normPad(sv.lpad, DEFAULT_TYPO.lpad),
+            rpad: normPad(sv.rpad, DEFAULT_TYPO.rpad),
+            fonts: { ...DEFAULT_TYPO.fonts, ...(sv.fonts || {}) },
+        };
+    });
+
+    const [globalQty, setGlobalQty] = useState(saved?.globalQty || 1);
+    const [useGlobalQty, setUseGlobalQty] = useState(saved?.useGlobalQty ?? false);
+    const [showDesigner, setShowDesigner] = useState(false);
+    const [savedNotice, setSavedNotice] = useState(false);
+    const [customNInput, setCustomNInput] = useState("");
+
+    // ── Rows ──────────────────────────────────────────────────────────────────
+    const [rows, setRows] = useState(() => {
+        if (bulkProducts?.length > 0) {
+            return bulkProducts.map(p => makeRow({
+                barcodeValue: p.productCode || "", productCode: p.productCode || "",
+                productName: p.productName || "", category: p.category || "",
+                brand: p.brand || "", mrp: p.mrp ? String(p.mrp) : "",
+                qty: Math.max(1, parseInt(p.qty) || 1),   // ← pre-fill each row from p.qty
+                _status: p.mrp ? "found" : "idle",
+            }));
+        }
+        return [makeRow({
+            barcodeValue: product?.productCode || "", productCode: product?.productCode || "",
+            productName: product?.productName || "", category: product?.category || "",
+            brand: product?.brand || "", mrp: product?.mrp ? String(product.mrp) : "",
+            qty: Math.max(1, parseInt(product?.qty) || 1),   // ← pre-fill from product.qty
+            _status: product?.mrp ? "found" : "idle",
+        })];
+    });
+
+    // ── On mount: resolve missing data ────────────────────────────────────────
+    useEffect(() => {
+        rows.forEach(row => {
+            if (row.barcodeValue && !row.mrp) {
+                const match = inventoryData.find(p => p.productCode?.toLowerCase() === row.barcodeValue.toLowerCase());
+                if (match) {
+                    setRows(prev => prev.map(r => r.id !== row.id ? r : {
+                        ...r, mrp: match.mrp ? String(match.mrp) : "",
+                        productName: match.productName || r.productName,
+                        category: match.category || r.category,
+                        brand: match.brand || r.brand,
+                        qty: match.qty ? Math.max(1, parseInt(match.qty) || 1) : r.qty,
+                        _status: "found",
+                    }));
+                } else if (api) {
+                    fetchByCode(row.barcodeValue, row.id);
+                }
+            } else if (row.barcodeValue && row.mrp) {
+                setRows(prev => prev.map(r => r.id === row.id ? { ...r, _status: "found" } : r));
+            }
+        });
+    }, []); // eslint-disable-line
+
+    // ── Row helpers ───────────────────────────────────────────────────────────
+    const setRow = (id, field, val) => setRows(prev => prev.map(r => r.id === id ? { ...r, [field]: val } : r));
+    const addRow = () => setRows(prev => [...prev, makeRow()]);
+    const removeRow = id => { if (rows.length > 1) setRows(prev => prev.filter(r => r.id !== id)); };
+    const toggleGF = (key, val) => setGlobalFields(prev => ({ ...prev, [key]: val }));
+    const effectiveQty = row => useGlobalQty ? Math.max(1, parseInt(globalQty) || 1) : Math.max(1, parseInt(row.qty) || 1);
+
+    // ── API fetch ─────────────────────────────────────────────────────────────
+    const fetchByCode = useCallback(async (code, rowId) => {
+        if (!code?.trim() || !api) return;
+        setRow(rowId, "_status", "loading");
+        try {
+            const res = await api.get(`/product/inventory/productCode/${encodeURIComponent(code.trim())}`);
+            if (res.data.success) {
+                const p = Array.isArray(res.data.data) ? res.data.data[0] : res.data.data;
+                setRows(prev => prev.map(r => r.id !== rowId ? r : {
+                    ...r,
+                    mrp: p?.mrp ? String(p.mrp) : r.mrp,
+                    productCode: p?.productCode || r.productCode,
+                    productName: p?.productName || r.productName,
+                    category: p?.category || r.category,
+                    brand: p?.brand || r.brand,
+                    qty: p?.qty ? Math.max(1, parseInt(p.qty) || 1) : r.qty,
+                    _status: "found",
+                }));
+            } else { setRow(rowId, "_status", "notfound"); }
+        } catch { setRow(rowId, "_status", "error"); }
+    }, [api]); // eslint-disable-line
+
+    // ── Debounced barcode change ──────────────────────────────────────────────
+    const debounceTimers = useRef({});
+    const handleBarcodeChange = useCallback((id, value) => {
+        setRows(prev => prev.map(r => r.id !== id ? r : {
+            ...r, barcodeValue: value, productCode: value,
+            productName: "", category: "", brand: "", mrp: "", _status: "idle",
+        }));
+        if (!value.trim() || value.trim().length < 2) return;
+        const match = inventoryData.find(p => p.productCode?.toLowerCase() === value.trim().toLowerCase());
+        if (match) {
+            setRows(prev => prev.map(r => r.id !== id ? r : {
+                ...r,
+                productCode: match.productCode || value,
+                productName: match.productName || "",
+                category: match.category || "",
+                brand: match.brand || "",
+                mrp: match.mrp ? String(match.mrp) : "",
+                qty: match.qty ? Math.max(1, parseInt(match.qty) || 1) : r.qty,
+                _status: "found",
+            }));
+            return;
+        }
+        clearTimeout(debounceTimers.current[id]);
+        debounceTimers.current[id] = setTimeout(() => fetchByCode(value, id), 600);
+    }, [inventoryData, fetchByCode]);
+
+    // ── Save / Reset ──────────────────────────────────────────────────────────
+    const handleSave = () => {
+        if (saveToStorage({ printType, labelSize, nup, layout, globalFields, typo, globalQty, useGlobalQty })) {
+            setSavedNotice(true);
+            setTimeout(() => setSavedNotice(false), 4000);
+        }
+    };
+    const handleReset = () => {
+        localStorage.removeItem(STORAGE_KEY);
+        setPrintType("barcode"); setLabelSize({ width: 100, height: 13 }); setNup(1);
+        setLayout(DEFAULT_LAYOUT); setGlobalFields(DEFAULT_GLOBAL_FIELDS); setTypo(DEFAULT_TYPO);
+        setGlobalQty(1); setUseGlobalQty(false); setCustomNInput("");
+    };
+
+    // ── Derived values ────────────────────────────────────────────────────────
+    const validRows = rows.filter(r => r.barcodeValue.trim());
+    const totalLabels = rows.reduce((s, r) => s + effectiveQty(r), 0);
+    const totalStrips = Math.ceil(totalLabels / nup);
+    const isBulk = bulkProducts?.length > 0;
+    const isCustomN = !N_PRESETS.includes(nup);
+
+    const resolveField = useCallback((row, key) => {
+        const sk = SHOW_KEY_MAP[key];
+        if (sk && !globalFields[sk] && key !== "productCode") return "";
+        return ({
+            storeName: globalFields.storeName || "",
+            productName: row.productName || "",
+            category: row.category || "",
+            brand: row.brand || "",
+            description: row.description || "",
+            mrp: row.mrp ? `${row.mrp}` : "",
+            productCode: row.productCode || row.barcodeValue || "",
+        })[key] ?? "";
+    }, [globalFields]);
+
+    // ── Print handler ─────────────────────────────────────────────────────────
+    const handlePrint = useCallback(async () => {
+        const labels = [];
+        rows.forEach(row => {
+            if (!row.barcodeValue.trim()) return;
+            const count = effectiveQty(row);
+            for (let i = 0; i < count; i++) {
+                labels.push({
+                    barcodeValue: row.barcodeValue.trim(),
+                    leftAbove: (layout.leftAbove || []).map(k => ({ key: k, value: resolveField(row, k) })).filter(x => x.value),
+                    leftOfImage: (layout.leftOfImage || []).map(k => ({ key: k, value: resolveField(row, k) })).filter(x => x.value),
+                    rightOfImage: (layout.rightOfImage || []).map(k => ({ key: k, value: resolveField(row, k) })).filter(x => x.value),
+                    leftBelow: (layout.leftBelow || []).map(k => ({ key: k, value: resolveField(row, k) })).filter(x => x.value),
+                    right: (layout.right || []).map(k => ({ key: k, value: resolveField(row, k) })).filter(x => x.value),
+                });
+            }
+        });
+        if (!labels.length) return;
+
+        const isQR = printType === "qr";
+        const imageSide = typo.imageSide || "left";
+        // suppressImg: do NOT render barcode/QR <img> in the print HTML,
+        //              but KEEP the two-column layout and all text fields.
+        const suppressImg = imageSide === "hidden";
+
+        const dataUrls = await Promise.all(labels.map(async l => {
+            if (suppressImg) return null;   // image suppressed — skip generation
+            if (!isQR) {
+                const canvas = document.createElement("canvas");
+                try {
+                    JsBarcode(canvas, l.barcodeValue, {
+                        format: "CODE128", width: 2, height: 60,
+                        displayValue: false, margin: 4,
+                        background: "#ffffff", lineColor: "#000000",
+                    });
+                    return canvas.toDataURL("image/png");
+                } catch { return null; }
+            } else {
+                try {
+                    return await QRCode.toDataURL(l.barcodeValue, {
+                        width: 160, margin: 2, color: { dark: "#000000", light: "#ffffff" },
+                    });
+                } catch { return null; }
+            }
+        }));
+
+        const N = nup;
+        const PW = labelSize.width;
+        const PH = labelSize.height;
+        const CW = PW / N;
+        const LZP = typo.leftZonePct;
+        const lpad = normPad(typo.lpad, DEFAULT_TYPO.lpad);
+        const rpad = normPad(typo.rpad, DEFAULT_TYPO.rpad);
+        const fScale = Math.max(0.5, Math.min(1.4, CW / 50));
+        const fs = key => `${((typo.fonts[key] || 8) * fScale).toFixed(1)}pt`;
+
+        const FSTYLES = {
+            storeName: k => `font-size:${fs(k)};font-weight:bold;text-transform:uppercase;letter-spacing:0.3pt;`,
+            productName: k => `font-size:${fs(k)};font-weight:700;`,
+            category: k => `font-size:${fs(k)};font-weight:600;`,
+            brand: k => `font-size:${fs(k)};`,
+            description: k => `font-size:${fs(k)};color:#444;`,
+            mrp: k => `font-size:${fs(k)};font-weight:bold;`,
+            productCode: k => `font-size:${fs(k)};font-family:monospace;text-align:center;`,
+        };
+
+        const fieldDiv = item =>
+            `<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;line-height:1.4;margin-bottom:${typo.gap}mm;${(FSTYLES[item.key] || (k => `font-size:${fs(k)};`))(item.key)}">${item.key === "mrp" ? `&#8377;${item.value}/-` : item.value}</div>`;
+        const fieldDivR = item => fieldDiv(item).replace("text-overflow:ellipsis", "text-overflow:ellipsis;text-align:right");
+
+        const renderCell = (label, imgSrc, isEmpty = false) => {
+            if (isEmpty) return `<div style="width:${CW}mm;height:${PH}mm;flex-shrink:0;background:#fafafa;"></div>`;
+
+            const hasRight = label.right.length > 0;
+            const hasLOI = label.leftOfImage.length > 0;
+            const hasROI = label.rightOfImage.length > 0;
+
+            // imgSrc is null when suppressImg=true.
+            // We still render the image column — we just omit the <img> tag inside it.
+            const imgHtml = (imgSrc && !suppressImg)
+                ? `<img src="${imgSrc}" style="width:${typo.imgPct}%;height:auto;object-fit:contain;display:block;flex-shrink:1;min-height:0;${isQR ? "image-rendering:pixelated;max-height:70%;" : "max-height:65%;"}" alt="">`
+                : "";   // empty string when hidden — column structure remains
+
+            const loiHtml = hasLOI
+                ? `<div style="flex-shrink:0;max-width:35%;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:${typo.gap}mm;overflow:hidden;">${label.leftOfImage.map(fieldDivR).join("")}</div>`
+                : "";
+            const roiHtml = hasROI
+                ? `<div style="flex-shrink:0;max-width:35%;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:${typo.gap}mm;overflow:hidden;">${label.rightOfImage.map(fieldDiv).join("")}</div>`
+                : "";
+
+            const imgRow = `<div style="display:flex;flex-direction:row;align-items:center;justify-content:center;gap:${typo.gap}mm;flex-shrink:1;min-height:0;width:100%;">${loiHtml}<div style="flex-shrink:1;min-width:0;display:flex;align-items:center;justify-content:center;">${imgHtml}</div>${roiHtml}</div>`;
+
+            const dividerStyle = hasRight
+                ? (imageSide === "right" ? "border-left:0.2mm solid #eee;" : "border-right:0.2mm solid #eee;")
+                : "";
+
+            // Image column: always rendered (graphic may be empty when suppressed)
+            const imgColHtml =
+                `<div style="width:${LZP}%;flex-shrink:0;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:${lpad.top}mm ${lpad.right}mm ${lpad.bottom}mm ${lpad.left}mm;gap:${typo.gap}mm;overflow:hidden;${dividerStyle}">` +
+                label.leftAbove.map(fieldDiv).join("") +
+                imgRow +
+                label.leftBelow.map(fieldDiv).join("") +
+                `</div>`;
+
+            // Text column: rendered when right zone has fields
+            const txtColHtml = hasRight
+                ? `<div style="flex:1;min-width:0;height:100%;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:${rpad.top}mm ${rpad.right}mm ${rpad.bottom}mm ${rpad.left}mm;gap:${typo.gap}mm;overflow:hidden;">${label.right.map(fieldDiv).join("")}</div>`
+                : "";
+
+            // Swap order based on imageSide
+            const innerHtml = imageSide === "right"
+                ? `${txtColHtml}${imgColHtml}`
+                : `${imgColHtml}${txtColHtml}`;
+
+            return `<div style="width:${CW}mm;height:${PH}mm;flex-shrink:0;display:flex;flex-direction:row;align-items:stretch;overflow:hidden;">${innerHtml}</div>`;
+        };
+
+        let pagesHtml = "";
+        for (let i = 0; i < labels.length; i += N) {
+            const cells = Array.from({ length: N }, (_, offset) => {
+                const idx = i + offset;
+                return idx < labels.length
+                    ? renderCell(labels[idx], dataUrls[idx], false)
+                    : renderCell(null, null, true);
+            });
+            pagesHtml += `<div style="width:${PW}mm;height:${PH}mm;display:flex;flex-direction:row;align-items:stretch;overflow:hidden;page-break-after:always;background:#fff;">${cells.join("")}</div>`;
+        }
+
+        const printHtml = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>${isQR ? "QR" : "Barcode"} Labels (${N}-Up)</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+@page{size:${PW}mm ${PH}mm;margin:0;}
+html,body{width:${PW}mm;font-family:'Arial Narrow',Arial,sans-serif;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+@media screen{html,body{width:100vw;min-height:100vh;background:#3a3a3a;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:20px;gap:16px;overflow-y:auto;}}
+@media print{html,body{width:${PW}mm;background:#fff;}}
+</style></head><body>
+${pagesHtml}
+<script>window.onload=function(){setTimeout(function(){window.focus();window.print();},350)};<\/script>
+</body></html>`;
+
+        const win = window.open("", "_blank", "width=960,height=720");
+        if (!win) { alert("Popup blocked — please allow popups for this site."); return; }
+        win.document.write(printHtml);
+        win.document.close();
+    }, [rows, printType, labelSize, nup, layout, globalFields, typo, resolveField, useGlobalQty, globalQty]); // eslint-disable-line
+
+    // ─── Render ───────────────────────────────────────────────────────────────
+    const inputCls = "w-full text-xs rounded-xl border border-gray-200 px-3 py-2 outline-none focus:border-[#2980b9]/60 focus:bg-white bg-white transition placeholder:text-gray-300 text-gray-700";
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[94vh]">
+
+                {/* Header */}
+                <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 flex-shrink-0">
+                    <div className="p-2 bg-[#2980b9]/10 rounded-xl"><FiPrinter size={16} className="text-[#2980b9]" /></div>
+                    <div className="flex-1">
+                        <h2 className="text-sm font-bold text-gray-800">Print Labels</h2>
+                        <p className="text-[11px] text-gray-400">
+                            {isBulk ? `Bulk print · ${bulkProducts.length} products selected` : "Configure barcode / QR labels"}
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button type="button" onClick={handleSave}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-semibold text-gray-500 hover:border-green-300 hover:text-green-600 transition">
+                            <FiSave size={12} /> Save settings
+                        </button>
+                        <button type="button" onClick={handleReset}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-semibold text-gray-500 hover:border-[#2980b9]/60 hover:text-[#2980b9] transition">
+                            <FiRefreshCw size={12} /> Reset
+                        </button>
+                        <button type="button" onClick={onClose}
+                            className="p-2 rounded-xl hover:bg-gray-100 text-gray-400 transition">
+                            <FiX size={16} />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Body */}
+                <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
+
+                    {savedNotice && (
+                        <div className="flex items-center gap-2 px-4 py-2.5 bg-green-50 border border-green-100 rounded-xl text-xs text-green-700">
+                            <FiCheckCircle size={13} className="text-green-500" />
+                            Settings saved — will be restored next time you open this modal.
+                            <button onClick={() => setSavedNotice(false)} className="ml-auto text-green-500 hover:text-green-700"><FiX size={12} /></button>
+                        </div>
+                    )}
+
+                    {/* Type + Size */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex items-center bg-gray-100 rounded-xl p-1 gap-1">
+                            {["barcode", "qr"].map(t => (
+                                <button key={t} type="button" onClick={() => setPrintType(t)}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition
+                    ${printType === t ? "bg-white text-gray-800 shadow-sm" : "text-gray-400 hover:text-gray-600"}`}>
+                                    {t === "barcode" ? <FiBarChart2 size={14} /> : <FiGrid size={14} />}
+                                    {t === "barcode" ? "Barcode" : "QR Code"}
+                                </button>
+                            ))}
+                        </div>
+                        <LabelSize width={labelSize.width} height={labelSize.height} onChange={setLabelSize} />
+                    </div>
+
+                    {/* N-Up */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Labels per strip</span>
+                        {N_PRESETS.map(n => (
+                            <button key={n} type="button" onClick={() => { setNup(n); setCustomNInput(""); }}
+                                className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition
+                  ${nup === n && !isCustomN ? "border-[#2980b9]/60 bg-[#2980b9]/10 text-[#2980b9]/90" : "border-gray-200 bg-white text-gray-500 hover:border-[#2980b9]/40 hover:text-[#2980b9]"}`}>
+                                {n}-Up
+                            </button>
+                        ))}
+                        <span className="w-px h-5 bg-gray-200" />
+                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition ${isCustomN ? "border-[#2980b9]/60 bg-[#2980b9]/10 text-[#2980b9]/90" : "border-gray-200 bg-white text-gray-500"}`}>
+                            <FiSliders size={11} className={isCustomN ? "text-[#2980b9]" : "text-gray-400"} />
+                            <span className="text-gray-400 text-[10px]">Custom</span>
+                            <input type="number" min={1} max={32} value={customNInput} placeholder="N"
+                                onChange={e => { setCustomNInput(e.target.value); const p = parseInt(e.target.value, 10); if (!isNaN(p) && p >= 1 && p <= 32) setNup(p); }}
+                                className="w-9 text-center bg-transparent outline-none text-xs font-bold text-gray-700 placeholder:text-gray-300" />
+                            <span className="text-gray-400 text-[10px]">-Up</span>
+                        </div>
+                        {nup > 1 && (
+                            <span className="flex items-center gap-1 text-[9px] bg-[#2980b9] text-white font-bold px-2 py-0.5 rounded-full">
+                                <FiColumns size={9} /> {nup}-Up ON
+                            </span>
+                        )}
+                    </div>
+
+                    {/* Global Quantity */}
+                    <div className="flex items-center gap-4 bg-[#2980b9]/10 border border-[#2980b9]/20 rounded-xl px-4 py-3 flex-wrap">
+                        <div className="flex items-center gap-2">
+                            <FiHash size={13} className="text-[#2980b9]" />
+                            <span className="text-xs font-semibold text-gray-700">Global Quantity</span>
+                        </div>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <div onClick={() => setUseGlobalQty(v => !v)}
+                                className={`relative w-9 h-5 rounded-full transition-colors ${useGlobalQty ? "bg-[#2980b9]" : "bg-gray-300"}`}>
+                                <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${useGlobalQty ? "translate-x-4" : ""}`} />
+                            </div>
+                            <span className="text-xs text-gray-500">{useGlobalQty ? "Override all rows" : "Use per-row qty"}</span>
+                        </label>
+                        {useGlobalQty && (
+                            <>
+                                <QtyStepper value={globalQty} onChange={setGlobalQty} label="" />
+                                <span className="text-[10px] text-[#2980b9]/90 font-semibold">
+                                    → {validRows.length} code{validRows.length !== 1 ? "s" : ""} × {Math.max(1, parseInt(globalQty) || 1)} = {validRows.length * Math.max(1, parseInt(globalQty) || 1)} labels
+                                </span>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Typography & Spacing */}
+                    <Section title="Typography, Spacing & Image Position" icon={FiSliders} badge="font · gap · image side">
+                        <TypographyPanel typo={typo} onChange={setTypo} />
+                    </Section>
+
+                    {/* Field Visibility */}
+                    <Section title="Field Visibility & Store Name" icon={FiEye} defaultOpen>
+                        <div className="flex items-center gap-2 flex-wrap mb-3">
+                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Show:</span>
+                            {ALL_FIELDS.filter(f => f.key !== "productCode").map(f => {
+                                const sk = SHOW_KEY_MAP[f.key];
+                                const on = globalFields[sk];
+                                return (
+                                    <button key={f.key} type="button" onClick={() => toggleGF(sk, !on)}
+                                        className={`flex items-center gap-1 px-2.5 py-1 rounded-full border text-[10px] font-semibold transition
+                      ${on ? "border-[#2980b9]/60 bg-[#2980b9]/10 text-[#2980b9]/90" : "border-gray-200 bg-white text-gray-400 hover:border-gray-300"}`}>
+                                        {on ? <FiEye size={9} /> : <FiEyeOff size={9} />} {f.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {globalFields.showStoreName && (
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-gray-400 whitespace-nowrap">Store name:</span>
+                                <input type="text" value={globalFields.storeName}
+                                    onChange={e => toggleGF("storeName", e.target.value)}
+                                    placeholder="e.g. MY SHOP"
+                                    className="text-xs rounded-lg border border-[#2980b9]/40 px-2 py-1 outline-none focus:border-[#2980b9] text-gray-700 w-40" />
+                            </div>
+                        )}
+                    </Section>
+
+                    {/* Layout Designer */}
+                    <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                            <FiLayout size={13} className="text-[#2980b9]" />
+                            <span className="text-xs font-semibold text-gray-600">Label layout</span>
+                            <span className="text-[10px] text-gray-400">
+                                Above: {(layout.leftAbove || []).length} · LeftImg: {(layout.leftOfImage || []).length} · RightImg: {(layout.rightOfImage || []).length} · Below: {(layout.leftBelow || []).length} · Right: {(layout.right || []).length} fields
+                            </span>
+                        </div>
+                        <button type="button" onClick={() => setShowDesigner(v => !v)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition
+                ${showDesigner ? "border-[#2980b9]/60 bg-[#2980b9]/10 text-[#2980b9]/90" : "border-gray-200 bg-white text-gray-500 hover:border-[#2980b9]/40 hover:text-[#2980b9]"}`}>
+                            <FiMove size={11} /> {showDesigner ? "Close designer" : "Arrange fields"}
+                        </button>
+                    </div>
+
+                    {showDesigner && (
+                        <div className="bg-white border border-[#2980b9]/20 rounded-2xl p-4">
+                            <p className="text-xs text-gray-500 mb-3 flex items-center gap-1.5">
+                                <FiMove size={12} className="text-[#2980b9]" />
+                                Drag fields between zones · use ↑↓ to reorder within a zone
+                            </p>
+                            <LayoutDesigner layout={layout} onChange={setLayout} printType={printType} />
+                        </div>
+                    )}
+
+                    {/* Info bars */}
+                    {nup > 1 && (
+                        <div className="flex items-center gap-2 bg-[#2980b9]/10 border border-[#2980b9]/20 rounded-xl px-4 py-2.5">
+                            <FiColumns size={13} className="text-[#2980b9] flex-shrink-0" />
+                            <p className="text-xs text-[#2980b9]/90">
+                                <strong>{nup}-Up on</strong> — {nup} labels per strip, each cell <strong>~{Math.round(labelSize.width / nup)}mm</strong> wide on a <strong>{labelSize.width}×{labelSize.height}mm</strong> strip.
+                            </p>
+                        </div>
+                    )}
+                    <div className="flex items-center gap-2 bg-[#2980b9]/10 border border-[#2980b9]/20 rounded-xl px-4 py-2.5">
+                        <FiInfo size={13} className="text-[#2980b9]/80 flex-shrink-0" />
+                        <p className="text-xs text-[#2980b9]/90">
+                            Strip: <strong>{labelSize.width}×{labelSize.height}mm</strong>
+                            {nup > 1 && ` · cell ~${Math.round(labelSize.width / nup)}mm wide`}
+                            {validRows.length > 0 && (
+                                <span className="ml-2 font-semibold">
+                                    {validRows.length} code{validRows.length !== 1 ? "s" : ""} · {totalLabels} label{totalLabels !== 1 ? "s" : ""}
+                                    {nup > 1 && <span className="text-[#2980b9]/90"> → {totalStrips} strip{totalStrips !== 1 ? "s" : ""} ({nup}-up)</span>}
+                                    {" "}will print.
+                                </span>
+                            )}
+                        </p>
+                    </div>
+
+                    {/* Label rows */}
+                    <div className="space-y-3">
+                        {rows.map((row, idx) => {
+                            const eqty = effectiveQty(row);
+                            const hasDesc = [...(layout.leftAbove || []), ...(layout.leftBelow || []), ...(layout.right || [])].includes("description");
+
+                            return (
+                                <div key={row.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+                                    <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-100 rounded-t-2xl">
+                                        <div className="flex items-center gap-2">
+                                            <FiHash size={11} className="text-[#2980b9]" />
+                                            <span className="text-[10px] font-bold text-[#2980b9] uppercase tracking-widest">Label {idx + 1}</span>
+                                            <StatusBadge status={row._status} />
+                                        </div>
+                                        {rows.length > 1 && (
+                                            <button type="button" onClick={() => removeRow(row.id)}
+                                                className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 transition">
+                                                <FiTrash2 size={13} />
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    <div className="p-4 space-y-3">
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                                                    <FiBarChart2 size={9} /> {printType === "barcode" ? "Barcode value *" : "QR value *"}
+                                                </label>
+                                                <div className="relative">
+                                                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" size={12} />
+                                                    <input type="text" value={row.barcodeValue}
+                                                        onChange={e => handleBarcodeChange(row.id, e.target.value)}
+                                                        placeholder="Scan or type code"
+                                                        className={`${inputCls} pl-9`}
+                                                        autoFocus={idx === rows.length - 1} />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                                                    <FiTag size={9} /> Product Code (printed)
+                                                </label>
+                                                <input type="text" value={row.productCode}
+                                                    onChange={e => setRow(row.id, "productCode", e.target.value)}
+                                                    placeholder="PRD001" className={inputCls} />
+                                            </div>
+                                        </div>
+
+                                        {row._status === "found" && (row.productName || row.mrp || row.brand || row.category) && (
+                                            <div className="flex items-center gap-2 flex-wrap px-3 py-2 bg-green-50 border border-green-100 rounded-xl">
+                                                <FiCheckCircle size={12} className="text-green-500 flex-shrink-0" />
+                                                {row.productName && <span className="flex items-center gap-1 text-[10px] text-green-700 font-semibold"><FiBox size={9} className="text-green-400" />{row.productName}</span>}
+                                                {row.category && <span className="flex items-center gap-1 text-[10px] text-green-600"><FiLayers size={9} className="text-green-400" />{row.category}</span>}
+                                                {row.brand && <span className="flex items-center gap-1 text-[10px] text-green-600"><FiAward size={9} className="text-green-400" />{row.brand}</span>}
+                                                {row.mrp && <span className="flex items-center gap-1 text-[10px] text-green-700 font-bold ml-auto"><FiDollarSign size={9} className="text-green-500" />₹{row.mrp}</span>}
+                                            </div>
+                                        )}
+
+                                        {hasDesc && (
+                                            <div>
+                                                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                                                    <FiAlignLeft size={9} /> Description
+                                                </label>
+                                                <textarea value={row.description}
+                                                    onChange={e => setRow(row.id, "description", e.target.value)}
+                                                    placeholder={"e.g. BUY 1 GET 1\nUp To -13/+8 Power"}
+                                                    rows={2}
+                                                    className="w-full text-xs rounded-xl border border-gray-200 px-3 py-2 outline-none resize-none leading-relaxed transition placeholder:text-gray-300 text-gray-700 focus:border-[#2980b9]/60 focus:bg-white bg-white" />
+                                            </div>
+                                        )}
+
+                                        {/* Live preview + individual Qty */}
+                                        <div className="flex items-end justify-between gap-3 flex-wrap">
+                                            <div>
+                                                <div className="text-[9px] font-bold text-gray-300 uppercase tracking-widest mb-1.5">
+                                                    Live preview — actual print scale
+                                                    {typo.imageSide === "hidden" && (
+                                                        <span className="ml-2 text-amber-400 normal-case font-semibold">· image hidden (dashed outline)</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <LivePreviewLabel
+                                                        value={row.barcodeValue.trim()}
+                                                        row={row}
+                                                        layout={layout}
+                                                        printType={printType}
+                                                        globalFields={globalFields}
+                                                        typo={typo}
+                                                        labelSize={labelSize}
+                                                    />
+                                                    {row.barcodeValue.trim() && (
+                                                        <span className="text-xs text-gray-400">
+                                                            × <strong className="text-gray-600">{eqty}</strong>
+                                                            {useGlobalQty && <span className="text-[9px] text-[#2980b9] ml-1">(global)</span>}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className={`flex-shrink-0 transition ${useGlobalQty ? "opacity-40 pointer-events-none" : ""}`}>
+                                                <QtyStepper
+                                                    value={useGlobalQty ? globalQty : row.qty}
+                                                    onChange={v => setRow(row.id, "qty", v)}
+                                                    label={useGlobalQty ? "Qty (overridden)" : "Qty (from data)"}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Add row */}
+                    <button type="button" onClick={addRow}
+                        className="w-full py-3 border-2 border-dashed border-[#2980b9]/40 hover:border-[#2980b9] text-[#2980b9] hover:text-[#2980b9]/90 text-xs font-semibold rounded-2xl transition flex items-center justify-center gap-2">
+                        <FiPlus size={14} /> Add Another Code
+                    </button>
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex-shrink-0">
+                    <div className="flex items-center gap-2 text-xs text-gray-400 mr-auto">
+                        <FiPrinter size={12} className="text-[#2980b9]" />
+                        {validRows.length} code{validRows.length !== 1 ? "s" : ""} · {totalLabels} label{totalLabels !== 1 ? "s" : ""}
+                        {nup > 1 && <span className="text-[#2980b9] font-semibold"> · {totalStrips} strip{totalStrips !== 1 ? "s" : ""} ({nup}-up)</span>}
+                    </div>
+                    <button type="button" onClick={onClose}
+                        className="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition flex items-center gap-1.5">
+                        <FiX size={13} /> Cancel
+                    </button>
+                    <button type="button" onClick={handlePrint} disabled={validRows.length === 0}
+                        className="flex items-center gap-2 px-5 py-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white text-xs font-semibold rounded-xl transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                        <FiPrinter size={13} />
+                        Print {printType === "qr" ? "QR" : "Barcode"} Labels
+                        {nup > 1 && <span className="text-[#2980b9]/40 text-[9px] font-normal ml-0.5">{nup}-up</span>}
+                    </button>
+                </div>
+
+            </div>
         </div>
     );
 }
 
 
 
-// Barcode and QR print mode;
-function BarcodePrintModal({ product, bulkProducts = null, inventoryData = [], onClose, settings }) {
 
-    const [printType, setPrintType] = useState("barcode");
-
-    // console.log("Print barcode settings => ", settings.storeName)
-
-    const makeRow = (overrides = {}) => ({
-        id: Math.random().toString(36).slice(2),
-        barcodeValue: "",
-        productCode: "",
-        mrp: "",
-        qty: 1,
-        showMrp: true,
-        _status: "idle",
-        ...overrides,
-    });
-
-    const [rows, setRows] = useState(() => {
-        if (bulkProducts && bulkProducts.length > 0) {
-            return bulkProducts.map(p => makeRow({
-                barcodeValue: p.productCode || "",
-                productCode: p.productCode || "",
-                mrp: p.mrp ? String(p.mrp) : "",
-                _status: p.mrp ? "found" : "idle",
-            }));
-        }
-        return [makeRow({
-            barcodeValue: product?.productCode || "",
-            productCode: product?.productCode || "",
-            mrp: product?.mrp ? String(product.mrp) : "",
-        })];
-    });
-
-    useEffect(() => {
-        rows.forEach(row => {
-            if (row.barcodeValue && !row.mrp) {
-                const match = inventoryData.find(
-                    p => p.productCode?.toLowerCase() === row.barcodeValue.toLowerCase()
-                );
-                if (match) {
-                    setRows(prev => prev.map(r =>
-                        r.id === row.id ? { ...r, mrp: match.mrp ? String(match.mrp) : "", _status: "found" } : r
-                    ));
-                } else {
-                    fetchByCode(row.barcodeValue, row.id);
-                }
-            } else if (row.barcodeValue && row.mrp) {
-                setRows(prev => prev.map(r =>
-                    r.id === row.id ? { ...r, _status: "found" } : r
-                ));
-            }
-        });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    const fetchByCode = async (code, rowId) => {
-        if (!code?.trim()) return;
-        _setRowField(rowId, "_status", "loading");
-        try {
-            const res = await api.get(`/api/digi/product/inventory/productCode/${encodeURIComponent(code.trim())}`);
-            if (res.data.success) {
-                const p = Array.isArray(res.data.data) ? res.data.data[0] : res.data.data;
-                setRows(prev => prev.map(r =>
-                    r.id === rowId
-                        ? { ...r, mrp: p?.mrp ? String(p.mrp) : r.mrp, productCode: p?.productCode || r.productCode, _status: "found" }
-                        : r
-                ));
-            } else {
-                _setRowField(rowId, "_status", "notfound");
-            }
-        } catch { _setRowField(rowId, "_status", "error"); }
-    };
-
-    const _setRowField = (id, field, value) =>
-        setRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
-
-    const updateRow = (id, field, value) =>
-        setRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
-
-    const addRow = () => setRows(prev => [...prev, makeRow()]);
-    const removeRow = (id) => { if (rows.length === 1) return; setRows(prev => prev.filter(r => r.id !== id)); };
-
-    const debounceTimers = useRef({});
-    const handleBarcodeChange = (id, value) => {
-        setRows(prev => prev.map(r =>
-            r.id === id ? { ...r, barcodeValue: value, productCode: value, mrp: "", _status: "idle" } : r
-        ));
-        if (!value.trim() || value.trim().length < 2) return;
-        const match = inventoryData.find(p => p.productCode?.toLowerCase() === value.trim().toLowerCase());
-        if (match) {
-            setRows(prev => prev.map(r =>
-                r.id === id ? { ...r, barcodeValue: value, productCode: match.productCode || value, mrp: match.mrp ? String(match.mrp) : "", _status: "found" } : r
-            ));
-            return;
-        }
-        clearTimeout(debounceTimers.current[id]);
-        debounceTimers.current[id] = setTimeout(() => fetchByCode(value, id), 600);
-    };
-
-    const getExpandedLabels = () => {
-        const labels = [];
-        rows.forEach(row => {
-            if (!row.barcodeValue.trim()) return;
-            const count = Math.max(1, parseInt(row.qty) || 1);
-            for (let i = 0; i < count; i++) {
-                labels.push({
-                    barcodeValue: row.barcodeValue.trim(),
-                    productCode: row.productCode.trim(),
-                    mrp: row.showMrp ? row.mrp : "",
-                });
-            }
-        });
-        return labels;
-    };
-
-    // ── Print handler ─────────────────────────────────────────────────────────
-    const handlePrint = useCallback(async () => {
-        const labels = getExpandedLabels();
-        if (labels.length === 0) return;
-
-        const generateDataUrl = async (value) => {
-            if (printType === "barcode") {
-                const canvas = document.createElement("canvas");
-                try {
-                    JsBarcode(canvas, value, {
-                        format: "CODE128",
-                        width: 2,
-                        height: 28,
-                        displayValue: false,
-                        margin: 1,
-                        background: "#ffffff",
-                        lineColor: "#000000"
-                    });
-                    return canvas.toDataURL("image/png");
-                } catch { return null; }
-            } else {
-                try {
-                    return await QRCode.toDataURL(value, {
-                        width: 80,
-                        margin: 0,
-                        color: { dark: "#000000", light: "#ffffff" }
-                    });
-                } catch { return null; }
-            }
-        };
-
-        const dataUrls = await Promise.all(labels.map(l => generateDataUrl(l.barcodeValue)));
-        const isQR = printType === "qr";
-
-        const labelsHtml = labels.map((label, idx) => {
-            const imgSrc = dataUrls[idx];
-            const showCode = label.productCode && label.productCode !== label.barcodeValue;
-
-
-            if (isQR) {
-                return `
-        <div class="label" style="flex-direction:row; align-items:center; gap:1.5mm; padding:1mm 2mm;">
-            ${imgSrc ? `<img src="${imgSrc}" class="qr-img" />` : ""}
-            <div class="text-block" style="flex-direction:column; align-items:flex-start; gap:0.3mm;">
-                ${true ? `<div class="product-code">${label.productCode}</div>` : ""}
-                ${label.mrp ? `<div class="mrp">&#8377;${label.mrp}/-</div>` : ""}
-            </div>
-        </div>`;
-            }
-
-
-            return `
-<div class="label">
-    <div class="left-zone">
-        ${imgSrc ? `<img src="${imgSrc}" class="barcode-img" />` : ""}
-        ${true ? `<div class="product-code">${label.productCode}</div>` : ""}
-    </div>
-    <div class="right-zone">
-    {/* <div class="store-name">&#8202;&#8202;&#8202;&#8202;&#8202;&#8202;&#8202;&#8202;&#8202;&#8202;&#8202;&#8202;&#8202;&#8202;&#8202;&#8202;&#8202;&#8202;&#8202;${settings.storeName || ""}</div> */}
-        ${label.mrp ? `<div class="mrp">&#8377;${label.mrp}/-</div>` : ""}
-    </div>
-</div>`;
-
-        }).join("");
-
-        const printHtml = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>${isQR ? "QR" : "Barcode"} Labels</title>
-<style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-
-@page {
-    size: 55mm 13mm;
-    margin: 0;
-}
-
-html, body {
-    width: 55mm;
-    height: 13mm;
-    font-family: Arial, sans-serif;
-    background: #fff;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-}
-
-.label {
-    width: 55mm;
-    height: 13mm;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-start;
-    overflow: hidden;
-    page-break-after: always;
-    background: #fff;
-    gap: 0.5mm;
-}
-
-/* LEFT ZONE — barcode + code stacked */
-.left-zone {
-    width: 25mm;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    padding: 0.3mm;
-    gap: 0.2mm;
-    flex-shrink: 0;
-    overflow: hidden;
-}
-
-/* RIGHT ZONE — MRP large and centered */
-.right-zone {
-    width: 20mm;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    overflow: hidden;
-}
-
-.barcode-img {
-    width: 24mm;
-    height: 7mm;
-    object-fit: contain;
-    display: block;
-    flex-shrink: 0;
-    max-width: 100%;
-}
-
-.qr-img {
-    width: 7mm;
-    height: 7mm;
-    object-fit: contain;
-    display: block;
-    flex-shrink: 0;
-}
-
-.text-block {
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-    align-items: flex-start;
-    gap: 0.3mm;
-    flex: 1;
-    overflow: hidden;
-    min-width: 0;
-}
-
-.barcode-val {
-    font-size: 4.5pt;
-    font-family: 'Courier New', monospace;
-    font-weight: bold;
-    color: #000;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-}
-
-
-
-.product-code {
-    font-size: 10pt;
-    font-weight: bold;
-    white-space: normal;
-    overflow: visible;
-    line-height: 1;
-    text-align: center;
-}
-
-/*
-.store-name {
-    font-size: 6pt;
-    font-family: Arial, sans-serif;
-    font-weight: bold;
-    color: #000;
-    white-space: nowrap;
-    max-width: 100%;
-}
-*/
-
-.mrp {
-    font-size: 10pt;
-    font-family: Arial, sans-serif;
-    font-weight: bold;
-    color: #000;
-    white-space: nowrap;
-    max-width: 100%;
-}
-
-@media screen {
-    html, body {
-        width: 100vw;
-        height: 100vh;
-        background: #3a3a3a;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: flex-start;
-        padding: 20px;
-        gap: 14px;
-        overflow-y: auto;
-    }
-
-    .label {
-        width: calc(55mm * 3.5);
-        height: calc(13mm * 3.5);
-        page-break-after: unset;
-        border: 1px solid #ccc;
-        border-radius: 6px;
-        box-shadow: 0 3px 12px rgba(0,0,0,0.4);
-        padding: calc(1mm * 3.5) calc(2mm * 3.5);
-        gap: calc(0.5mm * 3.5);
-        background: #fff;
-    }
-
-    .left-zone  { width: calc(50mm * 3.5); padding: calc(0.5mm * 3.5) calc(1.5mm * 3.5); }
-    .right-zone { width: calc(50mm * 3.5); }
-
-    .barcode-img {
-        width: calc(46mm * 3.5);
-        height: calc(7mm * 3.5);
-    }
-
-    .qr-img {
-        width: calc(7mm * 3.5);
-        height: calc(7mm * 3.5);
-    }
-
-    .barcode-val  { font-size: calc(4.5pt   * 3.5); }
-    .product-code { font-size: calc(18pt * 3.5); }
-    .mrp          { font-size: calc(5.5pt   * 3.5); }
-}
-</style>
-</head>
-<body>
-${labelsHtml}
-</body>
-</html>`;
-
-        const win = window.open("", "_blank", "width=900,height=700");
-        win.document.write(printHtml);
-        win.document.close();
-        win.onload = () => { win.focus(); setTimeout(() => win.print(), 300); };
-    }, [rows, printType]);
-
-    const totalLabels = rows.reduce((sum, r) => sum + Math.max(1, parseInt(r.qty) || 1), 0);
-    const validRows = rows.filter(r => r.barcodeValue.trim());
-    const isBulk = bulkProducts && bulkProducts.length > 0;
-
-    const StatusBadge = ({ status }) => {
-        if (status === "loading") return <span className="flex items-center gap-1 text-[10px] text-blue-400"><span className="w-2.5 h-2.5 border-2 border-blue-300 border-t-transparent rounded-full animate-spin" />Looking up...</span>;
-        if (status === "found") return <span className="text-[10px] text-emerald-500 font-semibold">✓ Found</span>;
-        if (status === "notfound") return <span className="text-[10px] text-erp-accent">Not in inventory</span>;
-        if (status === "error") return <span className="text-[10px] text-red-400">Lookup failed</span>;
-        return null;
-    };
-
-    return (
-        <Modal onClose={onClose} maxWidth="max-w-3xl">
-            <ModalHeader
-                title="Print Labels"
-                subtitle={isBulk
-                    ? `Bulk print · ${bulkProducts.length} product${bulkProducts.length > 1 ? "s" : ""} selected`
-                    : "Thermal label · 100mm × 13mm · one label per cut"
-                }
-                icon={FiPrinter}
-                onClose={onClose}
-            />
-
-            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
-
-                {/* ── Print type toggle ── */}
-                <div className="flex items-center gap-3">
-                    <span className="text-xs font-semibold text-gray-500 uppercase  ">Print type</span>
-                    <div className="flex items-center bg-gray-100 rounded-xl p-1 gap-1">
-                        <button
-                            type="button"
-                            onClick={() => setPrintType("barcode")}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition
-                                ${printType === "barcode"
-                                    ? "bg-white text-gray-800 shadow-sm"
-                                    : "text-gray-400 hover:text-gray-600"}`}
-                        >
-                            <BsUpcScan size={14} /> Barcode
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setPrintType("qr")}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition
-                                ${printType === "qr"
-                                    ? "bg-white text-gray-800 shadow-sm"
-                                    : "text-gray-400 hover:text-gray-600"}`}
-                        >
-                            <BsQrCode size={14} /> QR Code
-                        </button>
-                    </div>
-                    <span className="text-[10px] text-gray-400">
-                        100 × 13mm · 1 per cut
-                    </span>
-                </div>
-
-                {/* Info bar */}
-                <div className="flex items-center gap-2 bg-erp-accent/5 border border-orange-100 rounded-xl px-4 py-2.5">
-                    <FiTag size={13} className="text-erp-accent/80 flex-shrink-0" />
-                    <p className="text-xs text-orange-700">
-                        <strong>100 × 13mm</strong> — thermal label, one label per cut.
-                        {validRows.length > 0 && (
-                            <span className="ml-2 font-semibold">
-                                {validRows.length} code{validRows.length !== 1 ? "s" : ""} · {totalLabels} label{totalLabels !== 1 ? "s" : ""} will print.
-                            </span>
-                        )}
-                    </p>
-                </div>
-
-                {/* Label rows */}
-                <div className="space-y-3">
-                    {rows.map((row, idx) => {
-                        const printQty = Math.max(1, parseInt(row.qty) || 1);
-                        const qtyBelowOne = (parseInt(row.qty) || 0) < 1;
-
-                        return (
-                            <div key={row.id} className="bg-gray-50 rounded-2xl border border-gray-100 p-4">
-                                <div className="flex items-center justify-between mb-3">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="text-[10px] font-bold text-erp-accent uppercase tracking-widest">Label #{idx + 1}</span>
-                                        <StatusBadge status={row._status} />
-                                    </div>
-                                    {rows.length > 1 && (
-                                        <button type="button" onClick={() => removeRow(row.id)}
-                                            className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 transition flex-shrink-0">
-                                            <FiTrash2 size={13} />
-                                        </button>
-                                    )}
-                                </div>
-
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-end">
-                                    <div className="col-span-2 sm:col-span-1">
-                                        <label className="text-[10px] font-semibold text-gray-700 uppercase   block mb-1">
-                                            {printType === "barcode" ? "Barcode *" : "QR Value *"}
-                                        </label>
-                                        <div className="relative">
-                                            {printType === "barcode"
-                                                ? <BsUpcScan className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" size={13} />
-                                                : <BsQrCode className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" size={13} />
-                                            }
-                                            <input
-                                                type="text"
-                                                value={row.barcodeValue}
-                                                onChange={e => handleBarcodeChange(row.id, e.target.value)}
-                                                placeholder="Scan or type code"
-                                                className={`${inputCls} pl-9`}
-                                                autoFocus={idx === rows.length - 1}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="text-[10px] font-semibold text-gray-700 uppercase   block mb-1">Product Code</label>
-                                        <input type="text" value={row.productCode}
-                                            onChange={e => updateRow(row.id, "productCode", e.target.value)}
-                                            placeholder="PRD001" className={inputCls} />
-                                    </div>
-
-                                    <div>
-                                        <div className="flex items-center justify-between mb-1">
-                                            <label className="text-[10px] font-semibold text-gray-700 uppercase  ">MRP (₹)</label>
-                                            <label className="flex items-center gap-1 cursor-pointer">
-                                                <input type="checkbox" checked={row.showMrp}
-                                                    onChange={e => updateRow(row.id, "showMrp", e.target.checked)}
-                                                    className="accent-erp-accent w-3 h-3" />
-                                                <span className="text-[9px] text-gray-400 select-none">Show</span>
-                                            </label>
-                                        </div>
-                                        <input type="number" value={row.mrp}
-                                            onChange={e => updateRow(row.id, "mrp", e.target.value)}
-                                            placeholder="0.00" disabled={!row.showMrp}
-                                            className={`${inputCls} ${!row.showMrp ? "opacity-40 cursor-not-allowed" : ""}`} />
-                                    </div>
-
-                                    <div>
-                                        <label className="text-[10px] font-semibold text-gray-700 uppercase   block mb-1">
-                                            Quantity {qtyBelowOne && <span className="ml-1 text-amber-400 normal-case font-normal">(prints 1)</span>}
-                                        </label>
-                                        <QtyStepper value={row.qty} onChange={v => updateRow(row.id, "qty", v)} />
-                                    </div>
-                                </div>
-
-                                {row.barcodeValue.trim() && (
-                                    <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-3 flex-wrap">
-                                        <span className="text-[10px] text-gray-400 uppercase   font-semibold flex-shrink-0">Preview</span>
-                                        <PreviewLabel
-                                            value={row.barcodeValue.trim()}
-                                            productCode={row.productCode.trim()}
-                                            mrp={row.showMrp ? row.mrp : ""}
-                                            printType={printType}
-                                        />
-                                        <div className="text-xs text-gray-400">
-                                            × <strong className="text-gray-700">{printQty}</strong> label{printQty !== 1 ? "s" : ""}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-
-                <button type="button" onClick={addRow}
-                    className="w-full py-3 border-2 border-dashed border-erp-accent/20 hover:border-erp-accent/40 text-erp-accent/80 hover:text-erp-accent/90 text-xs font-semibold rounded-2xl transition flex items-center justify-center gap-2">
-                    <FiPlus size={14} /> Add Another Code
-                </button>
-            </div>
-
-            <ModalFooter>
-                <div className="flex items-center gap-2 text-xs text-gray-400 mr-auto">
-                    <span className="w-2 h-2 rounded-full bg-erp-accent/80 inline-block flex-shrink-0" />
-                    {validRows.length} code{validRows.length !== 1 ? "s" : ""} · {totalLabels} total label{totalLabels !== 1 ? "s" : ""}
-                </div>
-                <button type="button" onClick={onClose}
-                    className="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition">Cancel</button>
-                <button type="button" onClick={handlePrint} disabled={validRows.length === 0}
-                    className="flex items-center gap-2 px-5 py-2 bg-erp-accent hover:bg-erp-accent/90 text-white text-xs font-semibold rounded-xl transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
-                    <FiPrinter size={13} />
-                    Print {printType === "qr" ? "QR" : "Barcode"} Labels
-                </button>
-            </ModalFooter>
-        </Modal>
-    );
-}
 
 
 // ─── BulkUploadModal ──────────────────────────────────────────────────────────
@@ -2009,7 +2698,7 @@ function BulkUploadModal({ onClose }) {
         if (validationErrors.length > 0) return;
         setSubmitting(true);
         try {
-            const res = await api.post("/api/digi/product/bulk", { products: JSON.stringify(rows), suffix: activePrefix });
+            const res = await api.post("/product/bulk", { products: JSON.stringify(rows), suffix: activePrefix });
             setResult({ success: res.data.success, count: res.data.count, message: res.data.message, generatedCodes: res.data.generatedCodes || [], existingCodes: res.data.existingCodes || [], duplicateCodes: res.data.duplicateCodes || [] });
             setStep("result");
         } catch (err) {
@@ -2028,13 +2717,13 @@ function BulkUploadModal({ onClose }) {
 
                 {step === "upload" && (
                     <div className="space-y-5">
-                        <div className="flex items-center justify-between bg-erp-accent/5 border border-orange-100 rounded-2xl px-5 py-4 gap-4">
+                        <div className="flex items-center justify-between bg-[#2980b9]/10 border border-[#2980b9]/20 rounded-2xl px-5 py-4 gap-4">
                             <div>
                                 <p className="text-sm font-semibold text-gray-800">Step 1 — Download the template</p>
-                                <p className="text-xs text-gray-500 mt-0.5">Leave <span className="font-mono font-semibold text-erp-accent/90">productCode</span> blank to auto-generate.</p>
+                                <p className="text-xs text-gray-500 mt-0.5">Leave <span className="font-mono font-semibold text-[#2980b9]/90">productCode</span> blank to auto-generate.</p>
                             </div>
                             <button onClick={downloadTemplate}
-                                className="flex items-center gap-2 px-4 py-2 bg-white border border-erp-accent/30 text-erp-accent/90 text-xs font-semibold rounded-xl hover:bg-erp-accent/5 transition shadow-sm flex-shrink-0">
+                                className="flex items-center gap-2 px-4 py-2 bg-white border border-[#2980b9]/60 text-[#2980b9]/90 text-xs font-semibold rounded-xl hover:bg-[#2980b9]/10 transition shadow-sm flex-shrink-0">
                                 <FiDownload size={13} /> Download Template
                             </button>
                         </div>
@@ -2042,7 +2731,7 @@ function BulkUploadModal({ onClose }) {
                         <div className="bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4">
                             <p className="text-sm font-semibold text-gray-800 mb-1">Step 2 — Set auto-code prefix</p>
                             <p className="text-xs text-gray-500 mb-3">
-                                Blank productCode rows get a code like <span className="font-mono font-semibold text-erp-accent/90">1{activePrefix}, 2{activePrefix}…</span>
+                                Blank productCode rows get a code like <span className="font-mono font-semibold text-[#2980b9]/90">1{activePrefix}, 2{activePrefix}…</span>
                             </p>
                             <div className="flex items-center gap-3">
                                 <div className="relative w-44">
@@ -2050,7 +2739,7 @@ function BulkUploadModal({ onClose }) {
                                     <input type="text" value={prefix}
                                         onChange={e => setPrefix(e.target.value.toUpperCase().replace(/\s/g, "").slice(0, 6))}
                                         placeholder="DO" maxLength={6}
-                                        className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-erp-accent/30 focus:ring-2 focus:ring-erp-accent/10 bg-white text-gray-800 transition font-mono uppercase tracking-widest" />
+                                        className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-[#2980b9]/60 focus:ring-2 focus:ring-[#2980b9]/20 bg-white text-gray-800 transition font-mono uppercase tracking-widest" />
                                 </div>
                                 <span className="text-xs text-gray-400">Leave blank to default to <span className="font-mono font-semibold">DO</span></span>
                             </div>
@@ -2060,13 +2749,13 @@ function BulkUploadModal({ onClose }) {
                             <p className="text-sm font-semibold text-gray-800 mb-2">Step 3 — Upload filled Excel file</p>
                             <div ref={dropRef} onDrop={onDrop} onDragOver={e => e.preventDefault()}
                                 onClick={() => document.getElementById("bulk-file-input").click()}
-                                className="border-2 border-dashed border-erp-accent/20 hover:border-erp-accent/40 rounded-2xl p-10 flex flex-col items-center justify-center gap-3 cursor-pointer transition bg-gray-50 hover:bg-erp-accent/5">
-                                <div className="w-12 h-12 rounded-2xl bg-orange-100 flex items-center justify-center">
-                                    <FiUpload size={20} className="text-erp-accent" />
+                                className="border-2 border-dashed border-[#2980b9]/40 hover:border-[#2980b9] rounded-2xl p-10 flex flex-col items-center justify-center gap-3 cursor-pointer transition bg-gray-50 hover:bg-[#2980b9]/10">
+                                <div className="w-12 h-12 rounded-2xl bg-[#2980b9]/20 flex items-center justify-center">
+                                    <FiUpload size={20} className="text-[#2980b9]" />
                                 </div>
                                 {parsing ? (
                                     <div className="flex flex-col items-center gap-2">
-                                        <div className="w-5 h-5 border-2 border-erp-accent/30 border-t-transparent rounded-full animate-spin" />
+                                        <div className="w-5 h-5 border-2 border-[#2980b9]/60 border-t-transparent rounded-full animate-spin" />
                                         <span className="text-sm text-gray-500">Parsing file...</span>
                                     </div>
                                 ) : (
@@ -2092,9 +2781,9 @@ function BulkUploadModal({ onClose }) {
                                 <span className="text-xs font-semibold text-emerald-700">{rows.length} products parsed</span>
                             </div>
                             {autoCodeRows.length > 0 && (
-                                <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2">
-                                    <FiTag size={13} className="text-blue-400" />
-                                    <span className="text-xs font-semibold text-blue-600">
+                                <div className="flex items-center gap-2 bg-[#2980b9]/10 border border-[#2980b9]/20 rounded-xl px-4 py-2">
+                                    <FiTag size={13} className="text-[#2980b9]/80" />
+                                    <span className="text-xs font-semibold text-[#2980b9]/90">
                                         {autoCodeRows.length} auto-code <span className="font-mono">(1{activePrefix}, 2{activePrefix}…)</span>
                                     </span>
                                 </div>
@@ -2121,7 +2810,7 @@ function BulkUploadModal({ onClose }) {
                             <table className="w-full text-xs border-collapse">
                                 <thead>
                                     <tr>{["#", "Code", "Name", "Category", "Brand", "Price", "MRP", "Qty", "GST%", "Color", "Type"].map(h => (
-                                        <th key={h} className="px-3 py-2.5 bg-gray-100 text-gray-600 font-semibold text-center whitespace-nowrap uppercase   border-b border-gray-200">{h}</th>
+                                        <th key={h} className="px-3 py-2.5 bg-gray-100 text-gray-600 font-semibold text-center whitespace-nowrap uppercase tracking-wider border-b border-gray-200">{h}</th>
                                     ))}</tr>
                                 </thead>
                                 <tbody>
@@ -2129,7 +2818,7 @@ function BulkUploadModal({ onClose }) {
                                         <tr key={i} className={`border-b border-gray-50 ${i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`}>
                                             <td className="px-3 py-2 text-center text-gray-400">{i + 1}</td>
                                             <td className="px-3 py-2 font-mono font-semibold whitespace-nowrap">
-                                                {row.productCode ? <span className="text-gray-800">{row.productCode}</span> : <span className="text-blue-400 italic text-[10px]">auto-{activePrefix}</span>}
+                                                {row.productCode ? <span className="text-gray-800">{row.productCode}</span> : <span className="text-[#2980b9]/80 italic text-[10px]">auto-{activePrefix}</span>}
                                             </td>
                                             <td className="px-3 py-2 text-gray-700 max-w-[160px] truncate">{row.productName}</td>
                                             <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{row.category}</td>
@@ -2161,11 +2850,11 @@ function BulkUploadModal({ onClose }) {
                                     <p className="text-sm text-gray-500 mt-1"><span className="font-semibold text-emerald-600">{result.count}</span> products added.</p>
                                 </div>
                                 {result.generatedCodes?.length > 0 && (
-                                    <div className="w-full max-w-lg bg-blue-50 border border-blue-100 rounded-xl px-5 py-4">
-                                        <p className="text-xs font-bold text-blue-700 uppercase   mb-2.5">Auto-generated Codes</p>
+                                    <div className="w-full max-w-lg bg-[#2980b9]/10 border border-[#2980b9]/20 rounded-xl px-5 py-4">
+                                        <p className="text-xs font-bold text-[#2980b9]/90 uppercase tracking-wider mb-2.5">Auto-generated Codes</p>
                                         <div className="flex flex-wrap gap-2">
                                             {result.generatedCodes.map(({ index, productCode }) => (
-                                                <span key={productCode} className="text-xs font-mono bg-white border border-blue-200 text-blue-700 px-2.5 py-1 rounded-lg">
+                                                <span key={productCode} className="text-xs font-mono bg-white border border-[#2980b9]/40 text-[#2980b9]/90 px-2.5 py-1 rounded-lg">
                                                     Row {index} → <span className="font-bold">{productCode}</span>
                                                 </span>
                                             ))}
@@ -2182,8 +2871,8 @@ function BulkUploadModal({ onClose }) {
                                     <p className="text-lg font-bold text-gray-800">Upload Failed</p>
                                     <p className="text-sm text-gray-500 mt-1">{result.message}</p>
                                     {result.existingCodes?.length > 0 && (
-                                        <div className="mt-3 bg-erp-accent/5 border border-erp-accent/10 rounded-xl px-4 py-3 text-left">
-                                            <p className="text-xs font-bold text-amber-700 uppercase   mb-1.5">Already exist in inventory</p>
+                                        <div className="mt-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-left">
+                                            <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1.5">Already exist in inventory</p>
                                             <div className="flex flex-wrap gap-1.5">
                                                 {result.existingCodes.map(code => <span key={code} className="text-xs font-mono bg-amber-100 text-amber-800 px-2 py-0.5 rounded-lg">{code}</span>)}
                                             </div>
@@ -2191,7 +2880,7 @@ function BulkUploadModal({ onClose }) {
                                     )}
                                 </div>
                                 <button onClick={() => { setStep("preview"); setResult(null); }}
-                                    className="px-5 py-2 bg-erp-accent hover:bg-erp-accent/90 text-white text-xs font-semibold rounded-xl transition">← Back to Preview</button>
+                                    className="px-5 py-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white text-xs font-semibold rounded-xl transition">← Back to Preview</button>
                             </>
                         )}
                     </div>
@@ -2205,7 +2894,7 @@ function BulkUploadModal({ onClose }) {
                 </button>
                 {step === "preview" && validationErrors.length === 0 && (
                     <button onClick={handleSubmit} disabled={submitting}
-                        className="flex items-center gap-2 px-5 py-2 bg-erp-accent hover:bg-erp-accent/90 text-white text-xs font-semibold rounded-xl transition shadow-sm disabled:opacity-60">
+                        className="flex items-center gap-2 px-5 py-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white text-xs font-semibold rounded-xl transition shadow-sm disabled:opacity-60">
                         {submitting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                         {submitting ? "Uploading..." : `Upload ${rows.length} Products`}
                     </button>
@@ -2214,9 +2903,3 @@ function BulkUploadModal({ onClose }) {
         </Modal>
     );
 }
-
-
-
-
-
-

@@ -70,7 +70,11 @@ const Login = () => {
 
     return (
         <Box sx={{ minHeight: '100vh', display: 'flex', backgroundImage: "radial-gradient(circle, #e8e4dc 1px, transparent 1px)", backgroundSize: " 28px 28px" }}>
-            <Container maxWidth="lg" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4 }}>
+            <Box sx={{ mb: 6, textAlign: 'center' }}>
+                <img src={logo} className='ml-auto' alt="Logo" style={{ height: '170px', marginBottom: '4px', position: 'fixed', top: '20px', right: '20px' }} />
+
+            </Box>
+            <Container maxWidth="lg" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 4 }}>
                 <Paper
                     elevation={0}
                     sx={{
@@ -198,7 +202,11 @@ const Login = () => {
                         </Stack>
                     </Box>
                 </Paper>
+                <Typography variant="h6" sx={{ mt: 1, color: '#666', fontWeight: 400, fontSize: '1.2rem', zIndex: 1 }}>
+                    India's <Box component="span" sx={{ color: '#3498db', fontWeight: 600 }}>Premier Ai - Enabled</Box> Optical Software
+                </Typography>
             </Container>
+
         </Box>
     );
 };

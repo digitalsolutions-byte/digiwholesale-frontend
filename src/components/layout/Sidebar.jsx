@@ -108,8 +108,8 @@ const navItems = [
     // { label: 'Work 1', icon: 'lucide:droplets', path: PATHS.OPERATIONS.TINT },
     // { label: 'Work 2', icon: 'lucide:shield', path: PATHS.OPERATIONS.HARD_COAT },
     // { label: 'Work 3', icon: 'lucide:layers-3', path: PATHS.OPERATIONS.ARC },
-    { label: 'Quality', icon: 'lucide:badge-check', path: PATHS.OPERATIONS.QC },
-    { label: 'Fitting', icon: 'lucide:ruler', path: PATHS.OPERATIONS.FITTING },
+    // { label: 'Quality', icon: 'lucide:badge-check', path: PATHS.OPERATIONS.QC },
+    // { label: 'Fitting', icon: 'lucide:ruler', path: PATHS.OPERATIONS.FITTING },
     { label: 'Shipping', icon: 'lucide:truck', path: PATHS.OPERATIONS.DISPATCH },
     { label: 'Inventory', icon: 'lucide:package-search', path: PATHS.INVENTORY },
 ];

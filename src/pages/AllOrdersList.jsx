@@ -43,7 +43,7 @@ const datePickerStyles = {
     }
 };
 
-const AllOrdersList = () => {
+const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
     const navigate = useNavigate();
     const currentUser = useSelector(selectCurrentUser);
     const [orders, setOrders] = useState([]);
@@ -92,7 +92,7 @@ const AllOrdersList = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filters, setFilters] = useState({
         search: '',
-        status: '',
+        status: defaultStatus,
         customerId: '',
         orderType: '',
         fromDate: '',
@@ -167,7 +167,7 @@ const AllOrdersList = () => {
         setSearchTerm('');
         setFilters({
             search: '',
-            status: '',
+            status: defaultStatus,
             customerId: '',
             orderType: '',
             fromDate: '',
@@ -265,24 +265,26 @@ const AllOrdersList = () => {
                         </div>
                     </div>
 
-                    <div className="flex flex-col gap-1.5 w-full lg:w-auto lg:min-w-[180px]">
-                        <span className="text-[10px] md:text-[11px] font-black text-gray-400 uppercase tracking-[0.15em] ml-2 md:ml-5">Status</span>
-                        <div className="relative">
-                            <Icon icon="mdi:checkbox-blank-circle-outline" className="fixed-icon absolute left-6 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
-                            <select
-                                className="w-full pl-14 pr-10 py-2.5 rounded-full bg-gray-50/80 border border-gray-100/50 text-[11px] font-black uppercase tracking-widest text-gray-700 appearance-none focus:bg-white focus:ring-4 focus:ring-amber-50 transition-all outline-none"
-                                value={filters.status}
-                                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                            >
-                                <option value="">All Statuses</option>
-                                <option value="PENDING">Pending</option>
-                                <option value="CONFIRMED">Confirmed</option>
-                                <option value="PROCESSING">Processing</option>
-                                <option value="COMPLETED">Completed</option>
-                                <option value="CANCELLED">Cancelled</option>
-                            </select>
+                    {!isPendingOnly && (
+                        <div className="flex flex-col gap-1.5 w-full lg:w-auto lg:min-w-[180px]">
+                            <span className="text-[10px] md:text-[11px] font-black text-gray-400 uppercase tracking-[0.15em] ml-2 md:ml-5">Status</span>
+                            <div className="relative">
+                                <Icon icon="mdi:checkbox-blank-circle-outline" className="fixed-icon absolute left-6 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
+                                <select
+                                    className="w-full pl-14 pr-10 py-2.5 rounded-full bg-gray-50/80 border border-gray-100/50 text-[11px] font-black uppercase tracking-widest text-gray-700 appearance-none focus:bg-white focus:ring-4 focus:ring-amber-50 transition-all outline-none"
+                                    value={filters.status}
+                                    onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                                >
+                                    <option value="">All Statuses</option>
+                                    <option value="PENDING">Pending</option>
+                                    <option value="CONFIRMED">Confirmed</option>
+                                    <option value="PROCESSING">Processing</option>
+                                    <option value="COMPLETED">Completed</option>
+                                    <option value="CANCELLED">Cancelled</option>
+                                </select>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     <div className="flex flex-col gap-1.5 w-full lg:w-auto lg:min-w-[250px]">
                         <span className="text-[10px] md:text-[11px] font-black text-gray-400 uppercase tracking-[0.15em] ml-2 md:ml-5">Customer</span>

@@ -82,7 +82,7 @@ const CUSTOMER_MODULE = [
 const CUSTOMER_CARE_MODULE = [
     { path: PATHS.CUSTOMER_CARE.NEW_ORDER, element: OrderWizard },
     { path: PATHS.CUSTOMER_CARE.ALL_ORDERS, element: AllOrdersList },
-    { path: PATHS.CUSTOMER_CARE.PENDING_ORDERS, element: PlaceholderPage, props: { title: 'Pending Orders' } },
+    { path: PATHS.CUSTOMER_CARE.PENDING_ORDERS, element: AllOrdersList, props: { isPendingOnly: true, defaultStatus: 'PENDING' } },
     { path: PATHS.CUSTOMER_CARE.ORDER_STATUS, element: PlaceholderPage, props: { title: 'Order Status' } },
     { path: PATHS.CUSTOMER_CARE.SERVICE_GOODS, element: OtherSales },
     { path: PATHS.CUSTOMER_CARE.VIEW_ORDERS, element: PlaceholderPage, props: { title: 'View Orders' } },
