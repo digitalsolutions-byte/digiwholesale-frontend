@@ -1,11 +1,11 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectIsAuthenticated, selectCurrentUser } from './store/slices/authSlice';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
 
-import { PATHS, routesConfig } from './routes/config';
+import { PATHS, routesConfig, getFirstAllowedRoute } from './routes/config';
 import ProtectedRoute from './components/ProtectedRoute';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -32,32 +32,39 @@ const ThemeVariableSync = ({ children }) => {
 };
 
 // ── Unauthorized page ─────────────────────────────────────────────────────────
-const UnauthorizedPage = () => (
-    <div className="flex flex-col items-center justify-center min-h-screen gap-6 p-8 bg-gray-50 animate-in fade-in duration-500">
-        <div className="p-6 bg-red-50 rounded-full">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-16 h-16 text-red-400" fill="none"
-                viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round"
-                    d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874
-                    1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-            </svg>
+const UnauthorizedPage = () => {
+    const user = useSelector(selectCurrentUser);
+    const targetRoute = getFirstAllowedRoute(user);
+    const isDashboard = targetRoute === PATHS.ROOT;
+    const label = isDashboard ? "Go to Dashboard" : "Go to Allowed Page";
+
+    return (
+        <div className="flex flex-col items-center justify-center min-h-screen gap-6 p-8 bg-gray-50 animate-in fade-in duration-500">
+            <div className="p-6 bg-red-50 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-16 h-16 text-red-400" fill="none"
+                    viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                        d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874
+                        1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                </svg>
+            </div>
+            <div className="text-center space-y-3 max-w-md">
+                <h1 className="text-3xl font-black uppercase tracking-tighter text-gray-800">Access Denied</h1>
+                <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">
+                    You don't have permission to view this page.
+                </p>
+                <p className="text-xs text-gray-300 font-medium">
+                    Contact your administrator if you believe this is an error.
+                </p>
+            </div>
+            <Link to={targetRoute}
+                className="px-8 py-3 rounded-full bg-erp-accent text-white text-xs font-black uppercase tracking-widest
+                           hover:bg-erp-accent/90 transition-all shadow-md">
+                {label}
+            </Link>
         </div>
-        <div className="text-center space-y-3 max-w-md">
-            <h1 className="text-3xl font-black uppercase tracking-tighter text-gray-800">Access Denied</h1>
-            <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">
-                You don't have permission to view this page.
-            </p>
-            <p className="text-xs text-gray-300 font-medium">
-                Contact your administrator if you believe this is an error.
-            </p>
-        </div>
-        <a href={PATHS.ROOT}
-            className="px-8 py-3 rounded-full bg-erp-accent text-white text-xs font-black uppercase tracking-widest
-                       hover:bg-erp-accent/90 transition-all shadow-md">
-            Go to Dashboard
-        </a>
-    </div>
-);
+    );
+};
 
 // ── Route renderer ────────────────────────────────────────────────────────────
 function App() {

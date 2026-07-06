@@ -197,7 +197,9 @@ function ProductKeywordInput({ value, onChange }) {
 export default function Inventory() {
     const dispatch = useDispatch();
     const [showAddProductModal, setShowAddProductModal] = useState(false);
+    const [showLensRangeModal, setShowLensRangeModal] = useState(false);
     const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
+    const [vendors, setVendors] = useState([]);
     const settings = useSelector((state) => state.settings.data);
 
     useEffect(() => {
@@ -208,6 +210,14 @@ export default function Inventory() {
     const [toDate, setToDate] = useState("");
     const [keyword, setKeyword] = useState("");
     const [triggerSearch, setTriggerSearch] = useState(false);
+
+    const fetchAllVendors = async () => {
+        try {
+            const res = await api.get("/api/vendor");
+            if (res.data.success) setVendors(res.data.vendors);
+        } catch (err) { console.error(err); }
+    };
+    useEffect(() => { fetchAllVendors(); }, []);
 
     const handleRefresh = () => {
         Swal.fire({
@@ -288,15 +298,20 @@ export default function Inventory() {
                             className="flex items-center gap-1.5 px-4 py-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white text-xs font-semibold rounded-xl transition shadow-sm">
                             <FiPlus size={13} /> Add Product
                         </button>
-                        <button onClick={() => setShowBulkUploadModal(true)}
+                        {/* <button onClick={() => setShowBulkUploadModal(true)}
                             className="flex items-center gap-1.5 px-4 py-2 bg-white border border-[#2980b9]/40 hover:bg-[#2980b9]/10 text-[#2980b9]/90 text-xs font-semibold rounded-xl transition shadow-sm">
                             <FiUpload size={13} /> Bulk Upload
-                        </button>
+                        </button> */}
                         <button onClick={handleRefresh}
                             className="flex items-center gap-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white px-4 py-2 text-xs font-semibold rounded-lg transition shadow-sm w-fit">
                             <FiRefreshCw size={13} /> Refresh
                         </button>
+                        {/* <button onClick={() => setShowLensRangeModal(true)}
+                            className="flex items-center gap-1.5 px-4 py-2 bg-white border border-blue-300 hover:bg-blue-50 text-blue-600 text-xs font-semibold rounded-xl transition shadow-sm">
+                            <FiPlus size={13} /> Lens Range
+                        </button> */}
                     </div>
+
 
                     <div className="flex flex-col sm:flex-row items-end gap-3 w-full lg:w-auto">
                         <div className="flex gap-3 w-full sm:w-auto">
@@ -451,10 +466,869 @@ export default function Inventory() {
             {showBulkUploadModal && (
                 <BulkUploadModal onClose={() => setShowBulkUploadModal(false)} />
             )}
+
+            {showLensRangeModal && (
+                <LensRangeModal
+                    settings={settings}
+                    vendors={vendors}
+                    onClose={() => setShowLensRangeModal(false)}
+                />
+            )}
         </div>
     );
 }
 
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  LensRangeModal — generate multiple lens products from SPH × CYL × Addition ranges
+// ─────────────────────────────────────────────────────────────────────────────
+
+
+
+
+const RangeCell = ({ row, field, placeholder, onRangeChange, onRangeBlur }) => {
+    const hasErr = !!row.errors[field];
+    return (
+        <div className="flex flex-col gap-0.5">
+            <input
+                type="number"
+                step={
+                    field.startsWith("sph") ? (row.sphStep || "0.25")
+                        : field.startsWith("cyl") ? (row.cylStep || "0.25")
+                            : (row.addStep || "0.25")
+                }
+                placeholder={placeholder}
+                value={row[field]}
+                onChange={e => onRangeChange(row.id, field, e.target.value)}
+                onBlur={e => onRangeBlur(row.id, field, e.target.value)}
+                className={`w-full px-2 py-1.5 text-xs border rounded-lg outline-none transition bg-gray-50 text-gray-700
+                    ${hasErr
+                        ? "border-red-400 focus:ring-red-100 focus:border-red-400"
+                        : "border-gray-300 focus:border-orange-300 focus:ring-2 focus:ring-orange-100 hover:border-gray-400"}`}
+            />
+            {hasErr && (
+                <span className="text-[9px] text-red-500 leading-tight">{row.errors[field]}</span>
+            )}
+        </div>
+    );
+};
+
+const StepCell = ({ row, field, label, onRangeChange }) => {
+    const hasErr = !!row.errors[field];
+    return (
+        <div className="flex flex-col gap-0.5">
+            <label className="text-[8px] font-bold text-gray-400 uppercase tracking-widest text-center">
+                {label}
+            </label>
+            <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                placeholder="0.25"
+                value={row[field]}
+                onChange={e => onRangeChange(row.id, field, e.target.value)}
+                className={`w-full px-2 py-1.5 text-xs border rounded-lg outline-none transition text-center font-mono
+                    ${hasErr
+                        ? "border-red-400 bg-red-50 text-red-700 focus:ring-red-100"
+                        : "border-violet-200 bg-violet-50 text-violet-700 focus:border-violet-400 focus:ring-2 focus:ring-violet-100 hover:border-violet-300"}`}
+            />
+            {hasErr && (
+                <span className="text-[9px] text-red-500 leading-tight text-center">{row.errors[field]}</span>
+            )}
+        </div>
+    );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+const makeEmptyRangeRow = () => ({
+    id: crypto.randomUUID(),
+    sphFrom: "", sphTo: "",
+    cylFrom: "", cylTo: "",
+    additionFrom: "", additionTo: "",
+    sphStep: "0.25", cylStep: "0.25", addStep: "0.25",
+    errors: {},
+});
+
+export function LensRangeModal({ settings, vendors, onClose }) {
+    const DEFAULT_STEP = 0.25;
+    const round2 = (n) => Math.round(n * 100) / 100;
+
+    const isValidStep = (val, step = DEFAULT_STEP) => {
+        if (val === "" || isNaN(parseFloat(val))) return true;
+        const s = parseFloat(step) || DEFAULT_STEP;
+        return Math.abs(Math.round(parseFloat(val) / s) * s - parseFloat(val)) < 0.0001;
+    };
+
+    const isPositiveStep = (val) => {
+        const n = parseFloat(val);
+        return !isNaN(n) && n > 0;
+    };
+
+    const isLensCat = (cat) => /lens|glass|contact/i.test(cat || "");
+    const lensCategories = (settings?.allCategories || []).filter(isLensCat);
+    const brandList = settings?.brands?.length ? settings.brands : [];
+
+    // ── Product / pricing form ──
+    const [form, setForm] = useState({
+        productName: "", category: "", brand: "",
+        coating: "", material: "", index: "",
+        price: "", mrp: "", gst: "12", hsnSac: "9001",
+        qty: "", discount: "0",
+        vendorNumber: "", vendorName: "",
+        prefix: "DO",
+    });
+    const [categoryError, setCategoryError] = useState("");
+
+    // ── Multiple range rows ──
+    const [rangeRows, setRangeRows] = useState([makeEmptyRangeRow()]);
+
+    // ── Preview state ──
+    const [previewRows, setPreviewRows] = useState([]);
+    const [showPreview, setShowPreview] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [previewSearch, setPreviewSearch] = useState("");
+
+    // ── Form handlers ──
+    const handleFormChange = (e) => {
+        const { name, value } = e.target;
+        setForm(prev => {
+            const next = { ...prev, [name]: value };
+            if (name === "category") {
+                if (value && !isLensCat(value)) {
+                    setCategoryError("Only Lens, Glass, or Contact Lens categories are allowed here.");
+                } else {
+                    setCategoryError("");
+                }
+            }
+            return next;
+        });
+        setShowPreview(false);
+    };
+
+    // ── Range row handlers ──
+    const handleRangeRowChange = (rowId, field, value) => {
+        setRangeRows(prev => prev.map(row => {
+            if (row.id !== rowId) return row;
+            const errors = { ...row.errors };
+
+            if (field === "sphStep" || field === "cylStep" || field === "addStep") {
+                if (value !== "" && !isPositiveStep(value)) {
+                    errors[field] = "Step must be > 0";
+                } else {
+                    delete errors[field];
+                }
+                return { ...row, [field]: value, errors };
+            }
+
+            const stepField = field.startsWith("sph") ? "sphStep"
+                : field.startsWith("cyl") ? "cylStep"
+                    : "addStep";
+            const step = parseFloat(row[stepField]) || DEFAULT_STEP;
+
+            if (value !== "" && !isNaN(parseFloat(value))) {
+                if (!isValidStep(value, step)) {
+                    const nearest = (Math.round(parseFloat(value) / step) * step).toFixed(2);
+                    errors[field] = `Must be a multiple of ${step} (nearest: ${nearest})`;
+                } else {
+                    delete errors[field];
+                }
+            } else {
+                delete errors[field];
+            }
+            return { ...row, [field]: value, errors };
+        }));
+        setShowPreview(false);
+    };
+
+    const handleRangeRowBlur = (rowId, field, value) => {
+        const row = rangeRows.find(r => r.id === rowId);
+        if (!row) return;
+        const stepField = field.startsWith("sph") ? "sphStep"
+            : field.startsWith("cyl") ? "cylStep"
+                : "addStep";
+        const step = parseFloat(row[stepField]) || DEFAULT_STEP;
+        if (value !== "" && !isNaN(parseFloat(value)) && !isValidStep(value, step)) {
+            const nearest = (Math.round(parseFloat(value) / step) * step).toFixed(2);
+            toast.error(`${field.replace(/([A-Z])/g, ' $1').toUpperCase()}: Must be multiple of ${step} (nearest: ${nearest})`);
+        }
+    };
+
+    const addRangeRow = () => setRangeRows(prev => [...prev, makeEmptyRangeRow()]);
+
+    const removeRangeRow = (rowId) => {
+        if (rangeRows.length === 1) return;
+        setRangeRows(prev => prev.filter(r => r.id !== rowId));
+        setShowPreview(false);
+    };
+
+    // ── Per-row combination generator ──
+    const generateRowCombinations = (row) => {
+        const sphFrom = parseFloat(row.sphFrom);
+        const sphTo = parseFloat(row.sphTo);
+        const cylFrom = parseFloat(row.cylFrom);
+        const cylTo = parseFloat(row.cylTo);
+        const addFrom = row.additionFrom !== "" ? parseFloat(row.additionFrom) : null;
+        const addTo = row.additionTo !== "" ? parseFloat(row.additionTo) : null;
+
+        const sphStep = parseFloat(row.sphStep) || DEFAULT_STEP;
+        const cylStep = parseFloat(row.cylStep) || DEFAULT_STEP;
+        const addStep = parseFloat(row.addStep) || DEFAULT_STEP;
+
+        if ([sphFrom, sphTo, cylFrom, cylTo].some(isNaN)) return null;
+        if (!isPositiveStep(sphStep) || !isPositiveStep(cylStep) || !isPositiveStep(addStep)) return null;
+
+        if (!isValidStep(sphFrom, sphStep) || !isValidStep(sphTo, sphStep)) return null;
+        if (!isValidStep(cylFrom, cylStep) || !isValidStep(cylTo, cylStep)) return null;
+
+        const sFrom = Math.min(sphFrom, sphTo);
+        const sTo = Math.max(sphFrom, sphTo);
+        const cFrom = Math.min(cylFrom, cylTo);
+        const cTo = Math.max(cylFrom, cylTo);
+
+        let addSteps = [""];
+        if (addFrom !== null && addTo !== null) {
+            if (isNaN(addFrom) || isNaN(addTo)) return null;
+            if (!isValidStep(addFrom, addStep) || !isValidStep(addTo, addStep)) return null;
+            const aFrom = Math.min(addFrom, addTo);
+            const aTo = Math.max(addFrom, addTo);
+            addSteps = [];
+            for (let a = aFrom; a <= aTo + 0.0001; a = round2(a + addStep)) {
+                addSteps.push(round2(a).toFixed(2));
+            }
+        } else if (addFrom !== null) {
+            if (!isNaN(addFrom) && isValidStep(addFrom, addStep))
+                addSteps = [round2(addFrom).toFixed(2)];
+        } else if (addTo !== null) {
+            if (!isNaN(addTo) && isValidStep(addTo, addStep))
+                addSteps = [round2(addTo).toFixed(2)];
+        }
+
+        const combos = [];
+        for (let sph = sFrom; sph <= sTo + 0.0001; sph = round2(sph + sphStep)) {
+            for (let cyl = cFrom; cyl <= cTo + 0.0001; cyl = round2(cyl + cylStep)) {
+                for (const add of addSteps) {
+                    combos.push({
+                        sph: round2(sph).toFixed(2),
+                        cyl: round2(cyl).toFixed(2),
+                        addition: add,
+                    });
+                }
+            }
+        }
+        return combos;
+    };
+
+    // ── Live total count ──
+    const totalComboCount = useMemo(() => {
+        let total = 0;
+        for (const row of rangeRows) {
+            if (Object.keys(row.errors).length > 0) return -1;
+            const combos = generateRowCombinations(row);
+            if (combos === null) continue;
+            total += combos.length;
+        }
+        return total;
+    }, [rangeRows]);
+
+    const hasAnyRangeErrors = rangeRows.some(r => Object.keys(r.errors).length > 0);
+
+    // ── Preview builder ──
+    const handlePreview = () => {
+        if (!form.productName || !form.category || !form.brand)
+            return toast.error("Please fill Product Name, Category, and Brand first.");
+        if (categoryError) return toast.error(categoryError);
+        if (hasAnyRangeErrors) return toast.error("Fix the range step errors first.");
+
+        const allCombos = [];
+        for (let ri = 0; ri < rangeRows.length; ri++) {
+            const row = rangeRows[ri];
+            if (!row.sphFrom && !row.sphTo && !row.cylFrom && !row.cylTo) continue;
+            const combos = generateRowCombinations(row);
+            if (!combos || combos.length === 0)
+                return toast.error(`Row ${ri + 1}: Check SPH/CYL range — values must be valid multiples of their steps.`);
+            combos.forEach(c => allCombos.push({
+                ...c, rowIndex: ri,
+                price: form.price, mrp: form.mrp, qty: form.qty
+            }));
+        }
+        if (allCombos.length === 0) return toast.error("No combinations generated. Fill at least one range row.");
+        setPreviewRows(allCombos);
+        setPreviewSearch("");
+        setShowPreview(true);
+    };
+
+    const handlePreviewEdit = (idx, field, value) => {
+        setPreviewRows(prev => {
+            const copy = [...prev];
+            copy[idx] = { ...copy[idx], [field]: value };
+            return copy;
+        });
+    };
+
+    const handlePreviewDeleteRow = (idx) => {
+        setPreviewRows(prev => prev.filter((_, i) => i !== idx));
+    };
+
+    const filteredPreviewRows = useMemo(() => {
+        if (!previewSearch.trim()) return previewRows.map((r, i) => ({ ...r, _origIdx: i }));
+        const q = previewSearch.trim().toLowerCase();
+        return previewRows
+            .map((r, i) => ({ ...r, _origIdx: i }))
+            .filter(r => {
+                const label = `${form.productName} sph${r.sph} cyl${r.cyl} ${r.addition ? `add${r.addition}` : ""}`.toLowerCase();
+                return label.includes(q) || r.sph.includes(q) || r.cyl.includes(q) || (r.addition || "").includes(q);
+            });
+    }, [previewRows, previewSearch, form.productName]);
+
+    // ── Submit ──
+    const handleSubmit = async () => {
+        if (!form.productName || !form.category || !form.brand)
+            return toast.error("Fill Product Name, Category, and Brand.");
+        if (categoryError) return toast.error(categoryError);
+        if (!isLensCat(form.category)) return toast.error("Only Lens / Glass / Contact Lens categories are allowed.");
+        if (hasAnyRangeErrors) return toast.error("Fix range errors first.");
+        if (!showPreview || previewRows.length === 0) return toast.error("Click Preview first.");
+
+        for (let i = 0; i < previewRows.length; i++) {
+            const r = previewRows[i];
+            if (!r.price || Number(r.price) <= 0) return toast.error(`Row ${i + 1}: Price must be > 0`);
+            if (!r.mrp || Number(r.mrp) <= 0) return toast.error(`Row ${i + 1}: MRP must be > 0`);
+            if (!r.qty || Number(r.qty) <= 0) return toast.error(`Row ${i + 1}: Qty must be > 0`);
+        }
+
+        const products = previewRows.map(({ sph, cyl, addition, price, mrp, qty }, i) => ({
+            productCode: `${i + 1}${form.prefix.trim().toUpperCase() || "DO"}`,
+            productName: form.productName.trim().toUpperCase(),
+            category: form.category.trim().toUpperCase(),
+            brand: form.brand,
+            coating: form.coating,
+            material: form.material,
+            addition: addition || "",
+            index: form.index,
+            sph,
+            cyl,
+            price: Number(price),
+            mrp: Number(mrp),
+            gst: Number(form.gst),
+            hsnSac: form.hsnSac,
+            qty: Number(qty),
+            discount: Number(form.discount) || 0,
+            vendorNumber: form.vendorNumber,
+            vendorName: form.vendorName,
+        }));
+
+        setSubmitting(true);
+        try {
+            const res = await api.post("/api/digi/product/bulk", {
+                products: JSON.stringify(products),
+                suffix: form.prefix.trim().toUpperCase() || "DO",
+            });
+            if (res.data.success) {
+                toast.success(`${res.data.count} lens products created successfully.`);
+                onClose();
+            } else {
+                toast.error(res.data.message || "Upload failed.");
+            }
+        } catch (err) {
+            toast.error(err.response?.data?.message || "Something went wrong.");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // ── Shared input class helpers ──
+    const inputCls = "w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none transition bg-gray-50 text-gray-700 focus:border-orange-300 focus:ring-2 focus:ring-orange-100 hover:border-gray-300";
+    const selectCls = "w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none transition bg-gray-50 text-gray-700 focus:border-orange-300 focus:ring-2 focus:ring-orange-100 hover:border-gray-300";
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl flex flex-col max-h-[90vh]">
+
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                    <div>
+                        <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                            <FiPlus className="text-orange-500" size={18} />
+                            Lens Range Generator
+                        </h2>
+                        <p className="text-[11px] text-gray-400 mt-0.5">
+                            Auto-create lens products across SPH × CYL × Addition ranges
+                        </p>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="w-8 h-8 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+                    >
+                        <FiX size={16} />
+                    </button>
+                </div>
+
+                {/* Body */}
+                <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
+
+                    {/* ── Product Info ── */}
+                    <div>
+                        <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-3">
+                            Product Info
+                        </h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                            <div>
+                                <label className="text-[10px] font-semibold text-gray-700 uppercase tracking-wider block mb-1">
+                                    Product Name *
+                                </label>
+                                <input
+                                    name="productName" type="text" className={inputCls}
+                                    placeholder="e.g. CR39 Single Vision"
+                                    value={form.productName} onChange={handleFormChange}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-semibold text-gray-700 uppercase tracking-wider block mb-1">
+                                    Category *
+                                </label>
+                                <select
+                                    name="category"
+                                    className={`${selectCls} ${categoryError ? "border-red-400" : ""}`}
+                                    value={form.category} onChange={handleFormChange}
+                                >
+                                    <option value="">Select</option>
+                                    {lensCategories.length > 0
+                                        ? lensCategories.map((cat, i) => (
+                                            <option key={i} value={cat}>{cat}</option>
+                                        ))
+                                        : (settings?.allCategories || []).map((cat, i) => (
+                                            <option key={i} value={cat} disabled={!isLensCat(cat)}
+                                                style={!isLensCat(cat) ? { color: "#9ca3af" } : {}}>
+                                                {cat}{!isLensCat(cat) ? " (not allowed)" : ""}
+                                            </option>
+                                        ))
+                                    }
+                                </select>
+                                {categoryError && (
+                                    <p className="text-[10px] text-red-500 mt-1">{categoryError}</p>
+                                )}
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-semibold text-gray-700 uppercase tracking-wider block mb-1">
+                                    Brand *
+                                </label>
+                                <input name="brand" type="text" className={inputCls} placeholder="e.g. Zeiss"
+                                    value={form.brand} onChange={handleFormChange} />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-semibold text-gray-700 uppercase tracking-wider block mb-1">
+                                    Index
+                                </label>
+                                <input name="index" type="text" className={inputCls} placeholder="e.g. 1.56"
+                                    value={form.index} onChange={handleFormChange} />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-semibold text-gray-700 uppercase tracking-wider block mb-1">
+                                    Coating
+                                </label>
+                                <input name="coating" type="text" className={inputCls} placeholder="e.g. AR Coating"
+                                    value={form.coating} onChange={handleFormChange} />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-semibold text-gray-700 uppercase tracking-wider block mb-1">
+                                    Material
+                                </label>
+                                <input name="material" type="text" className={inputCls} placeholder="e.g. CR39"
+                                    value={form.material} onChange={handleFormChange} />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-semibold text-gray-700 uppercase tracking-wider block mb-1">
+                                    Vendor
+                                </label>
+                                <select
+                                    name="vendorNumber" className={selectCls} value={form.vendorNumber}
+                                    onChange={e => {
+                                        const vendorName = e.target.options[e.target.selectedIndex].text;
+                                        setForm(prev => ({ ...prev, vendorNumber: e.target.value, vendorName }));
+                                        setShowPreview(false);
+                                    }}
+                                >
+                                    <option value="">Select</option>
+                                    {vendors?.map(v => (
+                                        <option key={v.vendorNumber} value={v.vendorNumber}>{v.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── Pricing ── */}
+                    <div>
+                        <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-3">
+                            Default Pricing
+                            <span className="normal-case font-normal text-gray-400 ml-1">(editable per row in preview)</span>
+                        </h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                            {[
+                                { label: "Price *", name: "price", type: "number", placeholder: "0" },
+                                { label: "MRP *", name: "mrp", type: "number", placeholder: "0" },
+                                { label: "HSN/SAC", name: "hsnSac", type: "text", placeholder: "9001" },
+                                { label: "Discount (₹)", name: "discount", type: "number", placeholder: "0" },
+                                { label: "Qty per product *", name: "qty", type: "number", placeholder: "0" },
+                            ].map(f => (
+                                <div key={f.name}>
+                                    <label className="text-[10px] font-semibold text-gray-700 uppercase tracking-wider block mb-1">
+                                        {f.label}
+                                    </label>
+                                    <input name={f.name} type={f.type} className={inputCls}
+                                        placeholder={f.placeholder} value={form[f.name]} onChange={handleFormChange} />
+                                </div>
+                            ))}
+                            <div>
+                                <label className="text-[10px] font-semibold text-gray-700 uppercase tracking-wider block mb-1">
+                                    GST %
+                                </label>
+                                <select name="gst" className={selectCls} value={form.gst} onChange={handleFormChange}>
+                                    {(settings?.gst || [5, 12, 18]).map((p, i) => (
+                                        <option key={i} value={p}>{p}%</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── SPH × CYL × Addition Range Rows ── */}
+                    <div className="space-y-5">
+                        {/* Header */}
+                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                            <div>
+                                <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                                    SPH × CYL × Addition Ranges
+                                </h3>
+                                <p className="text-xs text-gray-400 mt-1">
+                                    Configure lens power ranges with custom step values.
+                                </p>
+                            </div>
+                            {totalComboCount > 0 && (
+                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm">
+                                    <span className="text-[10px] uppercase tracking-wider opacity-80">Products</span>
+                                    <span className="text-sm font-bold leading-none">{totalComboCount}</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Info Box */}
+                        <div className="flex gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-4">
+                            <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm flex-shrink-0">
+                                i
+                            </div>
+                            <div className="text-xs text-blue-800 leading-relaxed">
+                                <strong>Tip:</strong> All From/To values must follow their step values.
+                                Addition range is optional.
+                            </div>
+                        </div>
+
+                        {/* Rows */}
+                        <div className="space-y-4">
+                            {rangeRows.map((row, ri) => {
+                                const rowCombos = (() => {
+                                    if (Object.keys(row.errors).length > 0) return null;
+                                    if (!row.sphFrom && !row.sphTo && !row.cylFrom && !row.cylTo) return null;
+                                    return generateRowCombinations(row);
+                                })();
+
+                                return (
+                                    <div
+                                        key={row.id}
+                                        className="relative border border-gray-200 bg-white rounded-3xl shadow-sm hover:shadow-md transition-all overflow-hidden"
+                                    >
+                                        {/* Top bar */}
+                                        <div className="flex items-center justify-between px-5 py-3 border-b bg-gray-50">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-2xl bg-orange-100 text-orange-600 text-sm font-bold flex items-center justify-center">
+                                                    {ri + 1}
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-sm font-semibold text-gray-800">
+                                                        Range Configuration
+                                                    </h3>
+                                                    {rowCombos !== null && rowCombos.length > 0 && (
+                                                        <p className="text-[11px] text-blue-600 font-medium">
+                                                            {rowCombos.length} combinations generated
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => removeRangeRow(row.id)}
+                                                disabled={rangeRows.length === 1}
+                                                className="w-8 h-8 rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition disabled:opacity-30"
+                                            >
+                                                <FiX size={14} />
+                                            </button>
+                                        </div>
+
+                                        {/* Content */}
+                                        <div className="p-5 space-y-5">
+
+                                            {/* Power Ranges */}
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <div className="w-1.5 h-5 rounded-full bg-orange-400" />
+                                                    <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                                                        Power Ranges
+                                                    </h4>
+                                                </div>
+                                                <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+                                                    {[
+                                                        { field: "sphFrom", placeholder: "-6.00", label: "SPH From" },
+                                                        { field: "sphTo", placeholder: "+2.00", label: "SPH To" },
+                                                        { field: "cylFrom", placeholder: "-4.00", label: "CYL From" },
+                                                        { field: "cylTo", placeholder: "0.00", label: "CYL To" },
+                                                        { field: "additionFrom", placeholder: "+0.75", label: "Add From" },
+                                                        { field: "additionTo", placeholder: "+3.00", label: "Add To" },
+                                                    ].map(({ field, placeholder, label }) => (
+                                                        <div key={field}>
+                                                            <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">
+                                                                {label}
+                                                            </label>
+                                                            {/* ✅ RangeCell is now defined OUTSIDE — no remount on re-render */}
+                                                            <RangeCell
+                                                                row={row}
+                                                                field={field}
+                                                                placeholder={placeholder}
+                                                                onRangeChange={handleRangeRowChange}
+                                                                onRangeBlur={handleRangeRowBlur}
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Step Values */}
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <div className="w-1.5 h-5 rounded-full bg-indigo-400" />
+                                                    <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                                                        Step Values
+                                                    </h4>
+                                                </div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                    {[
+                                                        { field: "sphStep", label: "SPH step", title: "SPH Step" },
+                                                        { field: "cylStep", label: "CYL step", title: "CYL Step" },
+                                                        { field: "addStep", label: "Add step", title: "ADD Step" },
+                                                    ].map(({ field, label, title }) => (
+                                                        <div key={field} className="bg-gray-50 border border-gray-200 rounded-2xl p-3">
+                                                            <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">
+                                                                {title}
+                                                            </p>
+                                                            {/* ✅ StepCell is now defined OUTSIDE — no remount on re-render */}
+                                                            <StepCell
+                                                                row={row}
+                                                                field={field}
+                                                                label={label}
+                                                                onRangeChange={handleRangeRowChange}
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Add Button */}
+                        <button
+                            onClick={addRangeRow}
+                            className="w-full py-3 rounded-2xl border-2 border-dashed border-orange-300 hover:border-orange-500 bg-orange-50 hover:bg-orange-100 text-orange-600 font-semibold text-sm transition-all flex items-center justify-center gap-2"
+                        >
+                            <FiPlus size={16} />
+                            Add Another Range
+                        </button>
+
+                        {/* Warning */}
+                        {totalComboCount === 0 &&
+                            rangeRows.some(r => r.sphFrom || r.cylFrom) &&
+                            !hasAnyRangeErrors && (
+                                <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-amber-200 bg-amber-50 text-amber-700 text-sm font-medium">
+                                    ⚠ No valid combinations found. Check range and step values.
+                                </div>
+                            )}
+                    </div>
+
+                    {/* ── Code Suffix ── */}
+                    <div>
+                        <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-3">
+                            Product Code
+                        </h3>
+                        <div className="flex items-center gap-4">
+                            <div className="w-40">
+                                <label className="text-[10px] font-semibold text-gray-700 uppercase tracking-wider block mb-1">
+                                    Suffix
+                                </label>
+                                <input name="prefix" type="text" className={inputCls} placeholder="DO"
+                                    value={form.prefix} onChange={handleFormChange} maxLength={6} />
+                            </div>
+                            <p className="text-xs text-gray-400 mt-5">
+                                Codes auto-generated as{" "}
+                                <span className="font-mono font-semibold text-gray-600">
+                                    1{form.prefix || "DO"}, 2{form.prefix || "DO"}, 3{form.prefix || "DO"}…
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* ── Preview Table ── */}
+                    {showPreview && previewRows.length > 0 && (
+                        <div>
+                            <div className="flex items-center justify-between mb-3 gap-3">
+                                <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                                    Preview — {previewRows.length} product{previewRows.length !== 1 ? "s" : ""}
+                                    {previewSearch && filteredPreviewRows.length !== previewRows.length && (
+                                        <span className="ml-1 font-normal text-gray-400">
+                                            ({filteredPreviewRows.length} shown)
+                                        </span>
+                                    )}
+                                    <span className="normal-case font-normal text-gray-400 ml-1 text-[10px]">
+                                        (Price, MRP, Qty editable)
+                                    </span>
+                                </h3>
+                                <div className="relative flex-shrink-0">
+                                    <FiSearch size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search SPH, CYL, ADD…"
+                                        value={previewSearch}
+                                        onChange={e => setPreviewSearch(e.target.value)}
+                                        className="pl-7 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 bg-white text-gray-700 w-48 transition"
+                                    />
+                                    {previewSearch && (
+                                        <button
+                                            onClick={() => setPreviewSearch("")}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
+                                        >
+                                            <FiX size={11} />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="overflow-x-auto rounded-xl border border-gray-100">
+                                <table className="w-full text-xs border-collapse">
+                                    <thead>
+                                        <tr className="bg-gray-100 border-b border-gray-200">
+                                            {["#", "Code", "Product Name", "SPH", "CYL", "Addition", "Price ✎", "MRP ✎", "Qty ✎", ""].map(h => (
+                                                <th key={h} className="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                                                    {h}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredPreviewRows.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={9} className="px-4 py-8 text-center text-xs text-gray-400">
+                                                    No rows match "
+                                                    <span className="font-semibold text-gray-500">{previewSearch}</span>"
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            filteredPreviewRows.map((row, fi) => {
+                                                const origIdx = row._origIdx;
+                                                return (
+                                                    <tr
+                                                        key={origIdx}
+                                                        className={`border-b border-gray-50 ${fi % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`}
+                                                    >
+                                                        <td className="px-3 py-1.5 text-center text-gray-400">{origIdx + 1}</td>
+                                                        <td className="px-3 py-1.5 text-center font-mono text-xs text-gray-700 whitespace-nowrap">
+                                                            {origIdx + 1}{form.prefix.trim().toUpperCase() || "DO"}
+                                                        </td>
+                                                        <td className="px-3 py-1.5 text-gray-700 whitespace-nowrap">
+                                                            {form.productName.toUpperCase()}
+                                                        </td>
+                                                        <td className="px-3 py-1.5 text-center font-mono text-blue-600">{row.sph}</td>
+                                                        <td className="px-3 py-1.5 text-center font-mono text-blue-600">{row.cyl}</td>
+                                                        <td className="px-3 py-1.5 text-center font-mono text-purple-600">
+                                                            {row.addition || "—"}
+                                                        </td>
+                                                        <td className="px-2 py-1">
+                                                            <input
+                                                                type="number" value={row.price}
+                                                                onChange={e => handlePreviewEdit(origIdx, "price", e.target.value)}
+                                                                className="w-20 px-2 py-1 text-xs border border-orange-200 rounded-lg outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-100 bg-orange-50 text-gray-700 text-center"
+                                                            />
+                                                        </td>
+                                                        <td className="px-2 py-1">
+                                                            <input
+                                                                type="number" value={row.mrp}
+                                                                onChange={e => handlePreviewEdit(origIdx, "mrp", e.target.value)}
+                                                                className="w-20 px-2 py-1 text-xs border border-orange-200 rounded-lg outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-100 bg-orange-50 text-gray-700 text-center"
+                                                            />
+                                                        </td>
+                                                        <td className="px-2 py-1">
+                                                            <input
+                                                                type="number" value={row.qty}
+                                                                onChange={e => handlePreviewEdit(origIdx, "qty", e.target.value)}
+                                                                className="w-16 px-2 py-1 text-xs border border-orange-200 rounded-lg outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-100 bg-orange-50 text-gray-700 text-center"
+                                                            />
+                                                        </td>
+                                                        <td className="px-2 py-1">
+                                                            <button
+                                                                onClick={() => handlePreviewDeleteRow(origIdx)}
+                                                                title="Remove this product"
+                                                                className="w-6 h-6 flex items-center justify-center rounded-lg text-red-300 hover:text-red-500 hover:bg-red-50 transition mx-auto cursor-pointer"
+                                                            >
+                                                                <FiTrash2 size={11} />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <p className="text-[10px] text-gray-400 mt-2 text-right">
+                                {previewSearch && filteredPreviewRows.length !== previewRows.length
+                                    ? `Showing ${filteredPreviewRows.length} of ${previewRows.length} products — `
+                                    : `Showing all ${previewRows.length} products — `}
+                                edit Price, MRP or Qty inline, or delete unwanted rows before submitting.
+                            </p>
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-3xl">
+                    <button
+                        onClick={handlePreview}
+                        disabled={submitting || hasAnyRangeErrors || totalComboCount === 0}
+                        className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-blue-600 bg-white border border-blue-200 rounded-xl hover:bg-blue-50 transition disabled:opacity-50"
+                    >
+                        Preview {totalComboCount > 0 ? `(${totalComboCount})` : ""}
+                    </button>
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={handleSubmit}
+                        disabled={submitting || !showPreview || previewRows.length === 0 || hasAnyRangeErrors}
+                        className="flex items-center gap-2 px-5 py-2 bg-erp-primary hover:bg-erp-secondary text-white text-xs font-semibold rounded-xl transition shadow-sm disabled:opacity-60"
+                    >
+                        {submitting && (
+                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        )}
+                        {submitting ? "Creating..." : `Create ${previewRows.length > 0 ? previewRows.length : ""} Products`}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 // ─── InventoryTable ───────────────────────────────────────────────────────────
 function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, setKeyword, triggerSearch, setTriggerSearch }) {
@@ -2698,7 +3572,7 @@ function BulkUploadModal({ onClose }) {
         if (validationErrors.length > 0) return;
         setSubmitting(true);
         try {
-            const res = await api.post("/product/bulk", { products: JSON.stringify(rows), suffix: activePrefix });
+            const res = await api.post("/api/digi/product/bulk", { products: JSON.stringify(rows), suffix: activePrefix });
             setResult({ success: res.data.success, count: res.data.count, message: res.data.message, generatedCodes: res.data.generatedCodes || [], existingCodes: res.data.existingCodes || [], duplicateCodes: res.data.duplicateCodes || [] });
             setStep("result");
         } catch (err) {

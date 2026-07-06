@@ -75,7 +75,7 @@ export default function RegisterCustomer() {
         }),
         gstNumber: Yup.string().when('gstType', {
             is: (val) => val?.toLowerCase() !== 'un-registered' && val?.toLowerCase() !== 'unregistered',
-            then: (schema) => schema.required('GST Number is required'),
+            then: (schema) => schema.matches(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, 'Invalid GST format (e.g., 22ABCDE1234F1Z5)').required('GST Number is required'),
             otherwise: (schema) => schema.notRequired()
         }),
         aadharCard: Yup.string().when('gstType', {

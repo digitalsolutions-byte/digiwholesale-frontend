@@ -54,6 +54,12 @@ export const FirmCompanyDetails = ({ wrapInput, configs, formik, handleFileUploa
                     wrapInput={wrapInput}
                     imgFieldName="gstCertificateImg"
                     isReadOnlyMode={isReadOnlyMode}
+                    maxLength={15}
+                    onChange={(e) => {
+                        let val = e.target.value.toUpperCase();
+                        val = val.replace(/[^A-Z0-9]/g, '');
+                        formik.setFieldValue('gstNumber', val);
+                    }}
                 />
             </>
         ) : (
@@ -72,6 +78,11 @@ export const FirmCompanyDetails = ({ wrapInput, configs, formik, handleFileUploa
                     wrapInput={wrapInput}
                     imgFieldName="aadharCardImg"
                     isReadOnlyMode={isReadOnlyMode}
+                    maxLength={12}
+                    onChange={(e) => {
+                        let val = e.target.value.replace(/[^0-9]/g, '');
+                        formik.setFieldValue('aadharCard', val);
+                    }}
                 />
                 <FileUploadField
                     label="PAN Card No.*"
@@ -84,6 +95,12 @@ export const FirmCompanyDetails = ({ wrapInput, configs, formik, handleFileUploa
                     wrapInput={wrapInput}
                     imgFieldName="panCardImg"
                     isReadOnlyMode={isReadOnlyMode}
+                    maxLength={10}
+                    onChange={(e) => {
+                        let val = e.target.value.toUpperCase();
+                        val = val.replace(/[^A-Z0-9]/g, '');
+                        formik.setFieldValue('panCard', val);
+                    }}
                 />
             </>
         )}

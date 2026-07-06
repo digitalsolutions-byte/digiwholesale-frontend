@@ -1,15 +1,13 @@
 import api from './apiInstance';
 
 /**
- * Fetches all return-refund requests with pagination and status filter
- * @param {number} page 
- * @param {number} limit 
- * @param {string} status 
+ * Fetches all return-refund items
+ * GET /api/return-refund/get-all-return-items
  * @returns {Promise}
  */
-export const getAllReturnRefunds = async (page = 1, limit = 20, status = 'Pending') => {
+export const getAllReturnRefunds = async () => {
     try {
-        const response = await api.get(`/api/return-refund?page=${page}&limit=${limit}&status=${status}`);
+        const response = await api.get('/api/return-refund/get-all-return-items');
         return response.data;
     } catch (error) {
         throw error.response ? error.response.data : new Error('Failed to fetch return-refund requests');
@@ -18,6 +16,7 @@ export const getAllReturnRefunds = async (page = 1, limit = 20, status = 'Pendin
 
 /**
  * Fetches a single return-refund request by ID
+ * GET /api/return-refund/:id
  * @param {string} id 
  * @returns {Promise}
  */
@@ -32,16 +31,13 @@ export const getReturnRefundById = async (id) => {
 
 /**
  * Creates a new return-refund request
- * @param {FormData} formData 
+ * POST /api/return-refund/create
+ * @param {Object} data - JSON payload
  * @returns {Promise}
  */
-export const createReturnRefund = async (formData) => {
+export const createReturnRefund = async (data) => {
     try {
-        const response = await api.post('/api/return-refund', formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data'
-            }
-        });
+        const response = await api.post('/api/return-refund/create', data);
         return response.data;
     } catch (error) {
         throw error.response ? error.response.data : new Error('Failed to create return-refund request');
@@ -50,13 +46,14 @@ export const createReturnRefund = async (formData) => {
 
 /**
  * Updates status of a return-refund request
+ * PUT /api/return-refund/:id/status
  * @param {string} id 
  * @param {Object} statusData { status, remark }
  * @returns {Promise}
  */
 export const updateReturnRefundStatus = async (id, statusData) => {
     try {
-        const response = await api.patch(`/api/return-refund/${id}/status`, statusData);
+        const response = await api.put(`/api/return-refund/${id}/status`, statusData);
         return response.data;
     } catch (error) {
         throw error.response ? error.response.data : new Error('Failed to update status');
@@ -65,6 +62,7 @@ export const updateReturnRefundStatus = async (id, statusData) => {
 
 /**
  * Updates a full return-refund record
+ * PUT /api/return-refund/:id
  * @param {string} id 
  * @param {Object} data 
  * @returns {Promise}
@@ -80,6 +78,7 @@ export const updateReturnRefund = async (id, data) => {
 
 /**
  * Deletes a return-refund record
+ * DELETE /api/return-refund/:id
  * @param {string} id 
  * @returns {Promise}
  */
@@ -94,12 +93,13 @@ export const deleteReturnRefund = async (id) => {
 
 /**
  * Filters return-refund records using search criteria
- * @param {Object} searchParams { startDate, endDate, keyword, status }
+ * POST /api/return-refund/get-all-return-items
+ * @param {Object} searchParams { startDate, endDate, keyword }
  * @returns {Promise}
  */
 export const searchReturnRefunds = async (searchParams) => {
     try {
-        const response = await api.post('/api/return-refund/search', searchParams);
+        const response = await api.post('/api/return-refund/get-all-return-items', searchParams);
         return response.data;
     } catch (error) {
         throw error.response ? error.response.data : new Error('Failed to search return-refunds');

@@ -223,10 +223,11 @@ export default function VendorOrder() {
         try {
             pageNumber === 1 ? setLoading(true) : setLoadingMore(true);
             dispatch(showLoader());
-            const data = await vendorOrderService.getAllVendorOrders(pageNumber, FETCH_LIMIT);
+            const data = await vendorOrderService.getAllPurchaseItems('', pageNumber, FETCH_LIMIT);
             if (data.success) {
-                setAllData(prev => append ? [...prev, ...(data.orders || [])] : (data.orders || []));
-                setHasMore(data.hasMore);
+                const orders = data.data?.purchaseOrders || data.data || data.orders || [];
+                setAllData(prev => append ? [...prev, ...orders] : orders);
+                setHasMore(data.data?.hasMore ?? data.hasMore ?? false);
                 setPage(pageNumber);
             }
         } catch (err) { console.error(err); }
@@ -366,11 +367,10 @@ export default function VendorOrder() {
             },
         },
         { header: "Date", accessorKey: "createdAt", cell: ({ getValue }) => getValue() ? new Date(getValue()).toLocaleDateString("en-IN") : "-" },
-        // { header: "Order #", accessorKey: "Order ID", cell: ({ getValue }) => <span className="font-bold text-gray-800">#{getValue()}</span> },
-        { header: "Vendor", accessorKey: "name", cell: ({ getValue }) => <span className="font-bold text-gray-700 text-xs">{getValue() || "—"}</span> },
-        { header: "Mobile", accessorKey: "mobile" },
+        { header: "Vendor", id: "vendor", accessorFn: (row) => row.vendorId?.name || row.name || "—", cell: ({ getValue }) => <span className="font-bold text-gray-700 text-xs">{getValue()}</span> },
+        { header: "Mobile", id: "mobile", accessorFn: (row) => row.vendorId?.mobile || row.mobile || "—" },
         { header: "Status", accessorKey: "status", cell: ({ getValue }) => <OrderStatusBadge value={getValue()} /> },
-        { header: "Total", accessorKey: "grandTotal", cell: ({ getValue }) => <span className="font-bold text-erp-accent">₹{getValue()?.toLocaleString() ?? 0}</span> },
+        { header: "Total", id: "total", accessorFn: (row) => row.grandTotal ?? row.totalAmount ?? 0, cell: ({ getValue }) => <span className="font-bold text-erp-accent">₹{getValue()?.toLocaleString() ?? 0}</span> },
         {
             header: "Manage", id: "delete",
             cell: ({ row }) => (
@@ -534,14 +534,14 @@ export default function VendorOrder() {
             {/* ── View Order Details Modal ── */}
             {viewOrder && selectedOrder && (
                 <Modal onClose={() => setViewOrder(false)} maxWidth="max-w-7xl">
-                    <ModalHeader title="Order Details" subtitle={`#${selectedOrder._id} · ${selectedOrder.name}`} icon="mdi:file-eye-outline" onClose={() => setViewOrder(false)} />
+                    <ModalHeader title="Order Details" subtitle={`#${selectedOrder._id} · ${selectedOrder.vendorId?.name || selectedOrder.name}`} icon="mdi:file-eye-outline" onClose={() => setViewOrder(false)} />
 
                     <div className="p-8 overflow-y-auto custom-scrollbar flex-1 max-h-[70vh] space-y-8">
                         {/* Summary metrics */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                            <InfoRow label="Vendor Identity" value={selectedOrder.name} icon="mdi:account-tie" />
-                            <InfoRow label="Contact Mobile" value={selectedOrder.mobile} icon="mdi:phone" />
-                            <InfoRow label="Email Channel" value={selectedOrder.email} icon="mdi:email" />
+                            <InfoRow label="Vendor Identity" value={selectedOrder.vendorId?.name || selectedOrder.name} icon="mdi:account-tie" />
+                            <InfoRow label="Contact Mobile" value={selectedOrder.vendorId?.mobile || selectedOrder.mobile} icon="mdi:phone" />
+                            <InfoRow label="Email Channel" value={selectedOrder.vendorId?.email || selectedOrder.email} icon="mdi:email" />
                             <div>
                                 <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-1 block">Status</span>
                                 <OrderStatusBadge value={selectedOrder.status} />
@@ -550,9 +550,9 @@ export default function VendorOrder() {
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 bg-gray-50 p-6 rounded-[2rem] border border-gray-100">
                             <InfoRow label="Order Timestamp" value={new Date(selectedOrder.createdAt).toLocaleString("en-GB")} icon="mdi:calendar-clock" />
-                            <InfoRow label="Taxable Amount" value={`₹${selectedOrder.subTotal?.toLocaleString()}`} icon="mdi:cash" />
-                            <InfoRow label="GST Contribution" value={`₹${selectedOrder.gstTotal?.toLocaleString()}`} icon="mdi:receipt-text-outline" />
-                            <InfoRow label="Final Invoice Total" value={<span className="text-erp-accent">₹{selectedOrder.grandTotal?.toLocaleString()}</span>} icon="mdi:currency-inr" />
+                            <InfoRow label="Taxable Amount" value={`₹${(selectedOrder.subTotal ?? selectedOrder.totalAmount ?? 0)?.toLocaleString()}`} icon="mdi:cash" />
+                            <InfoRow label="GST Contribution" value={`₹${(selectedOrder.gstTotal ?? 0)?.toLocaleString()}`} icon="mdi:receipt-text-outline" />
+                            <InfoRow label="Final Invoice Total" value={<span className="text-erp-accent">₹{(selectedOrder.grandTotal ?? selectedOrder.totalAmount ?? 0)?.toLocaleString()}</span>} icon="mdi:currency-inr" />
                         </div>
 
                         {selectedOrder.notes && (

@@ -63,6 +63,7 @@ const navItems = [
         subItems: [
             { label: 'New Order', path: PATHS.CUSTOMER_CARE.NEW_ORDER, page: 'NEW_ORDER', isBold: true },
             { label: 'All Orders', path: PATHS.CUSTOMER_CARE.ALL_ORDERS, page: 'ALL_ORDERS' },
+            { label: 'RX Orders', path: PATHS.CUSTOMER_CARE.RX_ORDERS, page: 'ALL_ORDERS' },
             { label: 'Pending Orders', path: PATHS.CUSTOMER_CARE.PENDING_ORDERS, page: 'PENDING_ORDERS' },
             { label: 'Other Sales', path: PATHS.CUSTOMER_CARE.SERVICE_GOODS, page: 'OTHER_SALES' },
             { label: 'Sales List', path: PATHS.SALES.LIST, page: 'SALES_LIST' },
@@ -99,11 +100,13 @@ const navItems = [
         subItems: [
             { label: 'Add Vendor', path: PATHS.VENDOR.ADD, page: 'ADD_VENDOR' },
             { label: 'Vendor List', path: PATHS.VENDOR.LIST, page: 'VENDOR_LIST' },
-            { label: 'Vendor Order', path: PATHS.VENDOR.ORDER, page: 'VENDOR_ORDER' },
+            // { label: 'Vendor Order', path: PATHS.VENDOR.ORDER, page: 'VENDOR_ORDER' },
+            { label: 'Purchase Items', path: PATHS.VENDOR.PURCHASE_ITEMS, page: 'VENDOR_LIST' },
+            { label: 'Purchase Inward', path: PATHS.VENDOR.INWARD_LIST, page: 'VENDOR_LIST' },
         ],
     },
-    { label: 'Quality', icon: 'lucide:badge-check', path: PATHS.OPERATIONS.QC, page: 'QUALITY' },
-    { label: 'Fitting', icon: 'lucide:ruler', path: PATHS.OPERATIONS.FITTING, page: 'FITTING' },
+    // { label: 'Quality', icon: 'lucide:badge-check', path: PATHS.OPERATIONS.QC, page: 'QUALITY' },
+    // { label: 'Fitting', icon: 'lucide:ruler', path: PATHS.OPERATIONS.FITTING, page: 'FITTING' },
     { label: 'Shipping', icon: 'lucide:send', path: PATHS.OPERATIONS.DISPATCH, page: 'SHIPPING' },
     { label: 'Inventory', icon: 'lucide:package-search', path: PATHS.INVENTORY, page: 'INVENTORY' },
 ];

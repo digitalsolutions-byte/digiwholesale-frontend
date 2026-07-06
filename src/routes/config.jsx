@@ -13,6 +13,7 @@ import DraftsList from '../pages/DraftsList';
 import ApprovalsList from '../pages/ApprovalsList';
 import CorrectionsList from '../pages/CorrectionsList';
 import AllOrdersList from '../pages/AllOrdersList';
+import RxOrders from '../pages/RxOrders';
 import OrderDetails from '../pages/OrderDetails';
 import PlaceholderPage from '../pages/PlaceholderPage';
 import AuthWrapper from '../components/AuthWrapper';
@@ -27,6 +28,10 @@ import MainReport from '../pages/reports/MainReport';
 import AddVendor from '../pages/vendor/AddVendor';
 import VendorList from '../pages/vendor/VendorList';
 import VendorOrder from '../pages/vendor/VendorOrder';
+import PurchaseItems from '../pages/vendor/PurchaseItems';
+import PurchaseItemDetails from '../pages/vendor/PurchaseItemDetails';
+import InwardList from '../pages/vendor/InwardList';
+import InwardDetails from '../pages/vendor/InwardDetails';
 import SalesList from '../pages/sales/SalesList';
 
 import CustomerLogin from '../pages/CustomerLogin';
@@ -69,7 +74,8 @@ const CUSTOMER_MODULE = [
 const CUSTOMER_CARE_MODULE = [
     { path: PATHS.CUSTOMER_CARE.NEW_ORDER, element: OrderWizard, page: 'NEW_ORDER' },
     { path: PATHS.CUSTOMER_CARE.ALL_ORDERS, element: AllOrdersList, page: 'ALL_ORDERS' },
-    { path: PATHS.CUSTOMER_CARE.PENDING_ORDERS, element: PlaceholderPage, page: 'PENDING_ORDERS', props: { title: 'Pending Orders' } },
+    { path: PATHS.CUSTOMER_CARE.RX_ORDERS, element: RxOrders, page: 'ALL_ORDERS' },
+    { path: PATHS.CUSTOMER_CARE.PENDING_ORDERS, element: AllOrdersList, page: 'PENDING_ORDERS', props: { isPendingOnly: true, defaultStatus: 'PENDING' } },
     { path: PATHS.CUSTOMER_CARE.ORDER_STATUS, element: PlaceholderPage, page: 'ALL_ORDERS', props: { title: 'Order Status' } },
     { path: PATHS.CUSTOMER_CARE.SERVICE_GOODS, element: OtherSales, page: 'OTHER_SALES' },
     { path: PATHS.CUSTOMER_CARE.VIEW_ORDERS, element: PlaceholderPage, page: 'ALL_ORDERS', props: { title: 'View Orders' } },
@@ -115,6 +121,10 @@ const VENDOR_MODULE = [
     { path: PATHS.VENDOR.ADD, element: AddVendor, page: 'ADD_VENDOR' },
     { path: PATHS.VENDOR.LIST, element: VendorList, page: 'VENDOR_LIST' },
     { path: PATHS.VENDOR.ORDER, element: VendorOrder, page: 'VENDOR_ORDER' },
+    { path: PATHS.VENDOR.PURCHASE_ITEMS, element: PurchaseItems, page: 'VENDOR_LIST' },
+    { path: '/vendor/purchase-items/:id', element: PurchaseItemDetails, page: 'VENDOR_LIST' },
+    { path: PATHS.VENDOR.INWARD_LIST, element: InwardList, page: 'VENDOR_LIST' },
+    { path: '/vendor/inward/:id', element: InwardDetails, page: 'VENDOR_LIST' },
 ];
 
 // ── Sales ─────────────────────────────────────────────────────────────────────
@@ -177,3 +187,42 @@ export const routesConfig = [
         ],
     },
 ];
+
+// ── Helper to find the first allowed route ────────────────────────────────────
+export const getFirstAllowedRoute = (user) => {
+    if (!user) return PATHS.LOGIN;
+    if (user.EmployeeType === 'SUPERADMIN') return PATHS.ROOT;
+
+    const pageAccess = Array.isArray(user.pageAccess) ? user.pageAccess : [];
+    
+    // If they have DASHBOARD access, just return ROOT to be safe
+    if (pageAccess.includes('DASHBOARD')) return PATHS.ROOT;
+
+    const findRoute = (routeList, basePath = '') => {
+        for (const route of routeList) {
+            if (route.isPublic) continue;
+            
+            let currentPath = basePath;
+            if (route.path) {
+                currentPath = route.path.startsWith('/') 
+                    ? route.path 
+                    : `${basePath}/${route.path}`.replace(/\/+/g, '/');
+            }
+            
+            // if it has a page requirement and the user has it, return this path
+            // (or if it's an index route, return basePath)
+            if (route.page && pageAccess.includes(route.page)) {
+                return currentPath || PATHS.ROOT;
+            }
+            
+            if (route.children) {
+                const childPath = findRoute(route.children, currentPath);
+                if (childPath) return childPath;
+            }
+        }
+        return null;
+    };
+
+    const firstAllowed = findRoute(routesConfig);
+    return firstAllowed || PATHS.UNAUTHORIZED; 
+};

@@ -164,3 +164,24 @@ export const createBulkOrders = async (payload) => {
     }
 };
 
+export const getOrderSuggestions = async (search = '') => {
+    try {
+        const response = await api.get(`/api/order/suggestions?search=${encodeURIComponent(search)}`);
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching order suggestions:', error);
+        return { success: false, data: { orders: [] } };
+    }
+};
+
+export const getRxOrders = async (search = '') => {
+    try {
+        const queryParams = search ? `?search=${encodeURIComponent(search)}` : '';
+        const response = await api.get(`/api/order/rx-orders${queryParams}`);
+        return response.data;
+    } catch (error) {
+        throw error.response ? error.response.data : new Error('Failed to fetch RX orders');
+    }
+};
+
+
