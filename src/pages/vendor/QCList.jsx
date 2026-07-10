@@ -48,7 +48,7 @@ const QCList = () => {
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
                         <Icon icon="lucide:shield-check" className="text-erp-accent" />
-                        Purchase QC
+                        Purchase QC Completed
                     </h1>
                     <p className="text-sm text-gray-500 mt-1">Quality check records for received goods</p>
                 </div>

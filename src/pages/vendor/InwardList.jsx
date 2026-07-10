@@ -43,9 +43,9 @@ const InwardList = () => {
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
                         <Icon icon="lucide:package-check" className="text-erp-accent" />
-                        Purchase Inward
+                        Purchase Inwarded Items
                     </h1>
-                    <p className="text-sm text-gray-500 mt-1">View all received purchase items</p>
+                    <p className="text-sm text-gray-500 mt-1">View all received purchased items</p>
                 </div>
             </div>
 
