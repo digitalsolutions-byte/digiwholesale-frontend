@@ -458,3 +458,18 @@ export const getQcPassedItems = async (page = 1, limit = 100) => {
         throw error.response ? error.response.data : new Error('Failed to fetch QC passed items');
     }
 };
+
+/**
+ * Creates a replacement order for QC-failed return items
+ * POST /api/purchase/create-replacement-order
+ * @param {Object} data - { purchaseReturnId, cgst, sgst, remarks, replacementItems }
+ * @returns {Promise}
+ */
+export const createReplacementOrder = async (data) => {
+    try {
+        const response = await api.post('/api/purchase/create-replacement-order', data);
+        return response.data;
+    } catch (error) {
+        throw error.response ? error.response.data : new Error('Failed to create replacement order');
+    }
+};

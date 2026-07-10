@@ -1,8 +1,320 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
-import { getAllPurchaseReturns, updatePurchaseReturnItemStatus } from '../../services/vendorOrderService';
+import { getAllPurchaseReturns, updatePurchaseReturnItemStatus, createReplacementOrder } from '../../services/vendorOrderService';
 import { toast } from 'react-toastify';
+
+const UNIT_OPTIONS = ['PIECE', 'PAIR', 'BOX'];
+const CATEGORY_OPTIONS = ['LENS', 'FRAME', 'SUNGLASS', 'CONTACT_LENS'];
+const ORDER_TYPE_OPTIONS = ['STOCK', 'RX'];
+
+const emptyItemForm = () => ({
+    mode: 'existing',
+    productId: '',
+    itemName: '',
+    category: '',
+    orderType: 'STOCK',
+    qty: '',
+    price: '',
+    mrp: '',
+    gst: '',
+    hsnSac: '',
+    brand: '',
+    coating: '',
+    index: '',
+    unit: 'PIECE',
+    discountPercent: '',
+});
+
+function ReplacementOrderModal({ ret, onClose, onSuccess }) {
+    const [cgst, setCgst] = useState('9');
+    const [sgst, setSgst] = useState('9');
+    const [remarks, setRemarks] = useState('');
+    const [itemForms, setItemForms] = useState(() =>
+        (ret.items || []).map(item => ({ ...emptyItemForm(), _returnItem: item }))
+    );
+    const [submitting, setSubmitting] = useState(false);
+
+    const updateForm = (idx, field, value) => {
+        setItemForms(prev => prev.map((f, i) => i === idx ? { ...f, [field]: value } : f));
+    };
+
+    const handleSubmit = async () => {
+        for (let i = 0; i < itemForms.length; i++) {
+            const f = itemForms[i];
+            if (f.mode === 'existing') {
+                if (!f.productId.trim()) return toast.warning(`Item ${i + 1}: Product ID is required`);
+                if (!f.qty) return toast.warning(`Item ${i + 1}: Qty is required`);
+                if (!f.price) return toast.warning(`Item ${i + 1}: Price is required`);
+            } else {
+                if (!f.itemName.trim()) return toast.warning(`Item ${i + 1}: Item Name is required`);
+                if (!f.category) return toast.warning(`Item ${i + 1}: Category is required`);
+                if (!f.qty) return toast.warning(`Item ${i + 1}: Qty is required`);
+                if (!f.price) return toast.warning(`Item ${i + 1}: Price is required`);
+            }
+        }
+
+        const replacementItems = itemForms.map(f => {
+            const item = f.mode === 'existing'
+                ? {
+                    productId: f.productId.trim(),
+                    orderType: f.orderType,
+                    qty: Number(f.qty),
+                    price: Number(f.price),
+                    ...(f.mrp && { mrp: Number(f.mrp) }),
+                    ...(f.gst && { gst: Number(f.gst) }),
+                    ...(f.hsnSac && { hsnSac: f.hsnSac }),
+                    ...(f.unit && { unit: f.unit }),
+                    ...(f.discountPercent !== '' && { discountPercent: Number(f.discountPercent) }),
+                }
+                : {
+                    itemName: f.itemName.trim(),
+                    category: f.category,
+                    orderType: f.orderType,
+                    qty: Number(f.qty),
+                    price: Number(f.price),
+                    ...(f.mrp && { mrp: Number(f.mrp) }),
+                    ...(f.gst && { gst: Number(f.gst) }),
+                    ...(f.hsnSac && { hsnSac: f.hsnSac }),
+                    ...(f.brand && { brand: f.brand }),
+                    ...(f.coating && { coating: f.coating }),
+                    ...(f.index !== '' && { index: Number(f.index) }),
+                    ...(f.unit && { unit: f.unit }),
+                };
+            return { returnItemId: f._returnItem.itemId, item };
+        });
+
+        try {
+            setSubmitting(true);
+            const data = await createReplacementOrder({
+                purchaseReturnId: ret._id,
+                cgst,
+                sgst,
+                remarks,
+                replacementItems,
+            });
+            if (data.success) {
+                toast.success('Replacement order created. Vendor has been notified.');
+                onSuccess();
+                onClose();
+            }
+        } catch (err) {
+            const code = err?.error?.code;
+            if (code === 'ALREADY_REPLACED') {
+                toast.error(err?.error?.message || 'These items already have a replacement in progress.');
+            } else {
+                toast.error(err?.message || 'Failed to create replacement order');
+            }
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 overflow-hidden flex flex-col max-h-[90vh]">
+
+                <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-blue-50 flex items-center justify-between flex-shrink-0">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+                            <Icon icon="lucide:package-plus" className="text-indigo-600 text-xl" />
+                        </div>
+                        <div>
+                            <h2 className="text-base font-bold text-gray-800">Create Replacement Order</h2>
+                            <p className="text-xs text-gray-500 font-mono mt-0.5">Return #{ret._id.slice(-8).toUpperCase()} &bull; {ret.vendorName}</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-white/50 rounded-lg transition-colors">
+                        <Icon icon="lucide:x" className="text-gray-500" />
+                    </button>
+                </div>
+
+                <div className="overflow-y-auto flex-1 p-6 space-y-6">
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="bg-gray-50 rounded-xl p-4 col-span-3">
+                            <div className="grid grid-cols-3 gap-4">
+                                <div>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Purchase Return ID</p>
+                                    <p className="text-xs font-mono font-bold text-gray-700">{ret._id}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Vendor</p>
+                                    <p className="text-xs font-bold text-gray-700">{ret.vendorName}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Items</p>
+                                    <p className="text-xs font-bold text-gray-700">{ret.items?.length}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-1.5">CGST (%)</label>
+                            <input type="number" value={cgst} onChange={e => setCgst(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-1.5">SGST (%)</label>
+                            <input type="number" value={sgst} onChange={e => setSgst(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Remarks</label>
+                            <input type="text" value={remarks} onChange={e => setRemarks(e.target.value)} placeholder="Optional" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white" />
+                        </div>
+                    </div>
+
+                    {itemForms.map((f, idx) => {
+                        const ri = f._returnItem;
+                        return (
+                            <div key={idx} className="border border-gray-100 rounded-2xl overflow-hidden">
+                                <div className="bg-gray-50 px-5 py-3 flex items-center justify-between border-b border-gray-100">
+                                    <div>
+                                        <p className="text-sm font-bold text-gray-800">{ri.itemName}</p>
+                                        <p className="text-xs text-gray-500 mt-0.5">
+                                            Failed Qty: <strong className="text-red-600">{ri.qty}</strong>
+                                            {ri.reason && <> &bull; Reason: <span className="text-red-500">{ri.reason}</span></>}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {['existing', 'new'].map(m => (
+                                            <button
+                                                key={m}
+                                                onClick={() => updateForm(idx, 'mode', m)}
+                                                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${f.mode === m ? 'bg-indigo-600 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                                            >
+                                                {m === 'existing' ? 'Existing Product' : 'New Product'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="p-5 grid grid-cols-2 md:grid-cols-3 gap-4">
+                                    {f.mode === 'existing' ? (
+                                        <>
+                                            <div className="col-span-2 md:col-span-1">
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Product ID <span className="text-red-500">*</span></label>
+                                                <input type="text" value={f.productId} onChange={e => updateForm(idx, 'productId', e.target.value)} placeholder="e.g. 69e1c3de83e6e9..." className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Order Type <span className="text-red-500">*</span></label>
+                                                <select value={f.orderType} onChange={e => updateForm(idx, 'orderType', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white">
+                                                    {ORDER_TYPE_OPTIONS.map(o => <option key={o}>{o}</option>)}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Qty <span className="text-red-500">*</span></label>
+                                                <input type="number" value={f.qty} onChange={e => updateForm(idx, 'qty', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Price <span className="text-red-500">*</span></label>
+                                                <input type="number" value={f.price} onChange={e => updateForm(idx, 'price', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">MRP</label>
+                                                <input type="number" value={f.mrp} onChange={e => updateForm(idx, 'mrp', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">GST (%)</label>
+                                                <input type="number" value={f.gst} onChange={e => updateForm(idx, 'gst', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">HSN/SAC</label>
+                                                <input type="text" value={f.hsnSac} onChange={e => updateForm(idx, 'hsnSac', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Unit</label>
+                                                <select value={f.unit} onChange={e => updateForm(idx, 'unit', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white">
+                                                    {UNIT_OPTIONS.map(u => <option key={u}>{u}</option>)}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Discount %</label>
+                                                <input type="number" value={f.discountPercent} onChange={e => updateForm(idx, 'discountPercent', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white" />
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="col-span-2 md:col-span-1">
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Item Name <span className="text-red-500">*</span></label>
+                                                <input type="text" value={f.itemName} onChange={e => updateForm(idx, 'itemName', e.target.value)} placeholder="e.g. New Better Lens 1.74" className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Category <span className="text-red-500">*</span></label>
+                                                <select value={f.category} onChange={e => updateForm(idx, 'category', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white">
+                                                    <option value="">Select…</option>
+                                                    {CATEGORY_OPTIONS.map(c => <option key={c}>{c}</option>)}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Order Type <span className="text-red-500">*</span></label>
+                                                <select value={f.orderType} onChange={e => updateForm(idx, 'orderType', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white">
+                                                    {ORDER_TYPE_OPTIONS.map(o => <option key={o}>{o}</option>)}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Qty <span className="text-red-500">*</span></label>
+                                                <input type="number" value={f.qty} onChange={e => updateForm(idx, 'qty', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Price <span className="text-red-500">*</span></label>
+                                                <input type="number" value={f.price} onChange={e => updateForm(idx, 'price', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">MRP</label>
+                                                <input type="number" value={f.mrp} onChange={e => updateForm(idx, 'mrp', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">GST (%)</label>
+                                                <input type="number" value={f.gst} onChange={e => updateForm(idx, 'gst', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">HSN/SAC</label>
+                                                <input type="text" value={f.hsnSac} onChange={e => updateForm(idx, 'hsnSac', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Brand</label>
+                                                <input type="text" value={f.brand} onChange={e => updateForm(idx, 'brand', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Coating</label>
+                                                <input type="text" value={f.coating} onChange={e => updateForm(idx, 'coating', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Index</label>
+                                                <input type="number" value={f.index} onChange={e => updateForm(idx, 'index', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Unit</label>
+                                                <select value={f.unit} onChange={e => updateForm(idx, 'unit', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white">
+                                                    {UNIT_OPTIONS.map(u => <option key={u}>{u}</option>)}
+                                                </select>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                <div className="p-6 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-3 flex-shrink-0">
+                    <button onClick={onClose} className="px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                        Cancel
+                    </button>
+                    <button onClick={handleSubmit} disabled={submitting}
+                        className="px-5 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50">
+                        {submitting ? <Icon icon="lucide:loader-2" className="animate-spin" /> : <Icon icon="lucide:package-plus" />}
+                        {submitting ? 'Creating…' : 'Create Replacement Order'}
+                    </button>
+                </div>
+            </div>
+        </div>,
+        document.body
+    );
+}
 
 const STATUS_META = {
     Pending: { cls: 'bg-gray-100 text-gray-600', icon: 'lucide:clock' },
@@ -29,6 +341,9 @@ const PurchaseReturnList = () => {
     const [modalStatus, setModalStatus] = useState('Replaced');
     const [modalRemarks, setModalRemarks] = useState('');
     const [submitting, setSubmitting] = useState(false);
+
+    // Replacement order modal
+    const [replacementModal, setReplacementModal] = useState(null); // full ret object with pending items only
 
     const fetchReturns = useCallback(async () => {
         setLoading(true);
@@ -252,6 +567,7 @@ const PurchaseReturnList = () => {
                                                         <div className="space-y-3">
                                                             {ret.items?.map((item, idx) => {
                                                                 const itemMeta = getStatusMeta(item.itemStatus);
+                                                                const isPending = !item.itemStatus || ['pending', 'vendornotified'].includes(item.itemStatus?.toLowerCase());
                                                                 return (
                                                                     <div key={idx}
                                                                         className="flex items-start justify-between bg-white rounded-xl border border-gray-100 p-4 gap-4 shadow-sm">
@@ -298,6 +614,18 @@ const PurchaseReturnList = () => {
                                                                                 <Icon icon="lucide:pencil" className="text-sm" />
                                                                                 Update
                                                                             </button>
+                                                                            {isPending && (
+                                                                                <button
+                                                                                    onClick={e => {
+                                                                                        e.stopPropagation();
+                                                                                        setReplacementModal({ ...ret, items: [item] });
+                                                                                    }}
+                                                                                    className="text-xs text-indigo-600 hover:text-indigo-800 font-medium bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 whitespace-nowrap"
+                                                                                >
+                                                                                    <Icon icon="lucide:package-plus" className="text-sm" />
+                                                                                    Replacement Order
+                                                                                </button>
+                                                                            )}
                                                                         </div>
                                                                     </div>
                                                                 );
@@ -321,6 +649,14 @@ const PurchaseReturnList = () => {
                     </div>
                 )}
             </div>
+
+            {replacementModal && (
+                <ReplacementOrderModal
+                    ret={replacementModal}
+                    onClose={() => setReplacementModal(null)}
+                    onSuccess={fetchReturns}
+                />
+            )}
 
             {/* ── Update Return Item Status Modal ──────────────────────── */}
             {modal && (
