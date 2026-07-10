@@ -3,6 +3,9 @@ import { Icon } from '@iconify/react';
 import logo from '../assets/logo.png';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { PATHS } from '../routes/paths';
+import { getFirstAllowedRoute } from '../routes/config';
+import { useSelector } from 'react-redux';
+import { selectCurrentUser } from '../store/slices/authSlice';
 import {
     Box,
     Typography,
@@ -19,6 +22,7 @@ const Welcome = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const theme = useTheme();
+    const user = useSelector(selectCurrentUser);
     const [message] = useState(() => {
         if (location.state?.from === 'register') return 'User Registered Successfully!';
         if (location.state?.from === 'customer-register') return 'Registration Complete!';
@@ -32,12 +36,12 @@ const Welcome = () => {
                 ? PATHS.STAFF.LIST
                 : location.state?.from === 'customer-register'
                     ? PATHS.CUSTOMER.LIST
-                    : PATHS.ROOT;
+                    : getFirstAllowedRoute(user);
             navigate(redirectPath);
         }, 3000);
 
         return () => clearTimeout(timer);
-    }, [navigate, location]);
+    }, [navigate, location, user]);
 
     return (
         <Box

@@ -11,7 +11,8 @@ import {
     useTheme,
     alpha,
     Paper,
-    useMediaQuery
+    useMediaQuery,
+    Tooltip
 } from '@mui/material';
 
 const Topbar = ({ onMenuClick }) => {
@@ -19,138 +20,195 @@ const Topbar = ({ onMenuClick }) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
+    // ── Derive initials for avatar ───────────────────────────────────────────
+    const initials = (user?.employeeName || '')
+        .split(' ')
+        .slice(0, 2)
+        .map(w => w[0]?.toUpperCase() || '')
+        .join('') || <Icon icon="lucide:user" style={{ fontSize: '18px', color: 'white' }} />;
+
     return (
         <Paper
             elevation={0}
             sx={{
                 width: '100%',
-                borderRadius: '20px',
-                background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-                color: theme.palette.primary.contrastText,
-                p: { xs: 1.5, md: 2 },
-                boxShadow: `0 10px 30px ${alpha(theme.palette.primary.main, 0.15)}`,
+                borderRadius: '16px',
+                background: ' #1f618d ',
+                border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
+                boxShadow: '0 1px 4px 0 rgba(0,0,0,0.06)',
+                p: { xs: '10px 14px', md: '10px 20px' },
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                border: `1px solid ${alpha(theme.palette.common.white, 0.1)}`,
+                gap: 2,
                 position: 'relative',
-                overflow: 'hidden'
+                overflow: 'hidden',
             }}
         >
-            {/* Background pattern */}
-            <Box
-                sx={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    opacity: 0.1,
-                    background: 'radial-gradient(circle at 20% 50%, rgba(255,255,255,0.4) 0%, transparent 50%)',
-                    pointerEvents: 'none'
-                }}
-            />
-
-            <Stack direction="row" alignItems="center" spacing={2} sx={{ flexGrow: 1, minWidth: 0, position: 'relative', zIndex: 1 }}>
+            {/* ── Left: menu + identity ─────────────────────────────────── */}
+            <Stack
+                direction="row"
+                alignItems="center"
+                spacing={1.5}
+                sx={{ flexGrow: 1, minWidth: 0 }}
+            >
                 {isMobile && (
                     <IconButton
                         onClick={onMenuClick}
+                        size="small"
                         sx={{
-                            color: 'inherit',
-                            bgcolor: alpha(theme.palette.common.white, 0.1),
-                            '&:hover': { bgcolor: alpha(theme.palette.common.white, 0.2) }
+                            color: theme.palette.text.secondary,
+                            borderRadius: '10px',
+                            border: `1px solid ${alpha(theme.palette.divider, 0.12)}`,
+                            '&:hover': {
+                                bgcolor: alpha(theme.palette.primary.main, 0.06),
+                                borderColor: alpha(theme.palette.primary.main, 0.2),
+                            },
                         }}
                     >
-                        <Icon icon="lucide:menu" />
+                        <Icon icon="lucide:menu" style={{ fontSize: '18px' }} />
                     </IconButton>
                 )}
 
+                {/* Avatar */}
                 <Avatar
                     sx={{
-                        bgcolor: alpha(theme.palette.common.white, 0.2),
-                        width: { xs: 40, md: 48 },
-                        height: { xs: 40, md: 48 },
-                        border: `2px solid ${alpha(theme.palette.common.white, 0.3)}`,
-                        boxShadow: `0 4px 12px ${alpha(theme.palette.common.black, 0.1)}`
+                        width: { xs: 36, md: 40 },
+                        height: { xs: 36, md: 40 },
+                        bgcolor: theme.palette.primary.main,
+                        fontSize: '13px',
+                        fontWeight: 800,
+                        flexShrink: 0,
+                        letterSpacing: '0.03em',
                     }}
                 >
-                    <Icon icon="lucide:user" style={{ fontSize: '24px', color: 'white' }} />
+                    {initials}
                 </Avatar>
 
+                {/* Name + department */}
                 <Box sx={{ minWidth: 0 }}>
                     <Typography
-                        variant="caption"
                         sx={{
-                            fontWeight: 800,
+                            fontSize: '10px',
+                            fontWeight: 700,
                             textTransform: 'uppercase',
-                            letterSpacing: '1.5px',
-                            opacity: 0.8,
-                            fontSize: '0.65rem',
-                            display: 'block',
-                            mb: 0.2
+                            letterSpacing: '0.08em',
+                            color: 'white',
+                            lineHeight: 1,
+                            mb: '3px',
                         }}
                     >
-                        Account
+                        Logged in
                     </Typography>
-                    <Stack direction="row" alignItems="center" spacing={1.5}>
+                    <Stack direction="row" alignItems="center" spacing={1}>
                         <Typography
-                            variant="h6"
                             noWrap
                             sx={{
-                                fontSize: { xs: '0.95rem', md: '1.25rem' },
+                                fontSize: { xs: '13px', md: '14px' },
                                 fontWeight: 800,
-                                letterSpacing: '-0.02em'
+                                color: "white",
+                                letterSpacing: '-0.01em',
+                                lineHeight: 1.2,
                             }}
                         >
                             {user?.employeeName || 'Team Member'}
                         </Typography>
-                        {!isMobile && (
+
+                        {!isMobile && user?.Department?.name && (
                             <Box
                                 sx={{
-                                    px: 1.5,
-                                    py: 0.5,
-                                    borderRadius: '12px',
-                                    bgcolor: alpha(theme.palette.common.white, 0.15),
-                                    border: `1px solid ${alpha(theme.palette.common.white, 0.2)}`,
-                                    color: "white",
-                                    fontSize: '0.7rem',
-                                    fontWeight: 700,
+                                    px: 1.2,
+                                    py: '3px',
+                                    borderRadius: '8px',
+                                    bgcolor: alpha(theme.palette.primary.main, 0.08),
+                                    color: theme.palette.primary.light,
+                                    fontSize: '10px',
+                                    fontWeight: 800,
                                     textTransform: 'uppercase',
-                                    letterSpacing: '0.5px'
+                                    letterSpacing: '0.06em',
+                                    whiteSpace: 'nowrap',
+                                    flexShrink: 0,
                                 }}
                             >
-                                {user?.Department?.name || 'Operations'}
+                                {user.Department.name}
                             </Box>
                         )}
                     </Stack>
                 </Box>
             </Stack>
 
-            <Stack direction="row" spacing={1.5} sx={{ position: 'relative', zIndex: 1 }}>
-                <IconButton
-                    sx={{
-                        bgcolor: alpha(theme.palette.common.white, 0.1),
-                        color: 'white',
-                        '&:hover': { bgcolor: alpha(theme.palette.common.white, 0.2) }
-                    }}
-                >
-                    <Badge
-                        color="warning"
-                        variant="dot"
-                        sx={{ '& .MuiBadge-badge': { width: 10, height: 10, borderRadius: '50%' } }}
+            {/* ── Right: actions ────────────────────────────────────────── */}
+            <Stack direction="row" alignItems="center" spacing={1}>
+
+                {/* Notifications */}
+                <Tooltip title="Notifications" placement="bottom">
+                    <IconButton
+                        size="small"
+                        sx={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: '10px',
+                            border: `1px solid ${alpha(theme.palette.divider, 0.12)}`,
+                            color: theme.palette.text.secondary,
+                            '&:hover': {
+                                bgcolor: alpha(theme.palette.warning.main, 0.06),
+                                borderColor: alpha(theme.palette.warning.main, 0.25),
+                                color: theme.palette.warning.main,
+                            },
+                            transition: 'all .15s',
+                        }}
                     >
-                        <Icon icon="lucide:bell" style={{ fontSize: '20px' }} />
-                    </Badge>
-                </IconButton>
-                <IconButton
+                        <Badge
+                            color="warning"
+                            variant="dot"
+                            sx={{
+                                '& .MuiBadge-badge': {
+                                    width: 7,
+                                    height: 7,
+                                    minWidth: 7,
+                                    borderRadius: '50%',
+                                    border: '1.5px solid white',
+                                    top: 2,
+                                    right: 2,
+                                },
+                            }}
+                        >
+                            <Icon icon="lucide:bell" style={{ fontSize: '17px' }} />
+                        </Badge>
+                    </IconButton>
+                </Tooltip>
+
+                {/* Divider */}
+                <Box
                     sx={{
-                        bgcolor: alpha(theme.palette.common.white, 0.1),
-                        color: 'white',
-                        '&:hover': { bgcolor: alpha(theme.palette.common.white, 0.2) }
+                        width: '1px',
+                        height: '22px',
+                        bgcolor: alpha(theme.palette.divider, 0.15),
+                        flexShrink: 0,
                     }}
-                >
-                    <Icon icon="lucide:settings" style={{ fontSize: '20px' }} />
-                </IconButton>
+                />
+
+                {/* Settings */}
+                <Tooltip title="Settings" placement="bottom">
+                    <IconButton
+                        size="small"
+                        sx={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: '10px',
+                            border: `1px solid ${alpha(theme.palette.divider, 0.12)}`,
+                            color: theme.palette.text.secondary,
+                            '&:hover': {
+                                bgcolor: alpha(theme.palette.primary.main, 0.06),
+                                borderColor: alpha(theme.palette.primary.main, 0.2),
+                                color: theme.palette.primary.main,
+                            },
+                            transition: 'all .15s',
+                        }}
+                    >
+                        <Icon icon="lucide:settings" style={{ fontSize: '17px' }} />
+                    </IconButton>
+                </Tooltip>
             </Stack>
         </Paper>
     );

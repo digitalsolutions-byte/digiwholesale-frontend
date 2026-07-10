@@ -31,6 +31,7 @@ export const PATHS = {
     CUSTOMER_CARE: {
         NEW_ORDER: '/new-order',
         ALL_ORDERS: '/orders/all',
+        RX_ORDERS: '/orders/rx',
         PENDING_ORDERS: '/orders/pending',
         ORDER_STATUS: '/orders/status',
         SERVICE_GOODS: '/orders/service-goods',
@@ -79,6 +80,18 @@ export const PATHS = {
         ADD: '/vendor/add',
         LIST: '/vendor/list',
         ORDER: '/vendor/order',
+        PURCHASE_ITEMS: '/vendor/purchase-items',
+        PURCHASE_ITEM_DETAILS: '/vendor/purchase-items/:id',
+        INWARD_LIST: '/vendor/inward',
+        INWARD_DETAILS: '/vendor/inward/:id',
+        QC_LIST: '/vendor/qc',
+        QC_DETAILS: '/vendor/qc/:id',
+        PURCHASE_RETURNS: '/vendor/purchase-returns',
+        QC_FAILED_REPORT: '/vendor/qc-failed-report',
+        ALL_INWARDED_ITEMS: '/vendor/all-inwarded-items',
+        PENDING_INWARD: '/vendor/pending-inward',
+        QC_PENDING: '/vendor/qc-pending',
+        QC_PASSED: '/vendor/qc-passed',
     },
 
     // SALES MODULE

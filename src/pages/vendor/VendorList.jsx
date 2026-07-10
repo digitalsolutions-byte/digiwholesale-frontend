@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useReactTable, getCoreRowModel, getPaginationRowModel, getFilteredRowModel, flexRender } from "@tanstack/react-table";
 import { Icon } from "@iconify/react";
 import {
@@ -171,6 +172,114 @@ function VendorKeywordInput({ value, onChange }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Product Search Input (Auto-fill)
+// ─────────────────────────────────────────────────────────────────────────────
+function ProductSearchInput({ value, onChange, onSelect }) {
+    const [suggestions, setSuggestions] = useState([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [searching, setSearching] = useState(false);
+    const [dropdownStyles, setDropdownStyles] = useState({});
+    const debounceRef = useRef(null);
+    const inputRef = useRef(null);
+
+    const fetchSuggestions = async (q) => {
+        try {
+            setSearching(true);
+            const res = await vendorOrderService.searchProductNames(q || "");
+            const items = res?.products || res?.data || (Array.isArray(res) ? res : []);
+            setSuggestions(items);
+            setShowSuggestions(true);
+            updateDropdownPosition();
+        } catch { /* silent */ }
+        finally { setSearching(false); }
+    };
+
+    const updateDropdownPosition = () => {
+        if (inputRef.current) {
+            const rect = inputRef.current.getBoundingClientRect();
+            setDropdownStyles({
+                position: 'fixed',
+                top: rect.bottom + 4,
+                left: rect.left,
+                width: rect.width,
+                zIndex: 99999
+            });
+        }
+    };
+
+    useEffect(() => {
+        if (showSuggestions) {
+            updateDropdownPosition();
+            window.addEventListener("scroll", updateDropdownPosition, true);
+            window.addEventListener("resize", updateDropdownPosition);
+            return () => {
+                window.removeEventListener("scroll", updateDropdownPosition, true);
+                window.removeEventListener("resize", updateDropdownPosition);
+            };
+        }
+    }, [showSuggestions]);
+
+    const handleChange = (e) => {
+        onChange(e.target.value);
+        clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => fetchSuggestions(e.target.value), 320);
+    };
+
+    const handleSelect = (s) => {
+        onSelect(s);
+        setSuggestions([]);
+        setShowSuggestions(false);
+    };
+
+    useEffect(() => {
+        const handler = (e) => {
+            if (inputRef.current && !inputRef.current.contains(e.target) && !e.target.closest('.search-dropdown-portal')) {
+                setShowSuggestions(false);
+            }
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, []);
+
+    return (
+        <div className="relative w-full">
+            <input
+                ref={inputRef}
+                type="text"
+                value={value}
+                onChange={handleChange}
+                onFocus={() => fetchSuggestions(value)}
+                placeholder="Enter Product Name..."
+                className="w-full bg-transparent border border-gray-100 rounded-md px-3 py-2 text-[13px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300"
+            />
+            {searching && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 border-2 border-blue-300 border-t-transparent rounded-full animate-spin pointer-events-none" />
+            )}
+            {showSuggestions && suggestions.length > 0 && createPortal(
+                <div className="search-dropdown-portal bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden" style={dropdownStyles}>
+                    <ul className="max-h-52 overflow-y-auto">
+                        {suggestions.map((s, i) => (
+                            <li key={i}>
+                                <button onMouseDown={() => handleSelect(s)}
+                                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-blue-50 transition text-left">
+                                    <div className="min-w-0">
+                                        <p className="text-xs font-bold text-gray-800 truncate">{s.name || s.itemName || s.productName || "-"}</p>
+                                        <p className="text-[10px] text-gray-400 truncate">
+                                            {s.code || s.productCode || ""} {s.category ? `· ${s.category}` : ""}
+                                        </p>
+                                    </div>
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                </div>,
+                document.body
+            )}
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main component
 // ─────────────────────────────────────────────────────────────────────────────
 export default function VendorList() {
@@ -196,12 +305,57 @@ export default function VendorList() {
 
     const todayDate = new Date().toISOString().split("T")[0];
 
-    const emptyRow = { productCode: "", category: "", productName: "", quantity: 1, price: "", gstPercent: "0", expectedDate: "" };
+    const emptyRow = {
+        isNewProduct: true, productId: null,
+        productCode: "", category: "LENS", productName: "", quantity: 1, price: "", mrp: "", gstPercent: "0", expectedDate: "",
+        sph: "", cyl: "", add: "",
+        brand: "", color: "", size: "", shape: "", material: "", dimensions: "", unit: "PIECE", hsnSac: "",
+        index: "", tint: "", coating: "", expiry: "", disposability: "", discountPercent: 0, discountAmount: 0, axis: 0
+    };
+    const [activeTab, setActiveTab] = useState('lens'); // keep this just in case anything else breaks but not used for rows
     const [orderRows, setOrderRows] = useState([emptyRow]);
 
-    const handleAddRow = () => setOrderRows(prev => [...prev, emptyRow]);
-    const handleRemoveRow = (i) => setOrderRows(prev => prev.filter((_, idx) => idx !== i));
-    const handleChangeRow = (i, field, val) => setOrderRows(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
+    const activeRows = orderRows;
+    const setActiveRows = setOrderRows;
+
+    const handleAddRow = () => setActiveRows(prev => [...prev, emptyRow]);
+    const handleRemoveRow = (i) => setActiveRows(prev => prev.filter((_, idx) => idx !== i));
+    const handleChangeRow = (i, field, val) => setActiveRows(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
+    const handleSelectProduct = (i, product) => {
+        const newProductData = {
+            productId: product._id || null,
+            isNewProduct: false,
+            productName: product.name || product.itemName || product.productName || "",
+            productCode: product.code || product.productCode || "",
+            category: product.category || "",
+            price: product.price || product.mrp || "",
+            mrp: product.mrp || product.price || "",
+            gstPercent: product.gst || product.gstPercent || "0",
+            sph: product.sph || "",
+            cyl: product.cyl || "",
+            add: product.addition || product.add || "",
+            axis: product.axis || "",
+            brand: product.brand || "",
+            color: product.color || "",
+            size: product.size || "",
+            shape: product.shape || "",
+            material: product.material || "",
+            dimensions: product.dimensions || "",
+            unit: product.unit || "PIECE",
+            hsnSac: product.hsnSac || "",
+            index: product.index || "",
+            tint: product.tint || "",
+            coating: product.coating || "",
+            expiry: product.expiry || "",
+            disposability: product.disposability || ""
+        };
+
+        setActiveRows(prev => prev.map((r, idx) => {
+            if (idx === i) return { ...r, ...newProductData };
+            return r;
+        }));
+        toast.info(`Product filled successfully`);
+    };
     const handleClearOrder = () => { setOrderRows([emptyRow]); setNotes(""); };
 
     // ============ fetch Vendor data pagination ============
@@ -273,13 +427,14 @@ export default function VendorList() {
     };
 
     const handleSubmitOrder = async () => {
+        const allOrderRows = orderRows.filter(r => r.productCode || r.category || r.productName || r.price);
         if (!selectedVendor || (!selectedVendor._id && !selectedVendor.vendorNumber)) {
             toast.error("Please select a vendor");
             return;
         }
-        if (!orderRows || orderRows.length === 0) { toast.error("Please add at least one product"); return; }
-        for (let i = 0; i < orderRows.length; i++) {
-            const r = orderRows[i];
+        if (!allOrderRows || allOrderRows.length === 0) { toast.error("Please add at least one product"); return; }
+        for (let i = 0; i < allOrderRows.length; i++) {
+            const r = allOrderRows[i];
             if (!r.productCode) { toast.error(`Row ${i + 1}: Product Code is required`); return; }
             if (!r.category) { toast.error(`Row ${i + 1}: Category is required`); return; }
             if (!r.productName) { toast.error(`Row ${i + 1}: Product Name is required`); return; }
@@ -289,26 +444,76 @@ export default function VendorList() {
         }
         try {
             dispatch(showLoader());
-            const data = await vendorOrderService.createVendorOrder({
-                vendorId: selectedVendor._id || selectedVendor.vendorNumber,
-                notes,
-                items: orderRows.map(r => ({
-                    productCode: r.productCode,
-                    category: r.category,
-                    productName: r.productName,
-                    quantity: Number(r.quantity),
+
+            const items = allOrderRows.map(r => {
+                const isLens = r.category && (r.category.toUpperCase() === 'LENS' || r.category.toUpperCase() === 'CONTACT_LENS');
+                const isContactLens = r.category && r.category.toUpperCase() === 'CONTACT_LENS';
+
+                const item = {
+                    isNewProduct: r.isNewProduct ?? true,
+                    orderType: r.orderType || "STOCK",
+                    itemName: r.productName,
+                    category: r.category || "LENS",
+                    code: r.productCode,
+                    brand: r.brand || "",
+                    color: r.color || "",
+                    size: r.size || "",
+                    shape: r.shape || "",
+                    material: r.material || "",
+                    dimensions: r.dimensions || "",
+                    unit: r.unit || "PIECE",
+                    qty: Number(r.quantity),
                     price: Number(r.price),
-                    gstPercent: Number(r.gstPercent || 0),
-                    expectedDate: r.expectedDate,
-                })),
+                    mrp: Number(r.mrp || r.price),
+                    gst: Number(r.gstPercent || 0),
+                    hsnSac: r.hsnSac || "",
+                    discountPercent: Number(r.discountPercent || 0),
+                    discountAmount: Number(r.discountAmount || 0),
+                    expectedDate: r.expectedDate || "",
+                    expiry: r.expiry || "",
+                    disposability: r.disposability || "",
+                };
+
+                if (!r.isNewProduct && r.productId) {
+                    item.productId = r.productId;
+                }
+
+                if (isLens) {
+                    item.sph = Number(r.sph) || 0;
+                    item.cyl = Number(r.cyl) || 0;
+                    item.axis = Number(r.axis) || 0;
+                    item.add = Number(r.add) || 0;
+                    item.index = r.index || "";
+                    item.tint = r.tint || "";
+                    item.coating = r.coating || "";
+                }
+
+                return item;
             });
+
+            const overallGst = items.length > 0 ? items[0].gst : 0;
+            const halfGst = (overallGst / 2).toString();
+
+            const payload = {
+                vendorId: selectedVendor._id || selectedVendor.vendorNumber,
+                orders: [
+                    {
+                        cgst: halfGst,
+                        sgst: halfGst,
+                        remarks: notes || "Vendor order",
+                        items: items
+                    }
+                ]
+            };
+
+            const data = await vendorOrderService.createVendorPurchaseItems(payload);
             if (data.success) {
-                toast.success(`Purchase Order Created Successfully: #${data.order?.orderNumber || ''}`);
+                toast.success(`Purchase Order Created Successfully`);
                 handleClearOrder();
                 setShowOrderModal(false);
             }
         } catch (error) {
-            toast.error(error.response?.data?.message || "Failed to create purchase order");
+            toast.error(error.message || error.response?.data?.message || "Failed to create purchase order");
         } finally { dispatch(hideLoader()); }
     };
 
@@ -385,7 +590,8 @@ export default function VendorList() {
     const pages = Array.from({ length: endPage - startPage }, (_, i) => startPage + i);
 
     // order summary
-    const orderSummary = orderRows.reduce((acc, r) => {
+    const allOrderRows = orderRows.filter(r => r.productCode || r.category || r.productName || r.price);
+    const orderSummary = allOrderRows.reduce((acc, r) => {
         const base = (Number(r.quantity) || 0) * (Number(r.price) || 0);
         const gst = (base * (Number(r.gstPercent) || 0)) / 100;
         acc.subtotal += base; acc.gstTotal += gst; acc.grandTotal += base + gst;
@@ -400,10 +606,19 @@ export default function VendorList() {
     );
 
     return (
-        <div className="w-full flex flex-col gap-6 animate-in fade-in duration-500">
+        <div className="p-6 max-w-7xl mx-auto h-full flex flex-col animate-in fade-in duration-500">
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                        <Icon icon="lucide:users" className="text-erp-accent" />
+                        Vendor List
+                    </h1>
+                    <p className="text-sm text-gray-500 mt-1">Manage and view all vendors</p>
+                </div>
+            </div>
 
             {/* ── Filter bar ── */}
-            <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 mb-6">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
                 <div className="flex flex-wrap items-end gap-6">
                     <div className="flex flex-col gap-1.5">
                         <span className="text-xs font-bold text-gray-500 ml-2">Period</span>
@@ -446,7 +661,7 @@ export default function VendorList() {
             </div>
 
             {/* ── Table card ── */}
-            <div className="bg-white rounded-[2rem] shadow-2xl border border-gray-100 overflow-hidden min-h-[600px] flex flex-col">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex-1 flex flex-col">
 
                 {/* Table top bar */}
                 <div className="flex items-center justify-between px-8 py-5 border-b border-gray-50 bg-gray-50/30">
@@ -620,74 +835,197 @@ export default function VendorList() {
 
                         {/* Body */}
                         <div className="flex-1 overflow-y-auto px-8 py-8 space-y-6 bg-gray-50/50 custom-scrollbar">
-                            <div className="space-y-6">
-                                {orderRows.map((row, index) => (
-                                    <div key={index} className="relative bg-white border border-gray-100 rounded-[2rem] p-6 shadow-xl shadow-gray-200/40 hover:shadow-gray-200/60 transition-all animate-slideUp">
-                                        <div className="flex items-center justify-between mb-6 border-b border-gray-50 pb-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-6 h-6 rounded-lg bg-erp-accent/5 flex items-center justify-center">
-                                                    <span className="text-[10px] font-black text-erp-accent">{index + 1}</span>
-                                                </div>
-                                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Product Specification</span>
-                                            </div>
-                                            {orderRows.length > 1 && (
-                                                <button onClick={() => handleRemoveRow(index)}
-                                                    className="w-8 h-8 rounded-full hover:bg-rose-50 text-rose-300 hover:text-rose-500 transition-all flex items-center justify-center">
-                                                    <Icon icon="mdi:trash-can-outline" className="text-lg" />
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 sm:gap-6">
-                                            {[
-                                                { label: "Product Code", field: "productCode", type: "text", placeholder: "e.g. PRD-001" },
-                                                { label: "Category", field: "category", type: "text", placeholder: "e.g. Frame" },
-                                                { label: "Product Name", field: "productName", type: "text", placeholder: "Full product description..." },
-                                                { label: "Quantity", field: "quantity", type: "number", placeholder: "Qty", min: "1", step: "1" },
-                                                { label: "Price / Unit", field: "price", type: "number", placeholder: "₹ 0.00", min: "0", step: "0.01" },
-                                            ].map(({ label, field, type, placeholder, min, step }) => (
-                                                <div key={field} className={`flex flex-col ${field === "productName" ? "sm:col-span-2 lg:col-span-1 2xl:col-span-1" : ""}`}>
-                                                    <label className={labelCls}>{label}</label>
-                                                    <input type={type} min={min} step={step} placeholder={placeholder}
-                                                        value={row[field]}
-                                                        onChange={e => handleChangeRow(index, field, field === "quantity" ? Math.floor(e.target.value) : e.target.value)}
-                                                        className={fieldCls}
-                                                    />
-                                                </div>
+                            <div className="bg-white border border-gray-200 rounded-[1.5rem] shadow-sm overflow-hidden flex flex-col">
+                                <div className="overflow-x-auto custom-scrollbar">
+                                    <table className="w-full min-w-[2800px] border-collapse">
+                                        <thead>
+                                            <tr className="bg-[#2980B9] text-white">
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-12 border-r border-white/10">S.NO.</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-24 border-r border-white/10">Product Code</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-24 border-r border-white/10">Category</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest min-w-[150px] border-r border-white/10">Product Name</th>
+                                                {/* <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-24 border-r border-white/10">Order Type</th> */}
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-24 border-r border-white/10">Brand</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-20 border-r border-white/10">Color</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-20 border-r border-white/10">Size</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-20 border-r border-white/10">Shape</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-24 border-r border-white/10">Material</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-24 border-r border-white/10">Dimensions</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-24 border-r border-white/10">Unit</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-16 border-r border-white/10">Sph</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-16 border-r border-white/10">Cyl</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-16 border-r border-white/10">Axis</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-16 border-r border-white/10">Add</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-20 border-r border-white/10">Index</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-20 border-r border-white/10">Tint</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-20 border-r border-white/10">Coating</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-32 border-r border-white/10">Expiry</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-24 border-r border-white/10">Disposability</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-20 border-r border-white/10">QTY</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-24 border-r border-white/10">Price</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-24 border-r border-white/10">MRP</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-20 border-r border-white/10">GST %</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-24 border-r border-white/10">HSN/SAC</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-24 border-r border-white/10">Discount %</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-24 border-r border-white/10">Discount Amt</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-32 border-r border-white/10">Expected Date</th>
+                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-12"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 bg-white">
+                                            {activeRows.map((row, index) => (
+                                                <tr key={index} className="hover:bg-blue-50/30 transition-colors group">
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <div className="text-center text-[12px] font-bold text-gray-700">{index + 1}</div>
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="text" placeholder="Product Code" value={row.productCode} onChange={e => handleChangeRow(index, "productCode", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" />
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <select value={row.category || "LENS"} onChange={e => handleChangeRow(index, "category", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" >
+                                                            <option value="" disabled>Select</option>
+                                                            <option value="LENS">LENS</option>
+                                                            <option value="FRAME">FRAME</option>
+                                                            <option value="SUNGLASS">SUNGLASS</option>
+                                                            <option value="CONTACT_LENS">CONTACT_LENS</option>
+                                                        </select>
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        {(!row.orderType || row.orderType === "STOCK") ? (
+                                                            <ProductSearchInput
+                                                                value={row.productName}
+                                                                onChange={(val) => {
+                                                                    handleChangeRow(index, "productName", val);
+                                                                    handleChangeRow(index, "isNewProduct", true);
+                                                                    handleChangeRow(index, "productId", null);
+                                                                }}
+                                                                onSelect={(product) => handleSelectProduct(index, product)}
+                                                            />
+                                                        ) : (
+                                                            <input type="text" placeholder="Product Name" value={row.productName} onChange={e => handleChangeRow(index, "productName", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" />
+                                                        )}
+                                                    </td>
+                                                    {/* <td className="px-1 py-2 border-r border-gray-100">
+                                                        <select value={row.orderType || "STOCK"} onChange={e => handleChangeRow(index, "orderType", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" >
+                                                            <option value="STOCK">STOCK</option>
+                                                            <option value="RX">RX</option>
+                                                        </select>
+                                                    </td> */}
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="text" placeholder="Brand" value={row.brand} onChange={e => handleChangeRow(index, "brand", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" />
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="text" placeholder="Color" value={row.color} onChange={e => handleChangeRow(index, "color", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" />
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="text" placeholder="Size" value={row.size} onChange={e => handleChangeRow(index, "size", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" />
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="text" placeholder="Shape" value={row.shape} onChange={e => handleChangeRow(index, "shape", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" />
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="text" placeholder="Material" value={row.material} onChange={e => handleChangeRow(index, "material", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" />
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="text" placeholder="Dimensions" value={row.dimensions} onChange={e => handleChangeRow(index, "dimensions", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" />
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <select value={row.unit || "PIECE"} onChange={e => handleChangeRow(index, "unit", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" >
+                                                            <option value="PIECE">PIECE</option>
+                                                            <option value="BOX">BOX</option>
+                                                            <option value="PAIR">PAIR</option>
+                                                        </select>
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="text" placeholder="Sph" value={row.sph} onChange={e => handleChangeRow(index, "sph", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300 disabled:bg-gray-100 disabled:opacity-50" disabled={row.category && row.category !== 'LENS' && row.category !== 'CONTACT_LENS'} />
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="text" placeholder="Cyl" value={row.cyl} onChange={e => handleChangeRow(index, "cyl", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300 disabled:bg-gray-100 disabled:opacity-50" disabled={row.category && row.category !== 'LENS' && row.category !== 'CONTACT_LENS'} />
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="text" placeholder="Axis" value={row.axis} onChange={e => handleChangeRow(index, "axis", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300 disabled:bg-gray-100 disabled:opacity-50" disabled={row.category && row.category !== 'LENS' && row.category !== 'CONTACT_LENS'} />
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="text" placeholder="Add" value={row.add} onChange={e => handleChangeRow(index, "add", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300 disabled:bg-gray-100 disabled:opacity-50" disabled={row.category && row.category !== 'LENS' && row.category !== 'CONTACT_LENS'} />
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="text" placeholder="Index" value={row.index} onChange={e => handleChangeRow(index, "index", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300 disabled:bg-gray-100 disabled:opacity-50" disabled={row.category && row.category !== 'LENS' && row.category !== 'CONTACT_LENS'} />
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="text" placeholder="Tint" value={row.tint} onChange={e => handleChangeRow(index, "tint", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300 disabled:bg-gray-100 disabled:opacity-50" disabled={row.category && row.category !== 'LENS'} />
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="text" placeholder="Coating" value={row.coating} onChange={e => handleChangeRow(index, "coating", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300 disabled:bg-gray-100 disabled:opacity-50" disabled={row.category && row.category !== 'LENS'} />
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="date" value={row.expiry} onChange={e => handleChangeRow(index, "expiry", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300 disabled:bg-gray-100 disabled:opacity-50" disabled={row.category && row.category !== 'CONTACT_LENS'} />
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="text" placeholder="Disposability" value={row.disposability} onChange={e => handleChangeRow(index, "disposability", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300 disabled:bg-gray-100 disabled:opacity-50" disabled={row.category && row.category !== 'CONTACT_LENS'} />
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="number" placeholder="0" value={row.quantity} onChange={e => handleChangeRow(index, "quantity", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300 text-center font-bold" />
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="number" placeholder="0" value={row.price} onChange={e => handleChangeRow(index, "price", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300 text-center font-bold" />
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="number" placeholder="0" value={row.mrp} onChange={e => handleChangeRow(index, "mrp", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300 text-center font-bold" />
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <select value={row.gstPercent || "0"} onChange={e => handleChangeRow(index, "gstPercent", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" >
+                                                            <option value="0">0%</option>
+                                                            <option value="5">5%</option>
+                                                            <option value="12">12%</option>
+                                                            <option value="18">18%</option>
+                                                            <option value="28">28%</option>
+                                                        </select>
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="text" placeholder="HSN/SAC" value={row.hsnSac} onChange={e => handleChangeRow(index, "hsnSac", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" />
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="number" placeholder="0" value={row.discountPercent} onChange={e => handleChangeRow(index, "discountPercent", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300 text-center font-bold" />
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="number" placeholder="0" value={row.discountAmount} onChange={e => handleChangeRow(index, "discountAmount", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300 text-center font-bold" />
+                                                    </td>
+                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                        <input type="date" value={row.expectedDate} onChange={e => handleChangeRow(index, "expectedDate", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" />
+                                                    </td>
+                                                    <td className="px-1 py-2 text-center bg-gray-50/30 group-hover:bg-white transition-colors">
+                                                        <button onClick={() => handleRemoveRow(index)} className="w-6 h-6 rounded-full hover:bg-rose-50 text-rose-300 hover:text-rose-500 transition-all inline-flex items-center justify-center">
+                                                            <Icon icon="mdi:trash-can-outline" className="text-lg" />
+                                                        </button>
+                                                    </td>
+                                                </tr>
                                             ))}
-                                            <div className="flex flex-col">
-                                                <label className={labelCls}>GST %</label>
-                                                <select value={row.gstPercent} onChange={e => handleChangeRow(index, "gstPercent", e.target.value)} className={fieldCls}>
-                                                    <option value="0">Select GST</option>
-                                                    {[5, 12, 18, 28].map(g => <option key={g} value={g}>{g}% Tax</option>)}
-                                                </select>
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <label className={labelCls}>Expected Date</label>
-                                                <input type="date" min={todayDate} value={row.expectedDate}
-                                                    onChange={e => handleChangeRow(index, "expectedDate", e.target.value)}
-                                                    className={fieldCls}
-                                                />
-                                            </div>
-                                        </div>
+                                        </tbody>
+                                    </table>
 
-                                        <div className="mt-6 flex justify-end pt-4 border-t border-gray-50/50">
-                                            <div className="flex items-center gap-3 bg-erp-accent/[0.03] px-6 py-2 rounded-full border border-erp-accent/5">
-                                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Row Valuation</span>
-                                                <span className="text-sm font-black text-erp-accent">
-                                                    ₹ {((Number(row.quantity) || 0) * (Number(row.price) || 0) * (1 + (Number(row.gstPercent) || 0) / 100)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                </span>
-                                            </div>
-                                        </div>
+                                </div>
+
+                                {/* Add Rows buttons & Remove Empty */}
+                                <div className="p-5 border-t border-gray-100 flex items-center justify-center sm:justify-start gap-4 flex-wrap bg-gray-50/80">
+                                    <div className="flex items-center gap-2">
+                                        <Icon icon="mdi:table-row-plus-after" className="text-[#2980B9] text-xl" />
+                                        <span className="text-[12px] font-black uppercase tracking-widest text-gray-500 ml-1 mr-2">ADD ROWS:</span>
                                     </div>
-                                ))}
+                                    {[1, 5, 10, 20, 50].map(num => (
+                                        <button key={num} onClick={() => setActiveRows(prev => [...prev, ...Array(num).fill(emptyRow)])}
+                                            className="px-5 py-2 bg-white border-2 border-blue-50 text-[#2980B9] rounded-2xl text-[13px] font-black hover:bg-blue-50 hover:border-blue-100 hover:scale-105 active:scale-95 transition-all shadow-sm">
+                                            + {num}
+                                        </button>
+                                    ))}
+                                    <button onClick={() => {
+                                        const filledRows = activeRows.filter(r => r.productCode || r.category || r.productName || r.price || r.quantity > 1 || r.expectedDate || r.gstPercent !== "0");
+                                        setActiveRows(filledRows.length ? filledRows : [emptyRow]);
+                                    }}
+                                        className="ml-auto px-6 py-2.5 bg-white border-2 border-rose-50 text-rose-500 rounded-2xl text-[13px] font-black hover:bg-rose-50 hover:border-rose-100 hover:scale-105 active:scale-95 transition-all shadow-sm flex items-center gap-2">
+                                        <Icon icon="mdi:trash-can-outline" className="text-lg" /> Remove Empty
+                                    </button>
+                                </div>
                             </div>
-
-                            <button onClick={handleAddRow}
-                                className="w-full flex items-center justify-center gap-3 py-6 border-2 border-dashed border-erp-accent/10 bg-erp-accent/[0.02] hover:bg-erp-accent/5 hover:border-erp-accent/30 rounded-[2rem] transition-all group">
-                                <Icon icon="mdi:plus-circle" className="text-2xl text-erp-accent/40 group-hover:text-erp-accent group-hover:scale-110 transition-all" />
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 group-hover:text-erp-accent">Add Product Line Item</span>
-                            </button>
                         </div>
 
                         {/* Footer */}

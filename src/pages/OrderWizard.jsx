@@ -18,6 +18,7 @@ import {
     getTints,
     getFrameTypes,
     getProductNames,
+    getProductById,
     resolveProductBase,
     createBulkOrders,
     getCategoriesByBrand
@@ -101,7 +102,28 @@ const OrderWizard = () => {
             advance: '',
             transactionType: '',
             remarks: ''
-        }
+        },
+        // Lens / RX fitting fields (only used when orderType=rx and category=LENS)
+        hasFlatFitting: 'no',
+        dbl: '',
+        frameType: '',
+        frameLength: '',
+        frameHeight: '',
+        pantoscopicAngle: '',
+        bowAngle: '',
+        bvd: '',
+        expiry: '',
+        productCode: '',
+        image: '',
+        color: '',
+        size: '',
+        type: '',
+        shape: '',
+        material: '',
+        dimensions: '',
+        Brand: '',
+        MRP: 0,
+        HSNSAC: ''
     };
 
     // Initial Form Values
@@ -117,15 +139,7 @@ const OrderWizard = () => {
         // Product Details Array
         products: Array(5).fill(null).map(() => ({ ...productTemplate })),
 
-        // Advanced Details
-        hasFlatFitting: 'no', // yes | no
-        dbl: '',
-        frameType: '',
-        frameLength: '',
-        frameHeight: '',
-        pantoscopicAngle: '',
-        bowAngle: '',
-        bvd: '',
+        // Step 3: Shipping only
         directCustomer: '',
         shippingCharges: '',
         otherCharges: ''
@@ -164,32 +178,7 @@ const OrderWizard = () => {
             })
         ),
 
-        // Step 3: Advanced Details
-        pantoscopicAngle: Yup.number().typeError('Must be a number').required('Pantoscopic Angle is required'),
-        bowAngle: Yup.number().typeError('Must be a number').required('Bow Angle is required'),
-        bvd: Yup.number().typeError('Must be a number').required('BVD is required'),
-
-        // Conditional Frame Details
-        frameType: Yup.string().when('hasFlatFitting', {
-            is: 'yes',
-            then: (schema) => schema.required('Frame Type is required'),
-            otherwise: (schema) => schema.notRequired()
-        }),
-        dbl: Yup.string().when('hasFlatFitting', {
-            is: 'yes',
-            then: (schema) => schema.required('DBL is required'),
-            otherwise: (schema) => schema.notRequired()
-        }),
-        frameLength: Yup.string().when('hasFlatFitting', {
-            is: 'yes',
-            then: (schema) => schema.required('Frame Length is required'),
-            otherwise: (schema) => schema.notRequired()
-        }),
-        frameHeight: Yup.string().when('hasFlatFitting', {
-            is: 'yes',
-            then: (schema) => schema.required('Frame Height is required'),
-            otherwise: (schema) => schema.notRequired()
-        }),
+        // Step 3: Shipping & Others (no required fields)
     });
 
     const formik = useFormik({
@@ -266,7 +255,16 @@ const OrderWizard = () => {
                                     gstDetails: prod.gstDetails || {
                                         gstPercent: '', gstType: '', gstMode: '', gstAmount: '',
                                         loyaltyPoints: '', advance: '', transactionType: '', remarks: ''
-                                    }
+                                    },
+                                    // Map fitting/lensData from rx object
+                                    hasFlatFitting: prod.rx?.fitting?.hasFlatFitting ? 'yes' : 'no',
+                                    dbl: prod.rx?.fitting?.dbl?.toString() || '',
+                                    frameType: prod.rx?.fitting?.frameType || '',
+                                    frameLength: prod.rx?.fitting?.frameLength?.toString() || '',
+                                    frameHeight: prod.rx?.fitting?.frameHeight?.toString() || '',
+                                    pantoscopicAngle: prod.rx?.lensData?.pantoscopeAngle?.toString() || '',
+                                    bowAngle: prod.rx?.lensData?.bowAngle?.toString() || '',
+                                    bvd: prod.rx?.lensData?.bvd?.toString() || ''
                                 };
 
                                 if (prod.powers) {
@@ -313,6 +311,15 @@ const OrderWizard = () => {
                                 tintDetails: order.tintDetails || '',
                                 remarks: order.remarks || '',
                                 hasMirror: order.mirror ? 'yes' : 'no',
+                                // Map fitting/lensData from rx object
+                                hasFlatFitting: order.rx?.fitting?.hasFlatFitting ? 'yes' : 'no',
+                                dbl: order.rx?.fitting?.dbl?.toString() || '',
+                                frameType: order.rx?.fitting?.frameType || '',
+                                frameLength: order.rx?.fitting?.frameLength?.toString() || '',
+                                frameHeight: order.rx?.fitting?.frameHeight?.toString() || '',
+                                pantoscopicAngle: order.rx?.lensData?.pantoscopeAngle?.toString() || '',
+                                bowAngle: order.rx?.lensData?.bowAngle?.toString() || '',
+                                bvd: order.rx?.lensData?.bvd?.toString() || ''
                             };
                             if (order.powers) {
                                 order.powers.forEach(p => {
@@ -530,16 +537,16 @@ const OrderWizard = () => {
                     remarks: prod.remarks || '',
                     mirror: prod.hasMirror === 'yes',
                     fitting: {
-                        hasFlatFitting: values.hasFlatFitting === 'yes',
-                        dbl: parseFloat(values.dbl) || 0,
-                        frameType: values.frameType || '',
-                        frameLength: parseFloat(values.frameLength) || 0,
-                        frameHeight: parseFloat(values.frameHeight) || 0
+                        hasFlatFitting: prod.hasFlatFitting === 'yes',
+                        dbl: parseFloat(prod.dbl) || 0,
+                        frameType: prod.frameType || '',
+                        frameLength: parseFloat(prod.frameLength) || 0,
+                        frameHeight: parseFloat(prod.frameHeight) || 0
                     },
                     lensData: {
-                        pantoscopeAngle: parseFloat(values.pantoscopicAngle) || 0,
-                        bowAngle: parseFloat(values.bowAngle) || 0,
-                        bvd: parseFloat(values.bvd) || 0
+                        pantoscopeAngle: parseFloat(prod.pantoscopicAngle) || 0,
+                        bowAngle: parseFloat(prod.bowAngle) || 0,
+                        bvd: parseFloat(prod.bvd) || 0
                     },
                     directCustomer: values.directCustomer || '',
                     shippingCharges: parseFloat(values.shippingCharges) || 0,
@@ -703,7 +710,36 @@ const OrderWizard = () => {
             formik.setFieldValue(`${prefix}dimensions`, rawProd.dimensions || '');
             formik.setFieldValue(`${prefix}image`, rawProd.image || '');
             formik.setFieldValue(`${prefix}code`, rawProd.productCode || rawProd.code || '');
+            formik.setFieldValue(`${prefix}productCode`, rawProd.productCode || rawProd.code || '');
             formik.setFieldValue(`${prefix}HSNSAC`, rawProd.hsnSac || rawProd.HSNSAC || '');
+            formik.setFieldValue(`${prefix}expiry`, rawProd.expiry || '');
+
+            // Map lens-specific fields from raw product
+            if (rawProd.index) {
+                formik.setFieldValue(`${prefix}indexId`, rawProd.index.toString());
+                formik.setFieldValue(`${prefix}index`, rawProd.index.toString());
+            }
+            if (rawProd.coating) {
+                const matchedCoating = configs.coating?.find(c => c.name?.toUpperCase() === rawProd.coating.toUpperCase());
+                formik.setFieldValue(`${prefix}coatingId`, matchedCoating?._id || rawProd.coating);
+                formik.setFieldValue(`${prefix}coating`, rawProd.coating);
+            }
+            if (rawProd.treatment) {
+                const matchedTreatment = configs.treatment?.find(t => t.name?.toUpperCase() === rawProd.treatment.toUpperCase());
+                formik.setFieldValue(`${prefix}treatmentId`, matchedTreatment?._id || rawProd.treatment);
+                formik.setFieldValue(`${prefix}treatment`, rawProd.treatment);
+            }
+            if (rawProd.tint) {
+                const matchedTint = configs.tints?.find(t => t.name?.toUpperCase() === rawProd.tint.toUpperCase());
+                formik.setFieldValue(`${prefix}tintId`, matchedTint?._id || rawProd.tint);
+                formik.setFieldValue(`${prefix}tint`, rawProd.tint);
+            }
+
+            // Set raw power values directly on product for display fallback
+            formik.setFieldValue(`${prefix}sph`, rawProd.sph || '');
+            formik.setFieldValue(`${prefix}cyl`, rawProd.cyl || '');
+            formik.setFieldValue(`${prefix}axis`, rawProd.axis || '');
+            formik.setFieldValue(`${prefix}addition`, rawProd.addition || rawProd.add || '');
 
             // populate power table values from raw product if present (sph, cyl, axis, add, etc.)
             const powerTable = {
@@ -723,6 +759,91 @@ const OrderWizard = () => {
                 }
             };
             formik.setFieldValue(`${prefix}powerTable`, powerTable);
+
+            // Fetch full product details from API to get ALL fields (expiry, coating, etc.)
+            const productId = rawProd._id || rawProd.id;
+            if (productId) {
+                getProductById(productId).then(res => {
+                    const fullProd = res?.data || res?.product || res;
+                    if (!fullProd) return;
+
+                    // Update all fields from full product response
+                    const set = (field, val) => {
+                        if (val !== undefined && val !== null && val !== '') {
+                            formik.setFieldValue(`${prefix}${field}`, val);
+                        }
+                    };
+
+                    set('productCode', fullProd.productCode || '');
+                    set('code', fullProd.productCode || '');
+                    set('category', fullProd.category || '');
+                    set('Brand', fullProd.brand || '');
+                    set('price', fullProd.price || 0);
+                    set('MRP', fullProd.mrp || fullProd.MRP || 0);
+                    set('color', fullProd.color || '');
+                    set('size', fullProd.size || '');
+                    set('type', fullProd.type || '');
+                    set('shape', fullProd.shape || '');
+                    set('material', fullProd.material || '');
+                    set('dimensions', fullProd.dimensions || '');
+                    set('image', fullProd.image || '');
+                    set('HSNSAC', fullProd.hsnSac || fullProd.HSNSAC || '');
+                    set('expiry', fullProd.expiry || '');
+                    set('index', fullProd.index?.toString() || '');
+                    set('coating', fullProd.coating || '');
+                    set('treatment', fullProd.treatment || '');
+                    set('tint', fullProd.tint || '');
+                    set('sph', fullProd.sph || '');
+                    set('cyl', fullProd.cyl || '');
+                    set('axis', fullProd.axis || '');
+                    set('addition', fullProd.addition || fullProd.add || '');
+
+                    if (fullProd.index) {
+                        set('indexId', fullProd.index.toString());
+                        const matchedIndex = configs.index?.find(i => i.value?.toString() === fullProd.index.toString());
+                        if (matchedIndex) set('indexId', matchedIndex._id || fullProd.index.toString());
+                    }
+                    if (fullProd.coating) {
+                        const matchedCoating = configs.coating?.find(c => c.name?.toUpperCase() === fullProd.coating.toUpperCase());
+                        set('coatingId', matchedCoating?._id || fullProd.coating);
+                    }
+                    if (fullProd.treatment) {
+                        const matchedTreatment = configs.treatment?.find(t => t.name?.toUpperCase() === fullProd.treatment.toUpperCase());
+                        set('treatmentId', matchedTreatment?._id || fullProd.treatment);
+                    }
+                    if (fullProd.tint) {
+                        const matchedTint = configs.tints?.find(t => t.name?.toUpperCase() === fullProd.tint.toUpperCase());
+                        set('tintId', matchedTint?._id || fullProd.tint);
+                    }
+                    if (fullProd.gst !== undefined && fullProd.gst !== null) {
+                        formik.setFieldValue(`${prefix}gstDetails`, {
+                            ...formik.values.products[index]?.gstDetails,
+                            gstPercent: fullProd.gst.toString()
+                        });
+                    }
+
+                    // Update power table from full product
+                    const fullPowerTable = {
+                        R: {
+                            sph: fullProd.sph || '',
+                            cyl: fullProd.cyl || '',
+                            axis: fullProd.axis || '',
+                            add: fullProd.addition || fullProd.add || '',
+                            dia: '70'
+                        },
+                        L: {
+                            sph: fullProd.sph || '',
+                            cyl: fullProd.cyl || '',
+                            axis: fullProd.axis || '',
+                            add: fullProd.addition || fullProd.add || '',
+                            dia: '70'
+                        }
+                    };
+                    set('powerTable', fullPowerTable);
+                }).catch(err => {
+                    console.error('Failed to fetch full product details:', err);
+                });
+            }
 
         } else if (selectedValue) {
             // Custom RX / freeSolo input
@@ -912,13 +1033,8 @@ const OrderWizard = () => {
             case 1: // Product Details
                 if (!values.products || values.products.length === 0) return false;
                 return !errors.products;
-            case 2: // Advanced Details
-                const techValid = !!values.pantoscopicAngle && !!values.bowAngle && !!values.bvd &&
-                    !errors.pantoscopicAngle && !errors.bowAngle && !errors.bvd;
-                if (values.hasFlatFitting === 'yes') {
-                    return techValid && !!values.frameType && !!values.dbl && !!values.frameLength && !!values.frameHeight;
-                }
-                return techValid;
+            case 2: // Shipping & Others – no required fields
+                return true;
             default:
                 return false;
         }
@@ -928,14 +1044,9 @@ const OrderWizard = () => {
         // Define fields for each step to validate partially
         const stepFields = [
             ['customerId'], // Step 1
-            ['products'], // Step 2
-            ['pantoscopicAngle', 'bowAngle', 'bvd'] // Step 3
+            ['products'],   // Step 2
+            []              // Step 3: no required fields
         ];
-
-        // Handle conditional fields for Step 3
-        if (formik.values.hasFlatFitting === 'yes') {
-            stepFields[2].push('frameType', 'dbl', 'frameLength', 'frameHeight');
-        }
 
         const currentFields = stepFields[activeStep] || [];
 
@@ -1030,413 +1141,657 @@ const OrderWizard = () => {
         );
     };
 
-    const renderCustomerDetails = () => (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 p-10 bg-white rounded-b-2xl  border-gray-50">
-            <div className="col-span-1">
-                <SearchableSelect
-                    label="Select Customer"
-                    name="customerId"
-                    value={formik.values.customerId}
-                    onChange={(e) => handleCustomerChange(e.target.value)}
-                    options={customerOptions}
-                    placeholder="Search by Shop Name or Code"
-                    disabled={isReadOnly}
-                />
-            </div>
-            {wrapInput(SearchableSelect, {
-                label: "Select Ship To",
-                name: "shipToId",
-                placeholder: "Select Ship To Address",
-                options: shipToOptions,
-                disabled: !formik.values.customerId
-            })}
+    const renderCustomerDetails = () => {
 
-            <div className="flex flex-wrap col-span-full items-center justify-center gap-4 py-2">
-                <p className="text-sm font-black text-erp-accent uppercase tracking-widest bg-erp-accent/5/50 px-4 py-2 rounded-xl border border-orange-100/50 inline-block">
-                    Customer Balance: <span className="text-gray-900 ml-2">₹ {selectedCustomer?.customerBalance || '0.00'}</span>
-                </p>
-                <p className="text-sm font-black text-erp-accent uppercase tracking-widest bg-erp-accent/5/50 px-4 py-2 rounded-xl border border-orange-100/50 inline-block">
-                    Customer Credit Limit: <span className="text-gray-900 ml-2">₹ {selectedCustomer?.creditLimit || '0.00'}</span>
-                </p>
-                <p className="text-sm font-black text-erp-accent uppercase tracking-widest bg-erp-accent/5/50 px-4 py-2 rounded-xl border border-orange-100/50 inline-block">
-                    Customer Credit Used: <span className="text-gray-900 ml-2">₹ {selectedCustomer?.creditUsed || '0.00'}</span>
-                </p>
-            </div>
+        // ── Stat pill — balance / limit / used ───────────────────────────────────
+        const StatPill = ({ label, value, variant = 'default' }) => {
+            const variants = {
+                default: 'bg-gray-50 border-gray-100 text-gray-400',
+                warn: 'bg-amber-50 border-amber-100 text-amber-500',
+                danger: 'bg-red-50   border-red-100   text-red-500',
+            };
+            return (
+                <div className={`flex flex-col gap-0.5 px-4 py-3 rounded-xl border ${variants[variant]} min-w-[140px] flex-1`}>
+                    <span className="text-[10px] font-black uppercase tracking-[0.08em]">{label}</span>
+                    <span className="text-[15px] font-bold text-gray-900">₹ {value || '0.00'}</span>
+                </div>
+            );
+        };
 
-            {wrapInput(Input, {
-                label: "Order Reference",
-                name: "orderReference",
-                placeholder: "Enter Order Reference"
-            })}
-            {wrapInput(Input, {
-                label: "Consumer Card Name",
-                name: "consumerCardName",
-                placeholder: "Enter Consumer Card Name"
-            })}
-            {wrapInput(Input, {
-                label: "Optician's Name",
-                name: "opticianName",
-                placeholder: "Enter Optician's Name"
-            })}
-        </div>
-    );
+        // ── Derive a variant for credit used vs limit ────────────────────────────
+        const creditUsed = parseFloat(selectedCustomer?.creditUsed || 0);
+        const creditLimit = parseFloat(selectedCustomer?.creditLimit || 0);
+        const usedRatio = creditLimit > 0 ? creditUsed / creditLimit : 0;
+        const usedVariant = usedRatio >= 1 ? 'danger' : usedRatio >= 0.8 ? 'warn' : 'default';
+
+        return (
+            <div className="bg-white rounded-b-2xl border-t-0 border border-gray-100 shadow-[0_1px_4px_0_rgba(0,0,0,0.05)] overflow-hidden">
+
+                {/* ── Customer selector row ──────────────────────────────────── */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-6 pt-6 pb-4">
+                    <div>
+                        <SearchableSelect
+                            label="Customer"
+                            name="customerId"
+                            value={formik.values.customerId}
+                            onChange={(e) => handleCustomerChange(e.target.value)}
+                            options={customerOptions}
+                            placeholder="Search by shop name or code…"
+                            disabled={isReadOnly}
+                        />
+                    </div>
+                    {wrapInput(SearchableSelect, {
+                        label: "Ship to",
+                        name: "shipToId",
+                        placeholder: "Select ship-to address",
+                        options: shipToOptions,
+                        disabled: !formik.values.customerId
+                    })}
+                </div>
+
+                {/* ── Financial stats strip ──────────────────────────────────── */}
+                <div className="mx-6 mb-4 flex flex-wrap gap-2">
+                    <StatPill
+                        label="Balance"
+                        value={selectedCustomer?.customerBalance}
+                    />
+                    <StatPill
+                        label="Credit limit"
+                        value={selectedCustomer?.creditLimit}
+                    />
+                    <StatPill
+                        label="Credit used"
+                        value={selectedCustomer?.creditUsed}
+                        variant={usedVariant}
+                    />
+                </div>
+
+                {/* ── Divider ────────────────────────────────────────────────── */}
+                <div className="mx-6 border-t border-gray-100 mb-4" />
+
+                {/* ── Additional fields ──────────────────────────────────────── */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-6 pb-6">
+                    {wrapInput(Input, {
+                        label: "Order reference",
+                        name: "orderReference",
+                        placeholder: "Enter order reference"
+                    })}
+                    {wrapInput(Input, {
+                        label: "Consumer card name",
+                        name: "consumerCardName",
+                        placeholder: "Enter consumer card name"
+                    })}
+                    {wrapInput(Input, {
+                        label: "Optician's name",
+                        name: "opticianName",
+                        placeholder: "Enter optician's name"
+                    })}
+                </div>
+
+            </div>
+        );
+    };
+
+    // ─── Enhanced renderActiveProductDetails ────────────────────────────────────
+    // Drop-in replacement. All props, state, and helpers are unchanged.
+    // Only className strings and minor structural wrappers are modified.
 
     const renderActiveProductDetails = (index) => {
         const product = formik.values.products[index];
         const prefix = `products.${index}.`;
         const isStock = product.orderType === 'stock';
 
+        // ── Shared sub-components ────────────────────────────────────────────────
+
+        /** Compact section card */
+        const SectionCard = ({ children, className = '' }) => (
+            <div className={`bg-white rounded-2xl border border-gray-100 shadow-[0_1px_4px_0_rgba(0,0,0,0.06)] ${className}`}>
+                {children}
+            </div>
+        );
+
+        /** Section header row inside a card */
+        const SectionHeader = ({ icon, label, right }) => (
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                    {icon && <span className="text-erp-accent/70 text-[15px]">{icon}</span>}
+                    <span className="text-[11px] font-black uppercase tracking-[0.08em] text-gray-400">{label}</span>
+                </div>
+                {right && <div>{right}</div>}
+            </div>
+        );
+
+        /** Pill-style toggle — same API as CustomToggle but rendered inline */
+        const PillToggle = ({ label, value, onChange, options, disabled, className = '' }) => (
+            <div className={`flex flex-col gap-1.5 ${className}`}>
+                {label && <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</span>}
+                <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 gap-0.5">
+                    {options.map(opt => (
+                        <button
+                            key={opt.value}
+                            type="button"
+                            disabled={disabled}
+                            onClick={() => !disabled && onChange(opt.value)}
+                            className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all duration-150 border
+                            ${value === opt.value
+                                    ? 'bg-white border-gray-200 text-erp-accent shadow-sm'
+                                    : 'border-transparent text-gray-400 hover:text-gray-600 bg-transparent'
+                                }
+                            disabled:opacity-40 disabled:cursor-not-allowed`}
+                        >
+                            {opt.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        );
+
+        /** Mini checkbox indicator */
+        const SideCheckbox = ({ active }) => (
+            <span className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded-[3px] border transition-all duration-150 flex-shrink-0
+            ${active ? 'bg-erp-accent border-erp-accent' : 'bg-white border-gray-300'}`}>
+                {active && (
+                    <Icon icon="mdi:check" className="text-white text-[9px]" />
+                )}
+            </span>
+        );
+
+        /** Reusable power/prism cell input */
+        const CellInput = ({ name, value, onChange, disabled, placeholder = '0.00' }) => (
+            <input
+                type="text"
+                name={name}
+                value={value}
+                onChange={onChange}
+                disabled={disabled}
+                placeholder={placeholder}
+                className="w-full h-8 rounded-md border border-gray-200 bg-white text-center text-[12px] font-semibold text-gray-700
+                focus:outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/10
+                disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-gray-50
+                transition-all duration-150 placeholder:text-gray-300"
+            />
+        );
+
+        /** Table header cell */
+        const Th = ({ children }) => (
+            <div className="py-2.5 text-[10px] font-black uppercase tracking-[0.07em] text-gray-400 text-center border-r border-gray-100 last:border-r-0 bg-gray-50/80">
+                {children}
+            </div>
+        );
+
+        // ── Side row state helpers ───────────────────────────────────────────────
+        const isSideDisabled = (side) => product.powerMode === 'single' && product.selectedSide !== side;
+
+        const SideLabel = ({ side }) => {
+            const active = product.powerMode === 'single' && product.selectedSide === side;
+            const isSingle = product.powerMode === 'single';
+            return (
+                <div
+                    onClick={() => isSingle && !isReadOnly && formik.setFieldValue(`${prefix}selectedSide`, side)}
+                    className={`flex items-center justify-center gap-1.5 h-full py-2
+                    ${isSingle ? 'cursor-pointer' : 'cursor-default'}
+                    ${active ? 'text-erp-accent' : 'text-gray-400'}
+                    transition-colors duration-150`}
+                >
+                    {isSingle && <SideCheckbox active={active} />}
+                    <span className="text-[11px] font-black">{side}</span>
+                </div>
+            );
+        };
+
+        // ─────────────────────────────────────────────────────────────────────────
         return (
-            <div className="space-y-4 p-4 bg-gray-50/30 rounded-xl border border-gray-100">
-                {/* Toggles Row */}
-                <div className="flex flex-wrap gap-4 items-center justify-start bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
-                    <CustomToggle
-                        label="Power Details"
-                        value={product.powerMode}
-                        onChange={(v) => formik.setFieldValue(`${prefix}powerMode`, v)}
-                        options={[{ label: 'Single', value: 'single' }, { label: 'Both', value: 'both' }]}
-                        containerClassName="flex-1 md:flex-none min-w-[200px]"
-                        disabled={isStock || isReadOnly}
-                    />
+            <div className="space-y-3 p-3 bg-gray-50/60 rounded-2xl border border-gray-100">
 
-                    {/* <CustomToggle
-                        label="Product Type"
-                        value={product.productMode}
-                        onChange={(v) => formik.setFieldValue(`${prefix}productMode`, v)}
-                        options={[{ label: 'Stock Lens', value: 'stock' }, { label: 'Rx', value: 'rx' }]}
-                        containerClassName="flex-1 md:flex-none min-w-[220px]"
-                    /> */}
-                    <CustomToggle
-                        label="Has Prism"
-                        value={product.hasPrism}
-                        onChange={(v) => formik.setFieldValue(`${prefix}hasPrism`, v)}
-                        options={[{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }]}
-                        containerClassName="flex-1 md:flex-none min-w-[180px]"
-                        disabled={isStock || isReadOnly}
-                    />
-                </div>
-
-                {/* Power & Prism Tables Row */}
-                <div className="flex flex-col lg:flex-row gap-4">
-                    {/* Main Power Table */}
-                    <div className="flex-1 bg-gray-50/50 border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                        <div className="grid grid-cols-6 bg-gray-100/80 border-b border-gray-200">
-                            {['SIDE', 'SPH', 'CYLD', 'AXIS', 'ADD', 'DIAMETER'].map(h => (
-                                <div key={h} className="py-2 text-[11px] font-black uppercase text-gray-500 text-center border-r border-gray-200 last:border-r-0">{h}</div>
-                            ))}
-                        </div>
-                        {['R', 'L'].map((side) => {
-                            const isDisabled = product.powerMode === 'single' && product.selectedSide !== side;
-
-                            return (
-                                <div key={side} className={`grid grid-cols-6 border-b border-gray-100 last:border-b-0 items-center ${side === 'L' ? 'bg-erp-accent/5/20' : ''} ${isDisabled ? 'opacity-30' : ''}`}>
-                                    <div
-                                        className={`py-1.5 flex flex-col items-center justify-center border-r border-gray-100 gap-1 overflow-hidden transition-all duration-300 ${product.powerMode === 'single' ? 'cursor-pointer hover:bg-erp-accent/5/50' : ''}`}
-                                        onClick={() => {
-                                            if (product.powerMode === 'single') {
-                                                formik.setFieldValue(`${prefix}selectedSide`, side);
-                                            }
-                                        }}
-                                    >
-                                        <div className="flex items-center gap-1.5">
-                                            {product.powerMode === 'single' && (
-                                                <div className={`w-3 h-3 rounded-sm border transition-all flex items-center justify-center ${product.selectedSide === side ? 'bg-erp-accent border-erp-accent shadow-sm' : 'bg-white border-gray-200'}`}>
-                                                    {product.selectedSide === side && <Icon icon="mdi:check" className="text-white text-[10px]" />}
-                                                </div>
-                                            )}
-                                            <span className={`font-black text-xs ${product.powerMode === 'single' && product.selectedSide === side ? 'text-erp-accent' : 'text-gray-500'}`}>{side}</span>
-                                        </div>
-                                    </div>
-                                    {['sph', 'cyl', 'axis', 'add', 'dia'].map(field => (
-                                        <div key={field} className="p-1">
-                                            <input
-                                                type="text"
-                                                name={`${prefix}powerTable.${side}.${field}`}
-                                                value={product.powerTable[side][field]}
-                                                onChange={formik.handleChange}
-                                                disabled={isStock || isDisabled}
-                                                className="w-full h-8 border border-gray-200 rounded bg-white text-center text-xs font-bold text-gray-700 focus:outline-none focus:border-erp-accent focus:ring-1 focus:ring-erp-accent transition-all disabled:cursor-not-allowed"
-                                                placeholder="0.00"
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Prism Table */}
-                    {product.hasPrism === 'yes' && (
-                        <div className="w-full lg:w-80 bg-gray-50/50 border border-gray-200 rounded-xl overflow-hidden shadow-sm animate-in slide-in-from-right-4 duration-300">
-                            <div className="grid grid-cols-3 bg-gray-100/80 border-b border-gray-200">
-                                {['SIDE', 'PRISM', 'BASE SEL.'].map(h => (
-                                    <div key={h} className="py-2 text-[11px] font-black uppercase text-gray-500 text-center border-r border-gray-200 last:border-r-0">{h}</div>
-                                ))}
+                {/* ── NON-STOCK SECTIONS ──────────────────────────────────────── */}
+                {!isStock && (
+                    <>
+                        {/* ── TOGGLES ── */}
+                        <SectionCard>
+                            <SectionHeader label="Power options" />
+                            <div className="flex flex-wrap gap-5 px-5 py-4">
+                                <PillToggle
+                                    label="Power details"
+                                    value={product.powerMode}
+                                    onChange={(v) => formik.setFieldValue(`${prefix}powerMode`, v)}
+                                    options={[{ label: 'Single', value: 'single' }, { label: 'Both', value: 'both' }]}
+                                    disabled={isReadOnly}
+                                />
+                                <PillToggle
+                                    label="Prism"
+                                    value={product.hasPrism}
+                                    onChange={(v) => formik.setFieldValue(`${prefix}hasPrism`, v)}
+                                    options={[{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }]}
+                                    disabled={isReadOnly}
+                                />
                             </div>
-                            {['R', 'L'].map((side) => {
-                                const isDisabled = product.powerMode === 'single' && product.selectedSide !== side;
-                                return (
-                                    <div key={side} className={`grid grid-cols-3 border-b border-gray-100 last:border-b-0 items-center ${isDisabled ? 'opacity-30' : ''}`}>
-                                        <div
-                                            className={`py-1.5 flex flex-col items-center justify-center border-r border-gray-100 gap-1 overflow-hidden transition-all duration-300 ${product.powerMode === 'single' ? 'cursor-pointer hover:bg-erp-accent/5/50' : ''}`}
-                                            onClick={() => {
-                                                if (product.powerMode === 'single') {
-                                                    formik.setFieldValue(`${prefix}selectedSide`, side);
-                                                }
-                                            }}
-                                        >
-                                            <div className="flex items-center gap-1.5">
-                                                {product.powerMode === 'single' && (
-                                                    <div className={`w-3 h-3 rounded-sm border transition-all flex items-center justify-center ${product.selectedSide === side ? 'bg-erp-accent border-erp-accent shadow-sm' : 'bg-white border-gray-200'}`}>
-                                                        {product.selectedSide === side && <Icon icon="mdi:check" className="text-white text-[10px]" />}
+                        </SectionCard>
+
+                        {/* ── POWER + PRISM TABLES ── */}
+                        <SectionCard>
+                            <SectionHeader label="Prescription" />
+                            <div className="flex flex-col lg:flex-row gap-4 p-4">
+
+                                {/* Power Table */}
+                                <div className="flex-1 rounded-xl border border-gray-200 overflow-hidden">
+                                    <div className="grid grid-cols-6">
+                                        {['Side', 'SPH', 'CYL', 'Axis', 'Add', 'Dia'].map(h => (
+                                            <Th key={h}>{h}</Th>
+                                        ))}
+                                    </div>
+                                    {['R', 'L'].map((side) => {
+                                        const disabled = isSideDisabled(side);
+                                        return (
+                                            <div
+                                                key={side}
+                                                className={`grid grid-cols-6 border-t border-gray-100 transition-opacity duration-200
+                                                ${side === 'L' ? 'bg-blue-50/20' : 'bg-white'}
+                                                ${disabled ? 'opacity-30' : ''}`}
+                                            >
+                                                <div className="border-r border-gray-100">
+                                                    <SideLabel side={side} />
+                                                </div>
+                                                {['sph', 'cyl', 'axis', 'add', 'dia'].map(field => (
+                                                    <div key={field} className="p-1.5 border-r border-gray-100 last:border-r-0">
+                                                        <CellInput
+                                                            name={`${prefix}powerTable.${side}.${field}`}
+                                                            value={product.powerTable[side][field]}
+                                                            onChange={formik.handleChange}
+                                                            disabled={disabled}
+                                                            placeholder={field === 'axis' ? '0' : '0.00'}
+                                                        />
                                                     </div>
-                                                )}
-                                                <span className={`font-black text-xs ${product.powerMode === 'single' && product.selectedSide === side ? 'text-erp-accent' : 'text-gray-500'}`}>{side}</span>
+                                                ))}
                                             </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Prism Table */}
+                                {product.hasPrism === 'yes' && (
+                                    <div className="w-full lg:w-72 rounded-xl border border-erp-accent/20 overflow-hidden
+                                    animate-in slide-in-from-right-3 fade-in duration-200">
+                                        <div className="px-3 py-2 bg-erp-accent/5 border-b border-erp-accent/10">
+                                            <span className="text-[10px] font-black uppercase tracking-[0.07em] text-erp-accent/70">Prism</span>
                                         </div>
-                                        <div className="p-1">
-                                            <input
-                                                type="text"
-                                                name={`${prefix}prismTable.${side}.prism`}
-                                                value={product.prismTable[side].prism}
-                                                onChange={formik.handleChange}
-                                                disabled={isStock || isDisabled}
-                                                className="w-full h-8 border border-gray-200 rounded bg-white text-center text-xs font-bold text-gray-700 focus:outline-none focus:border-erp-accent focus:ring-1 focus:ring-erp-accent transition-all disabled:cursor-not-allowed"
-                                                placeholder="0.00"
-                                            />
+                                        <div className="grid grid-cols-3">
+                                            {['Side', 'Prism', 'Base'].map(h => (
+                                                <Th key={h}>{h}</Th>
+                                            ))}
                                         </div>
-                                        <div className="p-1">
-                                            <input
-                                                type="text"
-                                                name={`${prefix}prismTable.${side}.base`}
-                                                value={product.prismTable[side].base}
-                                                onChange={formik.handleChange}
-                                                disabled={isStock || isDisabled}
-                                                className="w-full h-8 border border-gray-200 rounded bg-white text-center text-xs font-bold text-gray-700 focus:outline-none focus:border-erp-accent focus:ring-1 focus:ring-erp-accent transition-all disabled:cursor-not-allowed"
-                                                placeholder="Base"
-                                            />
+                                        {['R', 'L'].map((side) => {
+                                            const disabled = isSideDisabled(side);
+                                            return (
+                                                <div
+                                                    key={side}
+                                                    className={`grid grid-cols-3 border-t border-gray-100 transition-opacity duration-200
+                                                    ${side === 'L' ? 'bg-blue-50/20' : 'bg-white'}
+                                                    ${disabled ? 'opacity-30' : ''}`}
+                                                >
+                                                    <div className="border-r border-gray-100">
+                                                        <SideLabel side={side} />
+                                                    </div>
+                                                    {['prism', 'base'].map(field => (
+                                                        <div key={field} className="p-1.5 border-r border-gray-100 last:border-r-0">
+                                                            <CellInput
+                                                                name={`${prefix}prismTable.${side}.${field}`}
+                                                                value={product.prismTable[side][field]}
+                                                                onChange={formik.handleChange}
+                                                                disabled={disabled}
+                                                                placeholder={field === 'base' ? 'Base' : '0.00'}
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        </SectionCard>
+                    </>
+                )}
+
+                {/* ── PRODUCT FIELDS ──────────────────────────────────────────── */}
+                {isStock ? (
+                    <SectionCard>
+                        <SectionHeader label="Stock product" />
+                        <div className="p-5 flex flex-col gap-4">
+                            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                                {/* Restore your SearchableSelect + Input here as needed */}
+                            </div>
+
+                            {product.productName && (
+                                <div className="mt-2">
+                                    {/* Product Name & Image Header */}
+                                    <div className="flex items-center gap-4 mb-6 pb-4 border-b border-gray-100">
+                                        {product.image && (
+                                            <div className="w-14 h-14 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0 shadow-sm">
+                                                <img src={product.image} alt={product.productName} className="w-full h-full object-cover" />
+                                            </div>
+                                        )}
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Product</span>
+                                            <span className="font-bold text-gray-900 text-[16px] leading-snug">{product.productName}</span>
                                         </div>
                                     </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
 
-                {/* Rest of the Product Fields */}
-                {isStock ? (
-                    <div className="mt-4 bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-4">
-                        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-                            {/* <div className="flex-1 w-full">
+                                    <div className="grid grid-cols-1 md:grid-cols-5 gap-x-6 gap-y-8">
+                                        {[
+                                            {
+                                                label: 'Product info', color: 'text-blue-500', borderColor: 'border-blue-100',
+                                                fields: [
+                                                    { label: 'Product code', value: product.productCode || product.code },
+                                                    { label: 'Brand', value: product.Brand || product.brand || configs.brand?.find(b => b._id === product.brandId)?.name },
+                                                    { label: 'Category', value: product.category || configs.category?.find(c => c._id === product.categoryId)?.name },
+                                                    { label: 'Type', value: product.type },
+                                                    { label: 'Material', value: product.material },
+                                                ]
+                                            },
+                                            {
+                                                label: 'Specifications', color: 'text-blue-500', borderColor: 'border-blue-100',
+                                                fields: [
+                                                    { label: 'Index', value: product.index || configs.index?.find(i => i._id === product.indexId)?.value?.toString() },
+                                                    { label: 'Coating', value: product.coating || configs.coating?.find(c => c._id === product.coatingId)?.name },
+                                                    { label: 'Treatment', value: product.treatment || configs.treatment?.find(t => t._id === product.treatmentId)?.name },
+                                                    { label: 'Tint', value: product.tint || configs.tints?.find(t => t._id === product.tintId)?.name },
+                                                    { label: 'Shape', value: product.shape },
+                                                ]
+                                            },
+                                            {
+                                                label: 'Powers & dimensions', color: 'text-blue-500', borderColor: 'border-blue-100',
+                                                fields: [
+                                                    { label: 'SPH', value: product.sph || product.powerTable?.R?.sph || product.powerTable?.L?.sph },
+                                                    { label: 'CYL', value: product.cyl || product.powerTable?.R?.cyl || product.powerTable?.L?.cyl },
+                                                    { label: 'Axis', value: product.axis || product.powerTable?.R?.axis || product.powerTable?.L?.axis },
+                                                    { label: 'Add', value: product.addition || product.powerTable?.R?.add || product.powerTable?.L?.add },
+                                                    { label: 'Size', value: product.size },
+                                                    { label: 'Dimensions', value: product.dimensions },
+                                                ]
+                                            },
+                                            {
+                                                label: 'Other details', color: 'text-blue-500', borderColor: 'border-blue-100',
+                                                fields: [
+                                                    { label: 'Color', value: product.color },
+                                                    { label: 'HSN / SAC', value: product.HSNSAC || product.hsnSac },
+                                                    { label: 'Expiry', value: product.expiry ? new Date(product.expiry).toLocaleDateString() : null },
+                                                ]
+                                            },
+                                            {
+                                                label: 'Pricing & stock', color: 'text-blue-500', borderColor: 'border-blue-100',
+                                                fields: [
+                                                    { label: 'Price', value: product.price ? `₹${product.price}` : null },
+                                                    { label: 'MRP', value: product.MRP ? `₹${product.MRP}` : null },
+                                                    { label: 'GST', value: product.gstDetails?.gstPercent ? `${product.gstDetails.gstPercent}%` : null },
+                                                    { label: 'Quantity', value: product.qty || null },
+                                                ]
+                                            },
+                                        ].map(({ label, color, borderColor, fields }) => (
+                                            <div key={label} className="flex flex-col">
+                                                <h5 className={`text-[10px] font-black ${color} uppercase tracking-[0.08em] border-b ${borderColor} pb-2 mb-4`}>
+                                                    {label}
+                                                </h5>
+                                                <div className="space-y-4">
+                                                    {fields.map((item, i) => item.value ? (
+                                                        <div key={i} className="flex flex-col gap-0.5">
+                                                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{item.label}</span>
+                                                            <span className="font-semibold text-gray-800 text-[14px]">{item.value}</span>
+                                                        </div>
+                                                    ) : null)}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </SectionCard>
+                ) : (
+                    <SectionCard>
+                        <SectionHeader label="Product details" />
+                        <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+                            {wrapInput(SearchableSelect, {
+                                label: "Brand",
+                                name: `${prefix}brandId`,
+                                options: (Array.isArray(configs.brand) ? configs.brand : []).map(b => ({ value: b._id, label: b.name })),
+                                placeholder: "Select brand",
+                                disabled: isReadOnly
+                            })}
+                            {wrapInput(SearchableSelect, {
+                                label: "Category",
+                                name: `${prefix}categoryId`,
+                                options: (Array.isArray(configs.category) ? configs.category : []).map(c => ({ value: c._id, label: c.name })),
+                                placeholder: "Select category",
+                                disabled: !product.brandId || isReadOnly
+                            })}
+                            <div className="md:col-span-1">
                                 <SearchableSelect
-                                    label="Search Stock Product"
+                                    label="Product name"
                                     name={`${prefix}productName`}
                                     value={{ value: product.productId || product.productName, label: product.productName }}
                                     onChange={(e) => handleProductSelection(index, e.target.value)}
                                     onSearch={(q) => searchProductsForIndex(q, index)}
                                     options={productNames}
                                     loading={loadingProductNames}
-                                    placeholder="Search Product Name (e.g. Polarised)..."
-                                    disabled={isReadOnly}
+                                    placeholder="Search product…"
+                                    disabled={!product.brandId || !product.categoryId || isReadOnly}
                                     renderOption={renderProductOption}
                                 />
                             </div>
-                            <div className="flex-1 w-full">
-                                {wrapInput(Input, {
-                                    label: "Remarks",
-                                    name: `${prefix}remarks`,
-                                    placeholder: "Enter Remarks (Optional)",
-                                    disabled: isReadOnly
-                                })}
-                            </div> */}
-                            <div className="w-full md:w-1/3">
-                                {wrapInput(Select, {
-                                    label: "Tint",
-                                    name: `${prefix}tintId`,
-                                    placeholder: "Select Tint",
-                                    options: (Array.isArray(configs.tints) ? configs.tints : []).map(t => ({ value: t._id, label: t.name })),
-                                    disabled: isReadOnly
-                                })}
+
+                            {wrapInput(Select, {
+                                label: "Treatment",
+                                name: `${prefix}treatmentId`,
+                                placeholder: "Treatment",
+                                options: (Array.isArray(configs.treatment) ? configs.treatment : []).map(t => ({ value: t._id, label: t.name })),
+                                disabled: isReadOnly
+                            })}
+                            {wrapInput(Select, {
+                                label: "Index",
+                                name: `${prefix}indexId`,
+                                placeholder: "Index",
+                                options: (Array.isArray(configs.index) ? configs.index : []).map(i => {
+                                    const val = i.value?.toString() || i.toString() || '';
+                                    return { value: val, label: val };
+                                }),
+                                disabled: isReadOnly
+                            })}
+                            {wrapInput(Select, {
+                                label: "Coating",
+                                name: `${prefix}coatingId`,
+                                placeholder: "Coating",
+                                options: (Array.isArray(configs.coating) ? configs.coating : []).map(c => ({ value: c._id, label: c.name })),
+                                disabled: isReadOnly
+                            })}
+
+                            {wrapInput(Select, {
+                                label: "Tint",
+                                name: `${prefix}tintId`,
+                                placeholder: "Tint",
+                                options: (Array.isArray(configs.tints) ? configs.tints : []).map(t => ({ value: t._id, label: t.name })),
+                                disabled: isReadOnly
+                            })}
+                            {wrapInput(Input, {
+                                label: "Tint details",
+                                name: `${prefix}tintDetails`,
+                                placeholder: "Tint details",
+                                disabled: isReadOnly
+                            })}
+                            {wrapInput(Input, {
+                                label: "Remarks",
+                                name: `${prefix}remarks`,
+                                placeholder: "Enter remarks",
+                                disabled: isReadOnly
+                            })}
+
+                            <div className="flex items-end pb-0.5">
+                                <PillToggle
+                                    label="Mirror"
+                                    value={product.hasMirror}
+                                    onChange={(v) => formik.setFieldValue(`${prefix}hasMirror`, v)}
+                                    options={[{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }]}
+                                    disabled={isReadOnly}
+                                    className="w-full md:w-auto"
+                                />
                             </div>
+
+                            {product.orderType === 'rx' &&
+                                (product.category?.toUpperCase().includes('LENS') ||
+                                    configs.category?.find(c => c._id === product.categoryId)?.name?.toUpperCase().includes('LENS')) && (
+                                    <>
+                                        {wrapInput(SearchableSelect, {
+                                            label: "Vendor",
+                                            name: `${prefix}vendorId`,
+                                            options: (Array.isArray(configs.vendors) ? configs.vendors : []).map(v => ({ value: v._id || v.vendorNumber, label: v.name })),
+                                            placeholder: "Select vendor",
+                                            disabled: isReadOnly
+                                        })}
+                                        {wrapInput(Input, {
+                                            label: "Lab name",
+                                            name: `${prefix}labName`,
+                                            placeholder: "Enter lab name",
+                                            disabled: isReadOnly
+                                        })}
+                                    </>
+                                )}
                         </div>
-                        {product.productName && (
-                            <details open className="group border border-gray-200 rounded-lg bg-gray-50/50 overflow-hidden mt-1">
-                                <summary className="flex justify-between items-center font-bold cursor-pointer list-none p-3 text-xs text-gray-700 hover:bg-gray-100 transition-colors focus:outline-none">
-                                    <span className="flex items-center gap-2">
-                                        <Icon icon="mdi:information-outline" className="text-erp-accent text-lg" />
-                                        Stock Details & Specifications
-                                    </span>
-                                    <span className="transition group-open:rotate-180">
-                                        <Icon icon="mdi:chevron-down" className="text-lg text-gray-500" />
-                                    </span>
-                                </summary>
-                                <div className="p-4 border-t border-gray-200 text-sm transition-all duration-300">
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-6">
-                                        {(product.Brand || product.brand || product.brandId) && (
-                                            <div className="flex flex-col"><span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">Brand</span><span className="font-semibold text-gray-800">{product.Brand || product.brand || configs.brand?.find(b => b._id === product.brandId)?.name}</span></div>
-                                        )}
-                                        {(product.category || product.categoryId) && (
-                                            <div className="flex flex-col"><span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">Category</span><span className="font-semibold text-gray-800">{product.category || configs.category?.find(c => c._id === product.categoryId)?.name}</span></div>
-                                        )}
-                                        {product.indexId && (
-                                            <div className="flex flex-col"><span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">Index</span><span className="font-semibold text-gray-800">{product.indexId}</span></div>
-                                        )}
-                                        {product.coatingId && (
-                                            <div className="flex flex-col"><span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">Coating</span><span className="font-semibold text-gray-800">{configs.coating?.find(c => c._id === product.coatingId)?.name || product.coatingId}</span></div>
-                                        )}
-                                        {product.treatmentId && (
-                                            <div className="flex flex-col"><span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">Treatment</span><span className="font-semibold text-gray-800">{configs.treatment?.find(t => t._id === product.treatmentId)?.name}</span></div>
-                                        )}
-                                        {product.tintId && (
-                                            <div className="flex flex-col"><span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">Tint</span><span className="font-semibold text-gray-800">{configs.tints?.find(t => t._id === product.tintId)?.name}</span></div>
-                                        )}
-                                        {product.tintDetails && (
-                                            <div className="flex flex-col"><span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">Tint Details</span><span className="font-semibold text-gray-800">{product.tintDetails}</span></div>
-                                        )}
-                                        {product.HSNSAC && (
-                                            <div className="flex flex-col"><span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">HSN/SAC</span><span className="font-semibold text-gray-800">{product.HSNSAC}</span></div>
-                                        )}
-                                    </div>
-                                </div>
-                            </details>
-                        )}
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                        {wrapInput(SearchableSelect, {
-                            label: "Select Brand",
-                            name: `${prefix}brandId`,
-                            options: (Array.isArray(configs.brand) ? configs.brand : []).map(b => ({ value: b._id, label: b.name })),
-                            placeholder: "Select Brand",
-                            disabled: isReadOnly
-                        })}
-                        {wrapInput(SearchableSelect, {
-                            label: "Select Category",
-                            name: `${prefix}categoryId`,
-                            options: (Array.isArray(configs.category) ? configs.category : []).map(c => ({ value: c._id, label: c.name })),
-                            placeholder: "Select Category",
-                            disabled: !product.brandId || isReadOnly
-                        })}
-                        <div className="md:col-span-1">
-                            <SearchableSelect
-                                label="Product Name"
-                                name={`${prefix}productName`}
-                                value={{ value: product.productId || product.productName, label: product.productName }}
-                                onChange={(e) => handleProductSelection(index, e.target.value)}
-                                onSearch={(q) => searchProductsForIndex(q, index)}
-                                options={productNames}
-                                loading={loadingProductNames}
-                                placeholder="Search Product Name (e.g. Polarised)..."
-                                disabled={!product.brandId || !product.categoryId || isReadOnly}
-                                renderOption={renderProductOption}
-                            />
-                        </div>
-
-                        {wrapInput(Select, {
-                            label: "Treatment",
-                            name: `${prefix}treatmentId`,
-                            placeholder: "Treatment",
-                            options: (Array.isArray(configs.treatment) ? configs.treatment : []).map(t => ({ value: t._id, label: t.name })),
-                            disabled: isReadOnly
-                        })}
-                        {wrapInput(Select, {
-                            label: "Index",
-                            name: `${prefix}indexId`,
-                            placeholder: "Index",
-                            options: (Array.isArray(configs.index) ? configs.index : []).map(i => {
-                                const val = i.value?.toString() || i.toString() || '';
-                                return { value: val, label: val };
-                            }),
-                            disabled: isReadOnly
-                        })}
-
-                        {wrapInput(Select, {
-                            label: "Coating",
-                            name: `${prefix}coatingId`,
-                            placeholder: "Coating",
-                            options: (Array.isArray(configs.coating) ? configs.coating : []).map(c => ({ value: c._id, label: c.name })),
-                            disabled: isReadOnly
-                        })}
-                        {wrapInput(Select, {
-                            label: "Tint",
-                            name: `${prefix}tintId`,
-                            placeholder: "Tint",
-                            options: (Array.isArray(configs.tints) ? configs.tints : []).map(t => ({ value: t._id, label: t.name })),
-                            disabled: isReadOnly
-                        })}
-                        {wrapInput(Input, {
-                            label: "Tint Details",
-                            name: `${prefix}tintDetails`,
-                            placeholder: "Tint Details",
-                            disabled: isReadOnly
-                        })}
-                        {wrapInput(Input, {
-                            label: "Remarks",
-                            name: `${prefix}remarks`,
-                            placeholder: "Enter Remarks",
-                            disabled: isReadOnly
-                        })}
-
-                        {/* Mirror Toggle inside grid for neat alignment */}
-                        <div className="flex items-center">
-                            <CustomToggle
-                                label="Mirror"
-                                value={product.hasMirror}
-                                onChange={(v) => formik.setFieldValue(`${prefix}hasMirror`, v)}
-                                options={[{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }]}
-                                containerClassName="w-full md:w-auto"
-                                disabled={isReadOnly}
-                            />
-                        </div>
-
-                        {product.orderType === 'rx' && wrapInput(SearchableSelect, {
-                            label: "Select Vendor",
-                            name: `${prefix}vendorId`,
-                            options: (Array.isArray(configs.vendors) ? configs.vendors : []).map(v => ({ value: v._id || v.vendorNumber, label: v.name })),
-                            placeholder: "Select Vendor",
-                            disabled: isReadOnly
-                        })}
-                        {product.orderType === 'rx' && wrapInput(Input, {
-                            label: "Lab Name",
-                            name: `${prefix}labName`,
-                            placeholder: "Enter Lab Name",
-                            disabled: isReadOnly
-                        })}
-                    </div>
+                    </SectionCard>
                 )}
 
-                {/* Centration Table */}
-                <div className="space-y-2 mt-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm max-w-4xl">
-                    <h4 className="text-xs font-black uppercase tracking-widest text-erp-accent">Centration Data</h4>
-                    <div className="bg-gray-50/50 border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                        <div className="grid grid-cols-4 bg-gray-100/80 border-b border-gray-200">
-                            {['SIDE', 'PD', 'CORRIDOR', 'FITTING HEIGHT'].map(h => (
-                                <div key={h} className="py-2 text-[11px] font-black uppercase text-gray-500 text-center border-r border-gray-200 last:border-r-0">{h}</div>
-                            ))}
-                        </div>
-                        {['R', 'L'].map((side) => {
-                            const isDisabled = product.powerMode === 'single' && product.selectedSide !== side;
-                            return (
-                                <div key={side} className={`grid grid-cols-4 border-b border-gray-100 last:border-b-0 items-center ${isDisabled ? 'opacity-30' : ''}`}>
-                                    <div className="py-1.5 font-black text-xs text-gray-500 text-center border-r border-gray-100 ">{side}</div>
-                                    {['pd', 'corridor', 'fittingHeight'].map(field => (
-                                        <div key={field} className="p-1">
-                                            <input
-                                                type="text"
-                                                name={`${prefix}centrationData.${side}.${field}`}
-                                                value={product.centrationData[side][field]}
-                                                onChange={formik.handleChange}
-                                                disabled={isStock || isDisabled}
-                                                className="w-full h-8 border border-gray-200 rounded bg-white text-center text-xs font-bold text-gray-700 focus:outline-none focus:border-erp-accent focus:ring-1 focus:ring-erp-accent transition-all disabled:cursor-not-allowed"
-                                                placeholder="---"
-                                            />
+                {/* ── CENTRATION TABLE ────────────────────────────────────────── */}
+                <SectionCard>
+                    <SectionHeader label="Centration data" />
+                    <div className="p-4">
+                        <div className="rounded-xl border border-gray-200 overflow-hidden max-w-2xl">
+                            <div className="grid grid-cols-4">
+                                {['Side', 'PD', 'Corridor', 'Fitting height'].map(h => (
+                                    <Th key={h}>{h}</Th>
+                                ))}
+                            </div>
+                            {['R', 'L'].map((side) => {
+                                const disabled = product.powerMode === 'single' && product.selectedSide !== side;
+                                return (
+                                    <div
+                                        key={side}
+                                        className={`grid grid-cols-4 border-t border-gray-100 transition-opacity duration-200
+                                        ${side === 'L' ? 'bg-blue-50/20' : 'bg-white'}
+                                        ${disabled ? 'opacity-30' : ''}`}
+                                    >
+                                        <div className="flex items-center justify-center border-r border-gray-100 py-2">
+                                            <span className="text-[11px] font-black text-gray-400">{side}</span>
                                         </div>
-                                    ))}
-                                </div>
-                            );
-                        })}
+                                        {['pd', 'corridor', 'fittingHeight'].map(field => (
+                                            <div key={field} className="p-1.5 border-r border-gray-100 last:border-r-0">
+                                                <CellInput
+                                                    name={`${prefix}centrationData.${side}.${field}`}
+                                                    value={product.centrationData[side][field]}
+                                                    onChange={formik.handleChange}
+                                                    disabled={isStock || disabled}
+                                                    placeholder="—"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
-                </div>
+                </SectionCard>
+
+                {/* ── FITTING & LENS DETAILS (Rx lens only) ───────────────────── */}
+                {!isStock && (() => {
+                    const catName = (
+                        product.category ||
+                        configs.category?.find(c => c._id === product.categoryId)?.name ||
+                        ''
+                    ).toUpperCase();
+
+                    if (!(catName === 'LENS' || catName === 'CONTACT_LENS' || catName.includes('LENS'))) return null;
+
+                    return (
+                        <SectionCard>
+                            <SectionHeader label="Fitting & lens details" />
+                            <div className="p-5 flex flex-col gap-6">
+
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.07em] text-erp-accent mb-3 pb-2 border-b border-erp-accent/10">
+                                        Fitting details
+                                    </p>
+                                    <div className="mb-4">
+                                        <PillToggle
+                                            label="Flat fitting"
+                                            value={product.hasFlatFitting}
+                                            onChange={(v) => formik.setFieldValue(`${prefix}hasFlatFitting`, v)}
+                                            options={[{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }]}
+                                            disabled={isReadOnly}
+                                        />
+                                    </div>
+
+                                    {product.hasFlatFitting === 'yes' && (
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end animate-in fade-in slide-in-from-top-2 duration-200">
+                                            {wrapInput(Input, {
+                                                label: "DBL",
+                                                name: `${prefix}dbl`,
+                                                placeholder: "DBL",
+                                                disabled: isReadOnly
+                                            })}
+                                            {wrapInput(Select, {
+                                                label: "Frame type",
+                                                name: `${prefix}frameType`,
+                                                placeholder: "Select type",
+                                                options: (Array.isArray(configs.frameTypes) ? configs.frameTypes : []).map(f => {
+                                                    const val = f.name || f._id || f;
+                                                    return { value: val, label: f.name || f.label || f };
+                                                }),
+                                                disabled: isReadOnly
+                                            })}
+                                            {wrapInput(Input, {
+                                                label: "Frame length",
+                                                name: `${prefix}frameLength`,
+                                                placeholder: "Length",
+                                                disabled: isReadOnly
+                                            })}
+                                            {wrapInput(Input, {
+                                                label: "Frame height",
+                                                name: `${prefix}frameHeight`,
+                                                placeholder: "Height",
+                                                disabled: isReadOnly
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.07em] text-erp-accent mb-3 pb-2 border-b border-erp-accent/10">
+                                        Lens details
+                                    </p>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        {wrapInput(Input, {
+                                            label: "Pantoscopic angle",
+                                            name: `${prefix}pantoscopicAngle`,
+                                            placeholder: "Angle",
+                                            disabled: isReadOnly
+                                        })}
+                                        {wrapInput(Input, {
+                                            label: "Bow angle",
+                                            name: `${prefix}bowAngle`,
+                                            placeholder: "Bow angle",
+                                            disabled: isReadOnly
+                                        })}
+                                        {wrapInput(Input, {
+                                            label: "BVD",
+                                            name: `${prefix}bvd`,
+                                            placeholder: "BVD",
+                                            disabled: isReadOnly
+                                        })}
+                                    </div>
+                                </div>
+
+                            </div>
+                        </SectionCard>
+                    );
+                })()}
+
             </div>
         );
     };
@@ -1468,207 +1823,318 @@ const OrderWizard = () => {
     const renderProductDetails = () => (
         <FieldArray name="products">
             {({ push, remove }) => (
-                <div className="w-full bg-white rounded-b-2xl border-gray-50  ">
-                    <div className="w-full border border-gray-200 rounded-xl relative overflow-auto overflow-auto max-h-[60vh]">
-                        <table className="w-full min-w-max text-left border-collapse">
-                            <thead className="sticky top-0 z-10 shadow-sm outline outline-1 outline-gray-200">
-                                <tr className="bg-erp-accent text-white text-xs uppercase tracking-wider">
-                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">S. No.</th>
-                                    <th className="p-3 font-semibold border-r border-blue-400/30">Particulars / Item</th>
-                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">Category</th>
-                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">Spl.</th>
-                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">Cyl.</th>
-                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">Axis</th>
-                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">Add</th>
-                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">Unit</th>
-                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">Order Type</th>
-                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">Qty</th>
-                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">Price</th>
-                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">Disc</th>
-                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">GST %</th>
-                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">GST Amt</th>
-                                    <th className="p-3 font-semibold border-r border-blue-400/30 text-center">Amount</th>
-                                    <th className="p-3 font-semibold text-center">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {formik.values.products.map((product, index) => {
-                                    const isActive = activeProductIndex === index;
-                                    const isExpanded = expandedProductIndices.includes(index);
-                                    const isStock = product.orderType === 'stock';
+                <div className="w-full bg-white rounded-b-2xl">
+                    {/* Table Container */}
+                    <div className="w-full border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                        <div className="overflow-auto max-h-[60vh]">
+                            <table className="w-full min-w-max text-left border-collapse">
+                                <thead className="sticky top-0 z-10">
+                                    <tr className="bg-gradient-to-r from-erp-accent to-blue-600 text-white text-[11px] uppercase tracking-wider">
+                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+                                            S. No.
+                                        </th>
+                                        <th className="px-4 py-3.5 font-semibold whitespace-nowrap border-r border-white/20">
+                                            Particulars / Item
+                                        </th>
+                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+                                            Category
+                                        </th>
+                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+                                            Sph.
+                                        </th>
+                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+                                            Cyl.
+                                        </th>
+                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+                                            Axis
+                                        </th>
+                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+                                            Add
+                                        </th>
+                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+                                            Unit
+                                        </th>
+                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+                                            Order Type
+                                        </th>
+                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+                                            Qty
+                                        </th>
+                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+                                            Price
+                                        </th>
+                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+                                            Disc
+                                        </th>
+                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+                                            GST %
+                                        </th>
+                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+                                            GST Amt
+                                        </th>
+                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+                                            Amount
+                                        </th>
+                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap">
+                                            Action
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {formik.values.products.map((product, index) => {
+                                        const isActive = activeProductIndex === index;
+                                        const isExpanded = expandedProductIndices.includes(index);
+                                        const isStock = product.orderType === 'stock';
 
-                                    const categoryName = product.category || configs.category?.find(c => c._id === product.categoryId)?.name || '-';
-                                    const brandName = product.Brand || product.brand || configs.brand?.find(b => b._id === product.brandId)?.name || '-';
+                                        const categoryName = product.category || configs.category?.find(c => c._id === product.categoryId)?.name || '-';
+                                        const brandName = product.Brand || product.brand || configs.brand?.find(b => b._id === product.brandId)?.name || '-';
 
-                                    const renderPowerField = (field) => {
-                                        if (product.powerMode === 'single') return product.powerTable[product.selectedSide]?.[field] || '';
-                                        return `${product.powerTable.R?.[field] || ''} / ${product.powerTable.L?.[field] || ''}`;
-                                    };
+                                        const renderPowerField = (field) => {
+                                            if (product.powerMode === 'single') return product.powerTable[product.selectedSide]?.[field] || '';
+                                            return `${product.powerTable.R?.[field] || ''} / ${product.powerTable.L?.[field] || ''}`;
+                                        };
 
-                                    const unitMultiplier = product.unit === 'pair' ? 2 : product.unit === 'box' ? 10 : 1;
-                                    const taxableAmount = (Number(product.price || 0) * Number(product.qty || 0) * unitMultiplier) - Number(product.discount || 0);
-                                    const gstPercent = Number(product.gstDetails?.gstPercent || 0);
-                                    const gstAmt = taxableAmount > 0 ? taxableAmount * (gstPercent / 100) : 0;
-                                    const totalAmount = taxableAmount > 0 ? taxableAmount + gstAmt : 0;
+                                        const unitMultiplier = product.unit === 'pair' ? 2 : product.unit === 'box' ? 10 : 1;
+                                        const taxableAmount = (Number(product.price || 0) * Number(product.qty || 0) * unitMultiplier) - Number(product.discount || 0);
+                                        const gstPercent = Number(product.gstDetails?.gstPercent || 0);
+                                        const gstAmt = taxableAmount > 0 ? taxableAmount * (gstPercent / 100) : 0;
+                                        const totalAmount = taxableAmount > 0 ? taxableAmount + gstAmt : 0;
 
-                                    return (
-                                        <React.Fragment key={index}>
-                                            <tr
-                                                className={`cursor-pointer transition-colors border-b border-gray-200 hover:bg-blue-50/50 ${isActive ? 'bg-blue-50' : 'bg-white'}`}
-                                                onClick={() => setActiveProductIndex(index)}
-                                            >
-                                                <td className="p-3 text-xs font-semibold text-gray-700 text-center border-r border-gray-200">{index + 1}</td>
-                                                <td className="p-2 border-r border-gray-200 min-w-[250px]">
-                                                    <SearchableSelect
-                                                        name={`products.${index}.productName`}
-                                                        value={{ value: product.productId || product.productName, label: product.productName }}
-                                                        onChange={(e) => handleProductSelection(index, e.target.value)}
-                                                        onSearch={(q) => searchProductsForIndex(q, index)}
-                                                        options={productNames}
-                                                        loading={loadingProductNames}
-                                                        placeholder="Search Product Name..."
-                                                        freeSolo
-                                                        disableClearable
-                                                        renderOption={renderProductOption}
-                                                        sx={{
-                                                            '& .MuiOutlinedInput-root': {
-                                                                padding: '2px !important',
-                                                                fontSize: '0.85rem',
-                                                            },
-                                                            '& .MuiInputLabel-root': {
-                                                                display: 'none',
-                                                            }
-                                                        }}
-                                                    />
-                                                </td>
-                                                <td className="p-3 text-xs font-semibold text-gray-700 text-center border-r border-gray-200 whitespace-nowrap">{categoryName}</td>
-                                                <td className="p-3 text-xs font-semibold text-gray-700 text-center border-r border-gray-200 whitespace-nowrap">{renderPowerField('sph')}</td>
-                                                <td className="p-3 text-xs font-semibold text-gray-700 text-center border-r border-gray-200 whitespace-nowrap">{renderPowerField('cyl')}</td>
-                                                <td className="p-3 text-xs font-semibold text-gray-700 text-center border-r border-gray-200 whitespace-nowrap">{renderPowerField('axis')}</td>
-                                                <td className="p-3 text-xs font-semibold text-gray-700 text-center border-r border-gray-200 whitespace-nowrap">{renderPowerField('add')}</td>
+                                        return (
+                                            <React.Fragment key={index}>
+                                                <tr
+                                                    className={`
+                                                    cursor-pointer transition-all duration-200
+                                                    ${isActive
+                                                            ? 'bg-blue-50/80 shadow-[inset_3px_0_0_0_#3b82f6]'
+                                                            : 'bg-white hover:bg-gray-50/80'
+                                                        }
+                                                    ${index % 2 === 0 && !isActive ? 'bg-gray-50/30' : ''}
+                                                `}
+                                                    onClick={() => setActiveProductIndex(index)}
+                                                >
+                                                    {/* S. No. */}
+                                                    <td className={`
+                                                    px-4 py-3 text-xs font-bold text-center
+                                                    ${product.orderType === 'rx'
+                                                            ? 'bg-amber-100 text-amber-700'
+                                                            : 'text-gray-600'
+                                                        }
+                                                `}>
+                                                        {index + 1}
+                                                    </td>
 
-                                                <td className="p-2 border-r border-gray-200 min-w-[100px]">
-                                                    <select
-                                                        className="w-full text-xs text-center bg-transparent border border-gray-200 rounded p-1.5 outline-none focus:border-erp-accent transition-colors"
-                                                        name={`products.${index}.unit`}
-                                                        value={product.unit || 'piece'}
-                                                        onChange={formik.handleChange}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    >
-                                                        <option value="piece">Piece</option>
-                                                        <option value="pair">Pair</option>
-                                                        <option value="box">Box</option>
-                                                    </select>
-                                                </td>
-                                                <td className="p-2 border-r border-gray-200 min-w-[80px]">
-                                                    <select
-                                                        className="w-full text-xs text-center bg-transparent border border-gray-200 rounded p-1.5 outline-none focus:border-erp-accent transition-colors"
-                                                        name={`products.${index}.orderType`}
-                                                        value={product.orderType || 'stock'}
-                                                        onChange={(e) => {
-                                                            formik.handleChange(e);
-                                                            // Also sync productMode for any internal logic that expects it
-                                                            formik.setFieldValue(`products.${index}.productMode`, e.target.value);
-                                                        }}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    >
-                                                        <option value="stock">Stock</option>
-                                                        <option value="rx">Rx</option>
-                                                    </select>
-                                                </td>
-                                                <td className="p-2 border-r border-gray-200 min-w-[80px]">
-                                                    <input
-                                                        type="number"
-                                                        className="w-full text-xs text-center bg-transparent border border-gray-200 rounded p-1.5 outline-none focus:border-erp-accent"
-                                                        name={`products.${index}.qty`}
-                                                        value={product.qty}
-                                                        onChange={formik.handleChange}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    />
-                                                </td>
-                                                <td className="p-2 border-r border-gray-200 min-w-[110px]">
-                                                    <input
-                                                        type="number"
-                                                        className="w-full text-xs text-center bg-transparent border border-gray-200 rounded p-1.5 outline-none focus:border-erp-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                        name={`products.${index}.price`}
-                                                        value={product.price}
-                                                        onChange={formik.handleChange}
-                                                        disabled={isStock || isReadOnly}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    />
-                                                </td>
-                                                <td className="p-2 border-r border-gray-200 min-w-[90px]">
-                                                    <input
-                                                        type="number"
-                                                        className="w-full text-xs text-center bg-transparent border border-gray-200 rounded p-1.5 outline-none focus:border-erp-accent transition-colors"
-                                                        name={`products.${index}.discount`}
-                                                        value={product.discount}
-                                                        onChange={formik.handleChange}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    />
-                                                </td>
-                                                <td className="p-2 border-r border-gray-200 min-w-[90px]">
-                                                    <input
-                                                        type="number"
-                                                        className="w-full text-xs text-center bg-transparent border border-gray-200 rounded p-1.5 outline-none focus:border-erp-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                        name={`products.${index}.gstDetails.gstPercent`}
-                                                        value={product.gstDetails?.gstPercent}
-                                                        onChange={formik.handleChange}
-                                                        disabled={isStock || isReadOnly}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    />
-                                                </td>
-                                                <td className="p-3 text-xs font-semibold text-gray-700 text-center border-r border-gray-200">
-                                                    {gstAmt.toFixed(2)}
-                                                </td>
-                                                <td className="p-3 text-xs font-bold text-erp-accent text-center border-r border-gray-200">
-                                                    {totalAmount.toFixed(2)}
-                                                </td>
-                                                <td className="p-2 text-center w-24">
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => toggleExpandRow(index, e)}
-                                                            className="text-gray-500 hover:text-gray-700 transition-colors bg-gray-100 hover:bg-gray-200 p-1 rounded-full"
-                                                        >
-                                                            <Icon icon={isExpanded ? "mdi:chevron-up" : "mdi:chevron-down"} className="text-xl" />
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                if (formik.values.products.length > 1) {
-                                                                    setDeleteModalState({ isOpen: true, indexToRemove: index });
+                                                    {/* Product Name */}
+                                                    <td className="px-3 py-2.5 min-w-[280px]">
+                                                        <SearchableSelect
+                                                            name={`products.${index}.productName`}
+                                                            value={{ value: product.productId || product.productName, label: product.productName }}
+                                                            onChange={(e) => handleProductSelection(index, e.target.value)}
+                                                            onSearch={(q) => searchProductsForIndex(q, index)}
+                                                            options={productNames}
+                                                            loading={loadingProductNames}
+                                                            placeholder="Search Product Name..."
+                                                            freeSolo
+                                                            disableClearable
+                                                            renderOption={renderProductOption}
+                                                            sx={{
+                                                                '& .MuiOutlinedInput-root': {
+                                                                    padding: '4px 8px !important',
+                                                                    fontSize: '0.8125rem',
+                                                                    borderRadius: '8px',
+                                                                    backgroundColor: 'white',
+                                                                    '&:hover': {
+                                                                        backgroundColor: '#f8fafc',
+                                                                    },
+                                                                    '&.Mui-focused': {
+                                                                        backgroundColor: 'white',
+                                                                    }
+                                                                },
+                                                                '& .MuiInputLabel-root': {
+                                                                    display: 'none',
                                                                 }
                                                             }}
-                                                            className="text-red-400 hover:text-red-600 transition-colors bg-red-50 hover:bg-red-100 p-1.5 rounded-full"
-                                                        >
-                                                            <Icon icon="mdi:close" className="text-sm" />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
+                                                        />
+                                                    </td>
 
-                                            {isExpanded && (
-                                                <tr className="bg-white border-b-2 border-blue-400 shadow-inner">
-                                                    <td colSpan="15" className="p-3 bg-blue-50/20">
-                                                        {renderActiveProductDetails(index)}
+                                                    {/* Category */}
+                                                    <td className="px-4 py-3 text-xs font-medium text-gray-700 text-center whitespace-nowrap">
+                                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 font-medium">
+                                                            {categoryName}
+                                                        </span>
+                                                    </td>
+
+                                                    {/* Power Fields */}
+                                                    <td className="px-4 py-3 text-xs font-semibold text-gray-700 text-center whitespace-nowrap">
+                                                        {renderPowerField('sph') || <span className="text-gray-300">—</span>}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-xs font-semibold text-gray-700 text-center whitespace-nowrap">
+                                                        {renderPowerField('cyl') || <span className="text-gray-300">—</span>}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-xs font-semibold text-gray-700 text-center whitespace-nowrap">
+                                                        {renderPowerField('axis') || <span className="text-gray-300">—</span>}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-xs font-semibold text-gray-700 text-center whitespace-nowrap">
+                                                        {renderPowerField('add') || <span className="text-gray-300">—</span>}
+                                                    </td>
+
+                                                    {/* Unit Select */}
+                                                    <td className="px-3 py-2.5 min-w-[100px]">
+                                                        <select
+                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all cursor-pointer font-medium text-gray-700"
+                                                            name={`products.${index}.unit`}
+                                                            value={product.unit || 'piece'}
+                                                            onChange={formik.handleChange}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <option value="piece">Piece</option>
+                                                            <option value="pair">Pair</option>
+                                                            <option value="box">Box</option>
+                                                        </select>
+                                                    </td>
+
+                                                    {/* Order Type Select */}
+                                                    <td className="px-3 py-2.5 min-w-[100px]">
+                                                        <select
+                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all cursor-pointer font-medium text-gray-700"
+                                                            name={`products.${index}.orderType`}
+                                                            value={product.orderType || 'stock'}
+                                                            onChange={(e) => {
+                                                                formik.handleChange(e);
+                                                                formik.setFieldValue(`products.${index}.productMode`, e.target.value);
+                                                            }}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <option value="stock">Stock</option>
+                                                            {(product.category?.toUpperCase().includes('LENS') || (configs.category?.find(c => c._id === product.categoryId)?.name?.toUpperCase().includes('LENS'))) && <option value="rx">Rx</option>}
+                                                        </select>
+                                                    </td>
+
+                                                    {/* Qty Input */}
+                                                    <td className="px-3 py-2.5 min-w-[80px]">
+                                                        <input
+                                                            type="number"
+                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-semibold text-gray-800"
+                                                            name={`products.${index}.qty`}
+                                                            value={product.qty}
+                                                            onChange={formik.handleChange}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        />
+                                                    </td>
+
+                                                    {/* Price Input */}
+                                                    <td className="px-3 py-2.5 min-w-[110px]">
+                                                        <input
+                                                            type="number"
+                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-semibold text-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                                            name={`products.${index}.price`}
+                                                            value={product.price}
+                                                            onChange={formik.handleChange}
+                                                            disabled={isStock || isReadOnly}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        />
+                                                    </td>
+
+                                                    {/* Discount Input */}
+                                                    <td className="px-3 py-2.5 min-w-[90px]">
+                                                        <input
+                                                            type="number"
+                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-semibold text-gray-800"
+                                                            name={`products.${index}.discount`}
+                                                            value={product.discount}
+                                                            onChange={formik.handleChange}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        />
+                                                    </td>
+
+                                                    {/* GST % Input */}
+                                                    <td className="px-3 py-2.5 min-w-[90px]">
+                                                        <input
+                                                            type="number"
+                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-semibold text-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                                            name={`products.${index}.gstDetails.gstPercent`}
+                                                            value={product.gstDetails?.gstPercent}
+                                                            onChange={formik.handleChange}
+                                                            disabled={isStock || isReadOnly}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        />
+                                                    </td>
+
+                                                    {/* GST Amount */}
+                                                    <td className="px-4 py-3 text-xs font-semibold text-gray-700 text-center">
+                                                        <span className="text-emerald-600">₹{gstAmt.toFixed(2)}</span>
+                                                    </td>
+
+                                                    {/* Total Amount */}
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-blue-50 text-erp-accent font-bold text-sm">
+                                                            ₹{totalAmount.toFixed(2)}
+                                                        </span>
+                                                    </td>
+
+                                                    {/* Actions */}
+                                                    <td className="px-4 py-3 text-center">
+                                                        <div className="flex items-center justify-center gap-1.5">
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => toggleExpandRow(index, e)}
+                                                                className={`
+                                                                p-2 rounded-lg transition-all duration-200
+                                                                ${isExpanded
+                                                                        ? 'bg-erp-accent text-white shadow-md'
+                                                                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
+                                                                    }
+                                                            `}
+                                                            >
+                                                                <Icon
+                                                                    icon={isExpanded ? "mdi:chevron-up" : "mdi:chevron-down"}
+                                                                    className="text-lg"
+                                                                />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (formik.values.products.length > 1) {
+                                                                        setDeleteModalState({ isOpen: true, indexToRemove: index });
+                                                                    }
+                                                                }}
+                                                                className="p-2 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition-all duration-200"
+                                                            >
+                                                                <Icon icon="mdi:trash-can-outline" className="text-lg" />
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
-                                            )}
-                                        </React.Fragment>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+
+                                                {/* Expanded Row */}
+                                                {isExpanded && (
+                                                    <tr className="bg-gradient-to-b from-blue-50/50 to-white">
+                                                        <td colSpan="16" className="p-0">
+                                                            <div className="border-l-4 border-erp-accent mx-4 my-3 pl-4 py-3 bg-white rounded-r-lg shadow-sm">
+                                                                {renderActiveProductDetails(index)}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </React.Fragment>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
 
-                    <div className="flex justify-center items-center gap-4 my-6 p-4 bg-gray-50/80 rounded-xl border border-gray-100">
-                        <span className="text-sm text-gray-500 font-bold uppercase tracking-wider flex items-center gap-1">
-                            <Icon icon="mdi:table-row-plus-after" className="text-xl text-erp-accent" />
-                            Add Rows:
-                        </span>
-                        <div className="flex gap-3">
+                    {/* Add Rows Section */}
+                    <div className="flex flex-wrap justify-center items-center gap-4 mt-6 mb-8 px-6 py-5 bg-gradient-to-r from-gray-50 to-blue-50/30 rounded-2xl border border-gray-100">
+                        <div className="flex items-center gap-2 text-sm text-gray-500 font-bold uppercase tracking-wider">
+                            <div className="p-2 bg-erp-accent/10 rounded-lg">
+                                <Icon icon="mdi:table-row-plus-after" className="text-xl text-erp-accent" />
+                            </div>
+                            <span>Add Rows:</span>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
                             {[1, 5, 10, 20, 50].map((num) => (
                                 <button
                                     key={num}
@@ -1678,90 +2144,121 @@ const OrderWizard = () => {
                                         formik.setFieldValue('products', [...formik.values.products, ...newRows]);
                                         setActiveProductIndex(formik.values.products.length);
                                     }}
-                                    className="px-5 py-2 rounded-xl border-2 border-blue-100 text-erp-accent bg-white hover:bg-blue-50 hover:border-blue-400 transition-all text-sm font-black shadow-sm active:scale-95 flex items-center gap-1"
+                                    className="group px-4 py-2.5 rounded-xl border-2 border-gray-200 text-gray-700 bg-white hover:border-erp-accent hover:bg-erp-accent hover:text-white transition-all duration-200 text-sm font-bold shadow-sm active:scale-95 flex items-center gap-1.5"
                                 >
-                                    <Icon icon="mdi:plus" className="text-lg" /> {num}
+                                    <Icon icon="mdi:plus" className="text-lg opacity-60 group-hover:opacity-100" />
+                                    <span>{num}</span>
                                 </button>
                             ))}
+
+                            <div className="w-px h-8 bg-gray-200 mx-2 self-center hidden sm:block" />
+
                             <button
                                 type="button"
                                 onClick={() => {
-                                    const filteredProducts = formik.values.products.filter(p => p.productName || p.brandId || p.categoryId || (p.powerTable.R.sph && p.powerTable.R.sph !== '') || (p.powerTable.L.sph && p.powerTable.L.sph !== ''));
+                                    const filteredProducts = formik.values.products.filter(p =>
+                                        p.productName || p.brandId || p.categoryId ||
+                                        (p.powerTable.R.sph && p.powerTable.R.sph !== '') ||
+                                        (p.powerTable.L.sph && p.powerTable.L.sph !== '')
+                                    );
                                     const newProducts = filteredProducts.length > 0 ? filteredProducts : [{ ...productTemplate }];
                                     formik.setFieldValue('products', newProducts);
                                     if (activeProductIndex >= newProducts.length) {
                                         setActiveProductIndex(Math.max(0, newProducts.length - 1));
                                     }
                                 }}
-                                className="px-5 py-2 rounded-xl border-2 border-red-100 text-red-500 bg-white hover:bg-red-50 hover:border-red-400 transition-all text-sm font-black shadow-sm active:scale-95 flex items-center gap-1"
+                                className="px-4 py-2.5 rounded-xl border-2 border-red-200 text-red-500 bg-white hover:bg-red-500 hover:border-red-500 hover:text-white transition-all duration-200 text-sm font-bold shadow-sm active:scale-95 flex items-center gap-1.5"
                             >
-                                <Icon icon="mdi:delete-sweep" className="text-lg" /> Remove Empty
+                                <Icon icon="mdi:delete-sweep" className="text-lg" />
+                                <span>Remove Empty</span>
                             </button>
                         </div>
                     </div>
 
-                    {/* Order Summary & GST section */}
+                    {/* Order Summary & GST Section */}
                     {formik.values.products[activeProductIndex] && (
-                        <div className="flex flex-col lg:flex-row gap-8 items-start bg-gray-50/50 p-6 rounded-2xl border border-gray-200">
-                            <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-6">
-                                <div className="space-y-4 col-span-full md:col-span-4 grid grid-cols-2 md:grid-cols-4 gap-6">
-                                    {wrapInput(Input, { label: "GST Type", name: `products.${activeProductIndex}.gstDetails.gstType` })}
-                                    {/* {(() => {
-                                        const prod = formik.values.products[activeProductIndex];
-                                        const price = parseFloat(prod.price) || 0;
-                                        const qty = parseFloat(prod.qty) || 0;
-                                        const mult = prod.unit === 'pair' ? 2 : prod.unit === 'box' ? 10 : 1;
-                                        const gstPct = parseFloat(prod.gstDetails?.gstPercent) || 0;
-                                        const total = ((price * qty * mult) * gstPct / 100).toFixed(2);
-                                        const cgst = (total / 2).toFixed(2);
-                                        const sgst = (total / 2).toFixed(2);
-                                        return (
-                                            <div className="col-span-full md:col-span-4 grid grid-cols-2 md:grid-cols-3 gap-4">
-                                                <div className="flex flex-col">
-                                                    <span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">Total GST</span>
-                                                    <span className="font-semibold text-gray-800">₹{total}</span>
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">CGST</span>
-                                                    <span className="font-semibold text-gray-800">₹{cgst}</span>
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">SGST</span>
-                                                    <span className="font-semibold text-gray-800">₹{sgst}</span>
-                                                </div>
-                                            </div>
-                                        );
-                                    })()} */}
-                                    {wrapInput(Select, { label: "Transaction Method", name: `products.${activeProductIndex}.gstDetails.transactionType`, options: [{ value: 'card', label: 'Card' }, { value: 'upi', label: 'UPI' }, { value: 'cash', label: 'Cash' }], placeholder: "Select Method" })}
-                                    {wrapInput(Input, { label: "Advance", name: `products.${activeProductIndex}.gstDetails.advance` })}
-                                    <div className="col-span-2">
-                                        {wrapInput(Input, { label: "Remarks", name: `products.${activeProductIndex}.gstDetails.remarks` })}
+                        <div className="flex flex-col lg:flex-row gap-6 items-stretch bg-gradient-to-br from-gray-50 to-blue-50/20 p-6 rounded-2xl border border-gray-200 shadow-sm">
+                            {/* GST & Transaction Details */}
+                            <div className="flex-1 bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+                                <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-5 flex items-center gap-2">
+                                    <div className="p-1.5 bg-erp-accent/10 rounded-lg">
+                                        <Icon icon="mdi:receipt-text-outline" className="text-erp-accent text-lg" />
                                     </div>
+                                    Transaction Details
+                                </h4>
 
-                                    {/* {wrapInput(Input, { label: "GST Mode", name: `products.${activeProductIndex}.gstDetails.gstMode` })} */}
-                                    {/* {wrapInput(Input, { label: "Total GST", name: `products.${activeProductIndex}.gstDetails.gstPercent` })} */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    {wrapInput(Select, {
+                                        label: "GST Type",
+                                        name: `products.${activeProductIndex}.gstDetails.gstType`,
+                                        options: [
+                                            { value: "included", label: "Included" },
+                                            { value: "excluded", label: "Excluded" }
+                                        ],
+                                        placeholder: "Select GST Type"
+                                    })}
+
+                                    {wrapInput(Select, {
+                                        label: "Transaction Method",
+                                        name: `products.${activeProductIndex}.gstDetails.transactionType`,
+                                        options: [
+                                            { value: 'card', label: 'Card' },
+                                            { value: 'upi', label: 'UPI' },
+                                            { value: 'cash', label: 'Cash' }
+                                        ],
+                                        placeholder: "Select Method"
+                                    })}
+
+                                    {wrapInput(Input, {
+                                        label: "Advance",
+                                        name: `products.${activeProductIndex}.gstDetails.advance`
+                                    })}
+
+                                    <div className="sm:col-span-2 lg:col-span-1">
+                                        {wrapInput(Input, {
+                                            label: "Remarks",
+                                            name: `products.${activeProductIndex}.gstDetails.remarks`
+                                        })}
+                                    </div>
                                 </div>
-
                             </div>
 
-                            <div className="w-full lg:w-72 bg-blue-50/30 border border-blue-200 rounded-2xl p-6 shadow-sm">
-                                <h3 className="font-black text-gray-800 mb-6">Order Summary</h3>
-                                <div className="space-y-4">
-                                    <div className="flex justify-between items-center pb-3 border-b border-gray-200/50">
-                                        <span className="text-sm font-semibold text-gray-600">Price</span>
-                                        <span className="text-sm font-black text-gray-900">₹{formik.values.products.reduce((acc, curr) => {
-                                            const multiplier = curr.unit === 'pair' ? 2 : curr.unit === 'box' ? 10 : 1;
-                                            return acc + ((parseFloat(curr.price) || 0) * (parseFloat(curr.qty) || 1) * multiplier);
-                                        }, 0).toFixed(2)}</span>
+                            {/* Order Summary Card */}
+                            <div className="w-full lg:w-80 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                                <div className="bg-gradient-to-r from-erp-accent to-blue-600 px-5 py-4">
+                                    <h3 className="font-bold text-white text-sm uppercase tracking-wider flex items-center gap-2">
+                                        <Icon icon="mdi:calculator" className="text-lg" />
+                                        Order Summary
+                                    </h3>
+                                </div>
+
+                                <div className="p-5 space-y-3">
+                                    {/* Price */}
+                                    <div className="flex justify-between items-center py-2">
+                                        <span className="text-sm text-gray-500">Subtotal</span>
+                                        <span className="text-sm font-bold text-gray-800">
+                                            ₹{formik.values.products.reduce((acc, curr) => {
+                                                const multiplier = curr.unit === 'pair' ? 2 : curr.unit === 'box' ? 10 : 1;
+                                                return acc + ((parseFloat(curr.price) || 0) * (parseFloat(curr.qty) || 1) * multiplier);
+                                            }, 0).toFixed(2)}
+                                        </span>
                                     </div>
-                                    {/* <div className="flex justify-between items-center pb-3 border-b border-gray-200/50">
-                                        <span className="text-sm font-semibold text-gray-600">Loyalty Points</span>
-                                        <span className="text-sm font-black text-gray-900">₹0.00</span>
-                                    </div> */}
-                                    <div className="flex justify-between items-center pb-3 border-b border-gray-200/50">
-                                        <span className="text-sm font-semibold text-gray-600">Gross Total</span>
-                                        <span className="text-sm font-black text-gray-900">₹{formik.values.products.reduce((acc, curr) => acc + (parseFloat(curr.price) || 0) * (parseFloat(curr.qty) || 1), 0).toFixed(2)}</span>
+
+                                    <div className="border-t border-gray-100" />
+
+                                    {/* Gross Total */}
+                                    <div className="flex justify-between items-center py-2">
+                                        <span className="text-sm text-gray-500">Gross Total</span>
+                                        <span className="text-sm font-bold text-gray-800">
+                                            ₹{formik.values.products.reduce((acc, curr) =>
+                                                acc + (parseFloat(curr.price) || 0) * (parseFloat(curr.qty) || 1), 0
+                                            ).toFixed(2)}
+                                        </span>
                                     </div>
+
+                                    <div className="border-t border-gray-100" />
+
+                                    {/* GST Breakdown */}
                                     {(() => {
                                         let finalTotal = 0;
                                         let overallGST = 0;
@@ -1785,23 +2282,34 @@ const OrderWizard = () => {
 
                                         return (
                                             <>
-                                                <div className="flex justify-between items-center pt-2">
-                                                    <span className="text-base font-black text-gray-800">Overall GST</span>
-                                                    <span className="text-lg font-black text-[#3b82f6]">₹{totalGst}</span>
-                                                </div>
-                                                <div className="flex justify-between items-center pt-2">
-                                                    <span className="text-base font-black text-gray-800">Overall CGST</span>
-                                                    <span className="text-lg font-black text-[#3b82f6]">₹{cgst}</span>
-                                                </div>
-                                                <div className="flex justify-between items-center pt-2">
-                                                    <span className="text-base font-black text-gray-800">Overall SGST</span>
-                                                    <span className="text-lg font-black text-[#3b82f6]">₹{sgst}</span>
-                                                </div>
-                                                <div className="flex justify-between items-center pt-2">
-                                                    <span className="text-base font-black text-gray-800">Final Total</span>
-                                                    <span className="text-lg font-black text-[#3b82f6]">₹{finalTotal.toFixed(2)}</span>
+                                                <div className="bg-emerald-50 rounded-lg p-3 space-y-2">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-xs text-emerald-600 font-medium">CGST</span>
+                                                        <span className="text-xs font-bold text-emerald-700">₹{cgst}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-xs text-emerald-600 font-medium">SGST</span>
+                                                        <span className="text-xs font-bold text-emerald-700">₹{sgst}</span>
+                                                    </div>
+                                                    <div className="border-t border-emerald-200 pt-2">
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-xs text-emerald-700 font-semibold">Total GST</span>
+                                                            <span className="text-sm font-bold text-emerald-700">₹{totalGst}</span>
+                                                        </div>
+                                                    </div>
                                                 </div>
 
+                                                <div className="border-t border-gray-100" />
+
+                                                {/* Final Total */}
+                                                <div className="bg-gradient-to-r from-erp-accent/10 to-blue-100/50 rounded-lg p-4 -mx-1">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-base font-bold text-gray-800">Final Total</span>
+                                                        <span className="text-xl font-black text-erp-accent">
+                                                            ₹{finalTotal.toFixed(2)}
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             </>
                                         );
                                     })()}
@@ -1814,56 +2322,9 @@ const OrderWizard = () => {
         </FieldArray>
     );
 
+
     const renderAdvancedDetails = () => (
         <div className="p-4 space-y-4 bg-white rounded-b-2xl border-t border-gray-50">
-            {/* Fitting Selection */}
-            <div className="space-y-4">
-                <h4 className="text-xs font-black uppercase tracking-widest text-erp-accent ">Advanced Fitting Data</h4>
-                <CustomToggle
-                    label="Has Flat Fitting"
-                    value={formik.values.hasFlatFitting}
-                    onChange={(v) => formik.setFieldValue('hasFlatFitting', v)}
-                    options={[{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }]}
-                    containerClassName="w-48"
-                />
-
-                {/* Conditional Frame Specifications */}
-                {formik.values.hasFlatFitting === 'yes' && (
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-x-4 gap-y-4 p-4 border border-orange-100 rounded-xl">
-                        <div className="col-span-full">
-                            <h3 className="text-xs font-black text-erp-accent/80 uppercase tracking-[0.1em] mb-2 flex items-center gap-2">
-                                {/* <Icon icon="mdi:frame-outline" className="text-lg" /> */}
-                                Frame Specifications
-                            </h3>
-                        </div>
-                        {wrapInput(Select, {
-                            label: "Frame Type",
-                            name: "frameType",
-                            options: (Array.isArray(configs.frameTypes) ? configs.frameTypes : []).map(f => ({ value: f.name || f, label: f.name || f })),
-                            placeholder: "Select Frame Type"
-                        })}
-                        {wrapInput(Input, { label: "DBL", name: "dbl", placeholder: "mm" })}
-                        {wrapInput(Input, { label: "Frame Length", name: "frameLength", placeholder: "mm" })}
-                        {wrapInput(Input, { label: "Frame Height", name: "frameHeight", placeholder: "mm" })}
-                    </div>
-                )}
-
-                {/* Technical Centration Specs */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-4 p-4 bg-gray-50/50 border border-gray-100 rounded-xl">
-                    <div className="col-span-full">
-                        <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
-                            {/* <Icon icon="mdi:ruler-square" className="text-lg" /> */}
-                            Technical Centration & Angles
-                        </h3>
-                    </div>
-                    {wrapInput(Input, { label: "Pantoscopic Angle", name: "pantoscopicAngle", placeholder: "Eg. 7°" })}
-                    {wrapInput(Input, { label: "Bow Angle", name: "bowAngle", placeholder: "Eg. 5°" })}
-                    {wrapInput(Input, { label: "BVD", name: "bvd", placeholder: "Eg. 12mm" })}
-                </div>
-            </div>
-
-            <hr className="border-gray-50" />
-
             {/* Miscellaneous Data */}
             <div className="space-y-6">
                 <h4 className="text-xs font-black uppercase tracking-widest text-erp-accent ">Shipping & Others</h4>

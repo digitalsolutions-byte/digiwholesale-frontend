@@ -8,7 +8,7 @@ const isPDF = (url) => {
     return url.toLowerCase().includes('.pdf') || url.startsWith('data:application/pdf');
 };
 
-export const FileUploadField = ({ label, name, placeholder, fileRef: externalFileRef, onFileChange, uploading, currentValue, formik, wrapInput, imgFieldName, isReadOnlyMode, hideInput, enableCamera }) => {
+export const FileUploadField = ({ label, name, placeholder, fileRef: externalFileRef, onFileChange, uploading, currentValue, formik, wrapInput, imgFieldName, isReadOnlyMode, hideInput, enableCamera, maxLength, onChange }) => {
     const internalRef = React.useRef(null);
     const cameraRef = React.useRef(null);
     const ref = externalFileRef || internalRef;
@@ -18,7 +18,7 @@ export const FileUploadField = ({ label, name, placeholder, fileRef: externalFil
             {(!hideInput || label) && (
                 <div className="flex flex-col gap-2">
                     <span className="text-gray-400 text-[10px] uppercase font-bold  ml-1">{label}</span>
-                    {!hideInput && wrapInput(Input, { label: '', name, placeholder, className: "bg-white" })}
+                    {!hideInput && wrapInput(Input, { label: '', name, placeholder, className: "bg-white", maxLength, onChange })}
                 </div>
             )}
 

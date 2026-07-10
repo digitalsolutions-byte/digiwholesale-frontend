@@ -16,23 +16,10 @@ const SearchableSelect = ({
     ...props
 }) => {
     const theme = useTheme();
-    const [inputValue, setInputValue] = React.useState('');
     const accentColor = theme.palette.accent.main;
-
     const isObjectValue = value && typeof value === 'object' && value !== null;
     const actualValue = isObjectValue ? value.value : value;
     const actualLabel = isObjectValue ? value.label : undefined;
-
-    React.useEffect(() => {
-        const selectedOption = options.find(opt => opt.value === actualValue);
-        if (selectedOption) {
-            setInputValue(selectedOption.label || '');
-        } else if (actualValue) {
-            setInputValue(actualLabel || (typeof actualValue === 'string' ? actualValue : ''));
-        } else {
-            setInputValue('');
-        }
-    }, [actualValue, actualLabel, options]);
 
     return (
         <Box sx={{ width: '100%' }} className={`${containerClassName} `}>
@@ -45,10 +32,8 @@ const SearchableSelect = ({
                 }}
                 value={options.find(opt => opt.value === actualValue) || (actualValue ? { value: actualValue, label: actualLabel || actualValue } : null)}
                 loading={loading}
-                inputValue={inputValue}
                 onInputChange={(event, newInputValue, reason) => {
                     if (reason === 'input' || reason === 'clear') {
-                        setInputValue(newInputValue);
                         if (onSearch) onSearch(newInputValue);
                     }
                 }}

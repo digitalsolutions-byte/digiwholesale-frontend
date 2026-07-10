@@ -37,7 +37,7 @@ const navItems = [
         icon: 'lucide:square-pen',
         subItems: [
             { label: 'Register Customer', path: PATHS.CUSTOMER.REGISTER, page: 'REGISTER_CUSTOMER' },
-            { label: 'Register Staff',    path: PATHS.STAFF.REGISTER,    page: 'REGISTER_STAFF' },
+            { label: 'Register Staff', path: PATHS.STAFF.REGISTER, page: 'REGISTER_STAFF' },
         ],
     },
     {
@@ -51,29 +51,30 @@ const navItems = [
         label: 'Customer',
         icon: 'lucide:user-round',
         subItems: [
-            { label: 'Customer List', path: PATHS.CUSTOMER.LIST,    page: 'CUSTOMER_LIST' },
-            { label: 'Ship To',       path: PATHS.CUSTOMER.SHIP_TO, page: 'SHIP_TO' },
-            { label: 'Approvals',     path: PATHS.APPROVALS,        page: 'APPROVALS' },
-            { label: 'Corrections',   path: PATHS.CORRECTIONS,      page: 'CORRECTIONS' },
+            { label: 'Customer List', path: PATHS.CUSTOMER.LIST, page: 'CUSTOMER_LIST' },
+            { label: 'Ship To', path: PATHS.CUSTOMER.SHIP_TO, page: 'SHIP_TO' },
+            { label: 'Approvals', path: PATHS.APPROVALS, page: 'APPROVALS' },
+            { label: 'Corrections', path: PATHS.CORRECTIONS, page: 'CORRECTIONS' },
         ],
     },
     {
         label: 'Orders',
         icon: 'lucide:headphones',
         subItems: [
-            { label: 'New Order',      path: PATHS.CUSTOMER_CARE.NEW_ORDER,      page: 'NEW_ORDER',      isBold: true },
-            { label: 'All Orders',     path: PATHS.CUSTOMER_CARE.ALL_ORDERS,     page: 'ALL_ORDERS' },
+            { label: 'New Order', path: PATHS.CUSTOMER_CARE.NEW_ORDER, page: 'NEW_ORDER', isBold: true },
+            { label: 'All Orders', path: PATHS.CUSTOMER_CARE.ALL_ORDERS, page: 'ALL_ORDERS' },
+            { label: 'RX Orders', path: PATHS.CUSTOMER_CARE.RX_ORDERS, page: 'ALL_ORDERS' },
             { label: 'Pending Orders', path: PATHS.CUSTOMER_CARE.PENDING_ORDERS, page: 'PENDING_ORDERS' },
-            { label: 'Other Sales',    path: PATHS.CUSTOMER_CARE.SERVICE_GOODS,  page: 'OTHER_SALES' },
-            { label: 'Sales List',     path: PATHS.SALES.LIST,                   page: 'SALES_LIST' },
+            { label: 'Other Sales', path: PATHS.CUSTOMER_CARE.SERVICE_GOODS, page: 'OTHER_SALES' },
+            { label: 'Sales List', path: PATHS.SALES.LIST, page: 'SALES_LIST' },
         ],
     },
     {
         label: 'Returns & Exchanges',
         icon: 'lucide:undo-2',
         subItems: [
-            { label: 'Return & Refund',   path: PATHS.RETURNS.RETURN_REFUND, page: 'RETURN_REFUND' },
-            { label: 'Exchange Requests', path: PATHS.RETURNS.EXCHANGE,      page: 'EXCHANGE_REQUESTS' },
+            { label: 'Return & Refund', path: PATHS.RETURNS.RETURN_REFUND, page: 'RETURN_REFUND' },
+            { label: 'Exchange Requests', path: PATHS.RETURNS.EXCHANGE, page: 'EXCHANGE_REQUESTS' },
         ],
     },
     { label: 'Drafts', icon: 'lucide:file-text', path: PATHS.DRAFTS, page: 'DRAFTS' },
@@ -82,14 +83,14 @@ const navItems = [
         icon: 'lucide:chart-column',
         subItems: [
             { label: 'Daily Report', path: PATHS.REPORTS.DAILY, page: 'DAILY_REPORT' },
-            { label: 'Main Report',  path: PATHS.REPORTS.MAIN,  page: 'MAIN_REPORT' },
+            { label: 'Main Report', path: PATHS.REPORTS.MAIN, page: 'MAIN_REPORT' },
         ],
     },
     {
         label: 'Repair',
         icon: 'lucide:tool-case',
         subItems: [
-            { label: 'Add Repair',  path: PATHS.REPAIR.ADD,  page: 'ADD_REPAIR' },
+            { label: 'Add Repair', path: PATHS.REPAIR.ADD, page: 'ADD_REPAIR' },
             { label: 'Repair List', path: PATHS.REPAIR.LIST, page: 'REPAIR_LIST' },
         ],
     },
@@ -97,15 +98,24 @@ const navItems = [
         label: 'Vendor',
         icon: 'lucide:truck',
         subItems: [
-            { label: 'Add Vendor',   path: PATHS.VENDOR.ADD,   page: 'ADD_VENDOR' },
-            { label: 'Vendor List',  path: PATHS.VENDOR.LIST,  page: 'VENDOR_LIST' },
-            { label: 'Vendor Order', path: PATHS.VENDOR.ORDER, page: 'VENDOR_ORDER' },
+            { label: 'Add Vendor', path: PATHS.VENDOR.ADD, page: 'ADD_VENDOR' },
+            { label: 'Vendor List', path: PATHS.VENDOR.LIST, page: 'VENDOR_LIST' },
+            // { label: 'Vendor Order', path: PATHS.VENDOR.ORDER, page: 'VENDOR_ORDER' },
+            { label: 'Purchase Orders', path: PATHS.VENDOR.PURCHASE_ITEMS, page: 'VENDOR_LIST' },
+            { label: 'Pending Inward', path: PATHS.VENDOR.PENDING_INWARD, page: 'VENDOR_LIST' },
+            { label: 'Purchase Inward', path: PATHS.VENDOR.INWARD_LIST, page: 'VENDOR_LIST' },
+            { label: 'All Inwarded Items', path: PATHS.VENDOR.ALL_INWARDED_ITEMS, page: 'VENDOR_LIST' },
+            { label: 'QC Pending', path: PATHS.VENDOR.QC_PENDING, page: 'VENDOR_LIST' },
+            { label: 'Purchase QC', path: PATHS.VENDOR.QC_LIST, page: 'VENDOR_LIST' },
+            { label: 'QC Passed', path: PATHS.VENDOR.QC_PASSED, page: 'VENDOR_LIST' },
+            { label: 'QC Failed Report', path: PATHS.VENDOR.QC_FAILED_REPORT, page: 'VENDOR_LIST' },
+            { label: 'Purchase Returns', path: PATHS.VENDOR.PURCHASE_RETURNS, page: 'VENDOR_LIST' },
         ],
     },
-    { label: 'Quality',   icon: 'lucide:badge-check',   path: PATHS.OPERATIONS.QC,       page: 'QUALITY' },
-    { label: 'Fitting',   icon: 'lucide:ruler',          path: PATHS.OPERATIONS.FITTING,  page: 'FITTING' },
-    { label: 'Shipping',  icon: 'lucide:send',           path: PATHS.OPERATIONS.DISPATCH, page: 'SHIPPING' },
-    { label: 'Inventory', icon: 'lucide:package-search', path: PATHS.INVENTORY,           page: 'INVENTORY' },
+    // { label: 'Quality', icon: 'lucide:badge-check', path: PATHS.OPERATIONS.QC, page: 'QUALITY' },
+    // { label: 'Fitting', icon: 'lucide:ruler', path: PATHS.OPERATIONS.FITTING, page: 'FITTING' },
+    { label: 'Shipping', icon: 'lucide:send', path: PATHS.OPERATIONS.DISPATCH, page: 'SHIPPING' },
+    { label: 'Inventory', icon: 'lucide:package-search', path: PATHS.INVENTORY, page: 'INVENTORY' },
 ];
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
@@ -132,7 +142,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                 return (item.page ? hasPageAccess(item.page) : true) ? item : null;
             })
             .filter(Boolean);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user]);  // re-filter whenever the stored user changes
 
     useEffect(() => {

@@ -43,7 +43,7 @@ const datePickerStyles = {
     }
 };
 
-const AllOrdersList = () => {
+const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
     const navigate = useNavigate();
     const currentUser = useSelector(selectCurrentUser);
     const [orders, setOrders] = useState([]);
@@ -117,7 +117,7 @@ const AllOrdersList = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filters, setFilters] = useState({
         search: '',
-        status: '',
+        status: defaultStatus,
         customerId: '',
         orderType: '',
         fromDate: '',
@@ -192,7 +192,7 @@ const AllOrdersList = () => {
         setSearchTerm('');
         setFilters({
             search: '',
-            status: '',
+            status: defaultStatus,
             customerId: '',
             orderType: '',
             fromDate: '',
@@ -290,24 +290,26 @@ const AllOrdersList = () => {
                         </div>
                     </div>
 
-                    <div className="flex flex-col gap-1.5 w-full lg:w-auto lg:min-w-[180px]">
-                        <span className="text-[10px] md:text-[11px] font-black text-gray-400 uppercase tracking-[0.15em] ml-2 md:ml-5">Status</span>
-                        <div className="relative">
-                            <Icon icon="mdi:checkbox-blank-circle-outline" className="fixed-icon absolute left-6 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
-                            <select
-                                className="w-full pl-14 pr-10 py-2.5 rounded-full bg-gray-50/80 border border-gray-100/50 text-[11px] font-black uppercase tracking-widest text-gray-700 appearance-none focus:bg-white focus:ring-4 focus:ring-amber-50 transition-all outline-none"
-                                value={filters.status}
-                                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                            >
-                                <option value="">All Statuses</option>
-                                <option value="Draft">Draft</option>
-                                <option value="Submitted">Submitted</option>
-                                <option value="Processing">Processing</option>
-                                <option value="Completed">Completed</option>
-                                <option value="Cancelled">Cancelled</option>
-                            </select>
+                    {!isPendingOnly && (
+                        <div className="flex flex-col gap-1.5 w-full lg:w-auto lg:min-w-[180px]">
+                            <span className="text-[10px] md:text-[11px] font-black text-gray-400 uppercase tracking-[0.15em] ml-2 md:ml-5">Status</span>
+                            <div className="relative">
+                                <Icon icon="mdi:checkbox-blank-circle-outline" className="fixed-icon absolute left-6 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
+                                <select
+                                    className="w-full pl-14 pr-10 py-2.5 rounded-full bg-gray-50/80 border border-gray-100/50 text-[11px] font-black uppercase tracking-widest text-gray-700 appearance-none focus:bg-white focus:ring-4 focus:ring-amber-50 transition-all outline-none"
+                                    value={filters.status}
+                                    onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                                >
+                                    <option value="">All Statuses</option>
+                                    <option value="PENDING">Pending</option>
+                                    <option value="CONFIRMED">Confirmed</option>
+                                    <option value="PROCESSING">Processing</option>
+                                    <option value="COMPLETED">Completed</option>
+                                    <option value="CANCELLED">Cancelled</option>
+                                </select>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     <div className="flex flex-col gap-1.5 w-full lg:w-auto lg:min-w-[250px]">
                         <span className="text-[10px] md:text-[11px] font-black text-gray-400 uppercase tracking-[0.15em] ml-2 md:ml-5">Customer</span>
@@ -384,161 +386,168 @@ const AllOrdersList = () => {
                                     <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Order Code</th>
                                     <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Customer / Shop</th>
                                     <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Date / Time</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Product Details</th>
+                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Sub Orders</th>
+                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Total Qty</th>
                                     <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Order Total</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">product Name</th>
                                     <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Status</th>
                                     <th className="py-4 px-4 font-semibold text-xs text-center uppercase ">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="text-gray-600">
-                                {orders.map((order) => (
-                                    <React.Fragment key={order._id}>
-                                        <tr
-                                            className={`border-b border-gray-100 last:border-b-0 hover:bg-erp-accent/5/20 transition-all h-16 cursor-pointer ${expandedRows.has(order._id) ? 'bg-erp-accent/5/10' : ''}`}
-                                            onClick={() => toggleRow(order._id)}
-                                        >
-                                            <td className="px-4 py-2 text-center border-r border-gray-50">
-                                                <span className="text-xs font-black text-erp-accent/80 font-mono tracking-tighter uppercase">
-                                                    #{order?.orderNumber || order?._id?.slice(-6) || '---'}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-2 text-center border-r border-gray-50">
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-black text-gray-800 tracking-tight">{order?.customer?.customerName || '---'}</span>
-                                                    <span className="text-[10px] text-gray-400 font-bold uppercase ">{order?.customer?.customerShipToBranchName || '---'}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-2 text-center border-r border-gray-50">
-                                                <div className="flex flex-col items-center">
-                                                    <span className="text-xs font-bold text-gray-700">{dayjs(order?.createdAt).format('DD MMM YYYY')}</span>
-                                                    <span className="text-[10px] font-black text-erp-accent/80 uppercase tracking-tighter">{dayjs(order?.createdAt).format('hh:mm A')}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-2 text-center border-r border-gray-50">
-                                                <span className="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-md text-[9px] font-black uppercase tracking-widest border border-gray-200">
-                                                    {order?.productMode?.toUpperCase() || '---'} {order?.powerMode?.toUpperCase() || ''}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-2 text-center border-r border-gray-50">
-                                                <span className="text-sm font-black text-gray-800 tracking-tight ">
-                                                    ₹{order?.totalOrderPrice || '0.00'}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-2 text-center border-r border-gray-50">
-                                                <div className="flex justify-center gap-1">
-                                                    {order?.productName?.name}
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-2 text-center border-r border-gray-50 uppercase">
-                                                <div className="flex items-center justify-center gap-2">
-                                                    <span className={getStatusBadge(order?.status)}>
-                                                        {order?.status || 'PENDING'}
+                                {orders.map((order) => {
+                                    const totalOrders = order.orders?.length || 0;
+                                    let totalItemsQty = 0;
+                                    let grandTotal = 0;
+                                    let orderStatus = 'PENDING';
+                                    console.log(order, "order")
+
+                                    if (totalOrders > 0) {
+                                        orderStatus = order.orders[0]?.status || 'PENDING';
+                                        order.orders.forEach(bo => {
+                                            if (bo.items) {
+                                                bo.items.forEach(item => {
+                                                    totalItemsQty += (Number(item.qty) || 0);
+                                                });
+                                            }
+                                        });
+                                    }
+
+                                    return (
+                                        <React.Fragment key={order._id}>
+                                            <tr
+                                                className={`border-b border-gray-100 last:border-b-0 hover:bg-erp-accent/5/20 transition-all h-16 cursor-pointer ${expandedRows.has(order._id) ? 'bg-erp-accent/5/10' : ''}`}
+                                                onClick={() => toggleRow(order._id)}
+                                            >
+                                                <td className="px-4 py-2 text-center border-r border-gray-50">
+                                                    <span className="text-xs font-black text-erp-accent/80 font-mono tracking-tighter uppercase">
+                                                        #{order.orders?.[0]?.orderNumber || order?._id?.slice(-6) || '---'}
                                                     </span>
-                                                    {order?.status?.toUpperCase() === 'DRAFT' && (
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                navigate(PATHS.CUSTOMER_CARE.EDIT_ORDER.replace(':id', order._id));
-                                                            }}
-                                                            className="p-1.5 bg-erp-accent/5 text-erp-accent/80 rounded-lg hover:bg-erp-accent hover:text-white transition-all shadow-sm border border-erp-accent/10"
-                                                            title="Edit Draft Order"
-                                                        >
-                                                            <Icon icon="mdi:pencil" className="text-sm" />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-2 text-center relative" onClick={(e) => e.stopPropagation()}>
-                                                <button
-                                                    onClick={() => setActiveActionMenu(activeActionMenu === order._id ? null : order._id)}
-                                                    className={`p-2 rounded-xl transition-all ${activeActionMenu === order._id ? 'bg-erp-accent text-white shadow-lg' : 'text-gray-400 hover:text-erp-accent hover:bg-erp-accent/5'}`}
-                                                >
-                                                    <Icon icon="mdi:dots-vertical" className="w-6 h-6" />
-                                                </button>
-
-                                                {activeActionMenu === order._id && (
-                                                    <>
-                                                        <div
-                                                            className="fixed inset-0 z-[60]"
-                                                            onClick={() => setActiveActionMenu(null)}
-                                                        />
-                                                        <div className="absolute right-full mr-2 top-0 w-48 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 z-[100] animate-in fade-in slide-in-from-right-2 duration-200">
+                                                </td>
+                                                <td className="px-6 py-2 text-center border-r border-gray-50">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-black text-gray-800 tracking-tight">{order?.customer?.customerName || '---'}</span>
+                                                        <span className="text-[10px] text-gray-400 font-bold uppercase ">{order?.customer?.customerShipToBranchName || '---'}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-2 text-center border-r border-gray-50">
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-xs font-bold text-gray-700">{dayjs(order?.createdAt).format('DD MMM YYYY')}</span>
+                                                        <span className="text-[10px] font-black text-erp-accent/80 uppercase tracking-tighter">{dayjs(order?.createdAt).format('hh:mm A')}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-2 text-center border-r border-gray-50">
+                                                    <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-black uppercase tracking-widest border border-blue-100">
+                                                        {totalOrders}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-2 text-center border-r border-gray-50">
+                                                    <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-md text-xs font-black uppercase tracking-widest border border-amber-100">
+                                                        {totalItemsQty}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-2 text-center border-r border-gray-50">
+                                                    <span className="text-sm font-black text-gray-800 tracking-tight ">
+                                                        ₹{order?.orders[0].totalOrderPrice || '0.00'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-2 text-center border-r border-gray-50 uppercase">
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <span className={getStatusBadge(orderStatus)}>
+                                                            {orderStatus}
+                                                        </span>
+                                                        {orderStatus?.toUpperCase() === 'DRAFT' && (
                                                             <button
-                                                                onClick={() => {
-                                                                    toggleRow(order._id);
-                                                                    setActiveActionMenu(null);
-                                                                }}
-                                                                className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-gray-600 hover:bg-erp-accent/5 hover:text-erp-accent/80 transition-colors"
-                                                            >
-                                                                <Icon icon="mdi:eye-outline" className="text-base" />
-                                                                {expandedRows.has(order._id) ? 'Hide Items' : 'View Items'}
-                                                            </button>
-
-                                                            <button
-                                                                onClick={() => {
-                                                                    navigate(PATHS.CUSTOMER_CARE.ORDER_DETAILS.replace(':id', order._id));
-                                                                    setActiveActionMenu(null);
-                                                                }}
-                                                                className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-gray-600 hover:bg-erp-accent/5 hover:text-erp-accent/80 transition-colors"
-                                                            >
-                                                                <Icon icon="mdi:file-document" className="text-base" />
-                                                                Full Details
-                                                            </button>
-
-                                                            {/* Download Challan */}
-                                                            <button
-                                                                onClick={() => {
-                                                                    downloadChallan(order._id);
-                                                                    setActiveActionMenu(null);
-                                                                }}
-                                                                disabled={challanLoading[order._id]}
-                                                                className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                            >
-                                                                {challanLoading[order._id] ? (
-                                                                    <>
-                                                                        <span className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                                                                        Downloading...
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <Icon icon="mdi:file-download-outline" className="text-base" />
-                                                                        Download Challan
-                                                                    </>
-                                                                )}
-                                                            </button>
-                                                            {/* Download Invoice */}
-                                                            <button
-                                                                onClick={() => {
-                                                                    downloadInvoice(order._id, order.orderNumber);
-                                                                    setActiveActionMenu(null);
-                                                                }}
-                                                                disabled={invoiceLoading[order._id]}
-                                                                className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                            >
-                                                                {invoiceLoading[order._id] ? (
-                                                                    <>
-                                                                        <span className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                                                                        Downloading...
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <Icon icon="mdi:file-download-outline" className="text-base" />
-                                                                        Download Invoice
-                                                                    </>
-                                                                )}
-                                                            </button>
-                                                            <button
-                                                                onClick={() => {
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
                                                                     navigate(PATHS.CUSTOMER_CARE.EDIT_ORDER.replace(':id', order._id));
-                                                                    setActiveActionMenu(null);
                                                                 }}
-                                                                className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-erp-accent/80 hover:bg-erp-accent/5 transition-colors"
+                                                                className="p-1.5 bg-erp-accent/5 text-erp-accent/80 rounded-lg hover:bg-erp-accent hover:text-white transition-all shadow-sm border border-erp-accent/10"
+                                                                title="Edit Draft Order"
                                                             >
-                                                                <Icon icon="mdi:pencil-outline" className="text-base" />
-                                                                Upgrade Order
+                                                                <Icon icon="mdi:pencil" className="text-sm" />
                                                             </button>
-                                                            {order.status?.toUpperCase() === 'DRAFT' && (
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-2 text-center relative" onClick={(e) => e.stopPropagation()}>
+                                                    <button
+                                                        onClick={() => setActiveActionMenu(activeActionMenu === order._id ? null : order._id)}
+                                                        className={`p-2 rounded-xl transition-all ${activeActionMenu === order._id ? 'bg-erp-accent text-white shadow-lg' : 'text-gray-400 hover:text-erp-accent hover:bg-erp-accent/5'}`}
+                                                    >
+                                                        <Icon icon="mdi:dots-vertical" className="w-6 h-6" />
+                                                    </button>
+
+                                                    {activeActionMenu === order._id && (
+                                                        <>
+                                                            <div
+                                                                className="fixed inset-0 z-[60]"
+                                                                onClick={() => setActiveActionMenu(null)}
+                                                            />
+                                                            <div className="absolute right-full mr-2 top-0 w-48 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 z-[100] animate-in fade-in slide-in-from-right-2 duration-200">
+                                                                <button
+                                                                    onClick={() => {
+                                                                        toggleRow(order._id);
+                                                                        setActiveActionMenu(null);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-gray-600 hover:bg-erp-accent/5 hover:text-erp-accent/80 transition-colors"
+                                                                >
+                                                                    <Icon icon="mdi:eye-outline" className="text-base" />
+                                                                    {expandedRows.has(order._id) ? 'Hide Items' : 'View Items'}
+                                                                </button>
+
+                                                                <button
+                                                                    onClick={() => {
+                                                                        navigate(PATHS.CUSTOMER_CARE.ORDER_DETAILS.replace(':id', order._id));
+                                                                        setActiveActionMenu(null);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-gray-600 hover:bg-erp-accent/5 hover:text-erp-accent/80 transition-colors"
+                                                                >
+                                                                    <Icon icon="mdi:file-document" className="text-base" />
+                                                                    Full Details
+                                                                </button>
+
+                                                                {/* Download Challan */}
+                                                                <button
+                                                                    onClick={() => {
+                                                                        downloadChallan(order._id);
+                                                                        setActiveActionMenu(null);
+                                                                    }}
+                                                                    disabled={challanLoading[order._id]}
+                                                                    className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                >
+                                                                    {challanLoading[order._id] ? (
+                                                                        <>
+                                                                            <span className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                                                                            Downloading...
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <Icon icon="mdi:file-download-outline" className="text-base" />
+                                                                            Download Challan
+                                                                        </>
+                                                                    )}
+                                                                </button>
+                                                                {/* Download Invoice */}
+                                                                <button
+                                                                    onClick={() => {
+                                                                        downloadInvoice(order._id, order.orderNumber);
+                                                                        setActiveActionMenu(null);
+                                                                    }}
+                                                                    disabled={invoiceLoading[order._id]}
+                                                                    className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                >
+                                                                    {invoiceLoading[order._id] ? (
+                                                                        <>
+                                                                            <span className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                                                                            Downloading...
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <Icon icon="mdi:file-download-outline" className="text-base" />
+                                                                            Download Invoice
+                                                                        </>
+                                                                    )}
+                                                                </button>
                                                                 <button
                                                                     onClick={() => {
                                                                         navigate(PATHS.CUSTOMER_CARE.EDIT_ORDER.replace(':id', order._id));
@@ -547,36 +556,47 @@ const AllOrdersList = () => {
                                                                     className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-erp-accent/80 hover:bg-erp-accent/5 transition-colors"
                                                                 >
                                                                     <Icon icon="mdi:pencil-outline" className="text-base" />
-                                                                    Edit Order
+                                                                    Upgrade Order
                                                                 </button>
-                                                            )}
-
-                                                            {order.status !== 'CANCELLED' && (
-                                                                <>
+                                                                {order.status?.toUpperCase() === 'DRAFT' && (
                                                                     <button
                                                                         onClick={() => {
-                                                                            setActionModal({ isOpen: true, type: 'cancel', id: order._id, loading: false });
+                                                                            navigate(PATHS.CUSTOMER_CARE.EDIT_ORDER.replace(':id', order._id));
                                                                             setActiveActionMenu(null);
                                                                         }}
-                                                                        className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-red-600 hover:bg-red-50 transition-colors"
+                                                                        className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-erp-accent/80 hover:bg-erp-accent/5 transition-colors"
                                                                     >
-                                                                        <Icon icon="mdi:close-circle-outline" className="text-base" />
-                                                                        Cancel Order
+                                                                        <Icon icon="mdi:pencil-outline" className="text-base" />
+                                                                        Edit Order
                                                                     </button>
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setActionModal({ isOpen: true, type: 'delete', id: order._id, loading: false });
-                                                                            setActiveActionMenu(null);
-                                                                        }}
-                                                                        className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-red-700 hover:bg-red-100 transition-colors border-t border-red-50"
-                                                                    >
-                                                                        <Icon icon="mdi:delete-outline" className="text-base" />
-                                                                        Delete Order
-                                                                    </button>
-                                                                </>
-                                                            )}
+                                                                )}
 
-                                                            {/* <button
+                                                                {orderStatus !== 'CANCELLED' && (
+                                                                    <>
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setActionModal({ isOpen: true, type: 'cancel', id: order._id, loading: false });
+                                                                                setActiveActionMenu(null);
+                                                                            }}
+                                                                            className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-red-600 hover:bg-red-50 transition-colors"
+                                                                        >
+                                                                            <Icon icon="mdi:close-circle-outline" className="text-base" />
+                                                                            Cancel Order
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setActionModal({ isOpen: true, type: 'delete', id: order._id, loading: false });
+                                                                                setActiveActionMenu(null);
+                                                                            }}
+                                                                            className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-red-700 hover:bg-red-100 transition-colors border-t border-red-50"
+                                                                        >
+                                                                            <Icon icon="mdi:delete-outline" className="text-base" />
+                                                                            Delete Order
+                                                                        </button>
+                                                                    </>
+                                                                )}
+
+                                                                {/* <button
                                                                 onClick={() => {
                                                                     window.print();
                                                                     setActiveActionMenu(null);
@@ -586,74 +606,124 @@ const AllOrdersList = () => {
                                                                 <Icon icon="mdi:printer-outline" className="text-base" />
                                                                 Print Invoice
                                                             </button> */}
-                                                        </div>
-                                                    </>
-                                                )}
-                                            </td>
-                                        </tr>
-
-                                        {/* Collapsible Details Row */}
-                                        {expandedRows.has(order._id) && (
-                                            <tr className="bg-gray-50/50">
-                                                <td colSpan="8" className="p-0 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
-                                                    <div className="p-10 border-x-4 border-erp-accent/20 bg-gradient-to-br from-white to-amber-50/30">
-                                                        <div className="grid grid-cols-4 gap-8 mb-8">
-                                                            <DetailSection title="Patient Info">
-                                                                <DetailItem label="Card Name" value={order.consumerCardName} />
-                                                                <DetailItem label="Optician" value={order.opticianName} />
-                                                                <DetailItem label="Reference" value={order.orderReference} />
-                                                            </DetailSection>
-                                                            <DetailSection title="Centration Data (R)">
-                                                                <DetailItem label="PD" value={order.centration?.find(c => c.side === 'R')?.pd} />
-                                                                <DetailItem label="Corridor" value={order.centration?.find(c => c.side === 'R')?.corridor} />
-                                                                <DetailItem label="Fitting Ht" value={order.centration?.find(c => c.side === 'R')?.fittingHeight} />
-                                                            </DetailSection>
-                                                            <DetailSection title="Centration Data (L)">
-                                                                <DetailItem label="PD" value={order.centration?.find(c => c.side === 'L')?.pd} />
-                                                                <DetailItem label="Corridor" value={order.centration?.find(c => c.side === 'L')?.corridor} />
-                                                                <DetailItem label="Fitting Ht" value={order.centration?.find(c => c.side === 'L')?.fittingHeight} />
-                                                            </DetailSection>
-                                                            <DetailSection title="Technical Details">
-                                                                <DetailItem label="Frame Type" value={order.fitting?.frameType} />
-                                                                <DetailItem label="Product Name" value={order.productName?.name} />
-                                                                <DetailItem label="Brand / Cat" value={`${order.brand?.name || '---'} / ${order.category?.name || '---'}`} />
-                                                                <DetailItem label="Coating" value={order.coating?.name} />
-                                                            </DetailSection>
-                                                        </div>
-
-                                                        {/* Product Power Table */}
-                                                        <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
-                                                            <div className="grid grid-cols-6 bg-gray-50/80 px-6 py-3 border-b border-gray-100">
-                                                                <span className="text-[10px] font-black uppercase text-gray-400">Eye</span>
-                                                                <span className="text-[10px] font-black uppercase text-gray-400">SPH</span>
-                                                                <span className="text-[10px] font-black uppercase text-gray-400">CYL</span>
-                                                                <span className="text-[10px] font-black uppercase text-gray-400">AXIS</span>
-                                                                <span className="text-[10px] font-black uppercase text-gray-400">ADD</span>
-                                                                <span className="text-[10px] font-black uppercase text-gray-400">PRISM</span>
                                                             </div>
-                                                            {['R', 'L'].filter(side => {
-                                                                return order.powers?.some(p => p.side === side);
-                                                            }).map((side) => {
-                                                                const power = order.powers?.find(p => p.side === side) || {};
-                                                                const prism = order.prisms?.find(p => p.side === side) || {};
-                                                                return (
-                                                                    <div key={side} className="grid grid-cols-6 px-6 py-4 border-b border-gray-50 last:border-b-0">
-                                                                        <span className="text-xs font-black text-erp-accent">{side === 'R' ? 'Right Eye' : 'Left Eye'}</span>
-                                                                        <span className="text-xs font-bold text-gray-800">{power.sph ?? '---'}</span>
-                                                                        <span className="text-xs font-bold text-gray-800">{power.cyl ?? '---'}</span>
-                                                                        <span className="text-xs font-bold text-gray-800">{power.axis ?? '---'}</span>
-                                                                        <span className="text-xs font-bold text-gray-800">{power.add ?? '---'}</span>
-                                                                        <span className="text-xs font-bold text-gray-800">{prism.prism ? `${prism.prism} / ${prism.base}` : '---'}</span>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
+                                                        </>
+                                                    )}
                                                 </td>
                                             </tr>
-                                        )}
-                                    </React.Fragment>
-                                ))}
+
+                                            {/* Collapsible Details Row */}
+                                            {expandedRows.has(order._id) && (
+                                                <tr className="bg-gray-50/50">
+                                                    <td colSpan="8" className="p-0 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+                                                        <div className="p-8 border-x-4 border-erp-accent/20 bg-gradient-to-br from-white to-amber-50/30 flex flex-col gap-8">
+                                                            {order.orders?.map((subOrder, soIndex) => (
+                                                                <div key={soIndex} className="flex flex-col gap-6 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                                                                    <div className="flex justify-between items-center border-b border-gray-100 pb-4">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <span className="text-sm font-black text-erp-accent uppercase">Sub Order: {subOrder.orderNumber || 'N/A'}</span>
+                                                                            <span className={getStatusBadge(subOrder.status)}>{subOrder.status || 'PENDING'}</span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-4">
+                                                                            {subOrder.cgst && <span className="text-xs font-bold text-gray-500">CGST: {subOrder.cgst}%</span>}
+                                                                            {subOrder.sgst && <span className="text-xs font-bold text-gray-500">SGST: {subOrder.sgst}%</span>}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div className="flex flex-col gap-6">
+                                                                        {subOrder.items?.map((item, itemIdx) => (
+                                                                            <div key={itemIdx} className="flex flex-col gap-4 p-5 rounded-2xl bg-gray-50/50 border border-gray-100">
+                                                                                <div className="flex justify-between items-center">
+                                                                                    <div className="flex flex-col">
+                                                                                        <span className="text-sm font-black text-gray-800">{item.itemName || 'Unnamed Item'}</span>
+                                                                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{item.category} • {item.orderType}</span>
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-4">
+                                                                                        <span className="text-xs font-black text-gray-600 bg-white px-3 py-1 rounded-lg border border-gray-200">Qty: {item.qty} {item.unit}</span>
+                                                                                        <span className="text-sm font-black text-erp-accent">₹{item.price}</span>
+                                                                                    </div>
+                                                                                </div>
+
+                                                                                {item.orderType === 'RX' && item.rx && (
+                                                                                    <>
+                                                                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-2">
+                                                                                            <DetailSection title="Patient Info">
+                                                                                                <DetailItem label="Card Name" value={item.rx.consumerCardName} />
+                                                                                                <DetailItem label="Optician" value={item.rx.opticianName} />
+                                                                                                <DetailItem label="Reference" value={item.rx.orderReference} />
+                                                                                            </DetailSection>
+                                                                                            <DetailSection title="Centration (R)">
+                                                                                                <DetailItem label="PD" value={item.rx.centration?.find(c => c.side === 'R')?.pd} />
+                                                                                                <DetailItem label="Corridor" value={item.rx.centration?.find(c => c.side === 'R')?.corridor} />
+                                                                                                <DetailItem label="Fitting Ht" value={item.rx.centration?.find(c => c.side === 'R')?.fittingHeight} />
+                                                                                            </DetailSection>
+                                                                                            <DetailSection title="Centration (L)">
+                                                                                                <DetailItem label="PD" value={item.rx.centration?.find(c => c.side === 'L')?.pd} />
+                                                                                                <DetailItem label="Corridor" value={item.rx.centration?.find(c => c.side === 'L')?.corridor} />
+                                                                                                <DetailItem label="Fitting Ht" value={item.rx.centration?.find(c => c.side === 'L')?.fittingHeight} />
+                                                                                            </DetailSection>
+                                                                                            <DetailSection title="Technical Details">
+                                                                                                <DetailItem label="Frame Type" value={item.rx.fitting?.frameType} />
+                                                                                                <DetailItem label="Coating" value={item.rx.coating?.name || item.coating} />
+                                                                                                <DetailItem label="Treatment" value={item.rx.treatment?.name} />
+                                                                                                <DetailItem label="Tint" value={item.rx.tint?.name || item.tint} />
+                                                                                            </DetailSection>
+                                                                                        </div>
+
+                                                                                        {/* Power Table for RX */}
+                                                                                        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm mt-2">
+                                                                                            <div className="grid grid-cols-6 bg-gray-50/80 px-6 py-2 border-b border-gray-100">
+                                                                                                <span className="text-[10px] font-black uppercase text-gray-400">Eye</span>
+                                                                                                <span className="text-[10px] font-black uppercase text-gray-400">SPH</span>
+                                                                                                <span className="text-[10px] font-black uppercase text-gray-400">CYL</span>
+                                                                                                <span className="text-[10px] font-black uppercase text-gray-400">AXIS</span>
+                                                                                                <span className="text-[10px] font-black uppercase text-gray-400">ADD</span>
+                                                                                                <span className="text-[10px] font-black uppercase text-gray-400">PRISM</span>
+                                                                                            </div>
+                                                                                            {['R', 'L'].filter(side => item.rx.powers?.some(p => p.side === side)).map((side) => {
+                                                                                                const power = item.rx.powers?.find(p => p.side === side) || {};
+                                                                                                const prism = item.rx.prisms?.find(p => p.side === side) || {};
+                                                                                                return (
+                                                                                                    <div key={side} className="grid grid-cols-6 px-6 py-3 border-b border-gray-50 last:border-b-0">
+                                                                                                        <span className="text-xs font-black text-erp-accent">{side === 'R' ? 'Right Eye' : 'Left Eye'}</span>
+                                                                                                        <span className="text-xs font-bold text-gray-800">{power.sph ?? '---'}</span>
+                                                                                                        <span className="text-xs font-bold text-gray-800">{power.cyl ?? '---'}</span>
+                                                                                                        <span className="text-xs font-bold text-gray-800">{power.axis ?? '---'}</span>
+                                                                                                        <span className="text-xs font-bold text-gray-800">{power.add ?? '---'}</span>
+                                                                                                        <span className="text-xs font-bold text-gray-800">{prism.prism ? `${prism.prism} / ${prism.base}` : '---'}</span>
+                                                                                                    </div>
+                                                                                                );
+                                                                                            })}
+                                                                                        </div>
+                                                                                    </>
+                                                                                )}
+
+                                                                                {item.orderType === 'STOCK' && (
+                                                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-2 bg-white p-5 rounded-2xl border border-gray-100">
+                                                                                        <DetailItem label="SPH" value={item.sph} />
+                                                                                        <DetailItem label="CYL" value={item.cyl} />
+                                                                                        <DetailItem label="AXIS" value={item.axis} />
+                                                                                        <DetailItem label="ADD" value={item.add} />
+                                                                                        <DetailItem label="Index" value={item.index} />
+                                                                                        <DetailItem label="Color" value={item.color} />
+                                                                                        <DetailItem label="Coating" value={item.coating} />
+                                                                                        <DetailItem label="Tint" value={item.tint} />
+                                                                                        <DetailItem label="Expiry" value={item.expiry ? dayjs(item.expiry).format('DD MMM YYYY') : ''} />
+                                                                                        <DetailItem label="Disposability" value={item.disposability} />
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </React.Fragment>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

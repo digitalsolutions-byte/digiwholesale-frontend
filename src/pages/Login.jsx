@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Icon } from '@iconify/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
@@ -32,6 +32,13 @@ const Login = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const theme = useTheme();
+    const greeting = useMemo(() => {
+        const hour = new Date().getHours();
+        if (hour < 12) return 'Hi, Good morning';
+        if (hour < 18) return 'Hi, Good afternoon';
+        return 'Hi, Good evening';
+    }, []);
+
 
     const validationSchema = Yup.object({
         loginId: Yup.string().required('Email or Username is required'),
@@ -63,7 +70,11 @@ const Login = () => {
 
     return (
         <Box sx={{ minHeight: '100vh', display: 'flex', backgroundImage: "radial-gradient(circle, #e8e4dc 1px, transparent 1px)", backgroundSize: " 28px 28px" }}>
-            <Container maxWidth="lg" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4 }}>
+            <Box sx={{ mb: 6, textAlign: 'center' }}>
+                <img src={logo} className='ml-auto' alt="Logo" style={{ height: '170px', marginBottom: '4px', position: 'fixed', top: '20px', right: '20px' }} />
+
+            </Box>
+            <Container maxWidth="lg" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 4 }}>
                 <Paper
                     elevation={0}
                     sx={{
@@ -101,7 +112,7 @@ const Login = () => {
                             sx={{
                                 position: 'absolute',
                                 bottom: '10%',
-                                right: '57%',
+                                right: '25%',
                                 bgcolor: 'white',
                                 p: 2,
                                 borderRadius: '24px 24px 24px 0',
@@ -111,7 +122,7 @@ const Login = () => {
                             }}
                         >
                             <Typography variant="h6" fontWeight={500} color="primary.main">
-                                Hello!
+                                {greeting}!
                             </Typography>
                             {/* <Typography variant="body2" fontWeight={600} color="text.secondary">
                                 We've been expecting you.
@@ -191,7 +202,11 @@ const Login = () => {
                         </Stack>
                     </Box>
                 </Paper>
+                <Typography variant="h6" sx={{ mt: 1, color: '#666', fontWeight: 400, fontSize: '1.2rem', zIndex: 1 }}>
+                    India's <Box component="span" sx={{ color: '#3498db', fontWeight: 600 }}>Premier Ai - Enabled</Box> Optical Software
+                </Typography>
             </Container>
+
         </Box>
     );
 };

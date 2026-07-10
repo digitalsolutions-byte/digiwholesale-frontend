@@ -81,6 +81,16 @@ export const getProductNames = async (search = '', page = 1, limit = 100) => {
     }
 };
 
+export const getProductById = async (id) => {
+    try {
+        const response = await api.get(`/api/digi/product/${id}`);
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching product by ID:', error);
+        return null;
+    }
+};
+
 export const getCategoriesByBrand = async (brandName) => {
     try {
         const response = await api.get(`/api/order/product-fields/category?brand=${encodeURIComponent(brandName)}`);
@@ -153,4 +163,25 @@ export const createBulkOrders = async (payload) => {
         throw error.response ? error.response.data : new Error('Failed to create bulk orders');
     }
 };
+
+export const getOrderSuggestions = async (search = '') => {
+    try {
+        const response = await api.get(`/api/order/suggestions?search=${encodeURIComponent(search)}`);
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching order suggestions:', error);
+        return { success: false, data: { orders: [] } };
+    }
+};
+
+export const getRxOrders = async (search = '') => {
+    try {
+        const queryParams = search ? `?search=${encodeURIComponent(search)}` : '';
+        const response = await api.get(`/api/order/rx-orders${queryParams}`);
+        return response.data;
+    } catch (error) {
+        throw error.response ? error.response.data : new Error('Failed to fetch RX orders');
+    }
+};
+
 

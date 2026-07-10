@@ -42,6 +42,8 @@ const OrderDetails = () => {
 
     if (!order) return null;
 
+    const overallStatus = order.orders && order.orders.length > 0 ? order.orders[0].status : 'PENDING';
+
     const getStatusStyle = (status) => {
         const s = status?.toUpperCase() || 'PENDING';
         switch (s) {
@@ -144,7 +146,7 @@ const OrderDetails = () => {
                         <div className="flex items-center gap-3 ml-13">
 
                             <span className="px-4 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-[0.2em] shadow-sm animate-in fade-in slide-in-from-left-4 duration-500" >
-                                {order.status || 'PENDING'}
+                                {overallStatus}
                             </span>
                             <span className="text-[11px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-2 border-l border-gray-200 pl-3">
                                 <Icon icon="mdi:calendar" className="text-erp-accent" />
@@ -154,15 +156,7 @@ const OrderDetails = () => {
                     </div>
 
                     <div className="flex items-center gap-4">
-                        {/* <Button 
-                            variant="outlined"
-                            className="rounded-2xl border-gray-200 bg-white"
-                            onClick={() => window.print()}
-                        >
-                            <Icon icon="mdi:printer" className="mr-2 text-xl" />
-                            Print Summary
-                        </Button> */}
-                        {order.status === 'DRAFT' && (
+                        {overallStatus === 'DRAFT' && (
                             <Button
                                 className="rounded-2xl shadow-erp-accent/20"
                                 onClick={() => navigate(PATHS.CUSTOMER_CARE.EDIT_ORDER.replace(':id', order._id))}
@@ -174,154 +168,216 @@ const OrderDetails = () => {
                     </div>
                 </div>
 
-                {/* Primary Intelligence Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="space-y-10">
                     {/* Customer Spotlight */}
-                    <InfoCard title="Customer Profile" icon="mdi:account-details-outline">
-                        <div className="space-y-6">
-                            <div>
-                                <h4 className="text-2xl font-black text-gray-800 tracking-tight leading-none mb-1">{order.customer?.shopName}</h4>
-                                <div className="flex items-center gap-2">
-                                    <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-black rounded uppercase tracking-widest leading-none">ID: {order.customer?.customerCode || '---'}</span>
-                                    {order.opticianName && (
-                                        <span className="text-[10px] text-erp-accent/80 font-bold uppercase border-l border-gray-200 pl-2">Ordered by: {order.opticianName}</span>
-                                    )}
+                    <InfoCard title="Customer Profile" icon="mdi:account-details-outline" className="w-full">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                            <div className="space-y-4">
+                                <div>
+                                    <h4 className="text-2xl font-black text-gray-800 tracking-tight leading-none mb-1">{order.customer?.customerName || order.customer?.shopName}</h4>
+                                    <div className="flex items-center gap-2">
+                                        <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-black rounded uppercase tracking-widest leading-none">ID: {order.customer?.customerId || order.customer?.customerCode || '---'}</span>
+                                    </div>
+                                </div>
+                                <div className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded-xl">
+                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Running Balance</span>
+                                    <span className="text-sm font-black text-gray-800 tracking-tight">₹{order.customer?.customerBalance || '0.00'}</span>
                                 </div>
                             </div>
-                            <div className="flex items-start gap-3 bg-erp-accent/5/50 p-4 rounded-2xl border border-erp-accent/10">
-                                <div className="p-2 rounded-xl bg-amber-100/50 text-erp-accent/80">
-                                    <Icon icon="mdi:map-marker-radius" className="text-lg" />
+                            <div className="md:col-span-2 flex items-start gap-3 bg-erp-accent/5/50 p-5 rounded-2xl border border-erp-accent/10">
+                                <div className="p-3 rounded-xl bg-amber-100/50 text-erp-accent/80">
+                                    <Icon icon="mdi:map-marker-radius" className="text-xl" />
                                 </div>
                                 <div>
-                                    <p className="text-[9px] font-black text-erp-accent uppercase tracking-widest mb-1">Ship-To Address</p>
-                                    <p className="text-xs font-bold text-gray-700 leading-relaxed">{order.customer?.address || 'Shipping branch details missing'}</p>
-                                </div>
-                            </div>
-                            <div className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded-xl">
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Running Balance</span>
-                                <span className="text-sm font-black text-gray-800 tracking-tight">₹{order.customer?.customerBalance || '0.00'}</span>
-                            </div>
-                        </div>
-                    </InfoCard>
-
-                    {/* Product Master */}
-                    <InfoCard title="Product Architecture" icon="mdi:package-variant-closed">
-                        <div className="space-y-6">
-                            <div className="flex flex-wrap gap-2">
-                                <span className="px-2.5 py-1 bg-amber-100 text-amber-700 text-[9px] font-black uppercase tracking-[0.2em] rounded-md border border-amber-200">{order.brand?.name}</span>
-                                <span className="px-2.5 py-1 bg-erp-accent text-white text-[9px] font-black uppercase tracking-[0.2em] rounded-md">{order.category?.name}</span>
-                                <span className="px-2.5 py-1 border border-gray-200 text-gray-500 text-[9px] font-black uppercase tracking-[0.2em] rounded-md">{order.productMode}</span>
-                            </div>
-                            <div>
-                                <h4 className="text-2xl font-black text-gray-800 tracking-tight leading-7 line-clamp-2">{order.productName?.name}</h4>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">Index: {order.index || 'N/A'}</p>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <span className="text-[10px] text-gray-400 font-black uppercase tracking-tighter">Treatment</span>
-                                    <p className="text-xs font-bold text-gray-700">{order.treatment?.name || '---'}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <span className="text-[10px] text-gray-400 font-black uppercase tracking-tighter">Coating</span>
-                                    <p className="text-xs font-bold text-gray-700">{order.coating?.name || '---'}</p>
+                                    <p className="text-[10px] font-black text-erp-accent uppercase tracking-widest mb-1">Ship-To Branch: {order.customer?.customerShipToBranchName}</p>
+                                    <p className="text-sm font-bold text-gray-700 leading-relaxed">{order.customer?.address || 'Shipping branch details missing'}</p>
                                 </div>
                             </div>
                         </div>
                     </InfoCard>
 
-                    {/* Technical Lens Config */}
-                    <InfoCard title="Lens Customization" icon="mdi:palette-swatch-variant">
-                        <div className="space-y-6">
-                            <div className="flex items-center justify-between gap-4">
-                                <div className="space-y-1">
-                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Tint Detail</span>
-                                    <p className="text-sm font-black text-gray-800 italic">"{order.tint?.name || 'No Tint'}"</p>
-                                    <p className="text-[10px] text-gray-400 leading-tight">{order.tintDetails || 'Standard treatment application'}</p>
+                    {/* Sub Orders Iteration */}
+                    <div className="space-y-12">
+                        {order.orders?.map((subOrder, soIndex) => (
+                            <div key={soIndex} className="bg-white/50 border border-erp-accent/10 rounded-[3rem] p-8 space-y-10 shadow-sm relative overflow-hidden">
+                                {/* Sub Order Header */}
+                                <div className="absolute top-0 left-0 w-2 h-full bg-erp-accent/20" />
+                                <div className="flex items-center justify-between border-b border-gray-100 pb-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 bg-white shadow-sm rounded-2xl flex items-center justify-center text-erp-accent">
+                                            <Icon icon="mdi:shopping-outline" className="text-2xl" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-black text-gray-800 uppercase tracking-tight">{subOrder.orderNumber}</h3>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Sub Order #{soIndex + 1}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-2">
+                                        <span className={getStatusStyle(subOrder.status) + " px-4 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-[0.2em]"}>
+                                            {subOrder.status || 'PENDING'}
+                                        </span>
+                                        <div className="flex gap-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                            {subOrder.cgst && <span>CGST: {subOrder.cgst}%</span>}
+                                            {subOrder.sgst && <span>SGST: {subOrder.sgst}%</span>}
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className={`w-14 h-14 rounded-full border-4 ${order.tint?.name && order.tint?.name !== 'No Tint' ? 'bg-amber-100/50 border-amber-200' : 'bg-gray-50 border-gray-100'} flex items-center justify-center font-black text-[10px] text-erp-accent/80 flex-shrink-0`}>
-                                    {order.tint?.name && order.tint?.name !== 'No Tint' ? 'ACTIVE' : 'N/A'}
+
+                                {/* Items Iteration */}
+                                <div className="space-y-8">
+                                    {subOrder.items?.map((item, itemIndex) => (
+                                        <div key={itemIndex} className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
+                                            {/* Item Header */}
+                                            <div className="p-6 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between">
+                                                <div className="flex items-center gap-4">
+                                                    <span className="w-8 h-8 rounded-full bg-erp-accent/10 text-erp-accent font-black text-xs flex items-center justify-center">
+                                                        {itemIndex + 1}
+                                                    </span>
+                                                    <div>
+                                                        <h4 className="text-lg font-black text-gray-800 uppercase tracking-tight">{item.itemName || 'Unnamed Product'}</h4>
+                                                        <div className="flex gap-2 mt-1">
+                                                            <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest bg-white px-2 py-0.5 rounded border border-gray-200">{item.category}</span>
+                                                            <span className="text-[9px] font-black text-erp-accent uppercase tracking-widest bg-erp-accent/5 px-2 py-0.5 rounded border border-erp-accent/10">{item.orderType}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-6">
+                                                    <div className="text-right">
+                                                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block">Quantity</span>
+                                                        <span className="text-sm font-bold text-gray-800">{item.qty} {item.unit}</span>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block">Price</span>
+                                                        <span className="text-lg font-black text-erp-accent">₹{item.price}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Item Details based on Type */}
+                                            <div className="p-8">
+                                                {item.orderType === 'RX' && item.rx && (
+                                                    <div className="space-y-10">
+                                                        {/* Primary Intelligence Grid */}
+                                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                                            {/* Product Master */}
+                                                            <InfoCard title="Product Architecture" icon="mdi:package-variant-closed">
+                                                                <div className="space-y-6">
+                                                                    <div className="grid grid-cols-2 gap-4">
+                                                                        <div className="space-y-1">
+                                                                            <span className="text-[10px] text-gray-400 font-black uppercase tracking-tighter">Treatment</span>
+                                                                            <p className="text-xs font-bold text-gray-700">{item.rx.treatment?.name || '---'}</p>
+                                                                        </div>
+                                                                        <div className="space-y-1">
+                                                                            <span className="text-[10px] text-gray-400 font-black uppercase tracking-tighter">Coating</span>
+                                                                            <p className="text-xs font-bold text-gray-700">{item.rx.coating?.name || item.coating || '---'}</p>
+                                                                        </div>
+                                                                        <div className="space-y-1">
+                                                                            <span className="text-[10px] text-gray-400 font-black uppercase tracking-tighter">Tint Detail</span>
+                                                                            <p className="text-xs font-bold text-gray-700">{item.rx.tint?.name || item.tint || 'No Tint'}</p>
+                                                                        </div>
+                                                                        <div className="space-y-1">
+                                                                            <span className="text-[10px] text-gray-400 font-black uppercase tracking-tighter">Index</span>
+                                                                            <p className="text-xs font-bold text-gray-700">{item.index || 'N/A'}</p>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </InfoCard>
+
+                                                            <InfoCard title="Patient Profile" icon="mdi:account-injury-outline">
+                                                                <div className="space-y-6">
+                                                                    <div className="grid grid-cols-2 gap-4">
+                                                                        <div className="space-y-1">
+                                                                            <span className="text-[10px] text-gray-400 font-black uppercase tracking-tighter">Consumer Card</span>
+                                                                            <p className="text-xs font-bold text-gray-700">{item.rx.consumerCardName || '---'}</p>
+                                                                        </div>
+                                                                        <div className="space-y-1">
+                                                                            <span className="text-[10px] text-gray-400 font-black uppercase tracking-tighter">Optician</span>
+                                                                            <p className="text-xs font-bold text-gray-700">{item.rx.opticianName || '---'}</p>
+                                                                        </div>
+                                                                        <div className="space-y-1 col-span-2">
+                                                                            <span className="text-[10px] text-gray-400 font-black uppercase tracking-tighter">Order Reference</span>
+                                                                            <p className="text-xs font-bold text-gray-700">{item.rx.orderReference || '---'}</p>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </InfoCard>
+                                                        </div>
+
+                                                        {/* Prescription Matrix */}
+                                                        <div className="space-y-6">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-2 h-8 bg-[#fe9a00] rounded-full" />
+                                                                <h2 className="text-xs font-black text-gray-400 uppercase tracking-[0.3em]">Ocular Prescription Matrix</h2>
+                                                            </div>
+                                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                                                {['R', 'L'].map(side => {
+                                                                    const hasSide = item.rx.powers?.some(p => p.side === side);
+                                                                    if (!hasSide) return null;
+                                                                    return (
+                                                                        <EyeDetailCard
+                                                                            key={side}
+                                                                            side={side}
+                                                                            data={item.rx.powers?.find(p => p.side === side)}
+                                                                            prism={item.rx.prisms?.find(p => p.side === side)}
+                                                                            centration={item.rx.centration?.find(c => c.side === side)}
+                                                                        />
+                                                                    )
+                                                                })}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Fitting Data */}
+                                                        {item.rx.fitting && (
+                                                            <div className="space-y-6">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="w-2 h-8 bg-blue-500 rounded-full" />
+                                                                    <h2 className="text-xs font-black text-gray-400 uppercase tracking-[0.3em]">Anatomical Fitting Data</h2>
+                                                                </div>
+                                                                <div className="bg-white rounded-[2.5rem] border border-gray-100 p-8 grid grid-cols-2 md:grid-cols-4 gap-10 shadow-sm">
+                                                                    <PowerValue label="Frame Type" value={item.rx.fitting?.frameType} />
+                                                                    <PowerValue label="DBL" value={item.rx.fitting?.dbl} unit="mm" />
+                                                                    <PowerValue label="Frame Length" value={item.rx.fitting?.frameLength} unit="mm" />
+                                                                    <PowerValue label="Frame Height" value={item.rx.fitting?.frameHeight} unit="mm" />
+                                                                    
+                                                                    {item.rx.lensData && (
+                                                                        <>
+                                                                            <PowerValue label="Pantoscopic" value={item.rx.lensData?.pantoscopeAngle} unit="°" />
+                                                                            <PowerValue label="Bow Angle" value={item.rx.lensData?.bowAngle} unit="°" />
+                                                                            <PowerValue label="BVD" value={item.rx.lensData?.bvd} unit="mm" />
+                                                                        </>
+                                                                    )}
+                                                                    <div className="flex flex-col gap-1">
+                                                                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Flat Fitting</span>
+                                                                        <span className={`text-xs font-black uppercase tracking-widest ${item.rx.fitting?.hasFlatFitting ? 'text-green-500' : 'text-gray-300'}`}>
+                                                                            {item.rx.fitting?.hasFlatFitting ? 'Active' : 'Inactive'}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {item.orderType === 'STOCK' && (
+                                                    <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
+                                                        <PowerValue label="SPH" value={item.sph} />
+                                                        <PowerValue label="CYL" value={item.cyl} />
+                                                        <PowerValue label="AXIS" value={item.axis} />
+                                                        <PowerValue label="ADD" value={item.add} />
+                                                        <PowerValue label="Index" value={item.index} />
+                                                        <PowerValue label="Color" value={item.color} />
+                                                        <PowerValue label="Coating" value={item.coating} />
+                                                        <PowerValue label="Tint" value={item.tint} />
+                                                        <PowerValue label="Expiry" value={item.expiry ? dayjs(item.expiry).format('DD MMM YYYY') : null} />
+                                                        <PowerValue label="Disposability" value={item.disposability} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
-
-                            <div className="flex items-center gap-3 p-5 bg-gradient-to-r from-[#fe9a00] to-[#ffb74d] rounded-2xl shadow-lg shadow-erp-accent/20 transition-transform hover:scale-[1.02]">
-                                <Icon icon="mdi:currency-inr" className="text-white text-2xl" />
-                                <div className="flex flex-col">
-                                    <span className="text-[9px] font-black text-white/70 uppercase tracking-widest">Product Value</span>
-                                    <span className="text-2xl font-black text-white tracking-tighter leading-none">₹{order.totalAmount || '0.00'}</span>
-                                </div>
-                            </div>
-
-                            <div className="flex gap-2">
-                                {order.hasMirror && <span className="flex-1 py-1.5 bg-blue-50 text-blue-600 text-[9px] font-black uppercase tracking-widest text-center border border-blue-100 rounded-lg">Mirror Coat</span>}
-                                <span className="flex-1 py-1.5 bg-erp-accent/5 text-erp-accent/90 text-[9px] font-black uppercase tracking-widest text-center border border-orange-100 rounded-lg">Anti-Reflective</span>
-                            </div>
-                        </div>
-                    </InfoCard>
-                </div>
-
-                {/* Prescription Matrix */}
-                <div className="space-y-6">
-                    <div className="flex items-center gap-3">
-                        <div className="w-2 h-8 bg-[#fe9a00] rounded-full" />
-                        <h2 className="text-xs font-black text-gray-400 uppercase tracking-[0.3em]">Ocular Prescription Matrix</h2>
-                    </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <EyeDetailCard
-                            side="R"
-                            data={order.powers?.find(p => p.side === 'R')}
-                            prism={order.prisms?.find(p => p.side === 'R')}
-                            centration={order.centrations?.find(c => c.side === 'R')}
-                        />
-                        <EyeDetailCard
-                            side="L"
-                            data={order.powers?.find(p => p.side === 'L')}
-                            prism={order.prisms?.find(p => p.side === 'L')}
-                            centration={order.centrations?.find(c => c.side === 'L')}
-                        />
-                    </div>
-                </div>
-
-                {/* Technical Engineering Data */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-2 space-y-6">
-                        <div className="flex items-center gap-3">
-                            <div className="w-2 h-8 bg-blue-500 rounded-full" />
-                            <h2 className="text-xs font-black text-gray-400 uppercase tracking-[0.3em]">Anatomical Fitting Data</h2>
-                        </div>
-                        <div className="bg-white rounded-[2.5rem] border border-gray-100 p-8 grid grid-cols-2 md:grid-cols-4 gap-10 shadow-sm">
-                            <PowerValue label="Frame Type" value={order.fittingData?.frameType} />
-                            <PowerValue label="DBL" value={order.frameData?.dbl} unit="mm" />
-                            <PowerValue label="Frame Length" value={order.frameData?.frameLength} unit="mm" />
-                            <PowerValue label="Frame Height" value={order.frameData?.frameHeight} unit="mm" />
-
-                            <PowerValue label="Pantoscopic" value={order.lensData?.pantoscopeAngle} unit="°" />
-                            <PowerValue label="Bow Angle" value={order.lensData?.bowAngle} unit="°" />
-                            <PowerValue label="BVD" value={order.lensData?.bvd} unit="mm" />
-                            <div className="flex flex-col gap-1">
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Flat Fitting</span>
-                                <span className={`text-xs font-black uppercase tracking-widest ${order.fittingData?.hasFlatFitting ? 'text-green-500' : 'text-gray-300'}`}>
-                                    {order.fittingData?.hasFlatFitting ? 'Active' : 'Inactive'}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="space-y-6">
-                        <div className="flex items-center gap-3">
-                            <div className="w-2 h-8 bg-amber-200 rounded-full" />
-                            <h2 className="text-xs font-black text-gray-400 uppercase tracking-[0.3em]">Final Directives</h2>
-                        </div>
-                        <div className="bg-white rounded-[2.5rem] border border-gray-100 p-8 h-[220px] shadow-sm relative overflow-hidden group">
-                            <div className="relative z-10">
-                                <h5 className="text-[9px] font-black text-[#fe9a00] uppercase tracking-[0.2em] mb-4">Internal Remarks</h5>
-                                <p className="text-sm font-bold text-gray-600 leading-relaxed max-h-[140px] overflow-y-auto">
-                                    {order.remarks || 'No additional directives provided for this order sequence.'}
-                                </p>
-                            </div>
-                            <div className="absolute -bottom-10 -right-10 text-gray-50 group-hover:text-orange-50 transition-colors">
-                                <Icon icon="mdi:comment-quote" className="text-9xl opacity-20" />
-                            </div>
-                        </div>
+                        ))}
                     </div>
                 </div>
 
