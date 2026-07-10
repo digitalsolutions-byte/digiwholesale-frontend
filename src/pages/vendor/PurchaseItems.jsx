@@ -60,7 +60,7 @@ const PurchaseItems = () => {
             cancelButtonColor: "#6b7280",
             confirmButtonText: "Yes, delete it!"
         });
-        
+
         if (confirm.isConfirmed) {
             try {
                 const response = await deletePurchaseItem(id);
@@ -119,8 +119,9 @@ const PurchaseItems = () => {
                             <tr className="bg-gray-50 border-b border-gray-100">
                                 <th className="p-4 w-12"></th>
                                 <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Purchase ID</th>
-                                <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Vendor ID</th>
+                                <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Vendor Name</th>
                                 <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                                <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Summary</th>
                                 <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Amount</th>
                                 <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Created At</th>
                                 <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</th>
@@ -129,7 +130,7 @@ const PurchaseItems = () => {
                         <tbody className="divide-y divide-gray-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="6" className="p-8 text-center text-gray-500">
+                                    <td colSpan="7" className="p-8 text-center text-gray-500">
                                         <div className="flex justify-center items-center gap-2">
                                             <Icon icon="lucide:loader-2" className="animate-spin text-xl text-erp-accent" />
                                             <span>Loading purchase orders...</span>
@@ -138,7 +139,7 @@ const PurchaseItems = () => {
                                 </tr>
                             ) : purchaseOrders.length === 0 ? (
                                 <tr>
-                                    <td colSpan="6" className="p-8 text-center text-gray-500">
+                                    <td colSpan="7" className="p-8 text-center text-gray-500">
                                         No purchase orders found.
                                     </td>
                                 </tr>
@@ -165,9 +166,31 @@ const PurchaseItems = () => {
                                                 </span>
                                             </td>
                                             <td className="p-4">
-                                                <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium bg-emerald-50 text-emerald-700 rounded-full">
-                                                    {order.status || 'COMPLETED'}
+                                                <span className={`inline-flex items-center justify-center px-2.5 py-1 text-xs font-medium rounded-full ${
+                                                    order.overallStatus === 'QC Completed' ? 'bg-emerald-50 text-emerald-700' :
+                                                    order.overallStatus === 'Partially Received' ? 'bg-amber-50 text-amber-700' :
+                                                    order.overallStatus === 'Fully Received' ? 'bg-blue-50 text-blue-700' :
+                                                    'bg-gray-50 text-gray-700'
+                                                }`}>
+                                                    {order.overallStatus || order.status || 'Pending'}
                                                 </span>
+                                            </td>
+                                            <td className="p-4">
+                                                {order.purchaseOrderSummary ? (
+                                                    <div className="text-xs text-gray-600 space-y-1">
+                                                        <div>Total Items: <span className="font-semibold text-gray-800">{order.purchaseOrderSummary.totalItems}</span></div>
+                                                        <div>Inward: <span className="font-semibold text-gray-800">{order.purchaseOrderSummary.inwardDone}</span></div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span>QC:</span>
+                                                            <span className="text-emerald-600 font-medium">{order.purchaseOrderSummary.qcPassed} Passed</span>
+                                                            {order.purchaseOrderSummary.qcFailed > 0 && (
+                                                                <span className="text-red-600 font-medium">{order.purchaseOrderSummary.qcFailed} Failed</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-xs text-gray-400">No summary</span>
+                                                )}
                                             </td>
                                             <td className="p-4">
                                                 <span className="font-medium text-gray-800">
@@ -179,14 +202,14 @@ const PurchaseItems = () => {
                                             </td>
                                             <td className="p-4 text-right">
                                                 <div className="flex justify-end gap-2">
-                                                    <button 
+                                                    {/* <button 
                                                         onClick={(e) => handleUpdateStatus(e, order._id)}
                                                         className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg transition-colors group/btn"
                                                         title="Approve Return"
                                                     >
                                                         <Icon icon="lucide:check-circle" className="text-lg group-hover/btn:scale-110 transition-transform" />
-                                                    </button>
-                                                    <button 
+                                                    </button> */}
+                                                    <button
                                                         onClick={(e) => handleDelete(e, order._id)}
                                                         className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors group/btn"
                                                         title="Delete Order"

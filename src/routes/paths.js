@@ -84,6 +84,14 @@ export const PATHS = {
         PURCHASE_ITEM_DETAILS: '/vendor/purchase-items/:id',
         INWARD_LIST: '/vendor/inward',
         INWARD_DETAILS: '/vendor/inward/:id',
+        QC_LIST: '/vendor/qc',
+        QC_DETAILS: '/vendor/qc/:id',
+        PURCHASE_RETURNS: '/vendor/purchase-returns',
+        QC_FAILED_REPORT: '/vendor/qc-failed-report',
+        ALL_INWARDED_ITEMS: '/vendor/all-inwarded-items',
+        PENDING_INWARD: '/vendor/pending-inward',
+        QC_PENDING: '/vendor/qc-pending',
+        QC_PASSED: '/vendor/qc-passed',
     },
 
     // SALES MODULE

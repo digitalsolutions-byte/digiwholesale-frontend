@@ -32,6 +32,14 @@ import PurchaseItems from '../pages/vendor/PurchaseItems';
 import PurchaseItemDetails from '../pages/vendor/PurchaseItemDetails';
 import InwardList from '../pages/vendor/InwardList';
 import InwardDetails from '../pages/vendor/InwardDetails';
+import QCList from '../pages/vendor/QCList';
+import QCDetails from '../pages/vendor/QCDetails';
+import PurchaseReturnList from '../pages/vendor/PurchaseReturnList';
+import QCFailedReport from '../pages/vendor/QCFailedReport';
+import AllInwardedItems from '../pages/vendor/AllInwardedItems';
+import PendingInward from '../pages/vendor/PendingInward';
+import QcPending from '../pages/vendor/QcPending';
+import QcPassed from '../pages/vendor/QcPassed';
 import SalesList from '../pages/sales/SalesList';
 
 import CustomerLogin from '../pages/CustomerLogin';
@@ -125,6 +133,14 @@ const VENDOR_MODULE = [
     { path: '/vendor/purchase-items/:id', element: PurchaseItemDetails, page: 'VENDOR_LIST' },
     { path: PATHS.VENDOR.INWARD_LIST, element: InwardList, page: 'VENDOR_LIST' },
     { path: '/vendor/inward/:id', element: InwardDetails, page: 'VENDOR_LIST' },
+    { path: PATHS.VENDOR.QC_LIST, element: QCList, page: 'VENDOR_LIST' },
+    { path: '/vendor/qc/:id', element: QCDetails, page: 'VENDOR_LIST' },
+    { path: PATHS.VENDOR.PURCHASE_RETURNS, element: PurchaseReturnList, page: 'VENDOR_LIST' },
+    { path: PATHS.VENDOR.QC_FAILED_REPORT, element: QCFailedReport, page: 'VENDOR_LIST' },
+    { path: PATHS.VENDOR.ALL_INWARDED_ITEMS, element: AllInwardedItems, page: 'VENDOR_LIST' },
+    { path: PATHS.VENDOR.PENDING_INWARD, element: PendingInward, page: 'VENDOR_LIST' },
+    { path: PATHS.VENDOR.QC_PENDING, element: QcPending, page: 'VENDOR_LIST' },
+    { path: PATHS.VENDOR.QC_PASSED, element: QcPassed, page: 'VENDOR_LIST' },
 ];
 
 // ── Sales ─────────────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
-import { getPurchaseItemDetails, getVendorPurchaseOrders, updatePurchaseItem, deletePurchaseItem, createPurchaseInward } from '../../services/vendorOrderService';
+import { getPurchaseItemDetails, getVendorPurchaseOrders, updatePurchaseItem, deletePurchaseItem, createPurchaseInward, updateVendorRefIds, updatePurchaseReturnItemStatus, updateVendorPurchaseOrder } from '../../services/vendorOrderService';
 import { toast } from 'react-toastify';
 import Swal from 'sweetalert2';
 import { PATHS } from '../../routes/paths';
@@ -9,7 +9,7 @@ import { PATHS } from '../../routes/paths';
 const PurchaseItemDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    
+
     const [orderDetails, setOrderDetails] = useState(null);
     const [vendorHistory, setVendorHistory] = useState([]);
     const [loadingDetails, setLoadingDetails] = useState(true);
@@ -19,6 +19,24 @@ const PurchaseItemDetails = () => {
     const [showInwardModal, setShowInwardModal] = useState(false);
     const [inwardRemarks, setInwardRemarks] = useState('');
     const [inwardItems, setInwardItems] = useState([]);
+
+    // Edit Order Modal State
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editOrders, setEditOrders] = useState([]);
+    const [submittingEdit, setSubmittingEdit] = useState(false);
+
+    // Vendor Ref ID Modal State
+    const [showRefModal, setShowRefModal] = useState(false);
+    const [refItems, setRefItems] = useState([]);
+    const [submittingRefs, setSubmittingRefs] = useState(false);
+
+    // Return Item Status Modal State
+    const [showReturnModal, setShowReturnModal] = useState(false);
+    const [returnId, setReturnId] = useState('');
+    const [returnItemId, setReturnItemId] = useState('');
+    const [returnStatus, setReturnStatus] = useState('Replaced');
+    const [returnRemarks, setReturnRemarks] = useState('');
+    const [submittingReturn, setSubmittingReturn] = useState(false);
     const [submittingInward, setSubmittingInward] = useState(false);
 
     // Fetch Details
@@ -30,7 +48,7 @@ const PurchaseItemDetails = () => {
                 if (response.success && response.data) {
                     const orderData = response.data.purchaseOrder || response.data;
                     setOrderDetails(orderData);
-                    
+
                     // Fetch vendor history if we have vendor ID
                     const vendorId = orderData.vendor?.vendorId || orderData.vendorId?._id || orderData.vendorId;
                     if (vendorId) {
@@ -95,7 +113,7 @@ const PurchaseItemDetails = () => {
             cancelButtonColor: "#6b7280",
             confirmButtonText: "Yes, delete it!"
         });
-        
+
         if (confirm.isConfirmed) {
             try {
                 const response = await deletePurchaseItem(id);
@@ -111,6 +129,161 @@ const PurchaseItemDetails = () => {
         }
     };
 
+    // ── Edit Order Modal Logic ─────────────────────────────────────────────────
+    const openEditModal = () => {
+        // Deep-clone the existing orders into editable state
+        const cloned = (orderDetails.orders || []).map(sub => ({
+            orderNumber: sub.orderNumber || '',
+            cgst: sub.cgst || '9',
+            sgst: sub.sgst || '9',
+            remarks: sub.remarks || '',
+            status: sub.status || '',
+            items: (sub.items || []).map(item => ({ ...item })),
+        }));
+        setEditOrders(cloned);
+        setShowEditModal(true);
+    };
+
+    const updateEditItem = (orderIdx, itemIdx, field, value) => {
+        setEditOrders(prev => {
+            const next = prev.map((o, oi) => oi !== orderIdx ? o : {
+                ...o,
+                items: o.items.map((it, ii) => ii !== itemIdx ? it : { ...it, [field]: value }),
+            });
+            return next;
+        });
+    };
+
+    const updateEditOrder = (orderIdx, field, value) => {
+        setEditOrders(prev => prev.map((o, oi) => oi !== orderIdx ? o : { ...o, [field]: value }));
+    };
+
+    const handleSubmitEditOrder = async () => {
+        setSubmittingEdit(true);
+        try {
+            const payload = {
+                orders: editOrders.map(sub => ({
+                    orderNumber: sub.orderNumber,
+                    cgst: sub.cgst,
+                    sgst: sub.sgst,
+                    remarks: sub.remarks,
+                    status: sub.status,
+                    items: sub.items.map(item => ({
+                        _id: item._id,
+                        productId: item.productId,
+                        isNewProduct: item.isNewProduct || false,
+                        orderType: item.orderType || 'STOCK',
+                        itemName: item.itemName,
+                        category: item.category,
+                        code: item.code,
+                        brand: item.brand,
+                        color: item.color,
+                        size: item.size,
+                        shape: item.shape,
+                        material: item.material,
+                        dimensions: item.dimensions,
+                        unit: item.unit || 'PIECE',
+                        qty: Number(item.qty),
+                        price: Number(item.price),
+                        mrp: Number(item.mrp),
+                        gst: Number(item.gst),
+                        hsnSac: item.hsnSac,
+                        discountPercent: Number(item.discountPercent) || 0,
+                        discountAmount: Number(item.discountAmount) || 0,
+                        sph: item.sph !== undefined ? Number(item.sph) : undefined,
+                        cyl: item.cyl !== undefined ? Number(item.cyl) : undefined,
+                        axis: item.axis !== undefined ? Number(item.axis) : undefined,
+                        add: item.add !== undefined ? Number(item.add) : undefined,
+                        index: item.index !== undefined ? Number(item.index) : undefined,
+                        tint: item.tint,
+                        coating: item.coating,
+                        expiry: item.expiry,
+                        disposability: item.disposability,
+                        inwardStatus: item.inwardStatus,
+                        qcStatus: item.qcStatus,
+                    })),
+                })),
+            };
+            const response = await updateVendorPurchaseOrder(id, payload);
+            if (response.success) {
+                toast.success('Purchase order updated successfully!');
+                setShowEditModal(false);
+                // Refresh order details
+                const refreshed = await getPurchaseItemDetails(id);
+                if (refreshed.success && refreshed.data) {
+                    setOrderDetails(refreshed.data.purchaseOrder || refreshed.data);
+                }
+            } else {
+                toast.error(response.message || 'Failed to update purchase order');
+            }
+        } catch (error) {
+            toast.error(error.message || 'Error updating purchase order');
+        } finally {
+            setSubmittingEdit(false);
+        }
+    };
+
+    // ── Vendor Ref ID Modal Logic ────────────────────────────────────────────────
+    const openRefModal = () => {
+        const items = [];
+        orderDetails.orders?.forEach((subOrder) => {
+            subOrder.items?.forEach((item) => {
+                items.push({
+                    itemId: item._id,
+                    itemName: item.itemName,
+                    brand: item.brand,
+                    vendorRefId: item.vendorRefId || '',
+                });
+            });
+        });
+        setRefItems(items);
+        setShowRefModal(true);
+    };
+
+    const handleSubmitVendorRefs = async () => {
+        setSubmittingRefs(true);
+        try {
+            const payload = {
+                refIds: refItems.map(i => ({ itemId: i.itemId, vendorRefId: i.vendorRefId }))
+            };
+            const response = await updateVendorRefIds(id, payload);
+            if (response.success) {
+                toast.success('Vendor reference IDs updated successfully!');
+                setShowRefModal(false);
+            } else {
+                toast.error(response.message || 'Failed to update vendor ref IDs');
+            }
+        } catch (error) {
+            toast.error(error.message || 'Error updating vendor refs');
+        } finally {
+            setSubmittingRefs(false);
+        }
+    };
+
+    // ── Return Item Status Modal Logic ────────────────────────────────────────────
+    const handleSubmitReturnStatus = async () => {
+        if (!returnId || !returnItemId) {
+            toast.error('Return ID and Item ID are required');
+            return;
+        }
+        setSubmittingReturn(true);
+        try {
+            const payload = { itemId: returnItemId, status: returnStatus, remarks: returnRemarks };
+            const response = await updatePurchaseReturnItemStatus(returnId, payload);
+            if (response.success) {
+                toast.success(`Return item status updated to "${returnStatus}"`);
+                setShowReturnModal(false);
+                setReturnId(''); setReturnItemId(''); setReturnRemarks('');
+            } else {
+                toast.error(response.message || 'Failed to update return status');
+            }
+        } catch (error) {
+            toast.error(error.message || 'Error updating return status');
+        } finally {
+            setSubmittingReturn(false);
+        }
+    };
+
     // ── Inward Modal Logic ────────────────────────────────────────────────────
     const openInwardModal = () => {
         // Build form state from all items in all sub-orders
@@ -120,6 +293,7 @@ const PurchaseItemDetails = () => {
             subOrder.items?.forEach((item, itemIdx) => {
                 items.push({
                     selected: true,
+                    itemId: item._id || item.itemId || item.productId,
                     orderNumber: subOrder.orderNumber || '',
                     itemIndex: itemIdx,
                     itemName: item.itemName,
@@ -159,8 +333,7 @@ const PurchaseItemDetails = () => {
                 purchaseOrderId: id,
                 remarks: inwardRemarks,
                 items: selectedItems.map(item => ({
-                    orderNumber: item.orderNumber,
-                    itemIndex: item.itemIndex,
+                    itemId: item.itemId,
                     receivedQty: Number(item.receivedQty),
                     condition: item.condition,
                     vendorRefId: item.vendorRefId,
@@ -207,12 +380,31 @@ const PurchaseItemDetails = () => {
     const vendorName = orderDetails.vendorId?.name || orderDetails.vendor?.vendorName || orderDetails.vendorId || 'Unknown Vendor';
     const totalAmount = orderDetails.orders?.reduce((acc, subOrder) => acc + (subOrder.items?.reduce((sum, item) => sum + ((item.mrp || 0) * (item.qty || 1)), 0) || 0), 0) || 0;
 
+    const getInwardStatusColor = (status) => {
+        switch (status) {
+            case 'FULL': return 'bg-emerald-50 text-emerald-700';
+            case 'PARTIAL': return 'bg-amber-50 text-amber-700';
+            case 'PENDING': return 'bg-gray-50 text-gray-700';
+            default: return 'bg-gray-50 text-gray-700';
+        }
+    };
+
+    const getQcStatusColor = (status) => {
+        switch (status) {
+            case 'PASSED': return 'bg-emerald-50 text-emerald-700';
+            case 'FAILED': return 'bg-red-50 text-red-700';
+            case 'PARTIAL': return 'bg-amber-50 text-amber-700';
+            case 'PENDING': return 'bg-gray-50 text-gray-700';
+            default: return 'bg-gray-50 text-gray-700';
+        }
+    };
+
     return (
         <div className="p-6 max-w-7xl mx-auto h-full flex flex-col gap-6 overflow-y-auto">
             {/* Header */}
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-4">
-                    <button 
+                    <button
                         onClick={() => navigate(PATHS.VENDOR.PURCHASE_ITEMS)}
                         className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"
                     >
@@ -226,24 +418,45 @@ const PurchaseItemDetails = () => {
                         <p className="text-sm text-gray-500 mt-1 font-mono">#{orderDetails._id}</p>
                     </div>
                 </div>
-                
+
                 {/* Actions */}
-                <div className="flex gap-3">
-                    <button 
+                <div className="flex gap-3 flex-wrap">
+                    {/* <button
+                        onClick={openEditModal}
+                        className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                    >
+                        <Icon icon="lucide:pencil" />
+                        Edit Order
+                    </button> */}
+                    <button
                         onClick={openInwardModal}
                         className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
                     >
                         <Icon icon="lucide:package-check" />
                         Inward Items
                     </button>
-                    <button 
+                    <button
+                        onClick={openRefModal}
+                        className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                    >
+                        <Icon icon="lucide:tag" />
+                        Vendor Ref IDs
+                    </button>
+                    {/* <button
+                        onClick={() => setShowReturnModal(true)}
+                        className="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                    >
+                        <Icon icon="lucide:refresh-ccw" />
+                        Return Status
+                    </button> */}
+                    {/* <button
                         onClick={handleUpdateStatus}
                         className="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
                     >
                         <Icon icon="lucide:check-circle" />
                         Approve Return
-                    </button>
-                    <button 
+                    </button> */}
+                    <button
                         onClick={handleDelete}
                         className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
                     >
@@ -254,7 +467,7 @@ const PurchaseItemDetails = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
+
                 {/* Left Column: Details */}
                 <div className="lg:col-span-2 space-y-6">
                     {/* Summary Cards */}
@@ -302,6 +515,8 @@ const PurchaseItemDetails = () => {
                                                             <th className="p-3 font-medium">Item</th>
                                                             <th className="p-3 font-medium">Category</th>
                                                             <th className="p-3 font-medium text-center">Qty</th>
+                                                            <th className="p-3 font-medium text-center">Inward</th>
+                                                            <th className="p-3 font-medium text-center">QC</th>
                                                             <th className="p-3 font-medium text-center">GST</th>
                                                             <th className="p-3 font-medium text-right">MRP</th>
                                                             <th className="p-3 font-medium text-right">Total</th>
@@ -316,6 +531,16 @@ const PurchaseItemDetails = () => {
                                                                 </td>
                                                                 <td className="p-3 text-gray-600">{item.category}</td>
                                                                 <td className="p-3 text-gray-600 text-center font-medium">{item.qty}</td>
+                                                                <td className="p-3 text-center">
+                                                                    <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${getInwardStatusColor(item.inwardStatus)}`}>
+                                                                        {item.inwardStatus || 'PENDING'}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="p-3 text-center">
+                                                                    <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${getQcStatusColor(item.qcStatus)}`}>
+                                                                        {item.qcStatus || 'PENDING'}
+                                                                    </span>
+                                                                </td>
                                                                 <td className="p-3 text-gray-600 text-center">{item.gst || 0}%</td>
                                                                 <td className="p-3 text-gray-600 text-right">₹{item.mrp || 0}</td>
                                                                 <td className="p-3 text-gray-800 font-medium text-right">
@@ -352,7 +577,7 @@ const PurchaseItemDetails = () => {
                             ) : vendorHistory.length > 0 ? (
                                 <div className="space-y-3">
                                     {vendorHistory.map(historyOrder => (
-                                        <div 
+                                        <div
                                             key={historyOrder._id}
                                             onClick={() => navigate(`/vendor/purchase-items/${historyOrder._id}`)}
                                             className="p-4 rounded-xl border border-gray-100 hover:border-erp-accent hover:shadow-md transition-all cursor-pointer bg-white group"
@@ -387,7 +612,7 @@ const PurchaseItemDetails = () => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center">
                     {/* Backdrop */}
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowInwardModal(false)} />
-                    
+
                     {/* Modal */}
                     <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col mx-4 overflow-hidden">
                         {/* Modal Header */}
@@ -424,7 +649,7 @@ const PurchaseItemDetails = () => {
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-sm font-bold text-gray-700">Items ({inwardItems.filter(i => i.selected).length} of {inwardItems.length} selected)</h3>
-                                    <button 
+                                    <button
                                         onClick={() => {
                                             const allSelected = inwardItems.every(i => i.selected);
                                             setInwardItems(prev => prev.map(i => ({ ...i, selected: !allSelected })));
@@ -436,8 +661,8 @@ const PurchaseItemDetails = () => {
                                 </div>
 
                                 {inwardItems.map((item, idx) => (
-                                    <div 
-                                        key={idx} 
+                                    <div
+                                        key={idx}
                                         className={`rounded-xl border-2 transition-all ${item.selected ? 'border-blue-200 bg-blue-50/30 shadow-sm' : 'border-gray-100 bg-gray-50/50 opacity-60'}`}
                                     >
                                         {/* Item Header */}
@@ -519,13 +744,13 @@ const PurchaseItemDetails = () => {
 
                         {/* Modal Footer */}
                         <div className="p-6 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-3 shrink-0">
-                            <button 
+                            <button
                                 onClick={() => setShowInwardModal(false)}
                                 className="px-5 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
                             >
                                 Cancel
                             </button>
-                            <button 
+                            <button
                                 onClick={handleSubmitInward}
                                 disabled={submittingInward || inwardItems.filter(i => i.selected).length === 0}
                                 className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -541,6 +766,322 @@ const PurchaseItemDetails = () => {
                                         Submit Inward
                                     </>
                                 )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Vendor Ref ID Modal ─────────────────────────────────────────────── */}
+            {showRefModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowRefModal(false)} />
+                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col mx-4 overflow-hidden">
+                        <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-indigo-50 flex items-center justify-between shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                                    <Icon icon="lucide:tag" className="text-purple-600 text-xl" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-gray-800">Update Vendor Reference IDs</h2>
+                                    <p className="text-xs text-gray-500">Set the vendor's own reference/invoice number for each item</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowRefModal(false)} className="p-2 hover:bg-white/50 rounded-lg transition-colors">
+                                <Icon icon="lucide:x" className="text-gray-500 text-xl" />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                            {refItems.map((item, idx) => (
+                                <div key={idx} className="flex items-center gap-4 p-4 rounded-xl border border-gray-100 bg-gray-50">
+                                    <div className="flex-1">
+                                        <p className="text-sm font-semibold text-gray-800">{item.itemName}</p>
+                                        <p className="text-xs text-gray-500">{item.brand} • ID: {item.itemId?.slice(-8).toUpperCase()}</p>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={item.vendorRefId}
+                                        onChange={(e) => setRefItems(prev => prev.map((r, i) => i === idx ? { ...r, vendorRefId: e.target.value } : r))}
+                                        placeholder="e.g. SUN-REF-001"
+                                        className="w-48 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400 transition-all"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                        <div className="p-6 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-3 shrink-0">
+                            <button onClick={() => setShowRefModal(false)} className="px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                                Cancel
+                            </button>
+                            <button onClick={handleSubmitVendorRefs} disabled={submittingRefs}
+                                className="px-5 py-2.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50">
+                                {submittingRefs ? <Icon icon="lucide:loader-2" className="animate-spin" /> : <Icon icon="lucide:save" />}
+                                {submittingRefs ? 'Saving...' : 'Save Ref IDs'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Return Item Status Modal ──────────────────────────────────────── */}
+            {showReturnModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowReturnModal(false)} />
+                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+                        <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-amber-50 to-orange-50 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                                    <Icon icon="lucide:refresh-ccw" className="text-amber-600 text-xl" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-gray-800">Update Return Item Status</h2>
+                                    {/* <p className="text-xs text-gray-500">PATCH /api/purchase-return/:returnId/items-status</p> */}
+                                </div>
+                            </div>
+                            <button onClick={() => setShowReturnModal(false)} className="p-2 hover:bg-white/50 rounded-lg transition-colors">
+                                <Icon icon="lucide:x" className="text-gray-500 text-xl" />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Return ID <span className="text-red-500">*</span></label>
+                                <input type="text" value={returnId} onChange={e => setReturnId(e.target.value)}
+                                    placeholder="e.g. 6a4cb14fb501dd6a420c575c"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 transition-all font-mono" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Item ID <span className="text-red-500">*</span></label>
+                                <input type="text" value={returnItemId} onChange={e => setReturnItemId(e.target.value)}
+                                    placeholder="e.g. 6a4c9c294cd0bf9474be3e37"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 transition-all font-mono" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Status</label>
+                                <select value={returnStatus} onChange={e => setReturnStatus(e.target.value)}
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 bg-white transition-all">
+                                    <option value="Pending">Pending</option>
+                                    <option value="VendorNotified">Vendor Notified</option>
+                                    <option value="Replaced">Replaced</option>
+                                    {/* <option value="PartiallyReplaced">Partially Replaced</option> */}
+                                    <option value="Closed">Closed</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Remarks</label>
+                                <textarea value={returnRemarks} onChange={e => setReturnRemarks(e.target.value)}
+                                    rows={3} placeholder="e.g. Replacement received on 10 July 2026..."
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 transition-all resize-none" />
+                            </div>
+                        </div>
+                        <div className="p-6 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-3">
+                            <button onClick={() => setShowReturnModal(false)} className="px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
+                            <button onClick={handleSubmitReturnStatus} disabled={submittingReturn}
+                                className="px-5 py-2.5 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50">
+                                {submittingReturn ? <Icon icon="lucide:loader-2" className="animate-spin" /> : <Icon icon="lucide:check" />}
+                                {submittingReturn ? 'Updating...' : 'Update Status'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}\n\n            {/* ── Edit Order Modal ─────────────────────────────────────────────── */}
+            {showEditModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowEditModal(false)} />
+                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col mx-4 overflow-hidden">
+
+                        {/* Modal Header */}
+                        <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-blue-50 flex items-center justify-between shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+                                    <Icon icon="lucide:pencil" className="text-indigo-600 text-xl" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-gray-800">Edit Purchase Order</h2>
+
+                                </div>
+                            </div>
+                            <button onClick={() => setShowEditModal(false)} className="p-2 hover:bg-white/50 rounded-lg transition-colors">
+                                <Icon icon="lucide:x" className="text-gray-500 text-xl" />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-8">
+                            {editOrders.map((subOrder, orderIdx) => (
+                                <div key={orderIdx} className="border border-gray-200 rounded-2xl overflow-hidden">
+
+                                    {/* Sub-order header */}
+                                    <div className="bg-gray-50 px-5 py-4 border-b border-gray-200">
+                                        <div className="flex items-center gap-3 mb-1">
+                                            <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">Order Group {orderIdx + 1}</span>
+                                            <span className="font-mono text-xs text-gray-500">{subOrder.orderNumber}</span>
+                                        </div>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-500 mb-1">CGST %</label>
+                                                <input type="text" value={subOrder.cgst}
+                                                    onChange={e => updateEditOrder(orderIdx, 'cgst', e.target.value)}
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-500 mb-1">SGST %</label>
+                                                <input type="text" value={subOrder.sgst}
+                                                    onChange={e => updateEditOrder(orderIdx, 'sgst', e.target.value)}
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-500 mb-1">Status</label>
+                                                <select value={subOrder.status}
+                                                    onChange={e => updateEditOrder(orderIdx, 'status', e.target.value)}
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white">
+                                                    <option value="">Select</option>
+                                                    <option value="Pending">Pending</option>
+                                                    <option value="Submitted">Submitted</option>
+                                                    <option value="Confirmed">Confirmed</option>
+                                                    <option value="Processing">Processing</option>
+                                                    <option value="Completed">Completed</option>
+                                                    <option value="Cancelled">Cancelled</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-500 mb-1">Remarks</label>
+                                                <input type="text" value={subOrder.remarks}
+                                                    onChange={e => updateEditOrder(orderIdx, 'remarks', e.target.value)}
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white"
+                                                    placeholder="Order remarks" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Items */}
+                                    <div className="divide-y divide-gray-100">
+                                        {subOrder.items.map((item, itemIdx) => (
+                                            <div key={itemIdx} className="p-5">
+                                                {/* Item name bar */}
+                                                <div className="flex items-center gap-3 mb-4">
+                                                    <div className="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center shrink-0">
+                                                        <Icon icon="lucide:box" className="text-indigo-500 text-sm" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-semibold text-gray-800">{item.itemName}</p>
+                                                        <p className="text-xs text-gray-500">{item.brand} • {item.category} • {item.orderType}</p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Core fields */}
+                                                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-3">
+                                                    {[
+                                                        { label: 'Item Name', field: 'itemName', type: 'text', span: 2 },
+                                                        { label: 'Brand', field: 'brand', type: 'text' },
+                                                        { label: 'Category', field: 'category', type: 'text' },
+                                                        { label: 'Code', field: 'code', type: 'text' },
+                                                        { label: 'Color', field: 'color', type: 'text' },
+                                                    ].map(({ label, field, type, span }) => (
+                                                        <div key={field} className={span === 2 ? 'col-span-2' : ''}>
+                                                            <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+                                                            <input type={type} value={item[field] || ''}
+                                                                onChange={e => updateEditItem(orderIdx, itemIdx, field, e.target.value)}
+                                                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white" />
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {/* Numeric fields */}
+                                                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-3">
+                                                    {[
+                                                        { label: 'Qty', field: 'qty' },
+                                                        { label: 'Price', field: 'price' },
+                                                        { label: 'MRP', field: 'mrp' },
+                                                        { label: 'GST %', field: 'gst' },
+                                                        { label: 'Disc %', field: 'discountPercent' },
+                                                        { label: 'Disc Amt', field: 'discountAmount' },
+                                                    ].map(({ label, field }) => (
+                                                        <div key={field}>
+                                                            <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+                                                            <input type="number" value={item[field] ?? ''}
+                                                                onChange={e => updateEditItem(orderIdx, itemIdx, field, e.target.value)}
+                                                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white" />
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {/* Lens specific fields */}
+                                                {(item.category === 'LENS' || item.category === 'CONTACT_LENS') && (
+                                                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-3 pt-3 border-t border-dashed border-gray-200">
+                                                        <p className="col-span-full text-xs font-bold text-gray-400 uppercase tracking-wider">Lens Parameters</p>
+                                                        {[
+                                                            { label: 'SPH', field: 'sph' },
+                                                            { label: 'CYL', field: 'cyl' },
+                                                            { label: 'Axis', field: 'axis' },
+                                                            { label: 'Add', field: 'add' },
+                                                            { label: 'Index', field: 'index' },
+                                                        ].map(({ label, field }) => (
+                                                            <div key={field}>
+                                                                <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+                                                                <input type="number" step="0.01" value={item[field] ?? ''}
+                                                                    onChange={e => updateEditItem(orderIdx, itemIdx, field, e.target.value)}
+                                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white" />
+                                                            </div>
+                                                        ))}
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-gray-500 mb-1">Tint</label>
+                                                            <input type="text" value={item.tint || ''}
+                                                                onChange={e => updateEditItem(orderIdx, itemIdx, 'tint', e.target.value)}
+                                                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white" />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-gray-500 mb-1">Coating</label>
+                                                            <input type="text" value={item.coating || ''}
+                                                                onChange={e => updateEditItem(orderIdx, itemIdx, 'coating', e.target.value)}
+                                                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white" />
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Expiry, Disposability, HSN */}
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-gray-500 mb-1">Expiry Date</label>
+                                                        <input type="date" value={item.expiry ? item.expiry.substring(0, 10) : ''}
+                                                            onChange={e => updateEditItem(orderIdx, itemIdx, 'expiry', e.target.value)}
+                                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-gray-500 mb-1">Disposability</label>
+                                                        <input type="text" value={item.disposability || ''}
+                                                            onChange={e => updateEditItem(orderIdx, itemIdx, 'disposability', e.target.value)}
+                                                            placeholder="e.g. Monthly"
+                                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-gray-500 mb-1">HSN / SAC</label>
+                                                        <input type="text" value={item.hsnSac || ''}
+                                                            onChange={e => updateEditItem(orderIdx, itemIdx, 'hsnSac', e.target.value)}
+                                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-gray-500 mb-1">Unit</label>
+                                                        <input type="text" value={item.unit || 'PIECE'}
+                                                            onChange={e => updateEditItem(orderIdx, itemIdx, 'unit', e.target.value)}
+                                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-6 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-3 shrink-0">
+                            <button onClick={() => setShowEditModal(false)}
+                                className="px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                                Cancel
+                            </button>
+                            <button onClick={handleSubmitEditOrder} disabled={submittingEdit}
+                                className="px-6 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                {submittingEdit ? <Icon icon="lucide:loader-2" className="animate-spin" /> : <Icon icon="lucide:save" />}
+                                {submittingEdit ? 'Saving...' : 'Update Order'}
                             </button>
                         </div>
                     </div>

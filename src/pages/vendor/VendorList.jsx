@@ -606,10 +606,19 @@ export default function VendorList() {
     );
 
     return (
-        <div className="w-full flex flex-col gap-6 animate-in fade-in duration-500">
+        <div className="p-6 max-w-7xl mx-auto h-full flex flex-col animate-in fade-in duration-500">
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                        <Icon icon="lucide:users" className="text-erp-accent" />
+                        Vendor List
+                    </h1>
+                    <p className="text-sm text-gray-500 mt-1">Manage and view all vendors</p>
+                </div>
+            </div>
 
             {/* ── Filter bar ── */}
-            <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 mb-6">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
                 <div className="flex flex-wrap items-end gap-6">
                     <div className="flex flex-col gap-1.5">
                         <span className="text-xs font-bold text-gray-500 ml-2">Period</span>
@@ -652,7 +661,7 @@ export default function VendorList() {
             </div>
 
             {/* ── Table card ── */}
-            <div className="bg-white rounded-[2rem] shadow-2xl border border-gray-100 overflow-hidden min-h-[600px] flex flex-col">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex-1 flex flex-col">
 
                 {/* Table top bar */}
                 <div className="flex items-center justify-between px-8 py-5 border-b border-gray-50 bg-gray-50/30">
@@ -835,7 +844,7 @@ export default function VendorList() {
                                                 <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-24 border-r border-white/10">Product Code</th>
                                                 <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-24 border-r border-white/10">Category</th>
                                                 <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest min-w-[150px] border-r border-white/10">Product Name</th>
-                                                <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-24 border-r border-white/10">Order Type</th>
+                                                {/* <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-24 border-r border-white/10">Order Type</th> */}
                                                 <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-24 border-r border-white/10">Brand</th>
                                                 <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-20 border-r border-white/10">Color</th>
                                                 <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest w-20 border-r border-white/10">Size</th>
@@ -896,12 +905,12 @@ export default function VendorList() {
                                                             <input type="text" placeholder="Product Name" value={row.productName} onChange={e => handleChangeRow(index, "productName", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" />
                                                         )}
                                                     </td>
-                                                    <td className="px-1 py-2 border-r border-gray-100">
+                                                    {/* <td className="px-1 py-2 border-r border-gray-100">
                                                         <select value={row.orderType || "STOCK"} onChange={e => handleChangeRow(index, "orderType", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" >
                                                             <option value="STOCK">STOCK</option>
-                                                            {/* <option value="RX">RX</option> */}
+                                                            <option value="RX">RX</option>
                                                         </select>
-                                                    </td>
+                                                    </td> */}
                                                     <td className="px-1 py-2 border-r border-gray-100">
                                                         <input type="text" placeholder="Brand" value={row.brand} onChange={e => handleChangeRow(index, "brand", e.target.value)} className="w-full bg-transparent border border-gray-100 rounded-md px-2 py-2 text-[11px] font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-300" />
                                                     </td>

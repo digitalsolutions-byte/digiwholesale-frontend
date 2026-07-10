@@ -68,35 +68,25 @@ export default function AddVendor() {
     const handleReset = () => { setFormData(EMPTY); setErrors({}); };
 
     return (
-        <div className="w-full animate-in fade-in duration-500">
-            <div className="w-full">
-                <form onSubmit={handleSubmit} noValidate>
-                    <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-erp-accent/5 border border-gray-100 overflow-hidden">
+        <div className="p-6 max-w-7xl mx-auto h-full flex flex-col animate-in fade-in duration-500">
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                        <Icon icon="mdi:account-plus" className="text-erp-accent" />
+                        Add Vendor
+                    </h1>
+                    <p className="text-sm text-gray-500 mt-1">Fill details to add vendor</p>
+                </div>
+            </div>
 
-                        {/* Header Section */}
-                        <div className="bg-erp-accent p-8 text-white relative overflow-hidden">
-                            <div className="relative z-10">
-                                <div className="flex items-center gap-4 mb-2">
-                                    <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center">
-                                        <Icon icon="mdi:account-plus" className="text-2xl" />
-                                    </div>
-                                    <div>
-                                        <h1 className="text-xl font-bold">Add Vendor</h1>
-                                        <p className="text-xs text-white/80">Fill details to add vendor</p>
-                                    </div>
-                                </div>
-                            </div>
-                            {/* Decorative background circles */}
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32" />
-                            <div className="absolute bottom-0 right-0 w-32 h-32 bg-white/5 rounded-full mr-16 -mb-16" />
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex-1 overflow-hidden flex flex-col">
+                <form onSubmit={handleSubmit} noValidate className="flex flex-col h-full">
+                    <div className="p-6 overflow-y-auto flex-1">
+                        {/* Section label */}
+                         <div className="flex items-center gap-3 mb-6">
+                            <div className="w-1.5 h-6 bg-erp-accent rounded-full" />
+                            <span className="text-sm font-bold text-gray-700">Vendor Details</span>
                         </div>
-
-                        <div className="p-10">
-                            {/* Section label */}
-                             <div className="flex items-center gap-3 mb-8">
-                                <div className="w-1.5 h-6 bg-erp-accent rounded-full" />
-                                <span className="text-sm font-bold text-gray-700">Vendor Details</span>
-                            </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-10">
 
@@ -173,28 +163,19 @@ export default function AddVendor() {
 
                             </div>
 
-                            {/* Footer Actions */}
-                            <div className="flex items-center justify-end gap-4 mt-16 pt-8 border-t border-gray-50">
-                                <button
-                                    type="button"
-                                    onClick={handleReset}
-                                    className="flex items-center gap-2 px-8 py-3 text-sm font-semibold text-gray-400 hover:text-erp-accent hover:bg-erp-accent/5 rounded-full transition-all duration-300 group"
-                                >
-                                    <Icon icon="mdi:refresh" className="text-lg group-hover:rotate-180 transition-transform duration-700" /> Reset
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="flex items-center gap-3 px-10 py-4 bg-erp-accent hover:bg-erp-accent/90 text-white text-sm font-bold rounded-full transition-all shadow-xl shadow-erp-accent/20 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100"
-                                >
-                                    {loading
-                                        ? <><Icon icon="mdi:loading" className="text-xl animate-spin" /> Saving...</>
-                                        : <><Icon icon="mdi:content-save" className="text-xl" /> Save</>
-                                    }
-                                </button>
-                            </div>
                         </div>
+                    <div className="bg-gray-50/50 p-6 border-t border-gray-100 flex items-center justify-end gap-4 mt-auto">
+                        <button type="button" onClick={handleReset}
+                            className="px-8 py-3 rounded-full text-sm font-bold text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all">
+                            Clear
+                        </button>
+                        <button type="submit" disabled={loading}
+                            className="bg-erp-accent text-white px-10 py-3 rounded-full text-sm font-bold flex items-center gap-3 hover:bg-erp-accent/90 transition-all shadow-lg shadow-erp-accent/20 active:scale-95 disabled:opacity-70 disabled:active:scale-100 group">
+                            {loading ? <Icon icon="mdi:loading" className="animate-spin text-xl" /> : <Icon icon="mdi:check-all" className="text-xl group-hover:scale-110 transition-transform" />}
+                            {loading ? "Saving..." : "Save Vendor"}
+                        </button>
                     </div>
+
                 </form>
             </div>
         </div>
