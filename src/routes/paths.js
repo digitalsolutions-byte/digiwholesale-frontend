@@ -3,6 +3,7 @@ export const PATHS = {
     ROOT: '/',
     LOGIN: '/login',
     WELCOME: '/welcome',
+    UNAUTHORIZED: '/unauthorized',
 
     // PASSWORD RESET
     FORGOT_PASSWORD: '/forgot-password',
@@ -59,5 +60,35 @@ export const PATHS = {
         DMS: '/dms',
         FINANCE: '/finance',
         REPORTS: '/reports',
+    },
+
+    // REPAIR MODULE
+    REPAIR: {
+        ADD: '/repair/add',
+        LIST: '/repair/list',
+    },
+
+    // RETURNS & EXCHANGES
+    RETURNS: {
+        RETURN_REFUND: '/return-refund',
+        EXCHANGE: '/exchange',
+    },
+
+    // VENDOR MODULE
+    VENDOR: {
+        ADD: '/vendor/add',
+        LIST: '/vendor/list',
+        ORDER: '/vendor/order',
+    },
+
+    // SALES MODULE
+    SALES: {
+        LIST: '/sales/list',
+    },
+
+    // DETAILED REPORTS
+    REPORTS: {
+        DAILY: '/reports/daily',
+        MAIN: '/reports/main',
     }
 };

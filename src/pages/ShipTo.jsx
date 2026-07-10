@@ -196,15 +196,15 @@ const ShipTo = () => {
                     {selectedCustomer && (
                         <div className="flex flex-wrap gap-6 bg-erp-accent/5 rounded-2xl p-4 border border-erp-accent/10 flex-1 w-full">
                             <div>
-                                <p className="text-xs text-erp-accent/80 font-bold uppercase tracking-wider">Customer ID</p>
+                                <p className="text-xs text-erp-accent/80 font-bold uppercase  ">Customer ID</p>
                                 <p className="text-gray-900 font-semibold">{selectedCustomer.customerCode || 'N/A'}</p>
                             </div>
                             <div>
-                                <p className="text-xs text-erp-accent/80 font-bold uppercase tracking-wider">Shop Name</p>
+                                <p className="text-xs text-erp-accent/80 font-bold uppercase  ">Shop Name</p>
                                 <p className="text-gray-900 font-semibold">{selectedCustomer.shopName}</p>
                             </div>
                             <div>
-                                <p className="text-xs text-erp-accent/80 font-bold uppercase tracking-wider">Contact</p>
+                                <p className="text-xs text-erp-accent/80 font-bold uppercase  ">Contact</p>
                                 <p className="text-gray-900 font-semibold">{selectedCustomer.mobileNo1 || selectedCustomer.businessEmail}</p>
                             </div>
                         </div>

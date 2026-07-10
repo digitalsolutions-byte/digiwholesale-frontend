@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import { getPendingStageCustomers } from '../services/customerService';
-import { useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import { PATHS } from '../routes/paths';
 import Button from '../components/ui/Button';
+import usePermissions from '../hooks/usePermissions';
 
 const CorrectionsList = () => {
     const navigate = useNavigate();
@@ -13,33 +13,40 @@ const CorrectionsList = () => {
     const [loading, setLoading] = useState(true);
     const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1 });
 
-    const user = useSelector((state) => state.auth.user);
-    console.log('user', user)
+    const { hasPermission } = usePermissions();
 
     const fetchCorrections = async (page = 1) => {
         setLoading(true);
         try {
-            const isSalesExecutive = user?.Department?.name?.toUpperCase() === 'SALES' && user?.EmployeeType?.toUpperCase() === 'EMPLOYEE';
-            const isSalesHead = (user?.Department?.name?.toUpperCase() === 'SALES' || user?.Department?.name?.toUpperCase() === 'SALES') && (user?.EmployeeType?.toUpperCase() === 'ADMIN' || user?.EmployeeType?.toUpperCase() === 'SALES ADMIN');
-            const isFinanceUser = ['FINANCE', 'F&A', 'F&A CFO', 'ACCOUNTING'].includes(user?.Department?.name?.toUpperCase()) || user?.EmployeeType?.toUpperCase() === 'SUPERADMIN';
+            // Derive workflow stages from accessPermissions[].
+            // No Department.name or EmployeeType string checks.
+            const stages = new Set();
 
-            let stages = [];
-            if (isSalesExecutive) stages.push('salesCorrection');
-            if (isSalesHead) stages.push('salesHead');
-            if (isFinanceUser) stages.push('financeCorrection');
+            // APPROVE_ORDER → finance-level corrections
+            if (hasPermission('APPROVE_ORDER')) {
+                stages.add('financeCorrection');
+                stages.add('salesHead');
+            }
+            // UPDATE_CUSTOMER → sales corrections and sales-head review
+            if (hasPermission('UPDATE_CUSTOMER')) {
+                stages.add('salesCorrection');
+                stages.add('salesHead');
+            }
+            // ADD_CUSTOMER → own sales corrections
+            if (hasPermission('ADD_CUSTOMER')) {
+                stages.add('salesCorrection');
+            }
 
-            // Default if nothing matched or superadmin
-            if (stages.length === 0) stages = ['salesCorrection', 'financeCorrection', 'salesHead'];
+            // Fallback so the page is never silently blank
+            if (stages.size === 0) {
+                stages.add('salesCorrection');
+                stages.add('financeCorrection');
+                stages.add('salesHead');
+            }
 
-            const response = await getPendingStageCustomers(stages.join('&'), page, 10);
+            const response = await getPendingStageCustomers([...stages].join('&'), page, 10);
             if (response.success) {
-                let customers = response.data.customers || [];
-
-                // For Sales Executives, filter to only show their own
-                if (isSalesExecutive && !user?.EmployeeType === 'SUPERADMIN') {
-                    customers = customers.filter(c => c.createdBy === user._id || c.createdBy?._id === user._id);
-                }
-
+                const customers = response.data.customers || [];
                 setCorrections(customers);
                 setPagination(response.data.pagination || { currentPage: 1, totalPages: 1 });
             }
@@ -135,7 +142,7 @@ const CorrectionsList = () => {
                                                     <div className="font-black text-gray-800 uppercase tracking-tight text-sm leading-tight leading-4">
                                                         {item.shopName}
                                                     </div>
-                                                    <div className="text-gray-400 font-bold text-[11px] uppercase tracking-wider flex items-center gap-1.5 mt-0.5">
+                                                    <div className="text-gray-400 font-bold text-[11px] uppercase  flex items-center gap-1.5 mt-0.5">
                                                         <Icon icon="mdi:account" className="text-gray-300" />
                                                         {item.ownerName}
                                                     </div>

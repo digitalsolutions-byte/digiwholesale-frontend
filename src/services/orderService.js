@@ -66,20 +66,18 @@ export const getFrameTypes = async () => {
     }
 };
 
-export const getProductNames = async (search = '', page = 1, limit = 100, brand = '', category = '') => {
+export const getProductNames = async (search = '', page = 1, limit = 100) => {
     try {
         const queryParams = new URLSearchParams({
             search,
             page,
-            limit,
-            ...(brand && { brand }),
-            ...(category && { category })
+            limit
         });
-        const response = await api.get(`/api/order/product-names?${queryParams.toString()}`);
+        const response = await api.get(`/api/digi/product/names?${queryParams.toString()}`);
         return response.data;
     } catch (error) {
         console.error('Error fetching product names:', error);
-        return [];
+        return { success: false, data: [] };
     }
 };
 
@@ -146,3 +144,13 @@ export const deleteOrder = async (id) => {
         throw error.response ? error.response.data : new Error('Failed to delete order');
     }
 };
+
+export const createBulkOrders = async (payload) => {
+    try {
+        const response = await api.post('/api/order/create-bulk-orders', payload);
+        return response.data;
+    } catch (error) {
+        throw error.response ? error.response.data : new Error('Failed to create bulk orders');
+    }
+};
+

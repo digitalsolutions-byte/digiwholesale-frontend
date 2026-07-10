@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import { getAllEmployees, deleteEmployee } from '../services/employeeService';
 import ConfirmationModal from '../components/ui/ConfirmationModal';
+import EditEmployeeModal from '../components/EditEmployeeModal';
 import { getAllDepartments } from '../services/departmentService';
 import { getSystemConfigs } from '../services/configService';
 import { toast } from 'react-toastify';
@@ -48,6 +49,7 @@ const EmployeeList = () => {
     const [selectedEmployeeForDelete, setSelectedEmployeeForDelete] = useState(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [viewLoading, setViewLoading] = useState(false);
+    const [editEmployeeId, setEditEmployeeId] = useState(null);
 
     // Filter States
     const [filters, setFilters] = useState({
@@ -312,13 +314,13 @@ const EmployeeList = () => {
                         <table className="w-full border-collapse min-w-[1000px]">
                             <thead>
                                 <tr className="bg-erp-accent text-white">
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Employee Code</th>
-                                    <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Name</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Department</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Type</th>
-                                    <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Phone</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase tracking-wider">Status</th>
-                                    <th className="py-4 px-4 font-semibold text-xs text-center uppercase tracking-wider">Action</th>
+                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Employee Code</th>
+                                    <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Name</th>
+                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Department</th>
+                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Type</th>
+                                    <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Phone</th>
+                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Status</th>
+                                    <th className="py-4 px-4 font-semibold text-xs text-center uppercase  ">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="text-gray-600">
@@ -336,7 +338,7 @@ const EmployeeList = () => {
                                             <td className="px-6 py-2 text-center border-r border-gray-50">
                                                 <div className="flex flex-col">
                                                     <span className="text-sm font-black text-gray-800 tracking-tight">{emp?.employeeName || '---'}</span>
-                                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{emp?.username || '---'}</span>
+                                                    <span className="text-[10px] text-gray-400 font-bold uppercase  ">{emp?.username || '---'}</span>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-2 text-center border-r border-gray-50">
@@ -377,7 +379,12 @@ const EmployeeList = () => {
                                                                 <Icon icon="mdi:eye" className="text-lg" />
                                                                 View
                                                             </button>
-                                                            <button className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors border-y border-gray-50">
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEditEmployeeId(emp._id);
+                                                                    setActiveActionMenu(null);
+                                                                }}
+                                                                className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors border-y border-gray-50">
                                                                 <Icon icon="mdi:pencil" className="text-lg" />
                                                                 Edit
                                                             </button>
@@ -506,6 +513,20 @@ const EmployeeList = () => {
                 confirmText="Delete"
                 type="danger"
             />
+
+            {editEmployeeId && (
+                <EditEmployeeModal
+                    employeeId={editEmployeeId}
+                    onClose={() => setEditEmployeeId(null)}
+                    onSaved={(updatedUser) => {
+                        if (updatedUser?._id) {
+                            setEmployees(prev =>
+                                prev.map(emp => emp._id === updatedUser._id ? { ...emp, ...updatedUser } : emp)
+                            );
+                        }
+                    }}
+                />
+            )}
         </div>
     );
 };
@@ -515,7 +536,7 @@ export default EmployeeList;
 const DetailItem = ({ label, value, status, onClick }) => (
     <div className={`space-y-1 ${onClick ? 'cursor-pointer group/item flex items-center gap-2' : ''}`} onClick={onClick}>
         <div className="flex flex-col flex-1">
-            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">{label}</p>
+            <p className="text-[10px] uppercase   text-gray-400 font-bold">{label}</p>
             <p className={`text-sm font-semibold ${status ? (value === 'Active' ? 'text-green-600' : 'text-red-500') : 'text-gray-700'} ${onClick ? 'group-hover/item:text-erp-accent/80 transition-colors' : ''}`}>
                 {value || '---'}
             </p>

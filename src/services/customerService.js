@@ -24,16 +24,16 @@ export const getCustomerConfigs = async () => {
             businessTypes: responses[0]?.data?.data || [],
             gstTypes: responses[1]?.data?.data || [],
             plants: responses[2]?.data?.data || [],
-            fittingCenters: responses[4]?.data?.data || [],
-            creditDays: responses[5]?.data?.data || [],
-            courierNames: responses[6]?.data?.data || [],
-            courierTimes: responses[7]?.data?.data || [],
-            countries: responses[8]?.data?.data || [],
-            states: responses[9]?.data?.data || [],
-            billingCurrencies: responses[10]?.data?.data || [],
-            salesPersons: responses[11]?.data?.data || [],
-            brands: responses[12]?.data?.data || [],
-            categories: responses[13]?.data?.data || []
+            fittingCenters: responses[3]?.data?.data || [],
+            creditDays: responses[4]?.data?.data || [],
+            courierNames: responses[5]?.data?.data || [],
+            courierTimes: responses[6]?.data?.data || [],
+            countries: responses[7]?.data?.data || [],
+            states: responses[8]?.data?.data || [],
+            billingCurrencies: responses[9]?.data?.data || [],
+            salesPersons: responses[10]?.data?.data || [],
+            brands: responses[11]?.data?.data || [],
+            categories: responses[12]?.data?.data || []
         };
     } catch (error) {
         console.error('Error fetching customer configs:', error);

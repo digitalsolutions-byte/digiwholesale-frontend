@@ -41,3 +41,4 @@ export const selectCurrentUser = (state) => state.auth.user;
 export const selectCurrentToken = (state) => state.auth.token;
 export const selectCurrentRefreshToken = (state) => state.auth.refreshToken;
 export const selectIsAuthenticated = (state) => state.auth.isAuthenticated;
+export const selectIsSuperAdmin = (state) => state.auth.user?.EmployeeType === 'SUPERADMIN';

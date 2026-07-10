@@ -1101,7 +1101,7 @@ export default function RegisterCustomer() {
                                                         }`}>
                                                         {label}
                                                     </h3>
-                                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                                                    <p className="text-[10px] text-gray-400 font-bold uppercase  ">
                                                         {hasError ? 'Attention Required' : (isActive ? 'Currently Editing' : isCompleted ? 'Verification Complete' : 'Pending Details')}
                                                     </p>
                                                 </div>

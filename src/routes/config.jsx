@@ -18,158 +18,162 @@ import PlaceholderPage from '../pages/PlaceholderPage';
 import AuthWrapper from '../components/AuthWrapper';
 import MainLayout from '../components/layout/MainLayout';
 
+import AddRepair from '../pages/repair/AddRepair';
+import RepairList from '../pages/repair/RepairList';
+import ReturnRefund from '../pages/returns/ReturnRefund';
+import Exchange from '../pages/returns/Exchange';
+import DailyReport from '../pages/reports/DailyReport';
+import MainReport from '../pages/reports/MainReport';
+import AddVendor from '../pages/vendor/AddVendor';
+import VendorList from '../pages/vendor/VendorList';
+import VendorOrder from '../pages/vendor/VendorOrder';
+import SalesList from '../pages/sales/SalesList';
+
 import CustomerLogin from '../pages/CustomerLogin';
 import CustomerLayout from '../components/layout/CustomerLayout';
 import CustomerDashboard from '../pages/CustomerDashboard';
 
 import { PATHS } from './paths';
 import Inventory from '../pages/Inventory';
-
-import AuthLayout from '../components/layout/AuthLayout';
+import Dashboard from '../components/Dashboard';
+import OtherSales from '../pages/OtherSales';
 
 export { PATHS };
 
 /**
- * Route Modules - Grouped for clear editability
+ * Route configuration.
+ *
+ * `page` — the pageAccess[] key that ProtectedRoute checks against
+ *           user.pageAccess[].  If absent the route is open to all
+ *           authenticated users.
+ *
+ * NO `requiredPermission` (old user.permissions{} system).
+ * NO SUPERADMIN bypass anywhere.
+ * Access is determined ONLY by user.pageAccess[].
  */
 
+// ── Staff ─────────────────────────────────────────────────────────────────────
 const STAFF_MODULE = [
-    {
-        path: 'staff/register',
-        element: Registration,
-        props: { title: 'Register Employee' },
-        requiredPermission: 'CanCreateEmployee'
-    },
-    {
-        path: 'staff/list',
-        element: EmployeeList,
-        requiredPermission: 'CanManageEmployee'
-    }
+    { path: 'staff/register', element: Registration, page: 'REGISTER_STAFF', props: { title: 'Register Staff' } },
+    { path: 'staff/list',     element: EmployeeList, page: 'STAFF_LIST' },
 ];
 
+// ── Customer ──────────────────────────────────────────────────────────────────
 const CUSTOMER_MODULE = [
-    {
-        path: 'customer/register',
-        element: RegisterCustomer,
-        requiredPermission: 'CanCreateCustomers'
-    },
-    {
-        path: 'customer/list',
-        element: CustomerList,
-        requiredPermission: 'CanManageCustomers'
-    },
-    {
-        path: 'customer/ship-to',
-        element: ShipTo,
-        requiredPermission: 'CanManageCustomers'
-    }
+    { path: 'customer/register', element: RegisterCustomer, page: 'REGISTER_CUSTOMER' },
+    { path: 'customer/list',     element: CustomerList,     page: 'CUSTOMER_LIST' },
+    { path: 'customer/ship-to',  element: ShipTo,           page: 'SHIP_TO' },
 ];
 
+// ── Orders / Customer Care ────────────────────────────────────────────────────
 const CUSTOMER_CARE_MODULE = [
-    { path: PATHS.CUSTOMER_CARE.NEW_ORDER, element: OrderWizard },
-    { path: PATHS.CUSTOMER_CARE.ALL_ORDERS, element: AllOrdersList },
-    { path: PATHS.CUSTOMER_CARE.PENDING_ORDERS, element: PlaceholderPage, props: { title: 'Pending Orders' } },
-    { path: PATHS.CUSTOMER_CARE.ORDER_STATUS, element: PlaceholderPage, props: { title: 'Order Status' } },
-    { path: PATHS.CUSTOMER_CARE.SERVICE_GOODS, element: PlaceholderPage, props: { title: 'Service/Goods Order' } },
-    { path: PATHS.CUSTOMER_CARE.VIEW_ORDERS, element: PlaceholderPage, props: { title: 'View Orders' } },
-    { path: PATHS.CUSTOMER_CARE.UPGRADE_ORDERS, element: PlaceholderPage, props: { title: 'Upgrade Orders' } },
-    { path: PATHS.CUSTOMER_CARE.UPDATE_CUSTOMERS, element: CustomerList, requiredPermission: 'CanManageCustomers' },
-    { path: PATHS.CUSTOMER_CARE.EDIT_ORDER, element: OrderWizard },
+    { path: PATHS.CUSTOMER_CARE.NEW_ORDER,        element: OrderWizard,     page: 'NEW_ORDER' },
+    { path: PATHS.CUSTOMER_CARE.ALL_ORDERS,       element: AllOrdersList,   page: 'ALL_ORDERS' },
+    { path: PATHS.CUSTOMER_CARE.PENDING_ORDERS,   element: PlaceholderPage, page: 'PENDING_ORDERS', props: { title: 'Pending Orders' } },
+    { path: PATHS.CUSTOMER_CARE.ORDER_STATUS,     element: PlaceholderPage, page: 'ALL_ORDERS',     props: { title: 'Order Status' } },
+    { path: PATHS.CUSTOMER_CARE.SERVICE_GOODS,    element: OtherSales,      page: 'OTHER_SALES' },
+    { path: PATHS.CUSTOMER_CARE.VIEW_ORDERS,      element: PlaceholderPage, page: 'ALL_ORDERS',     props: { title: 'View Orders' } },
+    { path: PATHS.CUSTOMER_CARE.UPGRADE_ORDERS,   element: PlaceholderPage, page: 'ALL_ORDERS',     props: { title: 'Upgrade Orders' } },
+    { path: PATHS.CUSTOMER_CARE.UPDATE_CUSTOMERS, element: CustomerList,    page: 'CUSTOMER_LIST' },
+    // Edit / view a specific order — no page key: open to any authenticated
+    // user who holds the URL (backend still validates ownership)
+    { path: PATHS.CUSTOMER_CARE.EDIT_ORDER,    element: OrderWizard  },
     { path: PATHS.CUSTOMER_CARE.ORDER_DETAILS, element: OrderDetails },
 ];
 
+// ── Operations ────────────────────────────────────────────────────────────────
 const OPERATIONS_MODULE = [
-    { path: 'surfacing', element: PlaceholderPage, props: { title: 'Surfacing' } },
-    { path: 'inventory', element: Inventory, props: { title: 'Inventory' } },
-    { path: 'process-1', element: PlaceholderPage, props: { title: 'Process 1' } },
-    { path: 'process-2', element: PlaceholderPage, props: { title: 'Process 2' } },
-    { path: 'process-3', element: PlaceholderPage, props: { title: 'Process 3' } },
-    { path: 'qc', element: PlaceholderPage, props: { title: 'QC' } },
-    { path: 'fitting', element: PlaceholderPage, props: { title: 'Fitting' } },
-    { path: 'dispatch', element: PlaceholderPage, props: { title: 'Dispatch' } },
-    { path: 'dms', element: PlaceholderPage, props: { title: 'DMS' } },
-    { path: 'finance', element: PlaceholderPage, props: { title: 'F&A' }, requiredPermission: 'CanViewFinancials' },
-    { path: 'reports', element: PlaceholderPage, props: { title: 'Reports' }, requiredPermission: 'CanViewReports' },
-    { path: 'stores', element: DashboardWizard, requiredPermission: 'CanManageProducts' },
-    { path: 'new-order', element: OrderWizard },
+    { path: 'inventory',  element: Inventory,       page: 'INVENTORY' },
+    { path: 'qc',         element: PlaceholderPage, page: 'QUALITY',  props: { title: 'QC' } },
+    { path: 'fitting',    element: PlaceholderPage, page: 'FITTING',  props: { title: 'Fitting' } },
+    { path: 'dispatch',   element: PlaceholderPage, page: 'SHIPPING', props: { title: 'Shipping' } },
+    { path: 'surfacing',  element: PlaceholderPage, page: 'INVENTORY', props: { title: 'Surfacing' } },
+    { path: 'process-1',  element: PlaceholderPage, page: 'QUALITY',  props: { title: 'Process 1' } },
+    { path: 'process-2',  element: PlaceholderPage, page: 'QUALITY',  props: { title: 'Process 2' } },
+    { path: 'process-3',  element: PlaceholderPage, page: 'QUALITY',  props: { title: 'Process 3' } },
+    { path: 'dms',        element: PlaceholderPage, page: 'INVENTORY', props: { title: 'DMS' } },
+    { path: 'finance',    element: PlaceholderPage, page: 'MAIN_REPORT', props: { title: 'F&A' } },
+    { path: 'reports',    element: PlaceholderPage, page: 'MAIN_REPORT', props: { title: 'Reports' } },
+    { path: 'stores',     element: DashboardWizard, page: 'INVENTORY' },
+    { path: 'new-order',  element: OrderWizard,     page: 'NEW_ORDER' },
 ];
 
-/**
- * Combined Routes Configuration
- */
+// ── Repair ────────────────────────────────────────────────────────────────────
+const REPAIR_MODULE = [
+    { path: PATHS.REPAIR.ADD,  element: AddRepair,  page: 'ADD_REPAIR' },
+    { path: PATHS.REPAIR.LIST, element: RepairList, page: 'REPAIR_LIST' },
+];
+
+// ── Returns & Exchanges ───────────────────────────────────────────────────────
+const RETURNS_MODULE = [
+    { path: PATHS.RETURNS.RETURN_REFUND, element: ReturnRefund, page: 'RETURN_REFUND' },
+    { path: PATHS.RETURNS.EXCHANGE,      element: Exchange,     page: 'EXCHANGE_REQUESTS' },
+];
+
+// ── Vendor ────────────────────────────────────────────────────────────────────
+const VENDOR_MODULE = [
+    { path: PATHS.VENDOR.ADD,   element: AddVendor,   page: 'ADD_VENDOR' },
+    { path: PATHS.VENDOR.LIST,  element: VendorList,  page: 'VENDOR_LIST' },
+    { path: PATHS.VENDOR.ORDER, element: VendorOrder, page: 'VENDOR_ORDER' },
+];
+
+// ── Sales ─────────────────────────────────────────────────────────────────────
+const SALES_MODULE = [
+    { path: PATHS.SALES.LIST, element: SalesList, page: 'SALES_LIST' },
+];
+
+// ── Reports ───────────────────────────────────────────────────────────────────
+const REPORTS_MODULE = [
+    { path: PATHS.REPORTS.DAILY, element: DailyReport, page: 'DAILY_REPORT' },
+    { path: PATHS.REPORTS.MAIN,  element: MainReport,  page: 'MAIN_REPORT' },
+];
+
+// ── Full config ───────────────────────────────────────────────────────────────
 export const routesConfig = [
-    {
-        path: PATHS.LOGIN,
-        element: Login,
-        isPublic: true
-    },
-    {
-        path: PATHS.CUSTOMER_LOGIN,
-        element: CustomerLogin,
-        isPublic: true
-    },
-    {
-        path: PATHS.FORGOT_PASSWORD,
-        element: ForgotPassword,
-        isPublic: true
-    },
-    {
-        path: PATHS.CUSTOMER_FORGOT_PASSWORD,
-        element: ForgotPassword,
-        props: { type: 'customer' },
-        isPublic: true
-    },
-    {
-        path: PATHS.RESET_PASSWORD_CONFIRM,
-        element: ResetPasswordConfirm,
-        isPublic: true
-    },
+    // Public routes
+    { path: PATHS.LOGIN,                    element: Login,                isPublic: true },
+    { path: PATHS.CUSTOMER_LOGIN,           element: CustomerLogin,        isPublic: true },
+    { path: PATHS.FORGOT_PASSWORD,          element: ForgotPassword,       isPublic: true },
+    { path: PATHS.CUSTOMER_FORGOT_PASSWORD, element: ForgotPassword,       isPublic: true, props: { type: 'customer' } },
+    { path: PATHS.RESET_PASSWORD_CONFIRM,   element: ResetPasswordConfirm, isPublic: true },
+
+    // Authenticated scope
     {
         element: AuthWrapper,
         isProtected: true,
         children: [
+            // Customer-facing portal — no pageAccess check needed
             {
                 path: PATHS.CUSTOMER_PORTAL,
                 element: CustomerLayout,
-                children: [
-                    { index: true, element: CustomerDashboard }
-                ]
+                children: [{ index: true, element: CustomerDashboard }],
             },
-            {
-                path: PATHS.WELCOME,
-                element: Welcome
-            },
+
+            // Splash / welcome — open to all authenticated users
+            { path: PATHS.WELCOME, element: Welcome },
+
+            // Main ERP shell
             {
                 path: PATHS.ROOT,
                 element: MainLayout,
                 children: [
-                    {
-                        index: true,
-                        element: PlaceholderPage,
-                        props: { title: 'Dashboard' }
-                    },
-                    {
-                        path: PATHS.DRAFTS,
-                        element: DraftsList
-                    },
-                    {
-                        path: PATHS.APPROVALS,
-                        element: ApprovalsList,
-                        requiredPermission: 'CanManageCustomers'
-                    },
-                    {
-                        path: PATHS.CORRECTIONS,
-                        element: CorrectionsList,
-                        requiredPermission: 'CanCreateCustomers'
-                    },
+                    { index: true, element: Dashboard, page: 'DASHBOARD', props: { title: 'Dashboard' } },
+
+                    { path: PATHS.DRAFTS,      element: DraftsList,      page: 'DRAFTS' },
+                    { path: PATHS.APPROVALS,   element: ApprovalsList,   page: 'APPROVALS' },
+                    { path: PATHS.CORRECTIONS, element: CorrectionsList, page: 'CORRECTIONS' },
+
                     ...STAFF_MODULE,
                     ...CUSTOMER_MODULE,
                     ...CUSTOMER_CARE_MODULE,
-                    ...OPERATIONS_MODULE
-                ]
-            }
-        ]
-    }
+                    ...OPERATIONS_MODULE,
+                    ...REPAIR_MODULE,
+                    ...RETURNS_MODULE,
+                    ...VENDOR_MODULE,
+                    ...SALES_MODULE,
+                    ...REPORTS_MODULE,
+                ],
+            },
+        ],
+    },
 ];
-
-

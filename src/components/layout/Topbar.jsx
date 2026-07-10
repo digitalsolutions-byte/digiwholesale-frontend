@@ -90,7 +90,7 @@ const Topbar = ({ onMenuClick }) => {
                             mb: 0.2
                         }}
                     >
-                        Enterprise Account
+                        Account
                     </Typography>
                     <Stack direction="row" alignItems="center" spacing={1.5}>
                         <Typography

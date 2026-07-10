@@ -1,10 +1,10 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
-  font-family: 'Montserrat', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   font-weight: 400;
+  font-size: 1.25rem;
   color: #111827;
   background: #f8fafc;
   font-synthesis: none;
@@ -60,7 +60,7 @@ body {
   --color-erp-accent: var(--mui-erp-accent, #2980B9);
   --color-erp-dark: var(--mui-erp-dark, #1A1A1A);
   --color-erp-danger: var(--mui-erp-danger, #E74C3C);
-  --font-sans: 'Montserrat', system-ui, sans-serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
 }
 
 /* Smooth Transitions */

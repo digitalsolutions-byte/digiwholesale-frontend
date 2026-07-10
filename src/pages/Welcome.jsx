@@ -40,29 +40,29 @@ const Welcome = () => {
     }, [navigate, location]);
 
     return (
-        <Box 
-            sx={{ 
-                minHeight: '100vh', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
+        <Box
+            sx={{
+                minHeight: '100vh',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 p: 3,
                 background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
                 position: 'relative',
                 overflow: 'hidden'
             }}
         >
-            <Box 
-                sx={{ 
-                    position: 'absolute', 
-                    top: -150, 
-                    right: -150, 
-                    width: 500, 
-                    height: 500, 
-                    borderRadius: '50%', 
+            <Box
+                sx={{
+                    position: 'absolute',
+                    top: -150,
+                    right: -150,
+                    width: 500,
+                    height: 500,
+                    borderRadius: '50%',
                     background: alpha(theme.palette.accent.main, 0.05),
                     filter: 'blur(100px)'
-                }} 
+                }}
             />
 
             <Fade in timeout={1000}>
@@ -88,7 +88,7 @@ const Welcome = () => {
                     }}
                 >
                     <Box sx={{ mb: 2 }}>
-                        <img src={logo} alt="DigiOptics" style={{ height: '60px', objectFit: 'contain' }} />
+                        <img src={logo} alt="DigiOptics" style={{ height: '150px', objectFit: 'contain' }} />
                     </Box>
 
                     <Box>
@@ -96,28 +96,28 @@ const Welcome = () => {
                             {message}
                         </Typography>
                         <Typography variant="h5" color="text.secondary" fontWeight={500}>
-                            Wishing You A <Box component="span" sx={{ color: 'accent.main', fontWeight: 800 }}>Productive</Box> Day!
+                            Wishing You A <Box component="span" sx={{ color: 'accent.main', fontWeight: 800 }}>Great</Box> Day!
                         </Typography>
                     </Box>
 
                     <Stack spacing={2} alignItems="center">
-                        <CircularProgress 
-                            size={40} 
-                            thickness={4} 
-                            sx={{ color: 'accent.main', mb: 2 }} 
+                        <CircularProgress
+                            size={40}
+                            thickness={4}
+                            sx={{ color: 'accent.main', mb: 2 }}
                         />
                         <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase' }}>
-                            Redirecting to dashboard...
+                            Loading...
                         </Typography>
                     </Stack>
 
-                    {location.state?.from === 'customer-register' ? (
+                    {location.state?.from === 'customer-register' && (
                         <Box sx={{ mt: 2, display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
                             <Button
                                 variant="contained"
                                 onClick={() => navigate(PATHS.CUSTOMER.LIST)}
-                                sx={{ 
-                                    bgcolor: 'accent.main', 
+                                sx={{
+                                    bgcolor: 'accent.main',
                                     '&:hover': { bgcolor: 'accent.dark' },
                                     borderRadius: '50px',
                                     px: 4,
@@ -130,8 +130,8 @@ const Welcome = () => {
                             <Button
                                 variant="outlined"
                                 onClick={() => navigate(PATHS.ROOT)}
-                                sx={{ 
-                                    borderColor: 'accent.main', 
+                                sx={{
+                                    borderColor: 'accent.main',
                                     color: 'accent.main',
                                     borderRadius: '50px',
                                     px: 4,
@@ -143,19 +143,9 @@ const Welcome = () => {
                                 Go to Home
                             </Button>
                         </Box>
-                    ) : (
-                        <Button
-                            onClick={() => navigate(location.state?.from === 'register' ? PATHS.STAFF.LIST : PATHS.ROOT)}
-                            endIcon={<Icon icon="lucide:chevron-right" />}
-                            sx={{ 
-                                color: 'text.secondary', 
-                                fontWeight: 700,
-                                '&:hover': { color: 'accent.main' }
-                            }}
-                        >
-                            Skip wait
-                        </Button>
-                    )}
+                    )
+                    }
+
                 </Paper>
             </Fade>
         </Box>

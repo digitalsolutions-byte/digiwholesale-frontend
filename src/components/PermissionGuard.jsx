@@ -1,39 +1,15 @@
-import React from 'react';
-import { useSelector } from 'react-redux';
-import { Navigate } from 'react-router-dom';
-import { selectCurrentUser } from '../store/slices/authSlice';
-import { PATHS } from '../routes/paths';
-
 /**
- * PermissionGuard Component
- * 
- * Protects routes by checking if the user has the required permission.
- * If user is SUPERADMIN, access is always granted.
- * If user lacks permission, redirects to Welcome or a generic Unauthorized page.
+ * PermissionGuard — backward-compatibility shim.
+ *
+ * The old system checked user.permissions?.[requiredPermission] (boolean flags).
+ * The new system uses user.pageAccess[] via ProtectedRoute.
+ *
+ * Any remaining code that still imports PermissionGuard will silently
+ * pass through without blocking — the real gate is ProtectedRoute which
+ * is applied at the route level in App.jsx via the `page` key in config.
+ *
+ * Do NOT add new usages of PermissionGuard.  Use ProtectedRoute instead.
  */
-const PermissionGuard = ({ children, requiredPermission }) => {
-    const user = useSelector(selectCurrentUser);
-
-    if (!user) {
-        return <Navigate to={PATHS.LOGIN} replace />;
-    }
-
-    // SUPERADMIN override
-    if (user.EmployeeType === 'SUPERADMIN') {
-        return children;
-    }
-
-    // Check specific permission
-    const hasPermission = !!user.permissions?.[requiredPermission];
-
-    if (!hasPermission) {
-        // Redirect to Welcome page if unauthorized
-        return <Navigate to={PATHS.WELCOME} replace />;
-    }
-
-    return children;
-};
+const PermissionGuard = ({ children }) => children;
 
 export default PermissionGuard;
-
-
