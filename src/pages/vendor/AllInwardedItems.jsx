@@ -4,17 +4,17 @@ import { getAllInwardedPurchaseItems } from '../../services/vendorOrderService';
 import { toast } from 'react-toastify';
 
 const inwardStatusMeta = {
-    RECEIVED:     { cls: 'bg-emerald-50 text-emerald-700', label: 'Received' },
-    PARTIAL:      { cls: 'bg-amber-50 text-amber-700',    label: 'Partial' },
-    NOT_RECEIVED: { cls: 'bg-gray-100 text-gray-500',     label: 'Not Received' },
-    PENDING:      { cls: 'bg-gray-100 text-gray-500',     label: 'Pending' },
+    RECEIVED:     { cls: 'bg-[#eaf4fb] text-[#1F618D]',   label: 'Received' },
+    PARTIAL:      { cls: 'bg-[#fdf8ed] text-[#b45309]',   label: 'Partial' },
+    NOT_RECEIVED: { cls: 'bg-gray-100 text-gray-500',      label: 'Not Received' },
+    PENDING:      { cls: 'bg-gray-100 text-gray-500',      label: 'Pending' },
 };
 
 const qcStatusMeta = {
-    PASSED:  { cls: 'bg-emerald-50 text-emerald-700', icon: 'lucide:check-circle', label: 'Passed' },
-    PARTIAL: { cls: 'bg-amber-50 text-amber-700',    icon: 'lucide:git-branch',   label: 'Partial' },
-    FAILED:  { cls: 'bg-red-50 text-red-700',        icon: 'lucide:x-circle',     label: 'Failed' },
-    PENDING: { cls: 'bg-gray-100 text-gray-500',     icon: 'lucide:clock',        label: 'Pending' },
+    PASSED:  { cls: 'bg-[#eaf4fb] text-[#1F618D]',   icon: 'lucide:check-circle', label: 'Passed' },
+    PARTIAL: { cls: 'bg-[#fdf8ed] text-[#b45309]',   icon: 'lucide:git-branch',   label: 'Partial' },
+    FAILED:  { cls: 'bg-[#fef2f0] text-[#E74C3C]',   icon: 'lucide:x-circle',     label: 'Failed' },
+    PENDING: { cls: 'bg-gray-100 text-gray-500',      icon: 'lucide:clock',        label: 'Pending' },
 };
 
 const categoryIcon = {
@@ -66,12 +66,12 @@ const AllInwardedItems = () => {
     });
 
     return (
-        <div className="p-6 max-w-7xl mx-auto h-full flex flex-col gap-6">
+        <div className="p-2 w-full h-full flex flex-col gap-4">
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                        <Icon icon="lucide:package-check" className="text-erp-accent" />
+                        <Icon icon="lucide:package-check" className="text-[#2980B9]" />
                         All Inwarded Items
                     </h1>
                     <p className="text-sm text-gray-500 mt-1">
@@ -81,7 +81,7 @@ const AllInwardedItems = () => {
                 </div>
                 <button
                     onClick={fetchItems}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-erp-accent bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-[#2980B9] bg-[#eaf4fb] hover:bg-[#d4eaf6] rounded-xl transition-colors"
                 >
                     <Icon icon="lucide:refresh-cw" className={loading ? 'animate-spin' : ''} />
                     Refresh
@@ -97,34 +97,25 @@ const AllInwardedItems = () => {
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         placeholder="Search by item, vendor, order..."
-                        className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-erp-accent/30"
+                        className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]"
                     />
                 </div>
-                <select
-                    value={categoryFilter}
-                    onChange={e => setCategoryFilter(e.target.value)}
-                    className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-erp-accent/30"
-                >
+                <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
+                    className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]">
                     <option value="">All Categories</option>
                     <option value="LENS">Lens</option>
                     <option value="FRAME">Frame</option>
                     <option value="CONTACT_LENS">Contact Lens</option>
                 </select>
-                <select
-                    value={inwardFilter}
-                    onChange={e => setInwardFilter(e.target.value)}
-                    className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-erp-accent/30"
-                >
+                <select value={inwardFilter} onChange={e => setInwardFilter(e.target.value)}
+                    className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]">
                     <option value="">All Inward Status</option>
                     <option value="RECEIVED">Received</option>
                     <option value="PARTIAL">Partial</option>
                     <option value="NOT_RECEIVED">Not Received</option>
                 </select>
-                <select
-                    value={qcFilter}
-                    onChange={e => setQcFilter(e.target.value)}
-                    className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-erp-accent/30"
-                >
+                <select value={qcFilter} onChange={e => setQcFilter(e.target.value)}
+                    className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]">
                     <option value="">All QC Status</option>
                     <option value="PASSED">Passed</option>
                     <option value="PARTIAL">Partial</option>
@@ -132,10 +123,8 @@ const AllInwardedItems = () => {
                     <option value="PENDING">Pending</option>
                 </select>
                 {(search || categoryFilter || inwardFilter || qcFilter) && (
-                    <button
-                        onClick={() => { setSearch(''); setCategoryFilter(''); setInwardFilter(''); setQcFilter(''); }}
-                        className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
-                    >
+                    <button onClick={() => { setSearch(''); setCategoryFilter(''); setInwardFilter(''); setQcFilter(''); }}
+                        className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
                         <Icon icon="lucide:x" className="text-sm" /> Clear
                     </button>
                 )}
@@ -146,87 +135,79 @@ const AllInwardedItems = () => {
                 <div className="overflow-x-auto flex-1">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-gray-50 border-b border-gray-100">
-                                <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Item</th>
-                                <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Vendor</th>
-                                <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Order #</th>
-                                <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Category</th>
-                                <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Qty / Received</th>
-                                <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Inward Status</th>
-                                <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">QC Status</th>
-                                <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Price / MRP</th>
+                            <tr className="bg-[#eaf4fb]/50 border-b border-[#2980B9]/15">
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Item</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Vendor</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Order #</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Category</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Qty / Received</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Inward Status</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">QC Status</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Price / MRP</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {loading ? (
-                                <tr>
-                                    <td colSpan="8" className="p-8 text-center text-gray-500">
-                                        <div className="flex justify-center items-center gap-2">
-                                            <Icon icon="lucide:loader-2" className="animate-spin text-xl text-erp-accent" />
-                                            <span>Loading inwarded items...</span>
-                                        </div>
-                                    </td>
-                                </tr>
+                                <tr><td colSpan="8" className="p-8 text-center text-gray-500">
+                                    <div className="flex justify-center items-center gap-2">
+                                        <Icon icon="lucide:loader-2" className="animate-spin text-xl text-[#2980B9]" />
+                                        <span>Loading inwarded items...</span>
+                                    </div>
+                                </td></tr>
                             ) : filtered.length === 0 ? (
-                                <tr>
-                                    <td colSpan="8" className="p-12 text-center">
-                                        <div className="flex flex-col items-center gap-3">
-                                            <Icon icon="lucide:inbox" className="text-4xl text-gray-300" />
-                                            <p className="text-gray-500 font-medium">No inwarded items found</p>
-                                        </div>
-                                    </td>
-                                </tr>
+                                <tr><td colSpan="8" className="p-12 text-center">
+                                    <div className="flex flex-col items-center gap-3">
+                                        <Icon icon="lucide:inbox" className="text-4xl text-gray-300" />
+                                        <p className="text-gray-500 font-medium">No inwarded items found</p>
+                                    </div>
+                                </td></tr>
                             ) : (
                                 filtered.map((item, idx) => {
                                     const inwardMeta = inwardStatusMeta[item.inwardStatus] || inwardStatusMeta.PENDING;
                                     const qcMeta     = qcStatusMeta[item.qcStatus]         || qcStatusMeta.PENDING;
                                     const catIcon    = categoryIcon[item.category] || 'lucide:box';
                                     return (
-                                        <tr key={item._id || idx} className="hover:bg-gray-50/50 transition-colors">
-                                            <td className="p-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                                                        <Icon icon={catIcon} className="text-blue-500 text-sm" />
+                                        <tr key={item._id || idx} className="hover:bg-[#eaf4fb]/20 transition-colors">
+                                            <td className="px-4 py-2">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-6 h-6 rounded-full bg-[#eaf4fb] flex items-center justify-center shrink-0">
+                                                        <Icon icon={catIcon} className="text-[#2980B9] text-xs" />
                                                     </div>
                                                     <div>
-                                                        <p className="text-sm font-semibold text-gray-800">{item.itemName}</p>
-                                                        <p className="text-xs text-gray-400">{item.code || '—'} · {item.brand || '—'}</p>
+                                                        <p className="text-xs font-semibold text-gray-800">{item.itemName}</p>
+                                                        <p className="text-[10px] text-gray-400">{item.code || '—'} · {item.brand || '—'}</p>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="p-4">
-                                                <p className="text-sm font-medium text-gray-700">{item.vendorName || '—'}</p>
-                                            </td>
-                                            <td className="p-4">
-                                                <span className="font-mono text-xs text-gray-500">{item.orderNumber}</span>
-                                            </td>
-                                            <td className="p-4">
-                                                <span className="text-xs px-2 py-1 bg-indigo-50 text-indigo-700 rounded-full font-medium">
+                                            <td className="px-4 py-2"><p className="text-xs font-medium text-gray-700">{item.vendorName || '—'}</p></td>
+                                            <td className="px-4 py-2"><span className="font-mono text-[10px] text-gray-500">{item.orderNumber}</span></td>
+                                            <td className="px-4 py-2">
+                                                <span className="text-[10px] px-2 py-0.5 bg-[#eaf4fb] text-[#1F618D] rounded-full font-medium">
                                                     {item.category?.replace('_', ' ')}
                                                 </span>
                                             </td>
-                                            <td className="p-4">
-                                                <div className="text-sm">
+                                            <td className="px-4 py-2">
+                                                <div className="text-xs">
                                                     <span className="font-semibold text-gray-800">{item.receivedQty ?? 0}</span>
                                                     <span className="text-gray-400"> / {item.qty ?? 0}</span>
-                                                    <span className="text-xs text-gray-400 ml-1">{item.unit}</span>
+                                                    <span className="text-gray-400 ml-1">{item.unit}</span>
                                                 </div>
                                             </td>
-                                            <td className="p-4">
-                                                <span className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-full ${inwardMeta.cls}`}>
+                                            <td className="px-4 py-2">
+                                                <span className={`inline-flex px-2 py-0.5 text-[10px] font-semibold rounded-full ${inwardMeta.cls}`}>
                                                     {inwardMeta.label}
                                                 </span>
                                             </td>
-                                            <td className="p-4">
-                                                <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full ${qcMeta.cls}`}>
-                                                    <Icon icon={qcMeta.icon} className="text-sm" />
+                                            <td className="px-4 py-2">
+                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full ${qcMeta.cls}`}>
+                                                    <Icon icon={qcMeta.icon} className="text-xs" />
                                                     {qcMeta.label}
                                                 </span>
                                             </td>
-                                            <td className="p-4">
-                                                <div className="text-sm">
+                                            <td className="px-4 py-2">
+                                                <div className="text-xs">
                                                     <p className="font-semibold text-gray-800">₹{item.price?.toLocaleString('en-IN') ?? '—'}</p>
-                                                    <p className="text-xs text-gray-400">MRP ₹{item.mrp?.toLocaleString('en-IN') ?? '—'}</p>
+                                                    <p className="text-[10px] text-gray-400">MRP ₹{item.mrp?.toLocaleString('en-IN') ?? '—'}</p>
                                                 </div>
                                             </td>
                                         </tr>

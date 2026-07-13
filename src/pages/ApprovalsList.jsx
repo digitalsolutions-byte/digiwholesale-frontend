@@ -70,44 +70,39 @@ const ApprovalsList = () => {
     };
 
     return (
-        <div className="p-8 pb-20 max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="p-2 w-full h-full flex flex-col gap-4">
             {/* Header Area */}
-            {/* <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
-                <div className="space-y-2">
-                    <div className="flex items-center gap-3 mb-1">
-                        <div className="p-2 bg-erp-accent/10 rounded-xl">
-                            <Icon icon="mdi:clipboard-check-outline" className="text-2xl text-erp-accent/80" />
-                        </div>
-                        <h1 className="text-3xl font-black text-gray-800 uppercase tracking-tighter">Pending Approvals</h1>
-                    </div>
-                    <p className="text-gray-500 font-medium flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                        <Icon icon="mdi:clipboard-check-outline" className="text-[#2980B9]" />
+                        Pending Approvals
+                    </h1>
+                    <p className="text-sm text-gray-500 mt-1">
                         Review and finalize customer registrations
-                        <span className="h-1 w-1 rounded-full bg-gray-300"></span>
-                        <span className="text-erp-accent/80 font-bold">{pagination.totalCustomers || (pagination.totalRecords || approvals.length)} total pending</span>
+                        <span className="ml-2 font-semibold text-[#1F618D]">({pagination.totalCustomers || (pagination.totalRecords || approvals.length)} total pending)</span>
                     </p>
                 </div>
-
-                <Button
-                    variant="outlined"
+                <button
                     onClick={() => fetchApprovals(pagination.currentPage)}
-                    className="rounded-2xl border-gray-200"
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-[#2980B9] bg-[#eaf4fb] hover:bg-[#d4eaf6] rounded-xl transition-colors"
                 >
-                    <Icon icon="mdi:refresh" className={`mr-2 ${loading ? 'animate-spin' : ''}`} />
-                    Refresh List
-                </Button>
-            </div> */}
+                    <Icon icon="mdi:refresh" className={loading ? 'animate-spin' : ''} />
+                    Refresh
+                </button>
+            </div>
 
             {/* Table Area */}
-            <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
-                <div className="overflow-x-auto custom-scrollbar">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex-1 overflow-hidden flex flex-col">
+                <div className="overflow-x-auto flex-1">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-gray-50/50 border-b border-gray-100">
-                                <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Shop Info</th>
-                                <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Customer Type</th>
-                                <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Created By</th>
-                                <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Submission Date</th>
-                                <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-right">Actions</th>
+                            <tr className="bg-[#eaf4fb]/50 border-b border-[#2980B9]/15">
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Shop Info</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Customer Type</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Created By</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Submission Date</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
@@ -134,45 +129,45 @@ const ApprovalsList = () => {
                                 approvals.map((approval) => (
                                     <tr
                                         key={approval._id}
-                                        className="group hover:bg-erp-accent/5/30 transition-all cursor-pointer"
+                                        className="group hover:bg-[#eaf4fb]/50 transition-all cursor-pointer"
                                         onClick={() => handleRowClick(approval._id)}
                                     >
-                                        <td className="p-6">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 whitespace-nowrap h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-erp-accent/80 flex items-center justify-center text-white font-black shadow-lg shadow-erp-accent/20 group-hover:scale-110 transition-transform">
+                                        <td className="px-4 py-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-[#1F618D] flex items-center justify-center text-white font-bold text-xs shadow-sm">
                                                     {approval.shopName?.charAt(0).toUpperCase()}
                                                 </div>
                                                 <div>
-                                                    <div className="font-black whitespace-nowrap text-gray-800 uppercase tracking-tight text-sm leading-tight leading-4">
+                                                    <div className="font-semibold text-xs text-gray-800 uppercase tracking-tight truncate max-w-[200px]">
                                                         {approval.shopName}
                                                     </div>
-                                                    <div className="text-gray-400 whitespace-nowrap font-bold text-[11px] uppercase  flex items-center gap-1.5 mt-0.5">
+                                                    <div className="text-gray-400 font-medium text-[10px] uppercase flex items-center gap-1">
                                                         <Icon icon="mdi:account" className="text-gray-300" />
                                                         {approval.ownerName}
                                                     </div>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="p-6">
-                                            <span className="px-3 py-1 whitespace-nowrap bg-gray-100 text-gray-600 rounded-full text-[10px] font-black uppercase tracking-widest">
+                                        <td className="px-4 py-2">
+                                            <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-[10px] font-bold uppercase tracking-wider">
                                                 {approval.businessType?.name || approval.businessType || approval.CustomerType?.name || approval.CustomerType || 'N/A'}
                                             </span>
                                         </td>
-                                        <td className="p-6">
-                                            <span className="text-xs font-bold text-gray-700 uppercase tracking-tight">
+                                        <td className="px-4 py-2">
+                                            <span className="text-xs font-semibold text-gray-700 uppercase tracking-tight">
                                                 {(typeof approval.createdByName === 'object' ? (approval.createdByName?.employeeName || approval.createdByName?.name) : (approval.createdByLabel || approval.createdByName)) || 'N/A'}
                                             </span>
                                         </td>
-                                        <td className="p-6">
-                                            <span className="text-xs font-bold text-gray-500">
-                                                {new Date(approval.createdAt).toLocaleDateString(undefined, {
+                                        <td className="px-4 py-2">
+                                            <span className="text-xs font-semibold text-gray-500">
+                                                {new Date(approval.createdAt).toLocaleDateString('en-IN', {
                                                     year: 'numeric', month: 'short', day: 'numeric'
                                                 })}
                                             </span>
                                         </td>
-                                        <td className="p-6 text-right">
-                                            <button className="p-2.5 bg-gray-50 text-gray-400 rounded-xl group-hover:bg-erp-accent group-hover:text-white transition-all shadow-sm">
-                                                <Icon icon="mdi:eye-outline" className="text-xl" />
+                                        <td className="px-4 py-2 text-right">
+                                            <button className="p-1 bg-gray-50 text-gray-400 rounded-lg group-hover:bg-[#1F618D] group-hover:text-white transition-all">
+                                                <Icon icon="mdi:eye-outline" className="text-base" />
                                             </button>
                                         </td>
                                     </tr>
@@ -192,14 +187,14 @@ const ApprovalsList = () => {
                             <button
                                 onClick={(e) => { e.stopPropagation(); fetchApprovals(pagination.currentPage - 1); }}
                                 disabled={pagination.currentPage === 1}
-                                className="p-2 rounded-xl bg-white border border-gray-200 text-gray-400 disabled:opacity-50 hover:bg-gray-100 transition-all font-black text-[10px] uppercase tracking-widest px-4"
+                                className="p-2 rounded-xl bg-white border border-gray-200 text-gray-400 disabled:opacity-50 hover:bg-gray-100 transition-all font-bold text-[10px] uppercase tracking-wider px-4"
                             >
                                 Prev
                             </button>
                             <button
                                 onClick={(e) => { e.stopPropagation(); fetchApprovals(pagination.currentPage + 1); }}
                                 disabled={pagination.currentPage === pagination.totalPages}
-                                className="p-2 rounded-xl bg-erp-accent text-white disabled:opacity-50 hover:bg-erp-accent/80 transition-all font-black text-[10px] uppercase tracking-widest px-4 shadow-lg shadow-erp-accent/20"
+                                className="p-2 rounded-xl bg-[#1F618D] text-white disabled:opacity-50 hover:bg-[#2980B9] transition-all font-bold text-[10px] uppercase tracking-wider px-4"
                             >
                                 Next
                             </button>

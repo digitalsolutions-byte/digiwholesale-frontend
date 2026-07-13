@@ -36,13 +36,12 @@ const InwardList = () => {
         if (conditions.some(c => c === 'DAMAGED')) return { label: 'DAMAGED', cls: 'bg-red-50 text-red-700' };
         return { label: 'MIXED', cls: 'bg-amber-50 text-amber-700' };
     };
-
     return (
-        <div className="p-6 max-w-7xl mx-auto h-full flex flex-col">
+        <div className="p-2 w-full h-full flex flex-col">
             <div className="flex justify-between items-center mb-6">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                        <Icon icon="lucide:package-check" className="text-erp-accent" />
+                        <Icon icon="lucide:package-check" className="text-[#2980B9]" />
                         Purchase Inwarded Items
                     </h1>
                     <p className="text-sm text-gray-500 mt-1">View all received purchased items</p>
@@ -53,14 +52,14 @@ const InwardList = () => {
                 <div className="overflow-x-auto flex-1">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-gray-50 border-b border-gray-100">
-                                <th className="p-4 w-12"></th>
-                                <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Inward ID</th>
-                                <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Vendor</th>
-                                <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Items</th>
-                                <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Condition</th>
-                                <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                                <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Inward Date</th>
+                            <tr className="bg-[#eaf4fb]/50 border-b border-[#2980B9]/15">
+                                <th className="py-2.5 px-4 w-12 text-[#1F618D]"></th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Inward ID</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Vendor</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Items</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Condition</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Status</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Inward Date</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -88,38 +87,38 @@ const InwardList = () => {
                                             className="hover:bg-gray-50/50 transition-colors cursor-pointer group"
                                             onClick={() => navigate(`/vendor/inward/${inward._id}`)}
                                         >
-                                            <td className="p-4">
-                                                <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-erp-accent/10 transition-colors">
-                                                    <Icon icon="lucide:arrow-right" className="text-gray-400 group-hover:text-erp-accent" />
+                                            <td className="px-4 py-2">
+                                                <div className="w-6 h-6 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-[#eaf4fb] transition-colors">
+                                                    <Icon icon="lucide:arrow-right" className="text-gray-400 group-hover:text-[#1F618D] text-xs" />
                                                 </div>
                                             </td>
-                                            <td className="p-4">
-                                                <span className="font-mono text-sm text-gray-600" title={inward._id}>
+                                            <td className="px-4 py-2">
+                                                <span className="font-mono text-xs text-gray-600" title={inward._id}>
                                                     {inward._id.substring(inward._id.length - 8).toUpperCase()}
                                                 </span>
                                             </td>
-                                            <td className="p-4">
-                                                <span className="font-medium text-gray-800">
+                                            <td className="px-4 py-2">
+                                                <span className="font-semibold text-xs text-gray-800">
                                                     {inward.vendorName || 'N/A'}
                                                 </span>
                                             </td>
-                                            <td className="p-4">
-                                                <span className="text-sm text-gray-600">
+                                            <td className="px-4 py-2">
+                                                <span className="text-xs text-gray-600">
                                                     {inward.items?.length || 0} item{(inward.items?.length || 0) !== 1 ? 's' : ''}
                                                 </span>
                                             </td>
-                                            <td className="p-4">
-                                                <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${badge.cls}`}>
+                                            <td className="px-4 py-2">
+                                                <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-full ${badge.cls}`}>
                                                     {badge.label}
                                                 </span>
                                             </td>
-                                            <td className="p-4">
-                                                <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-50 text-blue-700 rounded-full">
+                                            <td className="px-4 py-2">
+                                                <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-700 rounded-full">
                                                     {inward.status || 'Pending'}
                                                 </span>
                                             </td>
-                                            <td className="p-4 text-sm text-gray-500">
-                                                {new Date(inward.inwardDate || inward.createdAt).toLocaleDateString()}
+                                            <td className="px-4 py-2 text-xs text-gray-500">
+                                                {new Date(inward.inwardDate || inward.createdAt).toLocaleDateString('en-IN')}
                                             </td>
                                         </tr>
                                     );

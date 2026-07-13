@@ -92,6 +92,8 @@ export const PATHS = {
         PENDING_INWARD: '/vendor/pending-inward',
         QC_PENDING: '/vendor/qc-pending',
         QC_PASSED: '/vendor/qc-passed',
+        REPLACEMENT_ORDERS: '/vendor/replacement-orders',
+        REPLACEMENT_ORDER_DETAILS: '/vendor/replacement-orders/:id',
     },
 
     // SALES MODULE

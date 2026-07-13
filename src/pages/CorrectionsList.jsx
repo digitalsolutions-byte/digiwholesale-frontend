@@ -66,44 +66,39 @@ const CorrectionsList = () => {
     };
 
     return (
-        <div className="p-8 pb-20 max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="p-2 w-full h-full flex flex-col gap-4">
             {/* Header Area */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
-                <div className="space-y-2">
-                    <div className="flex items-center gap-3 mb-1">
-                        <div className="p-2 bg-red-500/10 rounded-xl">
-                            <Icon icon="mdi:alert-circle-outline" className="text-2xl text-red-600" />
-                        </div>
-                        <h1 className="text-3xl font-black text-gray-800 uppercase tracking-tighter">Corrections Required</h1>
-                    </div>
-                    <p className="text-gray-500 font-medium flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                        <Icon icon="mdi:alert-circle-outline" className="text-red-600" />
+                        Corrections Required
+                    </h1>
+                    <p className="text-sm text-gray-500 mt-1">
                         Review and resubmit customers with rejected details
-                        <span className="h-1 w-1 rounded-full bg-gray-300"></span>
-                        <span className="text-red-600 font-bold">{pagination.totalCustomers || corrections.length} total pending</span>
+                        <span className="ml-2 font-semibold text-red-650">({pagination.totalCustomers || corrections.length} total pending)</span>
                     </p>
                 </div>
-
-                <Button
-                    variant="outlined"
+                <button
                     onClick={() => fetchCorrections(pagination.currentPage)}
-                    className="rounded-2xl border-gray-200 flex items-center gap-2"
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors"
                 >
-                    <Icon icon="mdi:refresh" className={`mr-2 ${loading ? 'animate-spin' : ''}`} />
-                    Refresh List
-                </Button>
+                    <Icon icon="mdi:refresh" className={loading ? 'animate-spin' : ''} />
+                    Refresh
+                </button>
             </div>
 
             {/* Table Area */}
-            <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
-                <div className="overflow-x-auto custom-scrollbar">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex-1 overflow-hidden flex flex-col">
+                <div className="overflow-x-auto flex-1">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-gray-50/50 border-b border-gray-100">
-                                <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Shop Info</th>
-                                <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Remark</th>
-                                <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Requested By</th>
-                                <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Rejected On</th>
-                                <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-right">Actions</th>
+                            <tr className="bg-red-50/50 border-b border-red-200/30">
+                                <th className="py-2.5 px-4 text-xs font-bold text-red-700 uppercase tracking-wider">Shop Info</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-red-700 uppercase tracking-wider">Remark</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-red-700 uppercase tracking-wider">Requested By</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-red-700 uppercase tracking-wider">Rejected On</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-red-700 uppercase tracking-wider text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
@@ -130,48 +125,48 @@ const CorrectionsList = () => {
                                 corrections.map((item) => (
                                     <tr
                                         key={item._id}
-                                        className="group hover:bg-red-50/30 transition-all cursor-pointer"
+                                        className="group hover:bg-red-50/20 transition-all cursor-pointer"
                                         onClick={() => handleRowClick(item._id)}
                                     >
-                                        <td className="p-6">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center text-white font-black shadow-lg shadow-red-500/20 group-hover:scale-110 transition-transform">
+                                        <td className="px-4 py-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-400 to-red-500 flex items-center justify-center text-white font-bold text-xs shadow-sm">
                                                     {item.shopName?.charAt(0).toUpperCase()}
                                                 </div>
                                                 <div>
-                                                    <div className="font-black text-gray-800 uppercase tracking-tight text-sm leading-tight leading-4">
+                                                    <div className="font-semibold text-xs text-gray-800 uppercase tracking-tight truncate max-w-[200px]">
                                                         {item.shopName}
                                                     </div>
-                                                    <div className="text-gray-400 font-bold text-[11px] uppercase  flex items-center gap-1.5 mt-0.5">
+                                                    <div className="text-gray-400 font-medium text-[10px] uppercase flex items-center gap-1">
                                                         <Icon icon="mdi:account" className="text-gray-300" />
                                                         {item.ownerName}
                                                     </div>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="p-6">
+                                        <td className="px-4 py-2">
                                             <div className="max-w-[300px]">
-                                                <p className="text-xs font-bold text-red-600 truncate" title={item.correctionRequest?.remark}>
+                                                <p className="text-xs font-semibold text-red-650 truncate" title={item.correctionRequest?.remark}>
                                                     {item.correctionRequest?.remark || 'No remark provided'}
                                                 </p>
-                                                <p className="text-[10px] text-gray-400 font-medium uppercase mt-1">
+                                                <p className="text-[10px] text-gray-400 font-medium uppercase mt-0.5">
                                                     {item.correctionRequest?.fieldsToCorrect?.length || 0} fields to fix
                                                 </p>
                                             </div>
                                         </td>
-                                        <td className="p-6">
-                                            <span className="text-xs font-bold text-gray-700 uppercase tracking-tight">
+                                        <td className="px-4 py-2">
+                                            <span className="text-xs font-semibold text-gray-700 uppercase tracking-tight">
                                                 {item.correctionRequest?.requestedBy?.employeeName || 'Finance'}
                                             </span>
                                         </td>
-                                        <td className="p-6">
-                                            <span className="text-xs font-bold text-gray-500">
-                                                {item.correctionRequest?.requestedAt ? new Date(item.correctionRequest.requestedAt).toLocaleDateString() : 'N/A'}
+                                        <td className="px-4 py-2">
+                                            <span className="text-xs font-semibold text-gray-500">
+                                                {item.correctionRequest?.requestedAt ? new Date(item.correctionRequest.requestedAt).toLocaleDateString('en-IN') : 'N/A'}
                                             </span>
                                         </td>
-                                        <td className="p-6 text-right">
-                                            <button className="p-2.5 bg-gray-50 text-gray-400 rounded-xl group-hover:bg-red-500 group-hover:text-white transition-all shadow-sm">
-                                                <Icon icon="mdi:pencil-outline" className="text-xl" />
+                                        <td className="px-4 py-2 text-right">
+                                            <button className="p-1 bg-gray-50 text-gray-400 rounded-lg group-hover:bg-red-500 group-hover:text-white transition-all">
+                                                <Icon icon="mdi:pencil-outline" className="text-base" />
                                             </button>
                                         </td>
                                     </tr>
@@ -191,14 +186,14 @@ const CorrectionsList = () => {
                             <button
                                 onClick={(e) => { e.stopPropagation(); fetchCorrections(pagination.currentPage - 1); }}
                                 disabled={pagination.currentPage === 1}
-                                className="p-2 rounded-xl bg-white border border-gray-200 text-gray-400 disabled:opacity-50 hover:bg-gray-100 transition-all font-black text-[10px] uppercase tracking-widest px-4"
+                                className="p-2 rounded-xl bg-white border border-gray-200 text-gray-405 disabled:opacity-50 hover:bg-gray-105 transition-all font-bold text-[10px] uppercase tracking-wider px-4"
                             >
                                 Prev
                             </button>
                             <button
                                 onClick={(e) => { e.stopPropagation(); fetchCorrections(pagination.currentPage + 1); }}
                                 disabled={pagination.currentPage === pagination.totalPages}
-                                className="p-2 rounded-xl bg-red-500 text-white disabled:opacity-50 hover:bg-red-600 transition-all font-black text-[10px] uppercase tracking-widest px-4 shadow-lg shadow-red-500/20"
+                                className="p-2 rounded-xl bg-red-600 text-white disabled:opacity-50 hover:bg-red-750 transition-all font-bold text-[10px] uppercase tracking-wider px-4"
                             >
                                 Next
                             </button>

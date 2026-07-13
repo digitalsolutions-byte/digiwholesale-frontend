@@ -11,31 +11,31 @@ import dayjs from 'dayjs';
 
 const datePickerStyles = {
     '& .MuiOutlinedInput-root': {
-        borderRadius: '9999px',
-        backgroundColor: 'rgba(249, 250, 251, 0.8)',
+        borderRadius: '8px',
+        backgroundColor: '#ffffff',
         fontSize: '0.75rem',
-        fontWeight: 700,
-        height: '42px',
+        fontWeight: 600,
+        height: '38px',
         '& fieldset': {
-            borderColor: '#f3f4f6',
+            borderColor: '#e5e7eb',
         },
         '&:hover fieldset': {
-            borderColor: '#f59e0b80',
+            borderColor: '#2980B9',
         },
         '&.Mui-focused fieldset': {
-            borderColor: '#f59e0b80',
+            borderColor: '#2980B9',
         },
     },
     '& .MuiInputBase-input': {
-        padding: '0 16px',
-        color: '#4b5563',
+        padding: '0 12px',
+        color: '#374151',
         '&::placeholder': {
             opacity: 1,
             color: '#d1d5db',
         }
     },
     '& .MuiInputAdornment-root': {
-        marginRight: '8px'
+        marginRight: '4px'
     }
 };
 
@@ -204,10 +204,10 @@ const EmployeeList = () => {
     const emptyRowsCount = Math.max(0, 10 - employees.length);
 
     return (
-        <div className="flex flex-col gap-6 w-full max-w-[1400px] mx-auto p-4">
+        <div className="flex flex-col gap-4 w-full h-full p-2">
             {/* Filter Bar */}
-            <div className="bg-white p-4 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] shadow-sm border border-gray-100/80 flex flex-col gap-4 md:gap-6 ">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:flex lg:flex-wrap items-end gap-3 md:gap-6">
+            <div className="bg-white p-4 rounded-xl border border-gray-100 flex flex-col gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:flex lg:flex-wrap items-end gap-3">
                     {/* Search - Full width on mobile/tablet, flexible on desktop */}
                     <div className="flex flex-col gap-1.5 col-span-1 md:col-span-2 lg:min-w-[300px] lg:flex-1">
                         <span className="text-[10px] md:text-[11px] font-black text-gray-400 uppercase tracking-[0.15em] ml-2 md:ml-5">Search By Name, Username, Employee Code, Email & Phone</span>
@@ -227,24 +227,23 @@ const EmployeeList = () => {
                             value={filters.department}
                             onChange={(e) => setFilters({ ...filters, department: e.target.value })}
                             options={configs.departments.map(d => ({ label: d.name, value: d.name }))}
-                            icon="mdi:office-building"
+                            icon="mdi:domain"
                         />
                     </div>
-                    {console.log('filters.employeeType', configs.employeeTypes)}
 
-                    {/* Employee Type */}
+                    {/* Role / Type */}
                     <div className="flex flex-col gap-1.5 w-full lg:w-auto lg:min-w-[160px]">
                         <span className="text-[10px] md:text-[11px] font-black text-gray-400 uppercase tracking-[0.15em] ml-2 md:ml-5">Employee Type</span>
                         <FilterSelect
                             placeholder="All Types"
                             value={filters.EmployeeType}
                             onChange={(e) => setFilters({ ...filters, EmployeeType: e.target.value })}
-                            options={configs.employeeTypes.map(t => ({ label: t, value: t }))}
-                            icon="mdi:account-badge-outline"
+                            options={configs.employeeTypes.map(t => ({ label: t.name, value: t.name }))}
+                            icon="mdi:account-cog"
                         />
                     </div>
 
-                    {/* Quick Date */}
+                    {/* Quick Date Range */}
                     <div className="flex flex-col gap-1.5 w-full lg:w-auto lg:min-w-[160px]">
                         <span className="text-[10px] md:text-[11px] font-black text-gray-400 uppercase tracking-[0.15em] ml-2 md:ml-5">Quick Date</span>
                         <FilterSelect
@@ -296,7 +295,7 @@ const EmployeeList = () => {
                 <div className="flex items-end self-end w-full md:w-auto mb-1">
                     <button
                         onClick={handleResetFilters}
-                        className="flex items-center justify-center gap-2 text-gray-400 hover:text-erp-accent/80 px-5 py-2.5 rounded-full hover:bg-erp-accent/10 transition-all duration-300 font-black text-[10px] uppercase tracking-widest group border border-transparent hover:border-erp-accent/20 shadow-sm hover:shadow-md w-full md:w-auto"
+                        className="flex items-center justify-center gap-2 text-gray-400 hover:text-[#1F618D] px-4 py-2 rounded-lg hover:bg-[#eaf4fb] transition-all duration-300 font-semibold text-[10px] uppercase tracking-wider group border border-transparent hover:border-[#2980B9]/20 w-full md:w-auto"
                     >
                         <Icon icon="mdi:refresh" className="text-lg group-hover:rotate-180 transition-transform duration-700" />
                         Clear Filters
@@ -304,7 +303,7 @@ const EmployeeList = () => {
                 </div>
             </div>
 
-            <div className="w-full bg-white rounded-[2rem] shadow-xl overflow-hidden border border-gray-100 min-h-[500px]">
+            <div className="w-full bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 min-h-[500px]">
                 {loading ? (
                     <div className="flex justify-center items-center h-[500px]">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-erp-accent"></div>
@@ -313,23 +312,30 @@ const EmployeeList = () => {
                     <div className="overflow-x-auto">
                         <table className="w-full border-collapse min-w-[1000px]">
                             <thead>
-                                <tr className="bg-erp-accent text-white">
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Employee Code</th>
-                                    <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Name</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Department</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Type</th>
-                                    <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Phone</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase  ">Status</th>
-                                    <th className="py-4 px-4 font-semibold text-xs text-center uppercase  ">Action</th>
+                                <tr className="bg-[#eaf4fb]/50 border-b border-[#2980B9]/15">
+                                    <th className="py-2.5 px-3 w-10 text-[#1F618D] border-r border-gray-100 last:border-r-0 text-center uppercase tracking-wider"></th>
+                                    <th className="py-2.5 px-4 font-bold text-xs text-[#1F618D] border-r border-gray-100 last:border-r-0 text-center uppercase tracking-wider">Employee Code</th>
+                                    <th className="py-2.5 px-6 font-bold text-xs text-[#1F618D] border-r border-gray-100 last:border-r-0 text-center uppercase tracking-wider">Name</th>
+                                    <th className="py-2.5 px-4 font-bold text-xs text-[#1F618D] border-r border-gray-100 last:border-r-0 text-center uppercase tracking-wider">Department</th>
+                                    <th className="py-2.5 px-4 font-bold text-xs text-[#1F618D] border-r border-gray-100 last:border-r-0 text-center uppercase tracking-wider">Type</th>
+                                    <th className="py-2.5 px-6 font-bold text-xs text-[#1F618D] border-r border-gray-100 last:border-r-0 text-center uppercase tracking-wider">Phone</th>
+                                    <th className="py-2.5 px-4 font-bold text-xs text-[#1F618D] border-r border-gray-100 last:border-r-0 text-center uppercase tracking-wider">Status</th>
+                                    <th className="py-2.5 px-4 font-bold text-xs text-[#1F618D] text-center uppercase tracking-wider">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="text-gray-600">
                                 {employees.map((emp) => (
                                     <React.Fragment key={emp._id}>
                                         <tr
-                                            className={`border-b border-gray-100 last:border-b-0 hover:bg-erp-accent/10/20 transition-all h-16 cursor-pointer ${expandedRows.has(emp._id) ? 'bg-erp-accent/10/10' : ''}`}
+                                            className={`border-b border-gray-100 last:border-b-0 hover:bg-erp-accent/5 transition-all h-12 cursor-pointer ${expandedRows.has(emp._id) ? 'bg-[#eaf4fb]/30' : ''}`}
                                             onClick={() => toggleRow(emp._id)}
                                         >
+                                            <td className="px-3 py-2 text-center border-r border-gray-50">
+                                                <Icon
+                                                    icon="lucide:chevron-right"
+                                                    className={`text-[#1F618D] text-xs transition-transform duration-200 inline-block ${expandedRows.has(emp._id) ? 'rotate-90' : ''}`}
+                                                />
+                                            </td>
                                             <td className="px-4 py-2 text-center border-r border-gray-50">
                                                 <span className="text-xs font-black text-erp-accent/80 font-mono tracking-tighter">
                                                     {emp?.employeeCode || emp.serialNumber || '---'}
@@ -403,7 +409,7 @@ const EmployeeList = () => {
 
                                         {expandedRows.has(emp._id) && (
                                             <tr className="bg-gray-50/50">
-                                                <td colSpan="7" className="p-0 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+                                                <td colSpan="8" className="p-0 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
                                                     <div className="p-10 border-x-4 border-erp-accent/20 bg-gradient-to-br from-white to-erp-accent/10/30">
                                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
                                                             <div className="space-y-6">
@@ -546,33 +552,33 @@ const DetailItem = ({ label, value, status, onClick }) => (
 );
 
 const FilterSelect = ({ placeholder, value, onChange, options = [], icon }) => (
-    <div className="relative flex items-center bg-gray-50/80 rounded-full border border-gray-100 px-5 py-2.5 focus-within:border-erp-accent/50 focus-within:bg-white focus-within:shadow-md transition-all duration-300 w-full group shadow-inner">
-        {icon && <Icon icon={icon} className="text-gray-400 text-lg mr-3 group-focus-within:text-erp-accent transition-colors" />}
+    <div className="relative flex items-center bg-white rounded-lg border border-gray-200 px-3 py-1.5 focus-within:ring-2 focus-within:ring-[#2980B9]/20 focus-within:border-[#2980B9] transition-all w-full group">
+        {icon && <Icon icon={icon} className="text-gray-400 text-base mr-2 group-focus-within:text-[#1F618D] transition-colors" />}
         <select
             value={value}
             onChange={onChange}
-            className="text-xs text-gray-600 outline-none w-full bg-transparent appearance-none cursor-pointer pr-6 font-bold"
+            className="text-xs text-gray-700 outline-none w-full bg-transparent appearance-none cursor-pointer pr-6 font-semibold"
         >
             <option value="">{placeholder}</option>
             {options.map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
         </select>
-        <div className="absolute right-5 pointer-events-none text-gray-300 group-hover:text-erp-accent transition-colors">
+        <div className="absolute right-3 pointer-events-none text-gray-400 group-hover:text-[#1F618D] transition-colors">
             <Icon icon="mdi:chevron-down" className="text-base" />
         </div>
     </div>
 );
 
 const FilterInput = ({ placeholder, value, onChange, icon }) => (
-    <div className="relative flex items-center bg-gray-50/80 rounded-full border border-gray-100 px-5 py-2.5 focus-within:border-erp-accent/50 focus-within:bg-white focus-within:shadow-md transition-all duration-300 w-full group shadow-inner">
-        {icon && <Icon icon={icon} className="text-gray-400 text-lg mr-3 group-focus-within:text-erp-accent transition-colors" />}
+    <div className="relative flex items-center bg-white rounded-lg border border-gray-200 px-3 py-1.5 focus-within:ring-2 focus-within:ring-[#2980B9]/20 focus-within:border-[#2980B9] transition-all w-full group">
+        {icon && <Icon icon={icon} className="text-gray-400 text-base mr-2 group-focus-within:text-[#1F618D] transition-colors" />}
         <input
             type="text"
             placeholder={placeholder}
             value={value}
             onChange={onChange}
-            className="text-xs text-gray-600 outline-none w-full bg-transparent font-bold placeholder:text-gray-300 placeholder:font-medium"
+            className="text-xs text-gray-700 outline-none w-full bg-transparent font-semibold placeholder:text-gray-300"
         />
     </div>
 );

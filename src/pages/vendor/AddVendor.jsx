@@ -5,14 +5,14 @@ import { useDispatch } from "react-redux";
 import { hideLoader, showLoader } from "../../features/loader/loaderSlice";
 import { Icon } from "@iconify/react";
 
-const inputCls = "w-full px-5 py-3 text-sm border border-gray-100 rounded-[1.2rem] outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 hover:border-erp-accent/20 bg-gray-50/50 text-gray-700 transition-all placeholder:text-gray-300";
+const inputCls = "w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/20 hover:border-[#2980B9]/50 bg-white text-gray-700 transition-all placeholder:text-gray-300 font-semibold";
 const labelCls = "text-xs font-semibold text-gray-500 block mb-2 ml-2";
 
 const Field = ({ label, icon, error, children }) => (
     <div className="flex flex-col">
         <label className={labelCls}>
             <span className="flex items-center gap-2">
-                {icon && <Icon icon={icon} className="text-sm text-erp-accent/60" />}
+                {icon && <Icon icon={icon} className="text-sm text-[#1F618D]" />}
                 {label}
             </span>
         </label>
@@ -68,23 +68,22 @@ export default function AddVendor() {
     const handleReset = () => { setFormData(EMPTY); setErrors({}); };
 
     return (
-        <div className="p-6 max-w-7xl mx-auto h-full flex flex-col animate-in fade-in duration-500">
+        <div className="p-2 w-full h-full flex flex-col animate-in fade-in duration-500">
             <div className="flex justify-between items-center mb-6">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                        <Icon icon="mdi:account-plus" className="text-erp-accent" />
+                        <Icon icon="mdi:account-plus" className="text-[#1F618D]" />
                         Add Vendor
                     </h1>
                     <p className="text-sm text-gray-500 mt-1">Fill details to add vendor</p>
                 </div>
             </div>
-
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex-1 overflow-hidden flex flex-col">
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm flex-1 overflow-hidden flex flex-col">
                 <form onSubmit={handleSubmit} noValidate className="flex flex-col h-full">
                     <div className="p-6 overflow-y-auto flex-1">
                         {/* Section label */}
                          <div className="flex items-center gap-3 mb-6">
-                            <div className="w-1.5 h-6 bg-erp-accent rounded-full" />
+                            <div className="w-1.5 h-6 bg-[#1F618D] rounded-sm" />
                             <span className="text-sm font-bold text-gray-700">Vendor Details</span>
                         </div>
 

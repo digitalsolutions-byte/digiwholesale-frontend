@@ -80,9 +80,8 @@ const DraftsList = () => {
             setSelectedDraftForDeactivate(null);
         }
     };
-
     return (
-        <div className="p-6 max-w-7xl mx-auto">
+        <div className="p-2 w-full h-full flex flex-col gap-4">
             <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-black text-gray-800 flex items-center gap-3 uppercase tracking-tighter">

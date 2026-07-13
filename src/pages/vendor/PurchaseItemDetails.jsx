@@ -400,7 +400,7 @@ const PurchaseItemDetails = () => {
     };
 
     return (
-        <div className="p-6 max-w-7xl mx-auto h-full flex flex-col gap-6 overflow-y-auto">
+        <div className="p-2 w-full h-full flex flex-col gap-4 overflow-y-auto">
             {/* Header */}
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-4">

@@ -117,7 +117,7 @@ const QCFailedReport = () => {
     });
 
     return (
-        <div className="p-6 max-w-7xl mx-auto h-full flex flex-col">
+        <div className="p-2 w-full h-full flex flex-col">
             {/* Header */}
             <div className="flex justify-between items-start mb-6">
                 <div>
@@ -129,7 +129,7 @@ const QCFailedReport = () => {
                 </div>
                 <button
                     onClick={fetchData}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-erp-accent bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-[#1F618D] bg-[#eaf4fb] hover:bg-[#d4eaf6] rounded-xl transition-colors"
                 >
                     <Icon icon="lucide:refresh-cw" className={loading ? 'animate-spin' : ''} />
                     Refresh
@@ -144,7 +144,7 @@ const QCFailedReport = () => {
                         onClick={() => setStatusFilter(prev => prev === status ? '' : status)}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all
                             ${statusFilter === status
-                                ? 'ring-2 ring-offset-1 ring-erp-accent border-transparent ' + meta.cls
+                                ? 'ring-2 ring-offset-1 ring-[#1F618D] border-transparent ' + meta.cls
                                 : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}
                     >
                         <Icon icon={meta.icon} className="text-sm" />
@@ -188,14 +188,14 @@ const QCFailedReport = () => {
                     <div className="overflow-x-auto flex-1">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-gray-50 border-b border-gray-100">
-                                    <th className="p-4 w-10"></th>
-                                    <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">QC Batch ID</th>
-                                    <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Vendor</th>
-                                    <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">QC Date</th>
-                                    <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Failed Qty</th>
-                                    <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Overall Result</th>
-                                    <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                                <tr className="bg-[#eaf4fb]/50 border-b border-[#2980B9]/15">
+                                    <th className="py-2.5 px-4 w-10 text-[#1F618D]"></th>
+                                    <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">QC Batch ID</th>
+                                    <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Vendor</th>
+                                    <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">QC Date</th>
+                                    <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Failed Qty</th>
+                                    <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Overall Result</th>
+                                    <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
@@ -207,38 +207,38 @@ const QCFailedReport = () => {
                                                 className="hover:bg-gray-50/60 transition-colors cursor-pointer"
                                                 onClick={() => setExpandedQcId(isExpanded ? null : rep._id)}
                                             >
-                                                <td className="p-4 text-center">
+                                                <td className="px-4 py-2 text-center">
                                                     <Icon
-                                                        icon={isExpanded ? 'lucide:chevron-down' : 'lucide:chevron-right'}
-                                                        className="text-gray-400 text-sm"
+                                                        icon="lucide:chevron-right"
+                                                        className={`text-[#1F618D] text-xs transition-transform duration-200 inline-block ${isExpanded ? 'rotate-90' : ''}`}
                                                     />
                                                 </td>
-                                                <td className="p-4">
-                                                    <span className="font-mono text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
+                                                <td className="px-4 py-2">
+                                                    <span className="font-mono text-xs text-gray-550 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
                                                         #{rep._id.slice(-8).toUpperCase()}
                                                     </span>
                                                 </td>
-                                                <td className="p-4 font-semibold text-gray-800">
+                                                <td className="px-4 py-2 font-semibold text-xs text-gray-800">
                                                     {rep.vendorName}
                                                 </td>
-                                                <td className="p-4 text-xs text-gray-500">
+                                                <td className="px-4 py-2 text-[11px] text-gray-500">
                                                     {new Date(rep.qcDate || rep.createdAt).toLocaleDateString('en-IN', {
                                                         day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
                                                     })}
                                                 </td>
-                                                <td className="p-4 font-bold text-red-600">
+                                                <td className="px-4 py-2 font-bold text-xs text-red-650">
                                                     {rep.totalFailedQty}
                                                 </td>
-                                                <td className="p-4">
-                                                    <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${rep.overallResult === 'FAILED' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
+                                                <td className="px-4 py-2">
+                                                    <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${rep.overallResult === 'FAILED' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
                                                         }`}>
                                                         {rep.overallResult}
                                                     </span>
                                                 </td>
-                                                <td className="p-4" onClick={e => e.stopPropagation()}>
+                                                <td className="px-4 py-2" onClick={e => e.stopPropagation()}>
                                                     <button
                                                         onClick={() => navigate(`/vendor/qc/${rep._id}`)}
-                                                        className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors"
+                                                        className="text-[10px] text-[#1F618D] hover:text-[#2980B9] font-semibold flex items-center gap-0.5 bg-[#eaf4fb] hover:bg-[#d4eaf6] px-2 py-1 rounded transition-colors"
                                                     >
                                                         QC Details
                                                     </button>

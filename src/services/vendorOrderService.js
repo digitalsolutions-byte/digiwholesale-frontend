@@ -154,7 +154,7 @@ export const getAllPurchaseItems = async (search = '', page = 1, limit = 50) => 
     try {
         const queryParams = new URLSearchParams({ page, limit });
         if (search) queryParams.append('search', search);
-        
+
         const response = await api.get(`/api/purchase/get-all-purchase-items?${queryParams.toString()}`);
         return response.data;
     } catch (error) {
@@ -459,17 +459,49 @@ export const getQcPassedItems = async (page = 1, limit = 100) => {
     }
 };
 
+
+
 /**
- * Creates a replacement order for QC-failed return items
- * POST /api/purchase/create-replacement-order
- * @param {Object} data - { purchaseReturnId, cgst, sgst, remarks, replacementItems }
+ * Gets paginated list of replacement orders
+ * GET /api/purchase/replacement-orders
+ * @param {number} page
+ * @param {number} limit
  * @returns {Promise}
  */
-export const createReplacementOrder = async (data) => {
+export const getReplacementOrders = async (page = 1, limit = 100) => {
+    try {
+        const response = await api.get(`/api/purchase/replacement-orders?page=${page}&limit=${limit}`);
+        return response.data;
+    } catch (error) {
+        throw error.response ? error.response.data : new Error('Failed to fetch replacement orders');
+    }
+};
+
+/**
+ * Gets details of a specific replacement order
+ * GET /api/purchase/replacement-orders/:id
+ * @param {string} id
+ * @returns {Promise}
+ */
+export const getReplacementOrderDetail = async (id) => {
+    try {
+        const response = await api.get(`/api/purchase/replacement-orders/${id}`);
+        return response.data;
+    } catch (error) {
+        throw error.response ? error.response.data : new Error('Failed to fetch replacement order details');
+    }
+};
+
+/**
+ * Creates a replacement order via POST /api/purchase/replacement-orders
+ * @param {Object} data
+ * @returns {Promise}
+ */
+export const submitReplacementOrder = async (data) => {
     try {
         const response = await api.post('/api/purchase/create-replacement-order', data);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to create replacement order');
+        throw error.response ? error.response.data : new Error('Failed to submit replacement order');
     }
 };

@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/apiInstance';
+import { Icon } from '@iconify/react';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-    PieChart, Pie, Cell
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
 
-const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+const STATUS_COLORS = {
+    Active: '#2980B9',
+    Ready: '#F59E0B',
+    Delivered: '#10B981',
+    Draft: '#8B5CF6'
+};
 
 const Dashboard = () => {
     const [analytics, setAnalytics] = useState(null);
@@ -22,7 +27,6 @@ const Dashboard = () => {
                 }
             } catch (error) {
                 console.error("Failed to fetch analytics, using sample data:", error);
-                // Fallback to sample data for demonstration if API fails
                 setAnalytics({
                     customers: { activeUsers: 11 },
                     orders: {
@@ -48,21 +52,20 @@ const Dashboard = () => {
         return (
             <div className="flex min-h-[60vh] items-center justify-center">
                 <div className="relative">
-                    <div className="w-16 h-16 border-4 border-erp-accent/20 border-t-erp-accent rounded-full animate-spin"></div>
-                    <div className="mt-4 text-xs font-black text-gray-400 uppercase tracking-widest text-center animate-pulse">Loading Intelligence</div>
+                    <div className="w-12 h-12 border-4 border-[#2980B9]/20 border-t-[#2980B9] rounded-full animate-spin"></div>
+                    <div className="mt-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center animate-pulse">Loading Analytics</div>
                 </div>
             </div>
         );
     }
 
     const statusData = [
-        { name: 'Active', value: analytics?.orders?.active || 0, color: '#3B82F6' },
-        { name: 'Ready', value: analytics?.orders?.readyToDeliver || 0, color: '#F59E0B' },
-        { name: 'Delivered', value: analytics?.orders?.delivered || 0, color: '#10B981' },
-        { name: 'Draft', value: analytics?.orders?.draft || 0, color: '#8B5CF6' }
+        { name: 'Active', value: analytics?.orders?.active || 0, color: STATUS_COLORS.Active },
+        { name: 'Ready', value: analytics?.orders?.readyToDeliver || 0, color: STATUS_COLORS.Ready },
+        { name: 'Delivered', value: analytics?.orders?.delivered || 0, color: STATUS_COLORS.Delivered },
+        { name: 'Draft', value: analytics?.orders?.draft || 0, color: STATUS_COLORS.Draft }
     ];
 
-    // Flatten recent bulk orders to display the specific sub-orders
     const flattenedOrders = analytics?.recentOrders?.flatMap(doc =>
         doc.orders?.map(subOrder => ({
             ...subOrder,
@@ -74,43 +77,56 @@ const Dashboard = () => {
 
     return (
         <div className="w-full flex flex-col gap-6 font-sans">
-            <header className="flex justify-between items-end">
+            {/* Header */}
+            <header className="flex justify-between items-end shrink-0">
                 <div>
-                    <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Executive Overview</h1>
-                    <p className="text-sm text-gray-500 mt-1">Last updated: {new Date(analytics?.generatedAt || Date.now()).toLocaleString()}</p>
+                    <h1 className="text-2xl font-extrabold text-gray-800 tracking-tight flex items-center gap-2">
+                        <Icon icon="lucide:layout-dashboard" className="text-[#2980B9]" />
+                        Executive Overview
+                    </h1>
+                    <p className="text-xs text-gray-500 mt-1">
+                        Last updated: <span className="font-semibold text-gray-700">{new Date(analytics?.generatedAt || Date.now()).toLocaleString()}</span>
+                    </p>
                 </div>
             </header>
 
             {/* Metrics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
                 {[
-                    { label: 'Active Customers', value: analytics?.customers?.activeUsers, color: 'text-erp-accent', bg: 'bg-blue-50' },
-                    { label: 'Total Orders', value: analytics?.orders?.totalOrders, color: 'text-erp-accent', bg: 'bg-orange-50' },
-                    { label: 'Active Orders', value: analytics?.orders?.active, color: 'text-erp-accent', bg: 'bg-green-50' },
-                    { label: 'Total Staff', value: analytics?.staff?.total, color: 'text-erp-accent', bg: 'bg-purple-50' },
+                    { label: 'Active Customers', value: analytics?.customers?.activeUsers, icon: 'lucide:users', bg: 'bg-[#eaf4fb]', text: 'text-[#1F618D]' },
+                    { label: 'Total Orders', value: analytics?.orders?.totalOrders, icon: 'lucide:shopping-bag', bg: 'bg-[#eaf4fb]', text: 'text-[#1F618D]' },
+                    { label: 'Active Orders', value: analytics?.orders?.active, icon: 'lucide:activity', bg: 'bg-[#eaf4fb]', text: 'text-[#1F618D]' },
+                    { label: 'Total Staff', value: analytics?.staff?.total, icon: 'lucide:user-check', bg: 'bg-[#eaf4fb]', text: 'text-[#1F618D]' },
                 ].map((m, idx) => (
-                    <div key={idx} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow relative overflow-hidden group">
-                        <div className={`absolute top-0 right-0 w-24 h-24 ${m.bg} rounded-bl-full -mr-4 -mt-4 opacity-50 group-hover:scale-110 transition-transform duration-500`}></div>
-                        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2 relative z-10">{m.label}</h3>
-                        <p className={`text-4xl font-extrabold ${m.color} relative z-10`}>{m.value || 0}</p>
+                    <div key={idx} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 transition-all flex justify-between items-center group">
+                        <div className="space-y-1">
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">{m.label}</h3>
+                            <p className="text-3xl font-extrabold text-gray-800">{m.value || 0}</p>
+                        </div>
+                        <div className={`w-12 h-12 rounded-xl ${m.bg} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+                            <Icon icon={m.icon} className={`${m.text} text-xl`} />
+                        </div>
                     </div>
                 ))}
             </div>
 
             {/* Charts Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Order Status Distribution Chart */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
-                    <h2 className="text-lg font-bold text-gray-800 mb-6">Order Status Distribution</h2>
-                    <div className="h-72 w-full flex-grow">
+                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col">
+                    <h2 className="text-sm font-bold text-gray-800 mb-6 flex items-center gap-2">
+                        <Icon icon="lucide:bar-chart-3" className="text-[#2980B9] text-base" />
+                        Order Status Distribution
+                    </h2>
+                    <div className="h-64 w-full flex-grow">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={statusData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }} barSize={40}>
+                            <BarChart data={statusData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6B7280' }} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280' }} />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 11 }} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 11 }} />
                                 <Tooltip
-                                    cursor={{ fill: '#f8fafc' }}
-                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                    cursor={{ fill: '#eaf4fb', opacity: 0.3 }}
+                                    contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
                                 />
                                 <Bar dataKey="value" radius={[6, 6, 0, 0]}>
                                     {statusData.map((entry, index) => (
@@ -123,17 +139,20 @@ const Dashboard = () => {
                 </div>
 
                 {/* Status Summary Widget */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
-                    <h2 className="text-lg font-bold text-gray-800 mb-6">Order Status Breakdown</h2>
+                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col">
+                    <h2 className="text-sm font-bold text-gray-800 mb-6 flex items-center gap-2">
+                        <Icon icon="lucide:pie-chart" className="text-[#2980B9] text-base" />
+                        Order Status Breakdown
+                    </h2>
                     <div className="flex-grow flex items-center justify-center">
-                        <div className="w-full space-y-4">
+                        <div className="w-full space-y-3">
                             {statusData.map((status, index) => (
-                                <div key={index} className="flex items-center justify-between p-4 rounded-xl bg-gray-50/50 hover:bg-gray-50 transition-colors">
+                                <div key={index} className="flex items-center justify-between p-3.5 rounded-xl bg-gray-50/50 hover:bg-[#eaf4fb]/10 transition-colors border border-gray-100/50">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: status.color }}></div>
-                                        <span className="text-sm font-semibold text-gray-600">{status.name}</span>
+                                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: status.color }}></div>
+                                        <span className="text-xs font-bold text-gray-600">{status.name}</span>
                                     </div>
-                                    <span className="text-lg font-bold text-gray-900">{status.value}</span>
+                                    <span className="text-sm font-extrabold text-gray-800">{status.value}</span>
                                 </div>
                             ))}
                         </div>
@@ -142,20 +161,22 @@ const Dashboard = () => {
             </div>
 
             {/* Recent Orders Table */}
-            <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mt-4">
-                <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/30">
-                    <h2 className="text-lg font-bold text-gray-800">Recent Live Orders</h2>
-                    <button className="text-sm text-blue-600 font-semibold hover:text-blue-800 transition-colors">View All</button>
+            <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex-grow min-h-[250px] flex flex-col">
+                <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/30 shrink-0">
+                    <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-2">
+                        <Icon icon="lucide:list" className="text-[#2980B9]" />
+                        Recent Live Orders
+                    </h2>
                 </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead className="bg-white text-xs text-gray-400 uppercase tracking-wider">
-                            <tr>
-                                <th className="px-6 py-4 font-bold border-b border-gray-100">Order Ref</th>
-                                <th className="px-6 py-4 font-bold border-b border-gray-100">Customer</th>
-                                <th className="px-6 py-4 font-bold border-b border-gray-100">Items</th>
-                                <th className="px-6 py-4 font-bold border-b border-gray-100">Date</th>
-                                <th className="px-6 py-4 font-bold border-b border-gray-100 text-right">Status</th>
+                <div className="overflow-x-auto flex-grow">
+                    <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr className="bg-gray-50 border-b border-gray-100 text-gray-400">
+                                <th className="px-6 py-3 font-semibold uppercase tracking-wider">Order Ref</th>
+                                <th className="px-6 py-3 font-semibold uppercase tracking-wider">Customer</th>
+                                <th className="px-6 py-3 font-semibold uppercase tracking-wider">Items</th>
+                                <th className="px-6 py-3 font-semibold uppercase tracking-wider">Date</th>
+                                <th className="px-6 py-3 font-semibold uppercase tracking-wider text-right">Status</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
@@ -165,28 +186,26 @@ const Dashboard = () => {
 
                                     let statusBg = 'bg-gray-100 text-gray-600';
                                     const statusLower = (order.status || '').toLowerCase();
-                                    if (statusLower === 'submitted' || statusLower === 'processing') statusBg = 'bg-blue-50 text-blue-600';
-                                    else if (statusLower === 'completed' || statusLower === 'delivered') statusBg = 'bg-green-50 text-green-600';
-                                    else if (statusLower === 'cancelled') statusBg = 'bg-red-50 text-red-600';
-                                    else if (statusLower === 'draft') statusBg = 'bg-amber-50 text-amber-600';
+                                    if (statusLower === 'submitted' || statusLower === 'processing') statusBg = 'bg-[#eaf4fb] text-[#1F618D]';
+                                    else if (statusLower === 'completed' || statusLower === 'delivered') statusBg = 'bg-[#e2f4ea] text-[#10B981]';
+                                    else if (statusLower === 'cancelled') statusBg = 'bg-[#fef2f0] text-[#E74C3C]';
+                                    else if (statusLower === 'draft') statusBg = 'bg-[#fffbeb] text-[#d97706]';
 
                                     return (
                                         <tr key={order.orderNumber || i} className="hover:bg-gray-50/50 transition-colors">
-                                            <td className="px-6 py-4 font-bold text-gray-900">{order.orderNumber || 'N/A'}</td>
-                                            <td className="px-6 py-4 text-gray-600 font-medium">
+                                            <td className="px-6 py-4 font-mono font-bold text-gray-700">{order.orderNumber || 'N/A'}</td>
+                                            <td className="px-6 py-4">
                                                 <div className="flex flex-col">
-                                                    <span>{order.customer?.customerName || order.customer?.shopName || 'N/A'}</span>
-                                                    <span className="text-xs text-gray-400">{order.customer?.customerShipToBranchName}</span>
+                                                    <span className="font-semibold text-gray-800">{order.customer?.customerName || order.customer?.shopName || 'N/A'}</span>
+                                                    <span className="text-[10px] text-gray-400 mt-0.5">{order.customer?.customerShipToBranchName}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 font-medium text-gray-600">
-                                                {totalItems}
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-500">
-                                                {order.parentDate ? new Date(order.parentDate).toLocaleDateString() : 'N/A'}
+                                            <td className="px-6 py-4 font-bold text-gray-700">{totalItems}</td>
+                                            <td className="px-6 py-4 text-gray-500">
+                                                {order.parentDate ? new Date(order.parentDate).toLocaleDateString('en-IN') : 'N/A'}
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <span className={`px-3 py-1 text-xs font-bold rounded-full ${statusBg}`}>
+                                                <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full ${statusBg}`}>
                                                     {order.status || 'Pending'}
                                                 </span>
                                             </td>
@@ -195,8 +214,9 @@ const Dashboard = () => {
                                 })
                             ) : (
                                 <tr>
-                                    <td colSpan="5" className="px-6 py-8 text-center text-gray-400 font-medium">
-                                        No recent orders found
+                                    <td colSpan="5" className="px-6 py-12 text-center text-gray-400">
+                                        <Icon icon="lucide:inbox" className="text-3xl mx-auto mb-2 opacity-50" />
+                                        <p className="text-xs">No recent orders found</p>
                                     </td>
                                 </tr>
                             )}
@@ -209,5 +229,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
-

@@ -156,7 +156,7 @@ const InwardDetails = () => {
     };
 
     return (
-        <div className="p-6 max-w-5xl mx-auto h-full flex flex-col gap-6 overflow-y-auto">
+        <div className="p-2 w-full h-full flex flex-col gap-4 overflow-y-auto">
             {/* Header */}
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-4">
@@ -175,12 +175,12 @@ const InwardDetails = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
-                    <span className="inline-flex items-center px-3 py-1.5 text-xs font-semibold bg-blue-50 text-blue-700 rounded-full">
+                    <span className="inline-flex items-center px-3 py-1 text-xs font-semibold bg-blue-50 text-blue-750 rounded-lg">
                         {inward.status || 'Pending'}
                     </span>
                     <button
                         onClick={handleOpenQCModal}
-                        className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-erp-accent hover:bg-erp-accent/90 active:scale-95 rounded-full transition-all shadow-lg shadow-erp-accent/20"
+                        className="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white bg-erp-accent hover:bg-erp-accent/90 active:scale-95 rounded-lg transition-all shadow shadow-erp-accent/20"
                     >
                         <Icon icon="lucide:shield-check" className="text-base" />
                         Start QC
@@ -190,21 +190,21 @@ const InwardDetails = () => {
 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-2">
+                <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-2">
                     <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Vendor</span>
                     <span className="text-sm font-semibold text-gray-800 truncate">{inward.vendorName || 'N/A'}</span>
                 </div>
-                <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-2">
+                <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-2">
                     <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Purchase Order</span>
                     <span className="font-mono text-xs text-gray-600 truncate" title={inward.purchaseOrderId}>
                         {inward.purchaseOrderId ? inward.purchaseOrderId.substring(inward.purchaseOrderId.length - 8).toUpperCase() : 'N/A'}
                     </span>
                 </div>
-                <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-2">
+                <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-2">
                     <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Inward Date</span>
                     <span className="text-sm font-semibold text-gray-800">{new Date(inward.inwardDate || inward.createdAt).toLocaleDateString()}</span>
                 </div>
-                <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-2">
+                <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-2">
                     <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Items</span>
                     <span className="text-lg font-bold text-erp-accent">{inward.items?.length || 0}</span>
                 </div>
@@ -212,67 +212,67 @@ const InwardDetails = () => {
 
             {/* Remarks */}
             {inward.remarks && (
-                <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
                     <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Remarks</span>
                     <p className="text-sm text-gray-700">{inward.remarks}</p>
                 </div>
             )}
 
             {/* Items Table */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="p-5 border-b border-gray-100 bg-gray-50/50">
-                    <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-gray-100 bg-[#eaf4fb]/20">
+                    <h2 className="text-sm font-bold text-[#1F618D] flex items-center gap-2">
                         <Icon icon="lucide:list-checks" /> Received Items
                     </h2>
                 </div>
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
+                    <table className="w-full text-left text-xs">
                         <thead>
-                            <tr className="text-gray-500 bg-gray-50 border-b border-gray-100">
-                                <th className="p-4 font-medium">Item</th>
-                                <th className="p-4 font-medium">Category</th>
-                                <th className="p-4 font-medium">Order Number</th>
-                                <th className="p-4 font-medium text-center">Ordered Qty</th>
-                                <th className="p-4 font-medium text-center">Received Qty</th>
-                                <th className="p-4 font-medium text-center">Condition</th>
-                                <th className="p-4 font-medium text-center">QC Status</th>
-                                <th className="p-4 font-medium">Vendor Ref</th>
-                                <th className="p-4 font-medium">Remarks</th>
+                            <tr className="bg-[#eaf4fb]/50 border-b border-[#2980B9]/15 text-[#1F618D] font-bold text-xs uppercase tracking-wider">
+                                <th className="px-4 py-2.5 font-bold">Item</th>
+                                <th className="px-4 py-2.5 font-bold">Category</th>
+                                <th className="px-4 py-2.5 font-bold">Order Number</th>
+                                <th className="px-4 py-2.5 font-bold text-center">Ordered Qty</th>
+                                <th className="px-4 py-2.5 font-bold text-center">Received Qty</th>
+                                <th className="px-4 py-2.5 font-bold text-center">Condition</th>
+                                <th className="px-4 py-2.5 font-bold text-center">QC Status</th>
+                                <th className="px-4 py-2.5 font-bold">Vendor Ref</th>
+                                <th className="px-4 py-2.5 font-bold">Remarks</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-50">
+                        <tbody className="divide-y divide-gray-50 text-gray-700">
                             {inward.items?.map((item, idx) => (
                                 <tr key={idx} className="hover:bg-gray-50/50">
-                                    <td className="p-4">
-                                        <div className="font-medium text-gray-800">{item.itemName}</div>
-                                        <div className="text-xs text-gray-500 mt-0.5">{item.unit}</div>
+                                    <td className="px-4 py-2">
+                                        <div className="font-semibold text-gray-800">{item.itemName}</div>
+                                        <div className="text-[10px] text-gray-450 mt-0.5">{item.unit}</div>
                                     </td>
-                                    <td className="p-4 text-gray-600">{item.category}</td>
-                                    <td className="p-4">
-                                        <span className="font-mono text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                                    <td className="px-4 py-2 text-gray-600">{item.category}</td>
+                                    <td className="px-4 py-2">
+                                        <span className="font-mono text-xs text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
                                             {item.orderNumber || 'N/A'}
                                         </span>
                                     </td>
-                                    <td className="p-4 text-gray-600 text-center font-medium">{item.orderedQty}</td>
-                                    <td className="p-4 text-center">
+                                    <td className="px-4 py-2 text-gray-600 text-center font-medium">{item.orderedQty}</td>
+                                    <td className="px-4 py-2 text-center">
                                         <span className={`font-bold ${item.receivedQty < item.orderedQty ? 'text-red-600' : 'text-emerald-600'}`}>
                                             {item.receivedQty}
                                         </span>
                                     </td>
-                                    <td className="p-4 text-center">
-                                        <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${getConditionColor(item.condition)}`}>
+                                    <td className="px-4 py-2 text-center">
+                                        <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-lg ${getConditionColor(item.condition)}`}>
                                             {item.condition}
                                         </span>
                                     </td>
-                                    <td className="p-4 text-center">
-                                        <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${getQcStatusColor(item.qcStatus)}`}>
+                                    <td className="px-4 py-2 text-center">
+                                        <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-lg ${getQcStatusColor(item.qcStatus)}`}>
                                             {item.qcStatus || 'PENDING'}
                                         </span>
                                     </td>
-                                    <td className="p-4">
+                                    <td className="px-4 py-2">
                                         <span className="font-mono text-xs text-gray-600">{item.vendorRefId || '—'}</span>
                                     </td>
-                                    <td className="p-4 text-sm text-gray-500 max-w-[200px] truncate" title={item.remarks}>
+                                    <td className="px-4 py-2 text-xs text-gray-500 max-w-[200px] truncate" title={item.remarks}>
                                         {item.remarks || '—'}
                                     </td>
                                 </tr>
@@ -285,11 +285,11 @@ const InwardDetails = () => {
             {/* ── QC Modal ── */}
             {showQCModal && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+                    <div className="bg-white rounded-xl shadow-lg w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
                         {/* Modal Header */}
-                        <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 bg-gray-50/50 rounded-t-3xl">
+                        <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 bg-gray-50/50 rounded-t-xl">
                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-2xl bg-erp-accent/10 flex items-center justify-center text-erp-accent shadow-inner">
+                                <div className="w-12 h-12 rounded-xl bg-erp-accent/10 flex items-center justify-center text-erp-accent shadow-inner">
                                     <Icon icon="lucide:shield-check" className="text-2xl" />
                                 </div>
                                 <div>
@@ -301,7 +301,7 @@ const InwardDetails = () => {
                             </div>
                             <button
                                 onClick={() => setShowQCModal(false)}
-                                className="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 transition-all group"
+                                className="w-10 h-10 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400 transition-all group"
                             >
                                 <Icon icon="mdi:close" className="text-2xl group-hover:rotate-90 transition-transform" />
                             </button>
@@ -318,7 +318,7 @@ const InwardDetails = () => {
                                         value={qcRemarks}
                                         onChange={e => setQcRemarks(e.target.value)}
                                         placeholder="Overall QC observations..."
-                                        className="w-full bg-gray-50/50 border border-gray-100 rounded-2xl px-5 py-3 text-sm font-medium text-gray-700 outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 transition-all placeholder:text-gray-300 resize-none"
+                                        className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/20 transition-all placeholder:text-gray-300 resize-none"
                                     />
                                 </div>
                                 <div className="flex items-start gap-3 pt-7">
@@ -327,7 +327,7 @@ const InwardDetails = () => {
                                             type="checkbox"
                                             checked={notifyVendor}
                                             onChange={e => setNotifyVendor(e.target.checked)}
-                                            className="w-5 h-5 rounded-md border-gray-300 text-erp-accent focus:ring-erp-accent/20"
+                                            className="w-5 h-5 rounded border-gray-300 text-erp-accent focus:ring-erp-accent/20"
                                         />
                                         <span className="text-xs font-bold uppercase tracking-wider text-gray-600">Notify Vendor</span>
                                     </label>
@@ -335,7 +335,7 @@ const InwardDetails = () => {
                             </div>
 
                             {/* QC Items Table */}
-                            <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+                            <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
                                 <div className="overflow-x-auto">
                                     <table className="w-full min-w-[800px] border-collapse text-sm">
                                         <thead>
@@ -407,7 +407,7 @@ const InwardDetails = () => {
                         </div>
 
                         {/* Modal Footer */}
-                        <div className="px-8 py-5 border-t border-gray-100 bg-gray-50/30 flex items-center justify-between rounded-b-3xl">
+                        <div className="px-8 py-5 border-t border-gray-100 bg-gray-50/30 flex items-center justify-between rounded-b-xl">
                             <div className="text-xs text-gray-400">
                                 <span className="font-bold text-emerald-600">
                                     {qcItems.reduce((s, i) => s + (parseInt(i.passedQty) || 0), 0)} passed
@@ -427,7 +427,7 @@ const InwardDetails = () => {
                                 <button
                                     onClick={handleSubmitQC}
                                     disabled={submittingQC}
-                                    className="flex items-center gap-2 px-8 py-2.5 text-[10px] font-black uppercase tracking-widest text-white bg-erp-accent hover:bg-erp-accent/90 active:scale-95 disabled:opacity-50 rounded-full transition-all shadow-xl shadow-erp-accent/20"
+                                    className="flex items-center gap-2 px-8 py-2.5 text-[10px] font-black uppercase tracking-widest text-white bg-erp-accent hover:bg-erp-accent/90 active:scale-95 disabled:opacity-50 rounded-lg transition-all shadow-md shadow-erp-accent/20"
                                 >
                                     {submittingQC ? (
                                         <Icon icon="lucide:loader-2" className="animate-spin text-base" />

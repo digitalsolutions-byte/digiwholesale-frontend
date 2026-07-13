@@ -40,6 +40,8 @@ import AllInwardedItems from '../pages/vendor/AllInwardedItems';
 import PendingInward from '../pages/vendor/PendingInward';
 import QcPending from '../pages/vendor/QcPending';
 import QcPassed from '../pages/vendor/QcPassed';
+import ReplacementOrderList from '../pages/vendor/ReplacementOrderList';
+import ReplacementOrderDetail from '../pages/vendor/ReplacementOrderDetail';
 import SalesList from '../pages/sales/SalesList';
 
 import CustomerLogin from '../pages/CustomerLogin';
@@ -141,6 +143,8 @@ const VENDOR_MODULE = [
     { path: PATHS.VENDOR.PENDING_INWARD, element: PendingInward, page: 'VENDOR_LIST' },
     { path: PATHS.VENDOR.QC_PENDING, element: QcPending, page: 'VENDOR_LIST' },
     { path: PATHS.VENDOR.QC_PASSED, element: QcPassed, page: 'VENDOR_LIST' },
+    { path: PATHS.VENDOR.REPLACEMENT_ORDERS, element: ReplacementOrderList, page: 'VENDOR_LIST' },
+    { path: PATHS.VENDOR.REPLACEMENT_ORDER_DETAILS, element: ReplacementOrderDetail, page: 'VENDOR_LIST' },
 ];
 
 // ── Sales ─────────────────────────────────────────────────────────────────────
