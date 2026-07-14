@@ -265,8 +265,36 @@ export const financeApproveCustomer = async (customerId, approvalData) => {
 
 export const getPendingStageCustomers = async (stages, page = 1, limit = 10) => {
     try {
-        const response = await api.get(`/api/customer/management/pending-stage?stage=${stages}&page=${page}&limit=${limit}`);
-        return response.data;
+        const stageArray = typeof stages === 'string' ? stages.split(/[,&]/).filter(Boolean) : Array.isArray(stages) ? stages : [stages];
+        
+        const responses = await Promise.all(
+            stageArray.map(stage => 
+                api.get(`/api/customer/management/pending-stage?stage=${stage.trim()}&page=${page}&limit=${limit}`)
+            )
+        );
+
+        const combinedCustomers = [];
+        let totalRecords = 0;
+
+        for (const response of responses) {
+            if (response.data?.success && response.data?.data) {
+                const data = response.data.data;
+                combinedCustomers.push(...(data.customers || []));
+                totalRecords += (data.pagination?.totalRecords || 0);
+            }
+        }
+
+        return {
+            success: true,
+            data: {
+                customers: combinedCustomers,
+                pagination: {
+                    currentPage: page,
+                    totalPages: Math.ceil(totalRecords / limit) || 1,
+                    totalRecords: totalRecords
+                }
+            }
+        };
     } catch (error) {
         throw error.response ? error.response.data : new Error('Failed to fetch pending stage customers');
     }
