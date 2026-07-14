@@ -13,28 +13,32 @@ const CorrectionsList = () => {
     const [loading, setLoading] = useState(true);
     const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1 });
 
-    const { hasPermission } = usePermissions();
+    const { hasPermission, user } = usePermissions();
 
     const fetchCorrections = async (page = 1) => {
         setLoading(true);
         try {
             // Derive workflow stages from accessPermissions[].
-            // No Department.name or EmployeeType string checks.
             const stages = new Set();
+            const isFinanceDept = user?.Department?.name?.toLowerCase() === 'finance';
 
-            // APPROVE_ORDER → finance-level corrections
-            if (hasPermission('APPROVE_ORDER')) {
+            if (isFinanceDept) {
                 stages.add('financeCorrection');
-                stages.add('salesHead');
-            }
-            // UPDATE_CUSTOMER → sales corrections and sales-head review
-            if (hasPermission('UPDATE_CUSTOMER')) {
-                stages.add('salesCorrection');
-                stages.add('salesHead');
-            }
-            // ADD_CUSTOMER → own sales corrections
-            if (hasPermission('ADD_CUSTOMER')) {
-                stages.add('salesCorrection');
+            } else {
+                // APPROVE_ORDER → finance-level corrections
+                if (hasPermission('APPROVE_ORDER')) {
+                    stages.add('financeCorrection');
+                    stages.add('salesHead');
+                }
+                // UPDATE_CUSTOMER → sales corrections and sales-head review
+                if (hasPermission('UPDATE_CUSTOMER')) {
+                    stages.add('salesCorrection');
+                    stages.add('salesHead');
+                }
+                // ADD_CUSTOMER → own sales corrections
+                if (hasPermission('ADD_CUSTOMER')) {
+                    stages.add('salesCorrection');
+                }
             }
 
             // Fallback so the page is never silently blank

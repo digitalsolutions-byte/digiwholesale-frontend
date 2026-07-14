@@ -60,7 +60,12 @@ const CustomerLogin = () => {
     });
 
     return (
-        <Box sx={{ minHeight: '100vh', display: 'flex', backgroundImage: "radial-gradient(circle, #e8e4dc 1px, transparent 1px)", backgroundSize: " 28px 28px" }}>
+        <Box sx={{ 
+            minHeight: '100vh', 
+            display: 'flex', 
+            background: 'linear-gradient(135deg, #eaf2f8 0%, #d4e6f1 100%)',
+            position: 'relative'
+        }}>
             <Container maxWidth="lg" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4 }}>
                 <Paper
                     elevation={0}
@@ -71,8 +76,8 @@ const CustomerLogin = () => {
                         minHeight: 600,
                         borderRadius: '32px',
                         overflow: 'hidden',
-                        boxShadow: '0 20px 80px rgba(0,0,0,0.06)',
-                        border: '1px solid rgba(0,0,0,0.05)'
+                        boxShadow: '0 20px 80px rgba(31, 97, 141, 0.12)',
+                        border: '1px solid rgba(31, 97, 141, 0.08)'
                     }}
                 >
                     {/* Left Side: Image & Mascot */}
@@ -80,7 +85,7 @@ const CustomerLogin = () => {
                         sx={{
                             width: '50%',
                             display: { xs: 'none', md: 'flex' },
-                            bgcolor: '#FFF5F0',
+                            bgcolor: '#EBF5FB',
                             position: 'relative',
                             flexDirection: 'column',
                             alignItems: 'center',
@@ -92,7 +97,7 @@ const CustomerLogin = () => {
                         }}
                     >
                         <Box sx={{ position: 'absolute', inset: 0, right: 0 }} />
-
+ 
                         {/* Speech Bubble */}
                         <Box
                             sx={{
@@ -102,19 +107,20 @@ const CustomerLogin = () => {
                                 bgcolor: 'white',
                                 p: 3,
                                 borderRadius: '24px 24px 24px 0',
-                                boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+                                boxShadow: '0 10px 30px rgba(31, 97, 141, 0.1)',
                                 zIndex: 10,
-                                maxWidth: '80%'
+                                maxWidth: '80%',
+                                border: '1px solid rgba(31, 97, 141, 0.1)'
                             }}
                         >
-                            <Typography variant="h6" fontWeight={800} color="primary.main">
-                                Welcome!
+                            <Typography variant="h6" fontWeight={800} sx={{ color: '#1f618d' }}>
+                                Customer Portal
                             </Typography>
                             <Typography variant="body2" fontWeight={600} color="text.secondary">
-                                Glad to see you again.
+                                Access your orders & history.
                             </Typography>
                         </Box>
-
+ 
                         <Box
                             component="img"
                             src={mascot}
@@ -126,7 +132,7 @@ const CustomerLogin = () => {
                             }}
                         />
                     </Box>
-
+ 
                     {/* Right Side: Form */}
                     <Box
                         sx={{
@@ -134,12 +140,15 @@ const CustomerLogin = () => {
                             p: { xs: 4, md: 8 },
                             display: 'flex',
                             flexDirection: 'column',
-                            justifyContent: 'center'
+                            justifyContent: 'center',
+                            bgcolor: '#ffffff'
                         }}
                     >
-                        <Box sx={{ mb: 6, textAlign: 'center' }}>
-                            <img src={logo} alt="Logo" style={{ height: '50px', marginBottom: '34px' }} className='mx-auto' />
-
+                        <Box sx={{ mb: 4, textAlign: 'center' }}>
+                            <img src={logo} alt="Logo" style={{ height: '160px', marginBottom: '12px' }} className='mx-auto' />
+                            <Typography variant="h5" fontWeight={800} sx={{ color: '#1f618d', mt: 1, letterSpacing: '0.03em', textTransform: 'uppercase', fontSize: '1.25rem' }}>
+                                Customer Login
+                            </Typography>
                         </Box>
 
                         <Stack component="form" onSubmit={formik.handleSubmit} spacing={3}>

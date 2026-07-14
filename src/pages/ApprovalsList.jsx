@@ -13,7 +13,7 @@ const ApprovalsList = () => {
     const [loading, setLoading] = useState(true);
     const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1 });
 
-    const { hasPermission } = usePermissions();
+    const { hasPermission, user } = usePermissions();
 
     const fetchApprovals = async (page = 1) => {
         setLoading(true);
@@ -21,19 +21,24 @@ const ApprovalsList = () => {
             // Derive workflow stages from accessPermissions[].
             // No Department.name or EmployeeType string checks.
             const stages = new Set();
+            const isFinanceDept = user?.Department?.name?.toLowerCase() === 'finance';
 
-            // APPROVE_ORDER permission → can approve at both workflow stages
-            if (hasPermission('APPROVE_ORDER')) {
-                stages.add('salesHead');
+            if (isFinanceDept) {
                 stages.add('finance');
-            }
-            // UPDATE_CUSTOMER permission → sales-head review stage
-            if (hasPermission('UPDATE_CUSTOMER')) {
-                stages.add('salesHead');
-            }
-            // ADD_CUSTOMER permission → can see pending-finance items
-            if (hasPermission('ADD_CUSTOMER')) {
-                stages.add('finance');
+            } else {
+                // APPROVE_ORDER permission → can approve at both workflow stages
+                if (hasPermission('APPROVE_ORDER')) {
+                    stages.add('salesHead');
+                    stages.add('finance');
+                }
+                // UPDATE_CUSTOMER permission → sales-head review stage
+                if (hasPermission('UPDATE_CUSTOMER')) {
+                    stages.add('salesHead');
+                }
+                // ADD_CUSTOMER permission → can see pending-finance items
+                if (hasPermission('ADD_CUSTOMER')) {
+                    stages.add('finance');
+                }
             }
 
             // Fallback: show all stages so the page is never silently blank

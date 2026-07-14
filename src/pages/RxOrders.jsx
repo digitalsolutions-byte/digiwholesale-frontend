@@ -7,6 +7,8 @@ const RxOrders = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
+    const [page, setPage] = useState(1);
+    const [limit] = useState(10);
     const [expandedRows, setExpandedRows] = useState(new Set());
 
     const toggleRow = (orderId) => {
@@ -24,23 +26,35 @@ const RxOrders = () => {
     const fetchOrders = useCallback(async () => {
         setLoading(true);
         try {
+            // Fetch all orders from backend since it doesn't support pagination natively
             const response = await getRxOrders(search);
             if (response.success) {
                 setOrders(response.data?.orders || []);
+                // Reset page on new fetch
+                setPage(1);
             } else {
                 setOrders([]);
+                toast.error(response.error?.message || response.message || 'Failed to fetch RX orders');
             }
         } catch (error) {
             console.error('Error fetching RX orders:', error);
-            toast.error(error.message || 'Failed to fetch RX orders');
+            const errMsg = error?.error?.message || error?.message || 'Failed to fetch RX orders';
+            toast.error(errMsg);
         } finally {
             setLoading(false);
         }
     }, [search]);
 
+    // Remove the separate search effect to avoid double setting
+    // useEffect(() => { setPage(1); }, [search]);
+
     useEffect(() => {
         fetchOrders();
     }, [fetchOrders]);
+
+    // Client-side pagination logic
+    const totalPages = Math.max(1, Math.ceil(orders.length / limit));
+    const paginatedOrders = orders.slice((page - 1) * limit, page * limit);
 
     return (
         <div className="p-6 max-w-7xl mx-auto h-full flex flex-col">
@@ -99,14 +113,14 @@ const RxOrders = () => {
                                         </div>
                                     </td>
                                 </tr>
-                            ) : orders.length === 0 ? (
+                            ) : paginatedOrders.length === 0 ? (
                                 <tr>
                                     <td colSpan="8" className="p-8 text-center text-gray-500">
                                         No RX orders found.
                                     </td>
                                 </tr>
                             ) : (
-                                orders.map((order) => (
+                                paginatedOrders.map((order) => (
                                     <React.Fragment key={order._id}>
                                         <tr 
                                             className="hover:bg-gray-50/50 transition-colors cursor-pointer" 
@@ -214,6 +228,32 @@ const RxOrders = () => {
                         </tbody>
                     </table>
                 </div>
+                
+                {/* Pagination */}
+                {orders.length > 0 && (
+                    <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50/50 shrink-0">
+                        <span className="text-sm text-gray-500">
+                            Showing <span className="font-semibold text-gray-700">{(page - 1) * limit + 1}</span> to <span className="font-semibold text-gray-700">{Math.min(page * limit, orders.length)}</span> of <span className="font-semibold text-gray-700">{orders.length}</span> entries
+                        </span>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                Previous
+                            </button>
+                            <span className="px-4 py-2 text-sm font-medium text-gray-700">Page {page} of {totalPages}</span>
+                            <button
+                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                disabled={page === totalPages}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

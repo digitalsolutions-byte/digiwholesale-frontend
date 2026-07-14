@@ -104,6 +104,15 @@ api.interceptors.response.use(
                 isRefreshing = false;
             }
         }
+
+        // Normalize backend error structure so that error.response.data.message is always populated
+        if (error.response && error.response.data && typeof error.response.data === 'object') {
+            const data = error.response.data;
+            if (data.error && typeof data.error === 'object' && data.error.message) {
+                data.message = data.error.message;
+            }
+        }
+
         return Promise.reject(error);
     }
 );
