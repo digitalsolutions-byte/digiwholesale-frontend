@@ -146,6 +146,17 @@ export const draftOrder = async (id) => {
     }
 };
 
+export const getDraftOrders = async (page = 1, limit = 10, search = '') => {
+    try {
+        const queryParams = new URLSearchParams({ page, limit });
+        if (search) queryParams.append('search', search);
+        const response = await api.get(`/api/order/draft-orders?${queryParams.toString()}`);
+        return response.data;
+    } catch (error) {
+        throw error.response ? error.response.data : new Error('Failed to fetch draft orders');
+    }
+};
+
 export const deleteOrder = async (id) => {
     try {
         const response = await api.delete(`/api/order/${id}`);

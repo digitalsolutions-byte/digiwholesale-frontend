@@ -298,18 +298,18 @@ export default function Inventory() {
                             className="flex items-center gap-1.5 px-4 py-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white text-xs font-semibold rounded-xl transition shadow-sm">
                             <FiPlus size={13} /> Add Product
                         </button>
-                        {/* <button onClick={() => setShowBulkUploadModal(true)}
+                        <button onClick={() => setShowBulkUploadModal(true)}
                             className="flex items-center gap-1.5 px-4 py-2 bg-white border border-[#2980b9]/40 hover:bg-[#2980b9]/10 text-[#2980b9]/90 text-xs font-semibold rounded-xl transition shadow-sm">
                             <FiUpload size={13} /> Bulk Upload
-                        </button> */}
+                        </button>
                         <button onClick={handleRefresh}
                             className="flex items-center gap-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white px-4 py-2 text-xs font-semibold rounded-lg transition shadow-sm w-fit">
                             <FiRefreshCw size={13} /> Refresh
                         </button>
-                        {/* <button onClick={() => setShowLensRangeModal(true)}
+                        <button onClick={() => setShowLensRangeModal(true)}
                             className="flex items-center gap-1.5 px-4 py-2 bg-white border border-blue-300 hover:bg-blue-50 text-blue-600 text-xs font-semibold rounded-xl transition shadow-sm">
                             <FiPlus size={13} /> Lens Range
-                        </button> */}
+                        </button>
                     </div>
 
 
@@ -3530,6 +3530,20 @@ function BulkUploadModal({ onClose }) {
     const activePrefix = prefix.trim().toUpperCase() || "DO";
     const autoCodeRows = rows.filter(r => !r.productCode);
 
+    const handleFieldChange = (index, field, value) => {
+        const updated = [...rows];
+        let val = value;
+        if (["price", "mrp", "qty", "gst"].includes(field)) {
+            val = value === "" ? "" : Number(value);
+        }
+        updated[index] = { ...updated[index], [field]: val };
+        setRows(updated);
+        import('./Inventory').then(() => {
+            // handled dynamically to avoid scope error with validateBulkRow
+        });
+        setValidationErrors(updated.flatMap((r, idx) => validateBulkRow(r, idx + 1)));
+    };
+
     const downloadTemplate = () => {
         const aoa = [
             ACCEPTED_COLUMNS,
@@ -3691,18 +3705,96 @@ function BulkUploadModal({ onClose }) {
                                     {rows.slice(0, 50).map((row, i) => (
                                         <tr key={i} className={`border-b border-gray-50 ${i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`}>
                                             <td className="px-3 py-2 text-center text-gray-400">{i + 1}</td>
-                                            <td className="px-3 py-2 font-mono font-semibold whitespace-nowrap">
-                                                {row.productCode ? <span className="text-gray-800">{row.productCode}</span> : <span className="text-[#2980b9]/80 italic text-[10px]">auto-{activePrefix}</span>}
+                                            <td className="px-3 py-1 font-mono font-semibold whitespace-nowrap">
+                                                <input 
+                                                    type="text" 
+                                                    value={row.productCode || ""} 
+                                                    onChange={e => handleFieldChange(i, "productCode", e.target.value)}
+                                                    placeholder={`auto-${activePrefix}`}
+                                                    className="w-full bg-transparent border-0 focus:ring-1 focus:ring-[#2980b9]/40 rounded px-1 py-0.5 text-xs text-gray-800 focus:bg-white outline-none"
+                                                />
                                             </td>
-                                            <td className="px-3 py-2 text-gray-700 max-w-[160px] truncate">{row.productName}</td>
-                                            <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{row.category}</td>
-                                            <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{row.brand}</td>
-                                            <td className="px-3 py-2 text-center text-gray-700">₹{row.price}</td>
-                                            <td className="px-3 py-2 text-center text-gray-700">₹{row.mrp}</td>
-                                            <td className="px-3 py-2 text-center text-gray-700">{row.qty}</td>
-                                            <td className="px-3 py-2 text-center text-gray-500">{row.gst}%</td>
-                                            <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{row.color || "—"}</td>
-                                            <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{row.type || "—"}</td>
+                                            <td className="px-3 py-1 text-gray-700 max-w-[160px]">
+                                                <input 
+                                                    type="text" 
+                                                    value={row.productName || ""} 
+                                                    onChange={e => handleFieldChange(i, "productName", e.target.value)}
+                                                    className="w-full bg-transparent border-0 focus:ring-1 focus:ring-[#2980b9]/40 rounded px-1 py-0.5 text-xs text-gray-800 focus:bg-white outline-none"
+                                                />
+                                            </td>
+                                            <td className="px-3 py-1 text-gray-650">
+                                                <input 
+                                                    type="text" 
+                                                    value={row.category || ""} 
+                                                    onChange={e => handleFieldChange(i, "category", e.target.value)}
+                                                    className="w-full bg-transparent border-0 focus:ring-1 focus:ring-[#2980b9]/40 rounded px-1 py-0.5 text-xs text-gray-800 focus:bg-white outline-none"
+                                                />
+                                            </td>
+                                            <td className="px-3 py-1 text-gray-650">
+                                                <input 
+                                                    type="text" 
+                                                    value={row.brand || ""} 
+                                                    onChange={e => handleFieldChange(i, "brand", e.target.value)}
+                                                    className="w-full bg-transparent border-0 focus:ring-1 focus:ring-[#2980b9]/40 rounded px-1 py-0.5 text-xs text-gray-800 focus:bg-white outline-none"
+                                                />
+                                            </td>
+                                            <td className="px-3 py-1 text-center text-gray-750">
+                                                <div className="flex items-center justify-center">
+                                                    <span className="text-[10px] text-gray-400 mr-0.5">₹</span>
+                                                    <input 
+                                                        type="number" 
+                                                        value={row.price} 
+                                                        onChange={e => handleFieldChange(i, "price", e.target.value)}
+                                                        className="w-16 bg-transparent border-0 focus:ring-1 focus:ring-[#2980b9]/40 rounded px-1 py-0.5 text-xs text-gray-800 text-center focus:bg-white outline-none"
+                                                    />
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-1 text-center text-gray-750">
+                                                <div className="flex items-center justify-center">
+                                                    <span className="text-[10px] text-gray-400 mr-0.5">₹</span>
+                                                    <input 
+                                                        type="number" 
+                                                        value={row.mrp} 
+                                                        onChange={e => handleFieldChange(i, "mrp", e.target.value)}
+                                                        className="w-16 bg-transparent border-0 focus:ring-1 focus:ring-[#2980b9]/40 rounded px-1 py-0.5 text-xs text-gray-800 text-center focus:bg-white outline-none"
+                                                    />
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-1 text-center text-gray-750">
+                                                <input 
+                                                    type="number" 
+                                                    value={row.qty} 
+                                                    onChange={e => handleFieldChange(i, "qty", e.target.value)}
+                                                    className="w-12 bg-transparent border-0 focus:ring-1 focus:ring-[#2980b9]/40 rounded px-1 py-0.5 text-xs text-gray-800 text-center focus:bg-white outline-none"
+                                                />
+                                            </td>
+                                            <td className="px-3 py-1 text-center text-gray-550">
+                                                <div className="flex items-center justify-center">
+                                                    <input 
+                                                        type="number" 
+                                                        value={row.gst} 
+                                                        onChange={e => handleFieldChange(i, "gst", e.target.value)}
+                                                        className="w-12 bg-transparent border-0 focus:ring-1 focus:ring-[#2980b9]/40 rounded px-1 py-0.5 text-xs text-gray-800 text-center focus:bg-white outline-none"
+                                                    />
+                                                    <span className="text-[10px] text-gray-400 ml-0.5">%</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-1 text-gray-550">
+                                                <input 
+                                                    type="text" 
+                                                    value={row.color || ""} 
+                                                    onChange={e => handleFieldChange(i, "color", e.target.value)}
+                                                    className="w-full bg-transparent border-0 focus:ring-1 focus:ring-[#2980b9]/40 rounded px-1 py-0.5 text-xs text-gray-800 focus:bg-white outline-none"
+                                                />
+                                            </td>
+                                            <td className="px-3 py-1 text-gray-550">
+                                                <input 
+                                                    type="text" 
+                                                    value={row.type || ""} 
+                                                    onChange={e => handleFieldChange(i, "type", e.target.value)}
+                                                    className="w-full bg-transparent border-0 focus:ring-1 focus:ring-[#2980b9]/40 rounded px-1 py-0.5 text-xs text-gray-800 focus:bg-white outline-none"
+                                                />
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>

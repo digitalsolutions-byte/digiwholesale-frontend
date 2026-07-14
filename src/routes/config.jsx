@@ -13,6 +13,7 @@ import DraftsList from '../pages/DraftsList';
 import ApprovalsList from '../pages/ApprovalsList';
 import CorrectionsList from '../pages/CorrectionsList';
 import AllOrdersList from '../pages/AllOrdersList';
+import DraftOrders from '../pages/DraftOrders';
 import RxOrders from '../pages/RxOrders';
 import OrderDetails from '../pages/OrderDetails';
 import PlaceholderPage from '../pages/PlaceholderPage';
@@ -84,6 +85,7 @@ const CUSTOMER_MODULE = [
 const CUSTOMER_CARE_MODULE = [
     { path: PATHS.CUSTOMER_CARE.NEW_ORDER, element: OrderWizard, page: 'NEW_ORDER' },
     { path: PATHS.CUSTOMER_CARE.ALL_ORDERS, element: AllOrdersList, page: 'ALL_ORDERS' },
+    { path: PATHS.CUSTOMER_CARE.DRAFT_ORDERS, element: DraftOrders, page: 'ALL_ORDERS' },
     { path: PATHS.CUSTOMER_CARE.RX_ORDERS, element: RxOrders, page: 'ALL_ORDERS' },
     { path: PATHS.CUSTOMER_CARE.PENDING_ORDERS, element: AllOrdersList, page: 'PENDING_ORDERS', props: { isPendingOnly: true, defaultStatus: 'PENDING' } },
     { path: PATHS.CUSTOMER_CARE.ORDER_STATUS, element: PlaceholderPage, page: 'ALL_ORDERS', props: { title: 'Order Status' } },

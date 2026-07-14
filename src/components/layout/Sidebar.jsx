@@ -63,6 +63,7 @@ const navItems = [
         subItems: [
             { label: 'New Order', path: PATHS.CUSTOMER_CARE.NEW_ORDER, page: 'NEW_ORDER', isBold: true },
             { label: 'All Orders', path: PATHS.CUSTOMER_CARE.ALL_ORDERS, page: 'ALL_ORDERS' },
+            { label: 'Draft Orders', path: PATHS.CUSTOMER_CARE.DRAFT_ORDERS, page: 'ALL_ORDERS' },
             { label: 'RX Orders', path: PATHS.CUSTOMER_CARE.RX_ORDERS, page: 'ALL_ORDERS' },
             { label: 'Processing Orders', path: PATHS.CUSTOMER_CARE.PENDING_ORDERS, page: 'PENDING_ORDERS' },
             { label: 'Other Sales', path: PATHS.CUSTOMER_CARE.SERVICE_GOODS, page: 'OTHER_SALES' },
@@ -74,7 +75,7 @@ const navItems = [
         icon: 'lucide:undo-2',
         subItems: [
             { label: 'Return & Refund', path: PATHS.RETURNS.RETURN_REFUND, page: 'RETURN_REFUND' },
-            { label: 'Exchange Requests', path: PATHS.RETURNS.EXCHANGE, page: 'EXCHANGE_REQUESTS' },
+            // { label: 'Exchange Requests', path: PATHS.RETURNS.EXCHANGE, page: 'EXCHANGE_REQUESTS' },
         ],
     },
     { label: 'Drafts', icon: 'lucide:file-text', path: PATHS.DRAFTS, page: 'DRAFTS' },

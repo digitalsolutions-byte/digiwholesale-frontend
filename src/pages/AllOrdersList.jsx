@@ -364,7 +364,18 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
             const activeFilters = Object.fromEntries(
                 Object.entries(currentFilters).filter(([_, v]) => v !== '')
             );
-            const response = await getAllOrders(page, 10, activeFilters);
+            
+            let response;
+            if (activeFilters.status === 'Draft') {
+                import('../services/orderService').then(({ getDraftOrders }) => {
+                    // handled dynamically to avoid import circular issues or messy top-level replace
+                });
+                const { getDraftOrders } = await import('../services/orderService');
+                response = await getDraftOrders(page, 10, activeFilters.search || '');
+            } else {
+                response = await getAllOrders(page, 10, activeFilters);
+            }
+            
             if (response.success) {
                 setOrders(response.data.orders || []);
                 const paginationData = response.data.pagination || {};
@@ -516,6 +527,7 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
                                     onChange={(e) => setFilters({ ...filters, status: e.target.value })}
                                 >
                                     <option value="">All Statuses</option>
+                                    <option value="Draft">Draft</option>
                                     <option value="PENDING">Pending</option>
                                     <option value="CONFIRMED">Confirmed</option>
                                     <option value="PROCESSING">Processing</option>

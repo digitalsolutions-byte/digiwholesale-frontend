@@ -134,7 +134,7 @@ export default function ReturnRefund() {
      EFFECTS
   ═══════════════════════════════════════════ */
 
-  // Fetch Settings
+  // Fetch Settings & Initial Order Suggestions
   useEffect(() => {
     const fetchSettingsData = async () => {
       try {
@@ -147,6 +147,7 @@ export default function ReturnRefund() {
       }
     };
     fetchSettingsData();
+    fetchOrderSuggestions('');
   }, []);
 
   // Fetch List
@@ -176,11 +177,7 @@ export default function ReturnRefund() {
   /* ═══════════════════════════════════════════
      ORDER SEARCH HANDLERS
   ═══════════════════════════════════════════ */
-  const fetchOrderSuggestions = async (searchTerm) => {
-    if (!searchTerm || searchTerm.length < 3) {
-      setOrderOptions([]);
-      return;
-    }
+  async function fetchOrderSuggestions(searchTerm = '') {
     setOrderSearchLoading(true);
     try {
       const res = await getOrderSuggestions(searchTerm);
@@ -200,7 +197,7 @@ export default function ReturnRefund() {
     } finally {
       setOrderSearchLoading(false);
     }
-  };
+  }
 
   const handleOrderSearch = (searchTerm) => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
@@ -546,8 +543,8 @@ export default function ReturnRefund() {
           <button
             onClick={() => setActiveTab("form")}
             className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all ${activeTab === "form"
-                ? "bg-white text-erp-primary shadow-md"
-                : "text-gray-500 hover:text-gray-800"
+              ? "bg-white text-erp-primary shadow-md"
+              : "text-gray-500 hover:text-gray-800"
               }`}
           >
             Create Request
@@ -555,8 +552,8 @@ export default function ReturnRefund() {
           <button
             onClick={() => setActiveTab("list")}
             className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all ${activeTab === "list"
-                ? "bg-white text-erp-primary shadow-md"
-                : "text-gray-500 hover:text-gray-800"
+              ? "bg-white text-erp-primary shadow-md"
+              : "text-gray-500 hover:text-gray-800"
               }`}
           >
             Request List
@@ -577,7 +574,7 @@ export default function ReturnRefund() {
           ───────────────────────────────── */}
           <div className="bg-white rounded-3xl border border-gray-100 shadow-xl shadow-gray-200/40 p-6 md:p-8 space-y-6">
             {/* Return Type Selector */}
-            <div className="flex items-center gap-3">
+            {/* <div className="flex items-center gap-3">
               <span className="bg-erp-primary/10 p-2 rounded-full">
                 <Icon
                   icon="mdi:cog-outline"
@@ -591,7 +588,7 @@ export default function ReturnRefund() {
                   onChange={handleChange}
                   className="appearance-none bg-erp-primary text-white font-bold text-sm px-5 py-2 pr-10 rounded-full cursor-pointer outline-none shadow-md shadow-erp-primary/20 hover:shadow-lg transition-all"
                 >
-                  <option value="RETURN">Return</option>
+                  <option value="RETURN">Return / Refund</option>
                   <option value="REFUND">Refund</option>
                 </select>
                 <Icon
@@ -599,7 +596,7 @@ export default function ReturnRefund() {
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-white text-lg pointer-events-none"
                 />
               </div>
-            </div>
+            </div> */}
 
             {/* ── Basic Info ── */}
             <div className="space-y-3">
@@ -1390,8 +1387,8 @@ export default function ReturnRefund() {
                           </td>
                           <td className="p-4">
                             <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${row.returnType === "RETURN"
-                                ? "bg-blue-50 text-blue-600"
-                                : "bg-purple-50 text-purple-600"
+                              ? "bg-blue-50 text-blue-600"
+                              : "bg-purple-50 text-purple-600"
                               }`}>
                               {row.returnType || "RETURN"}
                             </span>
@@ -1402,10 +1399,10 @@ export default function ReturnRefund() {
                           <td className="p-4">
                             <span
                               className={`px-3 py-1 rounded-full text-[10px] font-bold ${row.status === "Approved"
-                                  ? "bg-emerald-50 text-emerald-600"
-                                  : row.status === "Rejected"
-                                    ? "bg-rose-50 text-rose-600"
-                                    : "bg-amber-50 text-amber-600"
+                                ? "bg-emerald-50 text-emerald-600"
+                                : row.status === "Rejected"
+                                  ? "bg-rose-50 text-rose-600"
+                                  : "bg-amber-50 text-amber-600"
                                 }`}
                             >
                               {row.status}

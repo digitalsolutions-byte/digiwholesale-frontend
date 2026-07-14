@@ -40,6 +40,7 @@ export const PATHS = {
         UPDATE_CUSTOMERS: '/customer/list',
         EDIT_ORDER: '/order/edit/:id',
         ORDER_DETAILS: '/order/view/:id',
+        DRAFT_ORDERS: '/orders/draft-list',
     },
 
     STORES: '/stores',

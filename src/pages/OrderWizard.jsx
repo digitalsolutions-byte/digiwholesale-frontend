@@ -156,12 +156,12 @@ const OrderWizard = () => {
                 productName: Yup.string().required('Product selection is required'),
                 brandId: Yup.string().when('orderType', {
                     is: 'rx',
-                    then: (schema) => schema.required('Brand is required'),
+                    then: (schema) => isEditMode ? schema.notRequired() : schema.required('Brand is required'),
                     otherwise: (schema) => schema.notRequired()
                 }),
                 categoryId: Yup.string().when('orderType', {
                     is: 'rx',
-                    then: (schema) => schema.required('Category is required'),
+                    then: (schema) => isEditMode ? schema.notRequired() : schema.required('Category is required'),
                     otherwise: (schema) => schema.notRequired()
                 }),
                 indexId: Yup.string().test('is-index-required', 'Lens Index is required', function (value) {
@@ -190,7 +190,12 @@ const OrderWizard = () => {
                 const payload = formatOrderPayload(values, 'Submitted');
                 let res;
                 if (isEditMode) {
-                    res = await updateOrder(id, payload);
+                    const patchPayload = {
+                        submitNow: true,
+                        orders: payload.orders,
+                        customerShipToId: payload.customerShipToId
+                    };
+                    res = await updateOrder(id, patchPayload);
                 } else {
                     res = await createBulkOrders(payload);
                 }
@@ -229,61 +234,101 @@ const OrderWizard = () => {
 
                         // Handle multiple products if backend provides them, otherwise map root level to first product
                         let products = [];
-                        if (order.products && order.products.length > 0) {
-                            products = order.products.map(prod => {
+                        const sourceItems = order.orders?.[0]?.items || order.products;
+                        
+                        if (sourceItems && sourceItems.length > 0) {
+                            products = sourceItems.map(prod => {
+                                const isRx = prod.orderType === 'RX' || prod.productMode?.toLowerCase() === 'rx' || false;
+                                
+                                // if the prod comes from items array, powers and prisms are inside rx
+                                const rxData = prod.rx || {};
+                                const powersSource = rxData.powers?.length > 0 ? rxData.powers : prod.powers;
+                                const prismsSource = rxData.prisms?.length > 0 ? rxData.prisms : prod.prisms;
+                                const centrationSource = rxData.centration?.length > 0 ? rxData.centration : (prod.centration || prod.centrations);
+                                
                                 const prodMapped = {
                                     ...productTemplate,
                                     scan: prod.scan || '',
                                     qty: prod.qty || 1,
                                     price: prod.price || 0,
-                                    discount: prod.discount || 0,
-                                    powerMode: prod.powers?.length === 1 ? 'single' : 'both',
-                                    productMode: prod.productMode?.toLowerCase() === 'rx' ? 'rx' : 'stock',
-                                    hasPrism: (prod.hasPrism || prod.prisms?.length > 0) ? 'yes' : 'no',
-                                    selectedSide: prod.powers?.[0]?.side || 'R',
-                                    brandId: prod.brand?.id || '',
+                                    discount: prod.discountAmount !== undefined ? prod.discountAmount : (prod.discount || 0),
+                                    powerMode: powersSource?.length === 1 ? 'single' : 'both',
+                                    productMode: isRx ? 'rx' : 'stock',
+                                    orderType: isRx ? 'rx' : 'stock',
+                                    hasPrism: (prod.hasPrism || prismsSource?.length > 0) ? 'yes' : 'no',
+                                    selectedSide: powersSource?.[0]?.side || 'R',
+                                    brandId: prod.brand?.id || prod.brand || '',
                                     categoryId: prod.category?.id || '',
+                                    category: prod.category?.name || prod.category || '',
                                     treatmentId: prod.treatment?.id || '',
                                     indexId: (prod.index !== undefined && prod.index !== null) ? prod.index.toString() : '',
-                                    productName: prod.productName?.id || '',
+                                    index: (prod.index !== undefined && prod.index !== null) ? prod.index.toString() : '',
+                                    productId: prod.productId || prod.productName?.id || '',
+                                    productName: prod.itemName || prod.productName?.name || prod.productName?.id || '',
+                                    itemName: prod.itemName || prod.productName?.name || '',
                                     lensTypeId: prod.productType?.id || '',
                                     coatingId: prod.coating?.id || '',
+                                    coating: prod.coating?.name || prod.coating || '',
                                     tintId: prod.tint?.id || '',
-                                    tintDetails: prod.tintDetails || '',
-                                    remarks: prod.remarks || '',
-                                    hasMirror: prod.mirror ? 'yes' : 'no',
+                                    tint: prod.tint?.name || prod.tint || '',
+                                    tintDetails: prod.tintDetails || rxData.tintDetails || '',
+                                    remarks: prod.remarks || rxData.remarks || '',
+                                    hasMirror: (prod.mirror || rxData.mirror) ? 'yes' : 'no',
                                     gstDetails: prod.gstDetails || {
-                                        gstPercent: '', gstType: '', gstMode: '', gstAmount: '',
+                                        gstPercent: prod.gst?.toString() || '', 
+                                        gstType: '', gstMode: '', gstAmount: '',
                                         loyaltyPoints: '', advance: '', transactionType: '', remarks: ''
                                     },
+                                    HSNSAC: prod.hsnSac || prod.HSNSAC || '',
+                                    MRP: prod.mrp || prod.MRP || 0,
+                                    unit: prod.unit?.toLowerCase() || 'piece',
+                                    
+                                    // Add raw spherical powers if present
+                                    sph: prod.sph !== undefined ? prod.sph : '',
+                                    cyl: prod.cyl !== undefined ? prod.cyl : '',
+                                    axis: prod.axis !== undefined ? prod.axis : '',
+                                    add: prod.add !== undefined ? prod.add : '',
+
                                     // Map fitting/lensData from rx object
-                                    hasFlatFitting: prod.rx?.fitting?.hasFlatFitting ? 'yes' : 'no',
-                                    dbl: prod.rx?.fitting?.dbl?.toString() || '',
-                                    frameType: prod.rx?.fitting?.frameType || '',
-                                    frameLength: prod.rx?.fitting?.frameLength?.toString() || '',
-                                    frameHeight: prod.rx?.fitting?.frameHeight?.toString() || '',
-                                    pantoscopicAngle: prod.rx?.lensData?.pantoscopeAngle?.toString() || '',
-                                    bowAngle: prod.rx?.lensData?.bowAngle?.toString() || '',
-                                    bvd: prod.rx?.lensData?.bvd?.toString() || ''
+                                    hasFlatFitting: rxData.fitting?.hasFlatFitting ? 'yes' : 'no',
+                                    dbl: rxData.fitting?.dbl?.toString() || '',
+                                    frameType: rxData.fitting?.frameType || '',
+                                    frameLength: rxData.fitting?.frameLength?.toString() || '',
+                                    frameHeight: rxData.fitting?.frameHeight?.toString() || '',
+                                    pantoscopicAngle: rxData.lensData?.pantoscopeAngle?.toString() || '',
+                                    bowAngle: rxData.lensData?.bowAngle?.toString() || '',
+                                    bvd: rxData.lensData?.bvd?.toString() || ''
                                 };
 
-                                if (prod.powers) {
-                                    prod.powers.forEach(p => {
+                                if (powersSource) {
+                                    powersSource.forEach(p => {
                                         prodMapped.powerTable[p.side] = {
                                             sph: p.sph?.toString() || '', cyl: p.cyl?.toString() || '',
                                             axis: p.axis?.toString() || '', add: p.add?.toString() || '',
                                             dia: p.diameter?.toString() || '70'
                                         };
                                     });
+                                } else if (prod.sph !== undefined || prod.cyl !== undefined) {
+                                    // Map root powers to both tables as fallback
+                                    const fallbackPower = {
+                                        sph: prod.sph?.toString() || '',
+                                        cyl: prod.cyl?.toString() || '',
+                                        axis: prod.axis?.toString() || '',
+                                        add: prod.add?.toString() || '',
+                                        dia: '70'
+                                    };
+                                    prodMapped.powerTable.R = { ...fallbackPower };
+                                    prodMapped.powerTable.L = { ...fallbackPower };
                                 }
-                                if (prod.prisms) {
-                                    prod.prisms.forEach(p => {
+                                
+                                if (prismsSource) {
+                                    prismsSource.forEach(p => {
                                         prodMapped.prismTable[p.side] = { prism: p.prism || '', base: p.base || '' };
                                     });
                                 }
-                                const centData = prod.centration || prod.centrations;
-                                if (centData) {
-                                    centData.forEach(c => {
+                                
+                                if (centrationSource) {
+                                    centrationSource.forEach(c => {
                                         prodMapped.centrationData[c.side] = {
                                             pd: c.pd?.toString() || '', corridor: c.corridor?.toString() || '',
                                             fittingHeight: c.fittingHeight?.toString() || ''
@@ -293,7 +338,7 @@ const OrderWizard = () => {
                                 return prodMapped;
                             });
                         } else {
-                            // Fallback to single product from root
+                            // Fallback to single product from root (legacy)
                             const singleProd = {
                                 ...productTemplate,
                                 powerMode: order.powers?.length === 1 ? 'single' : 'both',
@@ -304,7 +349,9 @@ const OrderWizard = () => {
                                 categoryId: order.category?.id || '',
                                 treatmentId: order.treatment?.id || '',
                                 indexId: (order.index !== undefined && order.index !== null) ? order.index.toString() : '',
-                                productName: order.productName?.id || '',
+                                productId: order.productName?.id || '',
+                                productName: order.productName?.name || order.productName?.id || '',
+                                itemName: order.productName?.name || '',
                                 lensTypeId: order.productType?.id || '',
                                 coatingId: order.coating?.id || '',
                                 tintId: order.tint?.id || '',
@@ -346,18 +393,28 @@ const OrderWizard = () => {
                         }
 
                         mappedValues.products = products;
+                        mappedValues.orderReference = order.orderReference || order.orders?.[0]?.orderNumber || '';
 
                         // Inject the current order's product into the options list 
                         // so the searchable select can resolve the label immediately
-                        if (order.productName) {
+                        const itemsForInjection = order.orders?.[0]?.items || order.products || (order.productName ? [order] : []);
+                        if (itemsForInjection.length > 0) {
                             setProductNames(prev => {
-                                const exists = prev.find(p => p.value === order.productName.id);
-                                if (exists) return prev;
-                                return [{
-                                    value: order.productName.id,
-                                    label: order.productName.name,
-                                    price: 0 // Will be updated when search runs
-                                }, ...prev];
+                                let newPrev = [...prev];
+                                itemsForInjection.forEach(item => {
+                                    const id = item.productId || item.productName?.id || item.productName;
+                                    const name = item.itemName || item.productName?.name || item.productName;
+                                    const price = item.price || 0;
+                                    
+                                    if (id && !newPrev.find(p => p.value === id)) {
+                                        newPrev.push({
+                                            value: id,
+                                            label: name || id,
+                                            price: price
+                                        });
+                                    }
+                                });
+                                return newPrev;
                             });
                         }
 
@@ -564,6 +621,7 @@ const OrderWizard = () => {
         return {
             customerId: values.customerId,
             customerShipToId: values.shipToId,
+            isDraft: status === 'Draft',
             orders: [
                 {
                     orderNumber: values.orderReference || undefined,
@@ -585,7 +643,11 @@ const OrderWizard = () => {
             const payload = formatOrderPayload(formik.values, 'Draft');
             let res;
             if (isEditMode) {
-                res = await updateOrder(id, payload);
+                const patchPayload = {
+                    orders: payload.orders,
+                    customerShipToId: payload.customerShipToId
+                };
+                res = await updateOrder(id, patchPayload);
             } else {
                 res = await createBulkOrders(payload);
             }
@@ -2006,7 +2068,7 @@ const OrderWizard = () => {
                                                             onClick={(e) => e.stopPropagation()}
                                                         >
                                                             <option value="stock">Stock</option>
-                                                            {(product.category?.toUpperCase().includes('LENS') || (configs.category?.find(c => c._id === product.categoryId)?.name?.toUpperCase().includes('LENS'))) && <option value="rx">Rx</option>}
+                                                            {(!product.category && !product.categoryId || product.category?.toUpperCase().includes('LENS') || (configs.category?.find(c => c._id === product.categoryId)?.name?.toUpperCase().includes('LENS'))) && <option value="rx">Rx</option>}
                                                         </select>
                                                     </td>
 
