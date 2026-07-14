@@ -56,7 +56,7 @@ const ForgotPassword = ({ type = 'employee' }) => {
                 <div className="w-full md:w-1/2 relative">
                     <img
                         src={loginImage}
-                        alt="Visual Lens"
+                        alt="DigiWholesale"
                         className="absolute inset-0 w-full h-full rounded-3xl object-cover opacity-80"
                     />
                     <div className="absolute inset-0 bg-gradient-to-r from-black/40 to-transparent" />

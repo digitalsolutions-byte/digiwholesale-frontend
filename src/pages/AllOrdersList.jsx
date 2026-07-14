@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
-import { getAllOrders, getOrderProductConfigs, cancelOrder, draftOrder, deleteOrder } from '../services/orderService';
+import { getAllOrders, getOrderProductConfigs, cancelOrder, draftOrder, deleteOrder, updateBulkOrderStatus } from '../services/orderService';
 import { getAllCustomers } from '../services/customerService';
 import { useSelector } from 'react-redux';
 import { selectCurrentUser } from '../store/slices/authSlice';
@@ -12,6 +13,42 @@ import dayjs from 'dayjs';
 import ConfirmationModal from '../components/ui/ConfirmationModal';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import api from '../services/apiInstance';
+import usePermissions from '../hooks/usePermissions';
+
+const ALLOWED_TRANSITIONS = {
+    Draft:           ['Submitted', 'Cancelled'],
+    Submitted:       ['Processing', 'Cancelled'],
+    Processing:      ['QC', 'Cancelled'],
+    QC:              ['ReadyToDispatch', 'Cancelled'],
+    ReadyToDispatch: ['Dispatched', 'Cancelled'],
+    Dispatched:      ['Delivered', 'Cancelled'],
+    Delivered:       ['Completed'],
+    Completed:       [],
+    Cancelled:       [],
+};
+
+const STATUS_CONFIG = {
+    Draft:           { label: 'Draft',             color: '#6b7280', badge: 'bg-gray-100 text-gray-600 border-gray-200' },
+    Submitted:       { label: 'Submitted',          color: '#3b82f6', badge: 'bg-blue-100 text-blue-700 border-blue-200' },
+    Processing:      { label: 'Processing',         color: '#f59e0b', badge: 'bg-amber-100 text-amber-700 border-amber-200' },
+    QC:              { label: 'Quality Check',      color: '#8b5cf6', badge: 'bg-purple-100 text-purple-700 border-purple-200' },
+    ReadyToDispatch: { label: 'Ready to Dispatch',  color: '#06b6d4', badge: 'bg-cyan-100 text-cyan-700 border-cyan-200' },
+    Dispatched:      { label: 'Dispatched',         color: '#6366f1', badge: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
+    Delivered:       { label: 'Delivered',          color: '#10b981', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+    Completed:       { label: 'Completed',          color: '#059669', badge: 'bg-green-100 text-green-700 border-green-200' },
+    Cancelled:       { label: 'Cancelled',          color: '#ef4444', badge: 'bg-red-100 text-red-700 border-red-200' },
+};
+
+const TRANSITION_BTN = {
+    Submitted:       'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200',
+    Processing:      'bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200',
+    QC:              'bg-purple-50 text-purple-700 hover:bg-purple-100 border-purple-200',
+    ReadyToDispatch: 'bg-cyan-50 text-cyan-700 hover:bg-cyan-100 border-cyan-200',
+    Dispatched:      'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200',
+    Delivered:       'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200',
+    Completed:       'bg-green-50 text-green-700 hover:bg-green-100 border-green-200',
+    Cancelled:       'bg-red-50 text-red-600 hover:bg-red-100 border-red-200',
+};
 
 const datePickerStyles = {
     '& .MuiOutlinedInput-root': {
@@ -42,6 +79,145 @@ const datePickerStyles = {
         marginRight: '8px'
     }
 };
+
+const ALL_STEPS = ['Draft', 'Submitted', 'Processing', 'QC', 'ReadyToDispatch', 'Dispatched', 'Delivered', 'Completed'];
+
+function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loading }) {
+    const normalised = Object.keys(STATUS_CONFIG).find(k => k.toLowerCase() === currentStatus?.toLowerCase()) || currentStatus;
+    const transitions = ALLOWED_TRANSITIONS[normalised] || [];
+    const currentIdx = ALL_STEPS.indexOf(normalised);
+
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+            <div
+                className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 border border-gray-100"
+                onClick={e => e.stopPropagation()}
+            >
+                <div className="p-8 pb-5 flex items-center gap-4 border-b border-gray-50 flex-shrink-0">
+                    <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+                        <Icon icon="mdi:swap-horizontal" className="text-3xl text-blue-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <h2 className="text-xl font-black text-gray-800 uppercase tracking-tight">Change Status</h2>
+                        <p className="text-xs font-bold text-gray-400 mt-0.5 truncate">
+                            {order?.customer?.customerName} &bull; #{order?.orders?.[0]?.orderNumber}
+                        </p>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors flex-shrink-0">
+                        <Icon icon="mdi:close" className="text-xl text-gray-400" />
+                    </button>
+                </div>
+
+                <div className="flex overflow-hidden flex-1">
+                    <div className="w-48 flex-shrink-0 border-r border-gray-50 p-6 overflow-y-auto">
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4">Order Journey</p>
+                        <div className="flex flex-col gap-0">
+                            {ALL_STEPS.map((step, idx) => {
+                                const cfg = STATUS_CONFIG[step];
+                                const isDone = idx < currentIdx;
+                                const isCurrent = idx === currentIdx;
+                                return (
+                                    <div key={step} className="flex items-start gap-3">
+                                        <div className="flex flex-col items-center flex-shrink-0">
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 flex-shrink-0 ${
+                                                isDone ? 'bg-emerald-500 border-emerald-500' :
+                                                isCurrent ? 'bg-white border-blue-500 ring-2 ring-blue-100' :
+                                                'bg-white border-gray-200'
+                                            }`}>
+                                                {isDone
+                                                    ? <Icon icon="mdi:check" className="text-white text-[10px]" />
+                                                    : isCurrent
+                                                        ? <div className="w-2 h-2 rounded-full bg-blue-500" />
+                                                        : <div className="w-1.5 h-1.5 rounded-full bg-gray-200" />
+                                                }
+                                            </div>
+                                            {idx < ALL_STEPS.length - 1 && (
+                                                <div className={`w-0.5 h-6 ${idx < currentIdx ? 'bg-emerald-300' : 'bg-gray-100'}`} />
+                                            )}
+                                        </div>
+                                        <div className="pb-4">
+                                            <span className={`text-[10px] font-black uppercase tracking-wider leading-tight ${
+                                                isDone ? 'text-emerald-600' :
+                                                isCurrent ? 'text-blue-600' :
+                                                'text-gray-300'
+                                            }`}>
+                                                {cfg.label}
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div className="flex-1 p-6 overflow-y-auto">
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4">
+                            {transitions.length > 0 ? 'Available Actions' : 'No Actions Available'}
+                        </p>
+                        <div className="flex flex-col gap-3">
+                            {transitions.length > 0 ? (
+                                transitions.map(next => {
+                                    const cfg = STATUS_CONFIG[next];
+                                    const isCancel = next === 'Cancelled';
+                                    return (
+                                        <button
+                                            key={next}
+                                            onClick={() => onTransition(order._id, next)}
+                                            disabled={!!loading}
+                                            className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl border-2 transition-all disabled:opacity-50 ${
+                                                isCancel
+                                                    ? 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100 hover:border-red-200'
+                                                    : TRANSITION_BTN[next] || 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.badge}`}>
+                                                    <Icon icon={isCancel ? 'mdi:close-circle-outline' : 'mdi:arrow-right-circle-outline'} className="text-lg" />
+                                                </div>
+                                                <div className="text-left">
+                                                    <p className="text-xs font-black uppercase tracking-wider">{cfg.label}</p>
+                                                    <p className="text-[10px] font-medium opacity-60 mt-0.5">
+                                                        {isCancel ? 'Stop and cancel this order' : 'Move order to this stage'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            {loading === next
+                                                ? <Icon icon="mdi:loading" className="animate-spin text-xl flex-shrink-0" />
+                                                : <Icon icon="mdi:chevron-right" className="text-xl opacity-40 flex-shrink-0" />
+                                            }
+                                        </button>
+                                    );
+                                })
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-12 text-center">
+                                    <Icon
+                                        icon={normalised === 'Cancelled' ? 'mdi:close-circle' : 'mdi:check-circle'}
+                                        className={`text-5xl mb-3 ${normalised === 'Cancelled' ? 'text-red-300' : 'text-emerald-300'}`}
+                                    />
+                                    <p className="text-sm font-black text-gray-400 uppercase tracking-widest">
+                                        {normalised === 'Cancelled' ? 'Order Cancelled' : 'Order Completed'}
+                                    </p>
+                                    <p className="text-xs text-gray-300 font-medium mt-1">No further actions available</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex justify-end px-8 py-5 border-t border-gray-50 flex-shrink-0 bg-gray-50/30">
+                    <button
+                        onClick={onClose}
+                        className="px-6 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider text-gray-500 border-2 border-gray-200 hover:bg-gray-100 transition-all"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>,
+        document.body
+    );
+}
+
 
 const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
     const navigate = useNavigate();
@@ -112,6 +288,51 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
         loading: false
     });
     const [cancelReason, setCancelReason] = useState('');
+
+    // Status update state
+    const [statusUpdate, setStatusUpdate] = useState({ loading: {} });
+    const [cancelConfirm, setCancelConfirm] = useState({ isOpen: false, orderId: null, orderNumber: null, loading: false });
+    const [statusPopup, setStatusPopup] = useState({ isOpen: false, order: null, currentStatus: '' });
+
+    const { hasPermission } = usePermissions();
+    const canUpdateStatus = hasPermission('UPDATE_ORDER');
+
+    const handleStatusTransition = async (orderId, newStatus, orderNumber = null) => {
+        if (newStatus === 'Cancelled') {
+            setCancelConfirm({ isOpen: true, orderId, orderNumber, loading: false });
+            return;
+        }
+        setStatusUpdate(prev => ({ loading: { ...prev.loading, [orderId]: newStatus } }));
+        try {
+            const res = await updateBulkOrderStatus(orderId, newStatus, orderNumber);
+            if (res.success) {
+                toast.success(`Status updated to ${STATUS_CONFIG[newStatus]?.label || newStatus}`);
+                setStatusPopup({ isOpen: false, order: null, currentStatus: '' });
+                fetchOrders(pagination.currentPage);
+            }
+        } catch (err) {
+            toast.error(err?.error?.message || err?.message || 'Failed to update status');
+        } finally {
+            setStatusUpdate(prev => ({ loading: { ...prev.loading, [orderId]: null } }));
+        }
+    };
+
+    const handleConfirmCancel = async () => {
+        const { orderId, orderNumber } = cancelConfirm;
+        setCancelConfirm(prev => ({ ...prev, loading: true }));
+        try {
+            const res = await updateBulkOrderStatus(orderId, 'Cancelled', orderNumber);
+            if (res.success) {
+                toast.success('Order cancelled');
+                setCancelConfirm({ isOpen: false, orderId: null, orderNumber: null, loading: false });
+                setStatusPopup({ isOpen: false, order: null, currentStatus: '' });
+                fetchOrders(pagination.currentPage);
+            }
+        } catch (err) {
+            toast.error(err?.error?.message || err?.message || 'Failed to cancel order');
+            setCancelConfirm(prev => ({ ...prev, loading: false }));
+        }
+    };
 
     // Filter States
     const [searchTerm, setSearchTerm] = useState('');
@@ -262,15 +483,9 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
     };
 
     const getStatusBadge = (status) => {
-        const statusMap = {
-            'DRAFT': 'bg-gray-100 text-gray-700 border-gray-200',
-            'SUBMITTED': 'bg-amber-100 text-amber-700 border-amber-200',
-            'PROCESSING': 'bg-blue-100 text-blue-700 border-blue-200',
-            'COMPLETED': 'bg-green-100 text-green-700 border-green-200',
-            'CANCELLED': 'bg-red-100 text-red-700 border-red-200'
-        };
-        const style = statusMap[status?.toUpperCase()] || 'bg-gray-100 text-gray-700 border-gray-200';
-        return `px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${style}`;
+        const cfg = STATUS_CONFIG[status] || STATUS_CONFIG[Object.keys(STATUS_CONFIG).find(k => k.toLowerCase() === status?.toLowerCase())];
+        const cls = cfg?.badge || 'bg-gray-100 text-gray-700 border-gray-200';
+        return `px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${cls}`;
     };
 
     return (
@@ -389,7 +604,7 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
                                     <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Sub Orders</th>
                                     <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Total Qty</th>
                                     <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Order Total</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Status</th>
+                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase whitespace-nowrap min-w-[200px]">Status</th>
                                     <th className="py-4 px-4 font-semibold text-xs text-center uppercase ">Action</th>
                                 </tr>
                             </thead>
@@ -450,24 +665,15 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
                                                         ₹{order?.orders[0].totalOrderPrice || '0.00'}
                                                     </span>
                                                 </td>
-                                                <td className="px-4 py-2 text-center border-r border-gray-50 uppercase">
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <span className={getStatusBadge(orderStatus)}>
-                                                            {orderStatus}
-                                                        </span>
-                                                        {orderStatus?.toUpperCase() === 'DRAFT' && (
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    navigate(PATHS.CUSTOMER_CARE.EDIT_ORDER.replace(':id', order._id));
-                                                                }}
-                                                                className="p-1.5 bg-erp-accent/5 text-erp-accent/80 rounded-lg hover:bg-erp-accent hover:text-white transition-all shadow-sm border border-erp-accent/10"
-                                                                title="Edit Draft Order"
-                                                            >
-                                                                <Icon icon="mdi:pencil" className="text-sm" />
-                                                            </button>
-                                                        )}
-                                                    </div>
+                                                <td className="px-4 py-2 text-center border-r border-gray-50">
+                                                    {(() => {
+                                                        const cfg = STATUS_CONFIG[orderStatus] || STATUS_CONFIG[Object.keys(STATUS_CONFIG).find(k => k.toLowerCase() === orderStatus?.toLowerCase())] || { label: orderStatus, badge: 'bg-gray-100 text-gray-700 border-gray-200' };
+                                                        return (
+                                                            <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${cfg.badge}`}>
+                                                                {cfg.label}
+                                                            </span>
+                                                        );
+                                                    })()}
                                                 </td>
                                                 <td className="px-4 py-2 text-center relative" onClick={(e) => e.stopPropagation()}>
                                                     <button
@@ -505,6 +711,19 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
                                                                     <Icon icon="mdi:file-document" className="text-base" />
                                                                     Full Details
                                                                 </button>
+
+                                                                {canUpdateStatus && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setStatusPopup({ isOpen: true, order, currentStatus: orderStatus });
+                                                                            setActiveActionMenu(null);
+                                                                        }}
+                                                                        className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-blue-600 hover:bg-blue-50 transition-colors"
+                                                                    >
+                                                                        <Icon icon="mdi:swap-horizontal" className="text-base" />
+                                                                        Change Status
+                                                                    </button>
+                                                                )}
 
                                                                 {/* Download Challan */}
                                                                 <button
@@ -774,7 +993,28 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
                     </div>
                 )}
             </ConfirmationModal>
-        </div>
+
+            {statusPopup.isOpen && statusPopup.order && (
+                <StatusJourneyModal
+                    order={statusPopup.order}
+                    currentStatus={statusPopup.currentStatus}
+                    onClose={() => setStatusPopup({ isOpen: false, order: null, currentStatus: '' })}
+                    onTransition={handleStatusTransition}
+                    loading={statusUpdate.loading[statusPopup.order._id]}
+                />
+            )}
+
+            <ConfirmationModal
+                isOpen={cancelConfirm.isOpen}
+                onClose={() => setCancelConfirm({ isOpen: false, orderId: null, orderNumber: null, loading: false })}
+                onConfirm={handleConfirmCancel}
+                loading={cancelConfirm.loading}
+                title="Cancel Order"
+                message="Are you sure you want to cancel this order? This action cannot be undone."
+                confirmText="Confirm Cancel"
+                cancelText="Go Back"
+                type="danger"
+            />        </div>
     );
 };
 

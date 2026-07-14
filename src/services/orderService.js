@@ -185,3 +185,13 @@ export const getRxOrders = async (search = '') => {
 };
 
 
+
+export const updateBulkOrderStatus = async (orderId, status, orderNumber = null) => {
+    try {
+        const payload = orderNumber ? { orderNumber, status } : { status };
+        const response = await api.patch(`/api/order/bulk-orders/${orderId}/status`, payload);
+        return response.data;
+    } catch (error) {
+        throw error.response ? error.response.data : new Error('Failed to update order status');
+    }
+};
