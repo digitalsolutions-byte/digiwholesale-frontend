@@ -1,4 +1,4 @@
-import api from './apiInstance';
+import api, { handleServiceError } from './apiInstance';
 
 export const uploadImage = async (imageFile) => {
     try {
@@ -15,6 +15,6 @@ export const uploadImage = async (imageFile) => {
         // Adjust based on actual API response structure
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to upload image');
+        throw handleServiceError(error, 'Failed to upload image');
     }
 };

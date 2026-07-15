@@ -832,7 +832,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
                 toast.error(res.data.message || "Upload failed.");
             }
         } catch (err) {
-            toast.error(err.response?.data?.message || "Something went wrong.");
+            toast.error(err.message || err.response?.data?.message || "Something went wrong.");
         } finally {
             setSubmitting(false);
         }
@@ -1440,7 +1440,7 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                 Swal.fire({ icon: "success", title: "Deleted!", timer: 1500, showConfirmButton: false });
             }
         } catch (error) {
-            Swal.fire({ icon: "error", title: "Error", text: error.response?.data?.message || "Something went wrong" });
+            Swal.fire({ icon: "error", title: "Error", text: error.message || error.response?.data?.message || "Something went wrong" });
         }
     };
 
@@ -1487,7 +1487,7 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                 clearSelection();
             }
         } catch (error) {
-            Swal.fire({ icon: "error", title: "Error", text: error.response?.data?.message || "Something went wrong" });
+            Swal.fire({ icon: "error", title: "Error", text: error.message || error.response?.data?.message || "Something went wrong" });
         }
     };
 

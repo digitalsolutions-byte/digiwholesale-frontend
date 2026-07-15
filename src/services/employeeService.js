@@ -1,11 +1,11 @@
-import api from './apiInstance';
+import api, { handleServiceError } from './apiInstance';
 
 export const createSupervisorUser = async (userData) => {
     try {
         const response = await api.post('/api/employee/management/create-employee', userData);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to create supervisor Employee');
+        throw handleServiceError(error, 'Failed to create supervisor Employee');
     }
 };
 export const getAllEmployees = async (page = 1, limit = 10, filters = {}) => {
@@ -14,7 +14,7 @@ export const getAllEmployees = async (page = 1, limit = 10, filters = {}) => {
         const response = await api.get(`/api/employee/management/get-all-employees?${queryParams.toString()}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch employees');
+        throw handleServiceError(error, 'Failed to fetch employees');
     }
 };
 
@@ -23,7 +23,7 @@ export const getEmployeeById = async (id) => {
         const response = await api.get(`/api/employee/management/get-employee/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch employee details');
+        throw handleServiceError(error, 'Failed to fetch employee details');
     }
 };
 
@@ -32,7 +32,7 @@ export const getDraftEmployeeById = async (id) => {
         const response = await api.get(`/api/employee/management/get-draft-employee/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch draft employee details');
+        throw handleServiceError(error, 'Failed to fetch draft employee details');
     }
 };
 export const createDraftEmployee = async (userData) => {
@@ -40,7 +40,7 @@ export const createDraftEmployee = async (userData) => {
         const response = await api.post('/api/employee/management/create-draft-employee', userData);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to save employee draft');
+        throw handleServiceError(error, 'Failed to save employee draft');
     }
 };
 
@@ -49,7 +49,7 @@ export const updateDraftEmployee = async (id, userData) => {
         const response = await api.put(`/api/employee/management/update-draft-employee/${id}`, userData);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to update employee draft');
+        throw handleServiceError(error, 'Failed to update employee draft');
     }
 };
 
@@ -58,7 +58,7 @@ export const getAllDraftEmployees = async (page = 1, limit = 10) => {
         const response = await api.get(`/api/employee/management/get-all-draft-employee?page=${page}&limit=${limit}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch all draft employees');
+        throw handleServiceError(error, 'Failed to fetch all draft employees');
     }
 };
 
@@ -67,7 +67,7 @@ export const getMyDraftEmployees = async (page = 1, limit = 10) => {
         const response = await api.get(`/api/employee/management/get-my-draft-employee?page=${page}&limit=${limit}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch my draft employees');
+        throw handleServiceError(error, 'Failed to fetch my draft employees');
     }
 };
 
@@ -76,7 +76,7 @@ export const updateEmployee = async (id, userData) => {
         const response = await api.put(`/api/employee/management/update-employee/${id}`, userData);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to update employee');
+        throw handleServiceError(error, 'Failed to update employee');
     }
 };
 
@@ -85,7 +85,7 @@ export const deleteEmployee = async (id) => {
         const response = await api.delete(`/api/employee/management/delete-employee/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to delete employee');
+        throw handleServiceError(error, 'Failed to delete employee');
     }
 };
 
@@ -94,7 +94,7 @@ export const deactivateDraftEmployee = async (id) => {
         const response = await api.delete(`/api/employee/management/deactivate-draft-employee/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to deactivate draft employee');
+        throw handleServiceError(error, 'Failed to deactivate draft employee');
     }
 };
 
@@ -108,7 +108,7 @@ export const getMultipleEmployees = async (employeeIds, department, page = 1, li
         const response = await api.get(`/api/employee/management/get-multiple-employees?${queryParams.toString()}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch multiple employees');
+        throw handleServiceError(error, 'Failed to fetch multiple employees');
     }
 };
 

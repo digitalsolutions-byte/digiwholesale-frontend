@@ -1,4 +1,4 @@
-import api from './apiInstance';
+import api, { handleServiceError } from './apiInstance';
 
 /**
  * Creates a new purchase order for a vendor
@@ -10,7 +10,7 @@ export const createVendorOrder = async (data) => {
         const response = await api.post('/api/vendor-order', data);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to create vendor order');
+        throw handleServiceError(error, 'Failed to create vendor order');
     }
 };
 
@@ -24,7 +24,7 @@ export const getVendorOrderSuggestions = async (query) => {
         const response = await api.get(`/api/vendor-order/suggestion?q=${query}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch suggestions');
+        throw handleServiceError(error, 'Failed to fetch suggestions');
     }
 };
 
@@ -39,7 +39,7 @@ export const getAllVendorOrders = async (page = 1, limit = 10) => {
         const response = await api.get(`/api/vendor-order?page=${page}&limit=${limit}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch vendor orders');
+        throw handleServiceError(error, 'Failed to fetch vendor orders');
     }
 };
 
@@ -53,7 +53,7 @@ export const getVendorOrderById = async (id) => {
         const response = await api.get(`/api/vendor-order/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch vendor order details');
+        throw handleServiceError(error, 'Failed to fetch vendor order details');
     }
 };
 
@@ -68,7 +68,7 @@ export const updateVendorOrderStatus = async (id, status) => {
         const response = await api.put(`/api/vendor-order/${id}/status`, { status });
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to update status');
+        throw handleServiceError(error, 'Failed to update status');
     }
 };
 
@@ -83,7 +83,7 @@ export const updateVendorOrderIssues = async (id, items) => {
         const response = await api.put(`/api/vendor-order/issues/${id}`, { items });
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to record issues');
+        throw handleServiceError(error, 'Failed to record issues');
     }
 };
 
@@ -97,7 +97,7 @@ export const deleteVendorOrder = async (id) => {
         const response = await api.delete(`/api/vendor-order/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to delete order');
+        throw handleServiceError(error, 'Failed to delete order');
     }
 };
 
@@ -111,7 +111,7 @@ export const searchVendorOrders = async (filters) => {
         const response = await api.post('/api/vendor-order/search', filters);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Search failed');
+        throw handleServiceError(error, 'Search failed');
     }
 };
 
@@ -125,7 +125,7 @@ export const createVendorPurchaseItems = async (data) => {
         const response = await api.post('/api/purchase/create-vendor-purchase-items', data);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to create vendor purchase items');
+        throw handleServiceError(error, 'Failed to create vendor purchase items');
     }
 };
 
@@ -139,7 +139,7 @@ export const searchProductNames = async (query) => {
         const response = await api.get(`/api/digi/product/names?search=${query}&page=1&limit=100`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to search product names');
+        throw handleServiceError(error, 'Failed to search product names');
     }
 };
 
@@ -158,7 +158,7 @@ export const getAllPurchaseItems = async (search = '', page = 1, limit = 10) => 
         const response = await api.get(`/api/purchase/get-all-purchase-items?${queryParams.toString()}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch purchase items');
+        throw handleServiceError(error, 'Failed to fetch purchase items');
     }
 };
 
@@ -172,7 +172,7 @@ export const getPurchaseItemDetails = async (id) => {
         const response = await api.get(`/api/purchase/get-purchase-items-details/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch purchase item details');
+        throw handleServiceError(error, 'Failed to fetch purchase item details');
     }
 };
 
@@ -186,7 +186,7 @@ export const getVendorPurchaseOrders = async (vendorId) => {
         const response = await api.get(`/api/purchase/vendor-orders/${vendorId}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch vendor purchase orders');
+        throw handleServiceError(error, 'Failed to fetch vendor purchase orders');
     }
 };
 
@@ -201,7 +201,7 @@ export const updatePurchaseItem = async (id, payload) => {
         const response = await api.patch(`/api/purchase/update-vendor-purchase-items/${id}`, payload);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to update purchase item');
+        throw handleServiceError(error, 'Failed to update purchase item');
     }
 };
 
@@ -215,7 +215,7 @@ export const deletePurchaseItem = async (id) => {
         const response = await api.delete(`/api/purchase/delete-vendor-purchase-items/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to delete purchase item');
+        throw handleServiceError(error, 'Failed to delete purchase item');
     }
 };
 
@@ -230,7 +230,7 @@ export const createPurchaseInward = async (data) => {
         const response = await api.post('/api/purchase-inward/create', data);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to create purchase inward');
+        throw handleServiceError(error, 'Failed to create purchase inward');
     }
 };
 
@@ -246,7 +246,7 @@ export const getAllInwardItems = async (page = 1, limit = 10) => {
         const response = await api.get(`/api/purchase-inward/get-all-items?page=${page}&limit=${limit}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch inward items');
+        throw handleServiceError(error, 'Failed to fetch inward items');
     }
 };
 
@@ -261,7 +261,7 @@ export const getInwardById = async (id) => {
         const response = await api.get(`/api/purchase-inward/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch inward details');
+        throw handleServiceError(error, 'Failed to fetch inward details');
     }
 };
 
@@ -276,7 +276,7 @@ export const createPurchaseQC = async (data) => {
         const response = await api.post('/api/purchase-qc/create', data);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to create purchase QC');
+        throw handleServiceError(error, 'Failed to create purchase QC');
     }
 };
 
@@ -292,7 +292,7 @@ export const getAllQCItems = async (page = 1, limit = 10) => {
         const response = await api.get(`/api/purchase-qc/get-all-items?page=${page}&limit=${limit}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch QC items');
+        throw handleServiceError(error, 'Failed to fetch QC items');
     }
 };
 
@@ -307,7 +307,7 @@ export const getQCById = async (id) => {
         const response = await api.get(`/api/purchase-qc/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch QC details');
+        throw handleServiceError(error, 'Failed to fetch QC details');
     }
 };
 
@@ -323,7 +323,7 @@ export const updateVendorPurchaseOrder = async (purchaseOrderId, payload) => {
         const response = await api.patch(`/api/purchase/update-vendor-purchase-items/${purchaseOrderId}`, payload);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to update vendor purchase order');
+        throw handleServiceError(error, 'Failed to update vendor purchase order');
     }
 };
 
@@ -340,7 +340,7 @@ export const updatePurchaseReturnItemStatus = async (returnId, payload) => {
         const response = await api.patch(`/api/purchase-return/${returnId}/items-status`, payload);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to update return item status');
+        throw handleServiceError(error, 'Failed to update return item status');
     }
 };
 
@@ -356,7 +356,7 @@ export const updateVendorRefIds = async (purchaseOrderId, payload) => {
         const response = await api.patch(`/api/purchase/${purchaseOrderId}/vendor-ref-id`, payload);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to update vendor reference IDs');
+        throw handleServiceError(error, 'Failed to update vendor reference IDs');
     }
 };
 
@@ -375,7 +375,7 @@ export const getAllPurchaseReturns = async (page = 1, limit = 10, search = '') =
         const response = await api.get(`/api/purchase-return/get-all-items?${queryParams.toString()}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch purchase returns');
+        throw handleServiceError(error, 'Failed to fetch purchase returns');
     }
 };
 
@@ -391,7 +391,7 @@ export const getQCFailedReport = async (page = 1, limit = 10) => {
         const response = await api.get(`/api/purchase-qc/failed-report?page=${page}&limit=${limit}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch QC failed report');
+        throw handleServiceError(error, 'Failed to fetch QC failed report');
     }
 };
 
@@ -407,7 +407,7 @@ export const getAllInwardedPurchaseItems = async (page = 1, limit = 10) => {
         const response = await api.get(`/api/purchase/items/all-inwarded?page=${page}&limit=${limit}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch all inwarded items');
+        throw handleServiceError(error, 'Failed to fetch all inwarded items');
     }
 };
 
@@ -423,7 +423,7 @@ export const getPendingInwardItems = async (page = 1, limit = 10) => {
         const response = await api.get(`/api/purchase/items/pending-inward?page=${page}&limit=${limit}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch pending inward items');
+        throw handleServiceError(error, 'Failed to fetch pending inward items');
     }
 };
 
@@ -439,7 +439,7 @@ export const getQcPendingItems = async (page = 1, limit = 10) => {
         const response = await api.get(`/api/purchase/items/qc-pending?page=${page}&limit=${limit}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch QC pending items');
+        throw handleServiceError(error, 'Failed to fetch QC pending items');
     }
 };
 
@@ -455,7 +455,7 @@ export const getQcPassedItems = async (page = 1, limit = 10) => {
         const response = await api.get(`/api/purchase/items/qc-passed?page=${page}&limit=${limit}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch QC passed items');
+        throw handleServiceError(error, 'Failed to fetch QC passed items');
     }
 };
 
@@ -473,7 +473,7 @@ export const getReplacementOrders = async (page = 1, limit = 10) => {
         const response = await api.get(`/api/purchase/replacement-orders?page=${page}&limit=${limit}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch replacement orders');
+        throw handleServiceError(error, 'Failed to fetch replacement orders');
     }
 };
 
@@ -488,7 +488,7 @@ export const getReplacementOrderDetail = async (id) => {
         const response = await api.get(`/api/purchase/replacement-orders/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch replacement order details');
+        throw handleServiceError(error, 'Failed to fetch replacement order details');
     }
 };
 
@@ -502,6 +502,6 @@ export const submitReplacementOrder = async (data) => {
         const response = await api.post('/api/purchase/create-replacement-order', data);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to submit replacement order');
+        throw handleServiceError(error, 'Failed to submit replacement order');
     }
 };

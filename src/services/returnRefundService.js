@@ -1,4 +1,4 @@
-import api from './apiInstance';
+import api, { handleServiceError } from './apiInstance';
 
 /**
  * Fetches all return-refund items
@@ -10,7 +10,7 @@ export const getAllReturnRefunds = async () => {
         const response = await api.get('/api/return-refund/get-all-return-items');
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch return-refund requests');
+        throw handleServiceError(error, 'Failed to fetch return-refund requests');
     }
 };
 
@@ -25,7 +25,7 @@ export const getReturnRefundById = async (id) => {
         const response = await api.get(`/api/return-refund/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch return-refund details');
+        throw handleServiceError(error, 'Failed to fetch return-refund details');
     }
 };
 
@@ -40,7 +40,7 @@ export const createReturnRefund = async (data) => {
         const response = await api.post('/api/return-refund/create', data);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to create return-refund request');
+        throw handleServiceError(error, 'Failed to create return-refund request');
     }
 };
 
@@ -56,7 +56,7 @@ export const updateReturnRefundStatus = async (id, statusData) => {
         const response = await api.put(`/api/return-refund/${id}/status`, statusData);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to update status');
+        throw handleServiceError(error, 'Failed to update status');
     }
 };
 
@@ -72,7 +72,7 @@ export const updateReturnRefund = async (id, data) => {
         const response = await api.put(`/api/return-refund/${id}`, data);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to update return-refund');
+        throw handleServiceError(error, 'Failed to update return-refund');
     }
 };
 
@@ -87,7 +87,7 @@ export const deleteReturnRefund = async (id) => {
         const response = await api.delete(`/api/return-refund/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to delete return-refund');
+        throw handleServiceError(error, 'Failed to delete return-refund');
     }
 };
 
@@ -102,6 +102,6 @@ export const searchReturnRefunds = async (searchParams) => {
         const response = await api.post('/api/return-refund/get-all-return-items', searchParams);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to search return-refunds');
+        throw handleServiceError(error, 'Failed to search return-refunds');
     }
 };

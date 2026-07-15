@@ -1,4 +1,4 @@
-import api from './apiInstance';
+import api, { handleServiceError } from './apiInstance';
 
 /**
  * Registers a new vendor
@@ -10,7 +10,7 @@ export const createVendor = async (data) => {
         const response = await api.post('/api/vendor', data);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to create vendor');
+        throw handleServiceError(error, 'Failed to create vendor');
     }
 };
 
@@ -24,7 +24,7 @@ export const getVendorSuggestions = async (query) => {
         const response = await api.get(`/api/vendor/suggestion?q=${query}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch suggestions');
+        throw handleServiceError(error, 'Failed to fetch suggestions');
     }
 };
 
@@ -39,7 +39,7 @@ export const getAllVendors = async (page = 1, limit = 10) => {
         const response = await api.get(`/api/vendor?page=${page}&limit=${limit}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch vendors');
+        throw handleServiceError(error, 'Failed to fetch vendors');
     }
 };
 
@@ -53,7 +53,7 @@ export const getVendorById = async (id) => {
         const response = await api.get(`/api/vendor/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch vendor details');
+        throw handleServiceError(error, 'Failed to fetch vendor details');
     }
 };
 
@@ -68,7 +68,7 @@ export const updateVendor = async (id, data) => {
         const response = await api.put(`/api/vendor/${id}`, data);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to update vendor');
+        throw handleServiceError(error, 'Failed to update vendor');
     }
 };
 
@@ -82,7 +82,7 @@ export const deleteVendor = async (id) => {
         const response = await api.delete(`/api/vendor/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to delete vendor');
+        throw handleServiceError(error, 'Failed to delete vendor');
     }
 };
 
@@ -96,6 +96,6 @@ export const searchVendors = async (filters) => {
         const response = await api.post('/api/vendor/search', filters);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Search failed');
+        throw handleServiceError(error, 'Search failed');
     }
 };

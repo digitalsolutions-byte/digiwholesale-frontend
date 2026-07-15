@@ -243,6 +243,48 @@ const Registration = () => {
         }
     }, [searchParams, loadDraftData]);
 
+    const applyDefaultPermissions = (employeeType, departmentId, roleCode) => {
+        const type = employeeType?.toUpperCase();
+        const dept = configs.departments.find(d => d._id === departmentId);
+        const deptName = dept?.name?.toUpperCase() || '';
+        const role = roleCode?.toUpperCase() || '';
+
+        let defaultPageAccess = ['DASHBOARD'];
+        let defaultAccessPermissions = [];
+
+        if (type === 'SUPERADMIN') {
+            defaultPageAccess = PAGE_ACCESS_OPTIONS.map(o => o.value);
+            defaultAccessPermissions = ACCESS_PERMISSION_OPTIONS.map(o => o.value);
+        } else if (type === 'ADMIN') {
+            defaultPageAccess = ['DASHBOARD', 'REGISTER_STAFF', 'STAFF_LIST', 'DAILY_REPORT', 'MAIN_REPORT'];
+            defaultAccessPermissions = ['ADD_STAFF', 'UPDATE_STAFF', 'VIEW_REPORTS'];
+        } else {
+            // STAFF / other categories
+            if (deptName === 'SALES') {
+                defaultPageAccess = ['DASHBOARD', 'NEW_ORDER', 'ALL_ORDERS', 'PENDING_ORDERS', 'OTHER_SALES', 'SALES_LIST', 'CUSTOMER_LIST', 'SHIP_TO', 'RETURN_REFUND', 'EXCHANGE_REQUESTS', 'DRAFTS'];
+                defaultAccessPermissions = ['ADD_ORDER', 'UPDATE_ORDER', 'ADD_DRAFT', 'UPDATE_DRAFT', 'ADD_CUSTOMER', 'UPDATE_CUSTOMER'];
+                if (role === 'MANAGER' || role === 'SUPERVISOR') {
+                    defaultAccessPermissions.push('APPROVE_ORDER');
+                }
+            } else if (deptName === 'FINANCE') {
+                defaultPageAccess = ['DASHBOARD', 'APPROVALS', 'CORRECTIONS', 'DAILY_REPORT', 'MAIN_REPORT'];
+                defaultAccessPermissions = ['APPROVE_ORDER', 'VIEW_REPORTS', 'EXPORT_REPORTS'];
+            } else if (deptName === 'PURCHASE' || deptName === 'INVENTORY' || deptName === 'STORE') {
+                defaultPageAccess = ['DASHBOARD', 'ADD_VENDOR', 'VENDOR_LIST', 'VENDOR_ORDER', 'QUALITY', 'INVENTORY'];
+                defaultAccessPermissions = ['ADD_VENDOR', 'UPDATE_VENDOR', 'UPDATE_QUALITY', 'UPDATE_INVENTORY'];
+            } else if (deptName === 'CUSTOMER_CARE' || deptName === 'CUSTOMER SERVICE') {
+                defaultPageAccess = ['DASHBOARD', 'CUSTOMER_LIST', 'SHIP_TO', 'ALL_ORDERS', 'RETURN_REFUND', 'EXCHANGE_REQUESTS', 'ADD_REPAIR', 'REPAIR_LIST'];
+                defaultAccessPermissions = ['ADD_CUSTOMER', 'UPDATE_CUSTOMER', 'ADD_REPAIR', 'UPDATE_REPAIR'];
+            } else if (deptName === 'LOGISTICS' || deptName === 'SHIPPING' || deptName === 'FITTING') {
+                defaultPageAccess = ['DASHBOARD', 'FITTING', 'SHIPPING'];
+                defaultAccessPermissions = ['UPDATE_FITTING', 'UPDATE_SHIPPING'];
+            }
+        }
+
+        setPageAccess(defaultPageAccess);
+        setAccessPermissions(defaultAccessPermissions);
+    };
+
     const handleSaveDraft = async () => {
         setSavingDraft(true);
         try {
@@ -464,6 +506,8 @@ const Registration = () => {
                 setLoadingLocation(false);
             }
         }
+        
+        applyDefaultPermissions(formik.values.employeeType, deptId, '');
     };
 
     const handleZoneChange = async (e) => {
@@ -610,6 +654,7 @@ const Registration = () => {
                                 if (newType === 'ADMIN') {
                                     formik.setFieldValue('role', '');
                                 }
+                                applyDefaultPermissions(newType, formik.values.department, newType === 'ADMIN' ? '' : formik.values.role);
                             }}
                             onBlur={formik.handleBlur}
                             placeholder="Select Staff Category"
@@ -699,7 +744,11 @@ const Registration = () => {
                                 variant="orange"
                                 value={formik.values.role}
                                 onClick={() => { if (!formik.values.department) toast.error("Please select department first") }}
-                                onChange={formik.handleChange}
+                                onChange={(e) => {
+                                    const newRole = e.target.value;
+                                    formik.handleChange(e);
+                                    applyDefaultPermissions(formik.values.employeeType, formik.values.department, newRole);
+                                }}
                                 onBlur={formik.handleBlur}
                                 placeholder="Select Role"
                                 error={formik.touched.role && formik.errors.role ? { message: formik.errors.role } : null}

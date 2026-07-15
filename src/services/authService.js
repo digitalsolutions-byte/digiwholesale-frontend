@@ -1,4 +1,4 @@
-import api from './apiInstance';
+import api, { handleServiceError } from './apiInstance';
 
 export const loginUser = async (loginData) => {
     console.log(loginData);
@@ -7,7 +7,7 @@ export const loginUser = async (loginData) => {
         console.log(response.data, "response");
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Login failed');
+        throw handleServiceError(error, 'Login failed');
     }
 };
 
@@ -16,7 +16,7 @@ export const logoutUser = async () => {
         const response = await api.post('/api/employee/auth/logout');
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Logout failed');
+        throw handleServiceError(error, 'Logout failed');
     }
 };
 
@@ -25,7 +25,7 @@ export const employeeForgotPassword = async (email) => {
         const response = await api.post('/api/employee/auth/forgot-password', { email });
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Request failed');
+        throw handleServiceError(error, 'Request failed');
     }
 };
 
@@ -37,7 +37,7 @@ export const employeeResetPassword = async ({ uidb36, token, password, confirmPa
         );
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Reset failed');
+        throw handleServiceError(error, 'Reset failed');
     }
 };
 
@@ -46,7 +46,7 @@ export const customerForgotPassword = async (email) => {
         const response = await api.post('/api/customer/management/forgot-password', { email });
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Request failed');
+        throw handleServiceError(error, 'Request failed');
     }
 };
 
@@ -58,7 +58,7 @@ export const customerResetPassword = async ({ uidb36, token, password, confirmPa
         );
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Reset failed');
+        throw handleServiceError(error, 'Reset failed');
     }
 };
 export const refreshAccessToken = async (refreshToken) => {
@@ -66,6 +66,6 @@ export const refreshAccessToken = async (refreshToken) => {
         const response = await api.post('/api/employee/auth/refresh', { refreshToken });
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Refresh failed');
+        throw handleServiceError(error, 'Refresh failed');
     }
 };

@@ -1,4 +1,4 @@
-import api from './apiInstance';
+import api, { handleServiceError } from './apiInstance';
 
 /**
  * Fetches all repairs with pagination
@@ -11,7 +11,7 @@ export const getAllRepairs = async (page = 1, limit = 10) => {
         const response = await api.get(`/api/repair?page=${page}&limit=${limit}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch repairs');
+        throw handleServiceError(error, 'Failed to fetch repairs');
     }
 };
 
@@ -25,7 +25,7 @@ export const searchRepairs = async (filters) => {
         const response = await api.post('/api/repair/search', filters);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Search failed');
+        throw handleServiceError(error, 'Search failed');
     }
 };
 
@@ -43,7 +43,7 @@ export const createRepair = async (formData) => {
         });
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to create repair');
+        throw handleServiceError(error, 'Failed to create repair');
     }
 };
 
@@ -58,7 +58,7 @@ export const updateRepairStatus = async (id, status) => {
         const response = await api.patch(`/api/repair/${id}/status`, { status });
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to update repair status');
+        throw handleServiceError(error, 'Failed to update repair status');
     }
 };
 
@@ -72,7 +72,7 @@ export const getRepairById = async (id) => {
         const response = await api.get(`/api/repair/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch repair details');
+        throw handleServiceError(error, 'Failed to fetch repair details');
     }
 };
 
@@ -87,7 +87,7 @@ export const updateRepair = async (id, data) => {
         const response = await api.put(`/api/repair/${id}`, data);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to update repair');
+        throw handleServiceError(error, 'Failed to update repair');
     }
 };
 
@@ -101,7 +101,7 @@ export const deleteRepair = async (id) => {
         const response = await api.delete(`/api/repair/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to delete repair');
+        throw handleServiceError(error, 'Failed to delete repair');
     }
 };
 

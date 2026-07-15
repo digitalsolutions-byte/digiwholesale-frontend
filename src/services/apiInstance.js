@@ -117,4 +117,16 @@ api.interceptors.response.use(
     }
 );
 
+export const handleServiceError = (error, defaultMessage) => {
+    const backendMessage = error.response?.data?.message || error.response?.data?.error?.message || error.message;
+    const msg = backendMessage || defaultMessage;
+    const err = new Error(msg);
+    err.response = {
+        data: {
+            message: msg
+        }
+    };
+    return err;
+};
+
 export default api;

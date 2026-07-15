@@ -1,4 +1,4 @@
-import api from './apiInstance';
+import api, { handleServiceError } from './apiInstance';
 
 export const getAllOrders = async (page = 1, limit = 10, filters = {}) => {
     try {
@@ -6,7 +6,7 @@ export const getAllOrders = async (page = 1, limit = 10, filters = {}) => {
         const response = await api.get(`/api/order/get-all-orders?${queryParams.toString()}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch orders');
+        throw handleServiceError(error, 'Failed to fetch orders');
     }
 };
 
@@ -15,7 +15,7 @@ export const getOrderById = async (id) => {
         const response = await api.get(`/api/order/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch order details');
+        throw handleServiceError(error, 'Failed to fetch order details');
     }
 };
 
@@ -24,7 +24,7 @@ export const updateOrderStatus = async (id, status) => {
         const response = await api.put(`/api/order/update-status/${id}`, { status });
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to update order status');
+        throw handleServiceError(error, 'Failed to update order status');
     }
 };
 
@@ -106,7 +106,7 @@ export const resolveProductBase = async (payload) => {
         const response = await api.post('/api/order/resolve-product', payload);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to resolve product base');
+        throw handleServiceError(error, 'Failed to resolve product base');
     }
 };
 
@@ -115,7 +115,7 @@ export const createOrder = async (payload) => {
         const response = await api.post('/api/order/create', payload);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to create order');
+        throw handleServiceError(error, 'Failed to create order');
     }
 };
 
@@ -124,7 +124,7 @@ export const updateOrder = async (id, payload) => {
         const response = await api.patch(`/api/order/${id}/draft`, payload);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to update order');
+        throw handleServiceError(error, 'Failed to update order');
     }
 };
 
@@ -133,7 +133,7 @@ export const cancelOrder = async (id, payload) => {
         const response = await api.post(`/api/order/${id}/cancel`, payload);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to cancel order');
+        throw handleServiceError(error, 'Failed to cancel order');
     }
 };
 
@@ -142,7 +142,7 @@ export const draftOrder = async (id) => {
         const response = await api.patch(`/api/order/${id}/draft`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to draft order');
+        throw handleServiceError(error, 'Failed to draft order');
     }
 };
 
@@ -153,7 +153,7 @@ export const getDraftOrders = async (page = 1, limit = 10, search = '') => {
         const response = await api.get(`/api/order/draft-orders?${queryParams.toString()}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch draft orders');
+        throw handleServiceError(error, 'Failed to fetch draft orders');
     }
 };
 
@@ -162,7 +162,7 @@ export const deleteOrder = async (id) => {
         const response = await api.delete(`/api/order/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to delete order');
+        throw handleServiceError(error, 'Failed to delete order');
     }
 };
 
@@ -171,7 +171,7 @@ export const createBulkOrders = async (payload) => {
         const response = await api.post('/api/order/create-bulk-orders', payload);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to create bulk orders');
+        throw handleServiceError(error, 'Failed to create bulk orders');
     }
 };
 
@@ -191,7 +191,7 @@ export const getRxOrders = async (search = '') => {
         const response = await api.get(`/api/order/rx-orders${queryParams}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch RX orders');
+        throw handleServiceError(error, 'Failed to fetch RX orders');
     }
 };
 
@@ -203,6 +203,6 @@ export const updateBulkOrderStatus = async (orderId, status, orderNumber = null)
         const response = await api.patch(`/api/order/bulk-orders/${orderId}/status`, payload);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to update order status');
+        throw handleServiceError(error, 'Failed to update order status');
     }
 };

@@ -1,4 +1,4 @@
-import api from './apiInstance';
+import api, { handleServiceError } from './apiInstance';
 
 export const getSales = async (page = 1, limit = 10, filters = {}) => {
     try {
@@ -6,7 +6,7 @@ export const getSales = async (page = 1, limit = 10, filters = {}) => {
         const response = await api.get(`/api/sale?${queryParams.toString()}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch sales');
+        throw handleServiceError(error, 'Failed to fetch sales');
     }
 };
 
@@ -15,7 +15,7 @@ export const getSaleById = async (id) => {
         const response = await api.get(`/api/sale/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch sale details');
+        throw handleServiceError(error, 'Failed to fetch sale details');
     }
 };
 
@@ -24,7 +24,7 @@ export const createSale = async (saleData) => {
         const response = await api.post('/api/sale', saleData);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to create sale');
+        throw handleServiceError(error, 'Failed to create sale');
     }
 };
 
@@ -33,7 +33,7 @@ export const updateSale = async (id, saleData) => {
         const response = await api.put(`/api/sale/${id}`, saleData);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to update sale');
+        throw handleServiceError(error, 'Failed to update sale');
     }
 };
 
@@ -42,6 +42,6 @@ export const deleteSale = async (id) => {
         const response = await api.delete(`/api/sale/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to delete sale');
+        throw handleServiceError(error, 'Failed to delete sale');
     }
 };

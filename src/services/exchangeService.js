@@ -1,4 +1,4 @@
-import api from './apiInstance';
+import api, { handleServiceError } from './apiInstance';
 
 /**
  * Fetches all exchange requests with pagination and status filter
@@ -12,7 +12,7 @@ export const getAllExchanges = async (page = 1, limit = 10, status = 'Pending') 
         const response = await api.get(`/api/exchange?page=${page}&limit=${limit}&status=${status}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch exchange requests');
+        throw handleServiceError(error, 'Failed to fetch exchange requests');
     }
 };
 
@@ -26,7 +26,7 @@ export const getExchangeById = async (id) => {
         const response = await api.get(`/api/exchange/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch exchange details');
+        throw handleServiceError(error, 'Failed to fetch exchange details');
     }
 };
 
@@ -44,7 +44,7 @@ export const createExchange = async (formData) => {
         });
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to create exchange request');
+        throw handleServiceError(error, 'Failed to create exchange request');
     }
 };
 
@@ -59,7 +59,7 @@ export const updateExchangeStatus = async (id, statusData) => {
         const response = await api.patch(`/api/exchange/${id}/status`, statusData);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to update status');
+        throw handleServiceError(error, 'Failed to update status');
     }
 };
 
@@ -75,7 +75,7 @@ export const selectProductForExchange = async (id, selectProductData) => {
         const response = await api.patch(`/api/exchange/${id}/select-product`, selectProductData);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to select product for exchange');
+        throw handleServiceError(error, 'Failed to select product for exchange');
     }
 };
 
@@ -90,7 +90,7 @@ export const updateExchange = async (id, data) => {
         const response = await api.put(`/api/exchange/${id}`, data);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to update exchange');
+        throw handleServiceError(error, 'Failed to update exchange');
     }
 };
 
@@ -104,7 +104,7 @@ export const deleteExchange = async (id) => {
         const response = await api.delete(`/api/exchange/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to delete exchange');
+        throw handleServiceError(error, 'Failed to delete exchange');
     }
 };
 
@@ -118,6 +118,6 @@ export const searchExchanges = async (searchParams) => {
         const response = await api.post('/api/exchange/search', searchParams);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to search exchanges');
+        throw handleServiceError(error, 'Failed to search exchanges');
     }
 };

@@ -54,11 +54,11 @@ export default function AddVendor() {
             setLoading(true);
             dispatch(showLoader());
             const res = await vendorService.createVendor(formData);
-            toast.success(res.data.message);
+            toast.success(res.message || "Vendor created successfully");
             setFormData(EMPTY);
             setErrors({});
         } catch (error) {
-            toast.error(error.response?.data?.message || "Something went wrong");
+            toast.error(error.message || error.response?.data?.message || "Something went wrong");
         } finally {
             setLoading(false);
             dispatch(hideLoader());

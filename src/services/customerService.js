@@ -1,4 +1,4 @@
-import api from './apiInstance';
+import api, { handleServiceError } from './apiInstance';
 
 export const getCustomerConfigs = async () => {
     try {
@@ -56,7 +56,7 @@ export const registerCustomer = async (customerData) => {
         const response = await api.post('/api/customer/management/register', customerData);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Registration failed');
+        throw handleServiceError(error, 'Registration failed');
     }
 };
 
@@ -65,7 +65,7 @@ export const addShipTo = async (shipToData) => {
         const response = await api.post('/api/customer/management/add-ship-to', shipToData);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to add ship-to details');
+        throw handleServiceError(error, 'Failed to add ship-to details');
     }
 };
 
@@ -75,7 +75,7 @@ export const getAllCustomers = async (page = 1, limit = 10, filters = {}) => {
         const response = await api.get(`/api/customer/management/get-all-customers?${queryParams.toString()}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch customers');
+        throw handleServiceError(error, 'Failed to fetch customers');
     }
 };
 
@@ -84,7 +84,7 @@ export const getCustomerById = async (id) => {
         const response = await api.get(`/api/customer/management/get-customer/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch customer details');
+        throw handleServiceError(error, 'Failed to fetch customer details');
     }
 };
 
@@ -93,7 +93,7 @@ export const getDraftCustomerById = async (id) => {
         const response = await api.get(`/api/customer/management/get-draft-customer/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch draft customer details');
+        throw handleServiceError(error, 'Failed to fetch draft customer details');
     }
 };
 
@@ -142,7 +142,7 @@ export const draftRegisterCustomer = async (customerData) => {
         const response = await api.post('/api/customer/management/draft-register', customerData);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Draft saving failed');
+        throw handleServiceError(error, 'Draft saving failed');
     }
 };
 
@@ -151,7 +151,7 @@ export const updateDraftCustomer = async (id, customerData) => {
         const response = await api.put(`/api/customer/management/update-draft-customer/${id}`, customerData);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Draft update failed');
+        throw handleServiceError(error, 'Draft update failed');
     }
 };
 
@@ -160,7 +160,7 @@ export const getMyDraftCustomers = async (page = 1, limit = 10) => {
         const response = await api.get(`/api/customer/management/get-my-draft-customers?page=${page}&limit=${limit}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch my draft customers');
+        throw handleServiceError(error, 'Failed to fetch my draft customers');
     }
 };
 
@@ -169,7 +169,7 @@ export const getAllDraftCustomers = async (page = 1, limit = 10) => {
         const response = await api.get(`/api/customer/management/get-all-draft-customers?page=${page}&limit=${limit}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch all draft customers');
+        throw handleServiceError(error, 'Failed to fetch all draft customers');
     }
 };
 
@@ -178,7 +178,7 @@ export const deactivateDraftCustomer = async (id) => {
         const response = await api.delete(`/api/customer/management/deactivate-draft-customer/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to deactivate draft customer');
+        throw handleServiceError(error, 'Failed to deactivate draft customer');
     }
 };
 
@@ -187,7 +187,7 @@ export const deactivateCustomer = async (id) => {
         const response = await api.delete(`/api/customer/management/deactivate-customer/${id}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to deactivate customer');
+        throw handleServiceError(error, 'Failed to deactivate customer');
     }
 };
 
@@ -196,7 +196,7 @@ export const getPendingFinanceApprovals = async (page = 1, limit = 10) => {
         const response = await api.get(`/api/customer/management/customer/pending-finance?page=${page}&limit=${limit}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch pending finance approvals');
+        throw handleServiceError(error, 'Failed to fetch pending finance approvals');
     }
 };
 
@@ -205,7 +205,7 @@ export const getCorrectionRequiredCustomers = async (page = 1, limit = 10) => {
         const response = await api.get(`/api/customer/management/customer/correction-required?page=${page}&limit=${limit}`);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch correction required customers');
+        throw handleServiceError(error, 'Failed to fetch correction required customers');
     }
 };
 
@@ -214,7 +214,7 @@ export const sendCustomerForCorrection = async (customerId, correctionData) => {
         const response = await api.put(`/api/customer/management/${customerId}/send-for-correction`, correctionData);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to send customer for correction');
+        throw handleServiceError(error, 'Failed to send customer for correction');
     }
 };
 
@@ -223,7 +223,7 @@ export const resubmitCustomerCorrection = async (customerId, correctionData) => 
         const response = await api.put(`/api/customer/management/${customerId}/resubmit-correction`, correctionData);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to resubmit customer correction');
+        throw handleServiceError(error, 'Failed to resubmit customer correction');
     }
 };
 
@@ -232,7 +232,7 @@ export const resubmitCustomerCorrectionFinance = async (customerId, correctionDa
         const response = await api.put(`/api/customer/management/${customerId}/finance-resubmit`, correctionData);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to resubmit customer correction');
+        throw handleServiceError(error, 'Failed to resubmit customer correction');
     }
 };
 
@@ -241,7 +241,7 @@ export const approveCustomerFinance = async (customerId, approvalData) => {
         const response = await api.put(`/api/customer/management/${customerId}/finance-complete`, approvalData);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to approve customer');
+        throw handleServiceError(error, 'Failed to approve customer');
     }
 };
 
@@ -250,7 +250,7 @@ export const salesHeadApproveCustomer = async (customerId, approvalData) => {
         const response = await api.put(`/api/customer/management/${customerId}/sales-head-approve`, approvalData);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed sales-head approval');
+        throw handleServiceError(error, 'Failed sales-head approval');
     }
 };
 
@@ -259,7 +259,7 @@ export const financeApproveCustomer = async (customerId, approvalData) => {
         const response = await api.put(`/api/customer/management/${customerId}/finance-approve`, approvalData);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed finance approval');
+        throw handleServiceError(error, 'Failed finance approval');
     }
 };
 
@@ -296,7 +296,7 @@ export const getPendingStageCustomers = async (stages, page = 1, limit = 10) => 
             }
         };
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to fetch pending stage customers');
+        throw handleServiceError(error, 'Failed to fetch pending stage customers');
     }
 };
 
@@ -305,7 +305,7 @@ export const userCustomerLogin = async (credentials) => {
         const response = await api.post('/api/customer/management/login', credentials);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Customer login failed');
+        throw handleServiceError(error, 'Customer login failed');
     }
 };
 
@@ -314,7 +314,7 @@ export const acceptTermsConditions = async () => {
         const response = await api.put('/api/customer/management/accept-terms-conditions');
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to accept terms & conditions');
+        throw handleServiceError(error, 'Failed to accept terms & conditions');
     }
 };
 
@@ -323,6 +323,6 @@ export const updateShipToDetails = async (customerId, shipToData) => {
         const response = await api.put(`/api/customer/management/update-ship-to-details/${customerId}`, shipToData);
         return response.data;
     } catch (error) {
-        throw error.response ? error.response.data : new Error('Failed to update ship-to details');
+        throw handleServiceError(error, 'Failed to update ship-to details');
     }
 };
