@@ -7,16 +7,16 @@ import {
 } from 'recharts';
 
 const STATUS_CONFIG = {
-    Active:            { color: '#2980B9', bg: 'bg-blue-50',   text: 'text-blue-700'   },
-    Submitted:         { color: '#7C3AED', bg: 'bg-violet-50', text: 'text-violet-700' },
-    Processing:        { color: '#F59E0B', bg: 'bg-amber-50',  text: 'text-amber-700'  },
-    QC:                { color: '#0891B2', bg: 'bg-cyan-50',   text: 'text-cyan-700'   },
-    ReadyToDispatch:   { color: '#059669', bg: 'bg-emerald-50',text: 'text-emerald-700'},
-    Dispatched:        { color: '#2563EB', bg: 'bg-blue-50',   text: 'text-blue-700'   },
-    Delivered:         { color: '#10B981', bg: 'bg-green-50',  text: 'text-green-700'  },
-    Completed:         { color: '#15803d', bg: 'bg-green-50',  text: 'text-green-800'  },
-    Cancelled:         { color: '#E74C3C', bg: 'bg-red-50',    text: 'text-red-700'    },
-    Draft:             { color: '#9CA3AF', bg: 'bg-gray-50',   text: 'text-gray-600'   },
+    Active: { color: '#2980B9', bg: 'bg-blue-50', text: 'text-blue-700' },
+    Submitted: { color: '#7C3AED', bg: 'bg-violet-50', text: 'text-violet-700' },
+    Processing: { color: '#F59E0B', bg: 'bg-amber-50', text: 'text-amber-700' },
+    QC: { color: '#0891B2', bg: 'bg-cyan-50', text: 'text-cyan-700' },
+    ReadyToDispatch: { color: '#059669', bg: 'bg-emerald-50', text: 'text-emerald-700' },
+    Dispatched: { color: '#2563EB', bg: 'bg-blue-50', text: 'text-blue-700' },
+    Delivered: { color: '#10B981', bg: 'bg-green-50', text: 'text-green-700' },
+    Completed: { color: '#15803d', bg: 'bg-green-50', text: 'text-green-800' },
+    Cancelled: { color: '#E74C3C', bg: 'bg-red-50', text: 'text-red-700' },
+    Draft: { color: '#9CA3AF', bg: 'bg-gray-50', text: 'text-gray-600' },
 };
 
 const getStatusStyle = (status = '') => {
@@ -88,14 +88,14 @@ const Dashboard = () => {
     const ord = analytics?.orders || {};
 
     const barData = [
-        { name: 'Active',     value: ord.active           || 0, color: STATUS_CONFIG.Active.color        },
-        { name: 'Submitted',  value: ord.submitted        || 0, color: STATUS_CONFIG.Submitted.color     },
-        { name: 'Processing', value: ord.processing       || 0, color: STATUS_CONFIG.Processing.color    },
-        { name: 'Dispatch',   value: ord.readyToDispatch  || 0, color: STATUS_CONFIG.ReadyToDispatch.color},
-        { name: 'Delivered',  value: ord.delivered        || 0, color: STATUS_CONFIG.Delivered.color     },
-        { name: 'Completed',  value: ord.completed        || 0, color: STATUS_CONFIG.Completed.color     },
-        { name: 'Cancelled',  value: ord.cancelled        || 0, color: STATUS_CONFIG.Cancelled.color     },
-        { name: 'Draft',      value: ord.draft            || 0, color: STATUS_CONFIG.Draft.color         },
+        { name: 'Active', value: ord.active || 0, color: STATUS_CONFIG.Active.color },
+        { name: 'Submitted', value: ord.submitted || 0, color: STATUS_CONFIG.Submitted.color },
+        { name: 'Processing', value: ord.processing || 0, color: STATUS_CONFIG.Processing.color },
+        { name: 'Dispatch', value: ord.readyToDispatch || 0, color: STATUS_CONFIG.ReadyToDispatch.color },
+        { name: 'Delivered', value: ord.delivered || 0, color: STATUS_CONFIG.Delivered.color },
+        { name: 'Completed', value: ord.completed || 0, color: STATUS_CONFIG.Completed.color },
+        { name: 'Cancelled', value: ord.cancelled || 0, color: STATUS_CONFIG.Cancelled.color },
+        { name: 'Draft', value: ord.draft || 0, color: STATUS_CONFIG.Draft.color },
     ];
 
     const pieData = barData.filter(d => d.value > 0);
@@ -143,33 +143,33 @@ const Dashboard = () => {
                     label="Total Orders"
                     value={ord.totalOrders}
                     icon="lucide:shopping-bag"
-                    gradient="bg-gradient-to-br from-[#7C3AED] to-[#5B21B6]"
+                    gradient="bg-gradient-to-br from-[#2980B9] to-[#1A5E8A]"
                 />
                 <MetricCard
                     label="Active Orders"
                     value={ord.active}
                     icon="lucide:activity"
-                    gradient="bg-gradient-to-br from-[#F59E0B] to-[#D97706]"
+                    gradient="bg-gradient-to-br from-[#2980B9] to-[#1A5E8A]"
                 />
                 <MetricCard
                     label="Total Staff"
                     value={analytics?.staff?.total}
                     icon="lucide:user-check"
-                    gradient="bg-gradient-to-br from-[#10B981] to-[#059669]"
+                    gradient="bg-gradient-to-br from-[#2980B9] to-[#1A5E8A]"
                 />
             </div>
 
             {/* Secondary Metrics Row */}
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
                 {[
-                    { label: 'Submitted',        value: ord.submitted,       icon: 'lucide:send',           ...STATUS_CONFIG.Submitted         },
-                    { label: 'Processing',       value: ord.processing,      icon: 'lucide:loader-2',       ...STATUS_CONFIG.Processing        },
-                    { label: 'QC',               value: ord.qc,              icon: 'lucide:shield-check',   ...STATUS_CONFIG.QC                },
-                    { label: 'Ready Dispatch',   value: ord.readyToDispatch, icon: 'lucide:truck',          ...STATUS_CONFIG.ReadyToDispatch   },
-                    { label: 'Dispatched',       value: ord.dispatched,      icon: 'lucide:package-open',   ...STATUS_CONFIG.Dispatched        },
-                    { label: 'Delivered',        value: ord.delivered,       icon: 'lucide:package-check',  ...STATUS_CONFIG.Delivered         },
-                    { label: 'Completed',        value: ord.completed,       icon: 'lucide:check-circle-2', ...STATUS_CONFIG.Completed         },
-                    { label: 'Cancelled',        value: ord.cancelled,       icon: 'lucide:x-circle',       ...STATUS_CONFIG.Cancelled         },
+                    { label: 'Submitted', value: ord.submitted, icon: 'lucide:send', ...STATUS_CONFIG.Submitted },
+                    { label: 'Processing', value: ord.processing, icon: 'lucide:loader-2', ...STATUS_CONFIG.Processing },
+                    { label: 'QC', value: ord.qc, icon: 'lucide:shield-check', ...STATUS_CONFIG.QC },
+                    { label: 'Ready Dispatch', value: ord.readyToDispatch, icon: 'lucide:truck', ...STATUS_CONFIG.ReadyToDispatch },
+                    { label: 'Dispatched', value: ord.dispatched, icon: 'lucide:package-open', ...STATUS_CONFIG.Dispatched },
+                    { label: 'Delivered', value: ord.delivered, icon: 'lucide:package-check', ...STATUS_CONFIG.Delivered },
+                    { label: 'Completed', value: ord.completed, icon: 'lucide:check-circle-2', ...STATUS_CONFIG.Completed },
+                    { label: 'Cancelled', value: ord.cancelled, icon: 'lucide:x-circle', ...STATUS_CONFIG.Cancelled },
                 ].map((item, idx) => (
                     <div key={idx} className={`${item.bg} rounded-xl px-3 py-3 flex flex-col items-center gap-1 border border-white shadow-sm hover:shadow-md transition-shadow`}>
                         <Icon icon={item.icon} className={`${item.text} text-base`} />
