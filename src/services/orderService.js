@@ -66,7 +66,7 @@ export const getFrameTypes = async () => {
     }
 };
 
-export const getProductNames = async (search = '', page = 1, limit = 100) => {
+export const getProductNames = async (search = '', page = 1, limit = 10) => {
     try {
         const queryParams = new URLSearchParams({
             search,

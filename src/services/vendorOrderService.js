@@ -34,7 +34,7 @@ export const getVendorOrderSuggestions = async (query) => {
  * @param {number} limit 
  * @returns {Promise}
  */
-export const getAllVendorOrders = async (page = 1, limit = 20) => {
+export const getAllVendorOrders = async (page = 1, limit = 10) => {
     try {
         const response = await api.get(`/api/vendor-order?page=${page}&limit=${limit}`);
         return response.data;
@@ -150,7 +150,7 @@ export const searchProductNames = async (query) => {
  * @param {number} limit
  * @returns {Promise}
  */
-export const getAllPurchaseItems = async (search = '', page = 1, limit = 50) => {
+export const getAllPurchaseItems = async (search = '', page = 1, limit = 10) => {
     try {
         const queryParams = new URLSearchParams({ page, limit });
         if (search) queryParams.append('search', search);
@@ -241,7 +241,7 @@ export const createPurchaseInward = async (data) => {
  * @param {number} limit
  * @returns {Promise}
  */
-export const getAllInwardItems = async (page = 1, limit = 100) => {
+export const getAllInwardItems = async (page = 1, limit = 10) => {
     try {
         const response = await api.get(`/api/purchase-inward/get-all-items?page=${page}&limit=${limit}`);
         return response.data;
@@ -287,7 +287,7 @@ export const createPurchaseQC = async (data) => {
  * @param {number} limit
  * @returns {Promise}
  */
-export const getAllQCItems = async (page = 1, limit = 100) => {
+export const getAllQCItems = async (page = 1, limit = 10) => {
     try {
         const response = await api.get(`/api/purchase-qc/get-all-items?page=${page}&limit=${limit}`);
         return response.data;
@@ -368,7 +368,7 @@ export const updateVendorRefIds = async (purchaseOrderId, payload) => {
  * @param {string} search - optional vendor name search
  * @returns {Promise}
  */
-export const getAllPurchaseReturns = async (page = 1, limit = 50, search = '') => {
+export const getAllPurchaseReturns = async (page = 1, limit = 10, search = '') => {
     try {
         const queryParams = new URLSearchParams({ page, limit });
         if (search) queryParams.append('search', search);
@@ -386,7 +386,7 @@ export const getAllPurchaseReturns = async (page = 1, limit = 50, search = '') =
  * @param {number} limit
  * @returns {Promise}
  */
-export const getQCFailedReport = async (page = 1, limit = 50) => {
+export const getQCFailedReport = async (page = 1, limit = 10) => {
     try {
         const response = await api.get(`/api/purchase-qc/failed-report?page=${page}&limit=${limit}`);
         return response.data;
@@ -402,7 +402,7 @@ export const getQCFailedReport = async (page = 1, limit = 50) => {
  * @param {number} limit
  * @returns {Promise}
  */
-export const getAllInwardedPurchaseItems = async (page = 1, limit = 100) => {
+export const getAllInwardedPurchaseItems = async (page = 1, limit = 10) => {
     try {
         const response = await api.get(`/api/purchase/items/all-inwarded?page=${page}&limit=${limit}`);
         return response.data;
@@ -418,7 +418,7 @@ export const getAllInwardedPurchaseItems = async (page = 1, limit = 100) => {
  * @param {number} limit
  * @returns {Promise}
  */
-export const getPendingInwardItems = async (page = 1, limit = 100) => {
+export const getPendingInwardItems = async (page = 1, limit = 10) => {
     try {
         const response = await api.get(`/api/purchase/items/pending-inward?page=${page}&limit=${limit}`);
         return response.data;
@@ -434,7 +434,7 @@ export const getPendingInwardItems = async (page = 1, limit = 100) => {
  * @param {number} limit
  * @returns {Promise}
  */
-export const getQcPendingItems = async (page = 1, limit = 100) => {
+export const getQcPendingItems = async (page = 1, limit = 10) => {
     try {
         const response = await api.get(`/api/purchase/items/qc-pending?page=${page}&limit=${limit}`);
         return response.data;
@@ -450,7 +450,7 @@ export const getQcPendingItems = async (page = 1, limit = 100) => {
  * @param {number} limit
  * @returns {Promise}
  */
-export const getQcPassedItems = async (page = 1, limit = 100) => {
+export const getQcPassedItems = async (page = 1, limit = 10) => {
     try {
         const response = await api.get(`/api/purchase/items/qc-passed?page=${page}&limit=${limit}`);
         return response.data;
@@ -468,7 +468,7 @@ export const getQcPassedItems = async (page = 1, limit = 100) => {
  * @param {number} limit
  * @returns {Promise}
  */
-export const getReplacementOrders = async (page = 1, limit = 100) => {
+export const getReplacementOrders = async (page = 1, limit = 10) => {
     try {
         const response = await api.get(`/api/purchase/replacement-orders?page=${page}&limit=${limit}`);
         return response.data;

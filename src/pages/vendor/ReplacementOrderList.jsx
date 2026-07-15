@@ -10,11 +10,12 @@ const ReplacementOrderList = () => {
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
     const [pagination, setPagination] = useState(null);
+    const [page, setPage] = useState(1);
 
     const fetchOrders = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await getReplacementOrders(1, 100);
+            const res = await getReplacementOrders(page, 10);
             if (res.success) {
                 setOrders(res.data?.replacementOrders || res.data || []);
                 setPagination(res.data?.pagination || null);
@@ -28,7 +29,7 @@ const ReplacementOrderList = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [page]);
 
     useEffect(() => {
         fetchOrders();
@@ -72,14 +73,14 @@ const ReplacementOrderList = () => {
                     <input
                         type="text"
                         value={search}
-                        onChange={e => setSearch(e.target.value)}
+                        onChange={e => { setSearch(e.target.value); setPage(1); }}
                         placeholder="Search by ID, Vendor, Order Number..."
                         className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]"
                     />
                 </div>
                 {search && (
                     <button
-                        onClick={() => setSearch('')}
+                        onClick={() => { setSearch(''); setPage(1); }}
                         className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
                     >
                         <Icon icon="lucide:x" className="text-sm" /> Clear
@@ -185,6 +186,28 @@ const ReplacementOrderList = () => {
                         </tbody>
                     </table>
                 </div>
+                {pagination && pagination.totalPages > 1 && (
+                    <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-500 flex justify-between items-center bg-gray-50/50">
+                        <span>Showing <strong>{filtered.length}</strong> items</span>
+                        <div className="flex gap-2">
+                            <button
+                                disabled={page === 1}
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                className="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold shadow-sm hover:bg-gray-50 transition-colors"
+                            >
+                                Previous
+                            </button>
+                            <span className="self-center font-semibold text-gray-700">Page {page} of {pagination.totalPages}</span>
+                            <button
+                                disabled={page === pagination.totalPages}
+                                onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                                className="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold shadow-sm hover:bg-gray-50 transition-colors"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -7,7 +7,7 @@ import api from './apiInstance';
  * @param {string} status 
  * @returns {Promise}
  */
-export const getAllExchanges = async (page = 1, limit = 20, status = 'Pending') => {
+export const getAllExchanges = async (page = 1, limit = 10, status = 'Pending') => {
     try {
         const response = await api.get(`/api/exchange?page=${page}&limit=${limit}&status=${status}`);
         return response.data;

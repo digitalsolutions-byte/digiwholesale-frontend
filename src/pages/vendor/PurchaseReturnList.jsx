@@ -482,6 +482,8 @@ const PurchaseReturnList = () => {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [expandedId, setExpandedId] = useState(null);
+    const [page, setPage] = useState(1);
+    const [pagination, setPagination] = useState(null);
 
     // Update status modal
     const [modal, setModal] = useState(null); // { returnId, itemId }
@@ -495,10 +497,11 @@ const PurchaseReturnList = () => {
     const fetchReturns = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await getAllPurchaseReturns(1, 100, search);
+            const response = await getAllPurchaseReturns(page, 10, search);
             if (response.success) {
                 const list = response.data?.returns || response.data?.data || response.data || [];
                 setReturns(Array.isArray(list) ? list : []);
+                setPagination(response.data?.pagination || null);
             } else {
                 setReturns([]);
                 toast.error(response.message || 'Failed to fetch purchase returns');
@@ -509,7 +512,7 @@ const PurchaseReturnList = () => {
         } finally {
             setLoading(false);
         }
-    }, [search]);
+    }, [search, page]);
 
     useEffect(() => { fetchReturns(); }, [fetchReturns]);
 
@@ -599,7 +602,7 @@ const PurchaseReturnList = () => {
                     <Icon icon="lucide:search" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
                     <input
                         value={search}
-                        onChange={e => setSearch(e.target.value)}
+                        onChange={e => { setSearch(e.target.value); setPage(1); }}
                         placeholder="Search vendor name…"
                         className="pl-9 pr-4 py-2.5 w-full border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9] bg-white"
                     />
@@ -778,10 +781,26 @@ const PurchaseReturnList = () => {
                     </div>
                 )}
 
-                {/* Footer count */}
-                {!loading && filtered.length > 0 && (
-                    <div className="p-4 border-t border-gray-100 text-xs text-gray-400 bg-gray-50/50">
-                        Showing {filtered.length} of {returns.length} return{returns.length !== 1 ? 's' : ''}
+                {pagination && pagination.totalPages > 1 && (
+                    <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-500 flex justify-between items-center bg-gray-50/50">
+                        <span>Showing <strong>{filtered.length}</strong> items</span>
+                        <div className="flex gap-2">
+                            <button
+                                disabled={page === 1}
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                className="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold shadow-sm hover:bg-gray-50 transition-colors"
+                            >
+                                Previous
+                            </button>
+                            <span className="self-center font-semibold text-gray-700">Page {page} of {pagination.totalPages}</span>
+                            <button
+                                disabled={page === pagination.totalPages}
+                                onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                                className="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold shadow-sm hover:bg-gray-50 transition-colors"
+                            >
+                                Next
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>

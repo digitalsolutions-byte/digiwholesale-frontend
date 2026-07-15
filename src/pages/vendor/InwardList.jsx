@@ -8,13 +8,16 @@ const InwardList = () => {
     const navigate = useNavigate();
     const [inwards, setInwards] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [page, setPage] = useState(1);
+    const [pagination, setPagination] = useState(null);
 
     const fetchInwards = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await getAllInwardItems(1, 100);
+            const response = await getAllInwardItems(page, 10);
             if (response.success) {
                 setInwards(response.data?.inwards || response.data || []);
+                setPagination(response.data?.pagination || null);
             } else {
                 setInwards([]);
             }
@@ -24,7 +27,7 @@ const InwardList = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [page]);
 
     useEffect(() => {
         fetchInwards();
@@ -127,6 +130,28 @@ const InwardList = () => {
                         </tbody>
                     </table>
                 </div>
+                {pagination && pagination.totalPages > 1 && (
+                    <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-500 flex justify-between items-center bg-gray-50/50">
+                        <span>Showing <strong>{inwards.length}</strong> items</span>
+                        <div className="flex gap-2">
+                            <button
+                                disabled={page === 1}
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                className="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold shadow-sm hover:bg-gray-50 transition-colors"
+                            >
+                                Previous
+                            </button>
+                            <span className="self-center font-semibold text-gray-700">Page {page} of {pagination.totalPages}</span>
+                            <button
+                                disabled={page === pagination.totalPages}
+                                onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                                className="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold shadow-sm hover:bg-gray-50 transition-colors"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

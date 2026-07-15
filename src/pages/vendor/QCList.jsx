@@ -8,17 +8,20 @@ const QCList = () => {
     const navigate = useNavigate();
     const [qcRecords, setQcRecords] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [page, setPage] = useState(1);
+    const [pagination, setPagination] = useState(null);
 
     const fetchQCRecords = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await getAllQCItems(1, 100);
+            const response = await getAllQCItems(page, 10);
             if (response.success) {
                 let records = response.data?.qcs || response.data?.qcRecords || response.data?.qcItems || response.data?.items || response.data?.data || response.data || [];
                 if (!Array.isArray(records)) {
                     records = [];
                 }
                 setQcRecords(records);
+                setPagination(response.data?.pagination || null);
             } else {
                 setQcRecords([]);
             }
@@ -28,7 +31,7 @@ const QCList = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [page]);
 
     useEffect(() => {
         fetchQCRecords();
@@ -149,6 +152,28 @@ const QCList = () => {
                         </tbody>
                     </table>
                 </div>
+                {pagination && pagination.totalPages > 1 && (
+                    <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-500 flex justify-between items-center bg-gray-50/50">
+                        <span>Showing <strong>{qcRecords.length}</strong> items</span>
+                        <div className="flex gap-2">
+                            <button
+                                disabled={page === 1}
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                className="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold shadow-sm hover:bg-gray-50 transition-colors"
+                            >
+                                Previous
+                            </button>
+                            <span className="self-center font-semibold text-gray-700">Page {page} of {pagination.totalPages}</span>
+                            <button
+                                disabled={page === pagination.totalPages}
+                                onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                                className="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold shadow-sm hover:bg-gray-50 transition-colors"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

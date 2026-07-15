@@ -1,6 +1,6 @@
 import api from './apiInstance';
 
-export const getSales = async (page = 1, limit = 20, filters = {}) => {
+export const getSales = async (page = 1, limit = 10, filters = {}) => {
     try {
         const queryParams = new URLSearchParams({ page, limit, ...filters });
         const response = await api.get(`/api/sale?${queryParams.toString()}`);

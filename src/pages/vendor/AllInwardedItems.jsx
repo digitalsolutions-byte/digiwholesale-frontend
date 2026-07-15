@@ -31,11 +31,12 @@ const AllInwardedItems = () => {
     const [inwardFilter, setInwardFilter] = useState('');
     const [qcFilter, setQcFilter] = useState('');
     const [pagination, setPagination] = useState(null);
+    const [page, setPage] = useState(1);
 
     const fetchItems = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await getAllInwardedPurchaseItems(1, 100);
+            const res = await getAllInwardedPurchaseItems(page, 10);
             if (res.success) {
                 setItems(Array.isArray(res.data?.items) ? res.data.items : []);
                 setPagination(res.data?.pagination || null);
@@ -48,7 +49,7 @@ const AllInwardedItems = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [page]);
 
     useEffect(() => { fetchItems(); }, [fetchItems]);
 
@@ -76,7 +77,7 @@ const AllInwardedItems = () => {
                     </h1>
                     <p className="text-sm text-gray-500 mt-1">
                         All purchase items that have been inwarded
-                        {pagination && <span className="ml-2 font-medium text-gray-700">({pagination.totalRecords} total)</span>}
+                        {pagination && <span className="ml-2 font-medium text-gray-700">({pagination.totalRecords || pagination.totalOrders || pagination.totalItems || 0} total)</span>}
                     </p>
                 </div>
                 <button
@@ -95,26 +96,26 @@ const AllInwardedItems = () => {
                     <input
                         type="text"
                         value={search}
-                        onChange={e => setSearch(e.target.value)}
+                        onChange={e => { setSearch(e.target.value); setPage(1); }}
                         placeholder="Search by item, vendor, order..."
                         className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]"
                     />
                 </div>
-                <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
+                <select value={categoryFilter} onChange={e => { setCategoryFilter(e.target.value); setPage(1); }}
                     className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]">
                     <option value="">All Categories</option>
                     <option value="LENS">Lens</option>
                     <option value="FRAME">Frame</option>
                     <option value="CONTACT_LENS">Contact Lens</option>
                 </select>
-                <select value={inwardFilter} onChange={e => setInwardFilter(e.target.value)}
+                <select value={inwardFilter} onChange={e => { setInwardFilter(e.target.value); setPage(1); }}
                     className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]">
                     <option value="">All Inward Status</option>
                     <option value="RECEIVED">Received</option>
                     <option value="PARTIAL">Partial</option>
                     <option value="NOT_RECEIVED">Not Received</option>
                 </select>
-                <select value={qcFilter} onChange={e => setQcFilter(e.target.value)}
+                <select value={qcFilter} onChange={e => { setQcFilter(e.target.value); setPage(1); }}
                     className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]">
                     <option value="">All QC Status</option>
                     <option value="PASSED">Passed</option>
@@ -123,7 +124,7 @@ const AllInwardedItems = () => {
                     <option value="PENDING">Pending</option>
                 </select>
                 {(search || categoryFilter || inwardFilter || qcFilter) && (
-                    <button onClick={() => { setSearch(''); setCategoryFilter(''); setInwardFilter(''); setQcFilter(''); }}
+                    <button onClick={() => { setSearch(''); setCategoryFilter(''); setInwardFilter(''); setQcFilter(''); setPage(1); }}
                         className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
                         <Icon icon="lucide:x" className="text-sm" /> Clear
                     </button>
@@ -217,9 +218,26 @@ const AllInwardedItems = () => {
                         </tbody>
                     </table>
                 </div>
-                {filtered.length > 0 && (
-                    <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-500 flex justify-between items-center">
-                        <span>Showing <strong>{filtered.length}</strong> of <strong>{items.length}</strong> items</span>
+                {pagination && pagination.totalPages > 1 && (
+                    <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-500 flex justify-between items-center bg-gray-50/50">
+                        <span>Showing <strong>{filtered.length}</strong> items</span>
+                        <div className="flex gap-2">
+                            <button
+                                disabled={page === 1}
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                className="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold shadow-sm hover:bg-gray-50 transition-colors"
+                            >
+                                Previous
+                            </button>
+                            <span className="self-center font-semibold text-gray-700">Page {page} of {pagination.totalPages}</span>
+                            <button
+                                disabled={page === pagination.totalPages}
+                                onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                                className="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold shadow-sm hover:bg-gray-50 transition-colors"
+                            >
+                                Next
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>

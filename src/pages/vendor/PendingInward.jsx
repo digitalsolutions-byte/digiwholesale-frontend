@@ -15,6 +15,7 @@ const PendingInward = () => {
     const [search, setSearch] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
     const [pagination, setPagination] = useState(null);
+    const [page, setPage] = useState(1);
 
     // Inward Modal State
     const [selectedItem, setSelectedItem] = useState(null);
@@ -27,7 +28,7 @@ const PendingInward = () => {
     const fetchItems = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await getPendingInwardItems(1, 100);
+            const res = await getPendingInwardItems(page, 10);
             if (res.success) {
                 setItems(Array.isArray(res.data?.items) ? res.data.items : []);
                 setPagination(res.data?.pagination || null);
@@ -40,7 +41,7 @@ const PendingInward = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [page]);
 
     useEffect(() => { fetchItems(); }, [fetchItems]);
 
@@ -163,14 +164,14 @@ const PendingInward = () => {
                     <input
                         type="text"
                         value={search}
-                        onChange={e => setSearch(e.target.value)}
+                        onChange={e => { setSearch(e.target.value); setPage(1); }}
                         placeholder="Search by item, vendor, order..."
                         className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]"
                     />
                 </div>
                 <select
                     value={categoryFilter}
-                    onChange={e => setCategoryFilter(e.target.value)}
+                    onChange={e => { setCategoryFilter(e.target.value); setPage(1); }}
                     className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]"
                 >
                     <option value="">All Categories</option>
@@ -180,7 +181,7 @@ const PendingInward = () => {
                 </select>
                 {(search || categoryFilter) && (
                     <button
-                        onClick={() => { setSearch(''); setCategoryFilter(''); }}
+                        onClick={() => { setSearch(''); setCategoryFilter(''); setPage(1); }}
                         className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
                     >
                         <Icon icon="lucide:x" className="text-sm" /> Clear
@@ -238,9 +239,6 @@ const PendingInward = () => {
                                                     <div>
                                                         <p className="text-xs font-semibold text-gray-800">{item.itemName}</p>
                                                         <p className="text-[10px] text-gray-400">{item.code || '—'} · {item.brand || '—'}</p>
-                                                        {item.isNewProduct && (
-                                                            <span className="text-[9px] text-[#2980B9] font-medium bg-[#eaf4fb] px-1 py-0.5 rounded mt-0.5 inline-block">New Product</span>
-                                                        )}
                                                     </div>
                                                 </div>
                                             </td>
@@ -291,9 +289,26 @@ const PendingInward = () => {
                         </tbody>
                     </table>
                 </div>
-                {filtered.length > 0 && (
-                    <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-500 flex justify-between items-center">
-                        <span>Showing <strong>{filtered.length}</strong> of <strong>{items.length}</strong> pending items</span>
+                {pagination && pagination.totalPages > 1 && (
+                    <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-500 flex justify-between items-center bg-gray-50/50">
+                        <span>Showing <strong>{filtered.length}</strong> items</span>
+                        <div className="flex gap-2">
+                            <button
+                                disabled={page === 1}
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                className="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold shadow-sm hover:bg-gray-50 transition-colors"
+                            >
+                                Previous
+                            </button>
+                            <span className="self-center font-semibold text-gray-700">Page {page} of {pagination.totalPages}</span>
+                            <button
+                                disabled={page === pagination.totalPages}
+                                onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                                className="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold shadow-sm hover:bg-gray-50 transition-colors"
+                            >
+                                Next
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>

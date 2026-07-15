@@ -361,6 +361,7 @@ export default function ReturnRefund() {
         remark: formData.remark || undefined,
         OrderId: formData.OrderId || undefined,
         returnType: formData.returnType,
+        images: allImageUrls,
         items: selectedItems.map((it) => ({
           productId: it.productId || undefined,
           item: it.item,
@@ -370,7 +371,7 @@ export default function ReturnRefund() {
           discount: Number(it.discount) || 0,
           gst: Number(it.gst) || 0,
           gstType: it.gstType || "EXCLUDED",
-          images: allImageUrls,
+
         })),
       };
 

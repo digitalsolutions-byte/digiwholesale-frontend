@@ -34,7 +34,7 @@ export const getVendorSuggestions = async (query) => {
  * @param {number} limit 
  * @returns {Promise}
  */
-export const getAllVendors = async (page = 1, limit = 20) => {
+export const getAllVendors = async (page = 1, limit = 10) => {
     try {
         const response = await api.get(`/api/vendor?page=${page}&limit=${limit}`);
         return response.data;
