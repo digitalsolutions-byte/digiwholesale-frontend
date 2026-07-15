@@ -32,6 +32,8 @@ const SearchableSelect = ({
                 }}
                 value={options.find(opt => opt.value === actualValue) || (actualValue ? { value: actualValue, label: actualLabel || actualValue } : null)}
                 loading={loading}
+                disablePortal
+                fullWidth
                 onInputChange={(event, newInputValue, reason) => {
                     if (reason === 'input' || reason === 'clear') {
                         if (onSearch) onSearch(newInputValue);
@@ -58,7 +60,38 @@ const SearchableSelect = ({
                             }
                         });
                     }
-                    setInputValue(label);
+                }}
+                slotProps={{
+                    paper: {
+                        sx: {
+                            mt: 1,
+                            borderRadius: '16px',
+                            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                            border: '1px solid rgba(0, 0, 0, 0.05)',
+                            '& .MuiAutocomplete-listbox': {
+                                padding: '8px',
+                                '& .MuiAutocomplete-option': {
+                                    borderRadius: '8px',
+                                    margin: '2px 0',
+                                    fontSize: '0.9rem',
+                                    fontWeight: 500,
+                                    padding: '10px 14px',
+                                    transition: 'all 0.2s ease',
+                                    '&[aria-selected="true"]': {
+                                        backgroundColor: alpha(theme.palette.primary.main, 0.15),
+                                        color: theme.palette.primary.dark,
+                                        fontWeight: 600,
+                                    },
+                                    '&.Mui-focused': {
+                                        backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                                    },
+                                    '&:hover': {
+                                        backgroundColor: alpha(theme.palette.primary.main, 0.05),
+                                    },
+                                },
+                            },
+                        },
+                    },
                 }}
                 renderInput={(params) => (
                     <TextField
