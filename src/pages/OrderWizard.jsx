@@ -28,6 +28,76 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { PATHS } from '../routes/paths';
 import { getOrderById, updateOrder } from '../services/orderService';
 
+const SectionCard = ({ children, className = '' }) => (
+    <div className={`bg-white rounded-2xl border border-gray-100 shadow-[0_1px_4px_0_rgba(0,0,0,0.06)] ${className}`}>
+        {children}
+    </div>
+);
+
+const SectionHeader = ({ icon, label, right }) => (
+    <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+        <div className="flex items-center gap-2">
+            {icon && <span className="text-erp-accent/70 text-[15px]">{icon}</span>}
+            <span className="text-[11px] font-black uppercase tracking-[0.08em] text-gray-400">{label}</span>
+        </div>
+        {right && <div>{right}</div>}
+    </div>
+);
+
+const PillToggle = ({ label, value, onChange, options, disabled, className = '' }) => (
+    <div className={`flex flex-col gap-1.5 ${className}`}>
+        {label && <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</span>}
+        <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 gap-0.5">
+            {options.map(opt => (
+                <button
+                    key={opt.value}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => !disabled && onChange(opt.value)}
+                    className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all duration-150 border
+                    ${value === opt.value
+                            ? 'bg-white border-gray-200 text-erp-accent shadow-sm'
+                            : 'border-transparent text-gray-400 hover:text-gray-600 bg-transparent'
+                        }
+                    disabled:opacity-40 disabled:cursor-not-allowed`}
+                >
+                    {opt.label}
+                </button>
+            ))}
+        </div>
+    </div>
+);
+
+const SideCheckbox = ({ active }) => (
+    <span className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded-[3px] border transition-all duration-150 flex-shrink-0
+    ${active ? 'bg-erp-accent border-erp-accent' : 'bg-white border-gray-300'}`}>
+        {active && (
+            <Icon icon="mdi:check" className="text-white text-[9px]" />
+        )}
+    </span>
+);
+
+const CellInput = ({ name, value, onChange, disabled, placeholder = '0.00' }) => (
+    <input
+        type="text"
+        name={name}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        placeholder={placeholder}
+        className="w-full h-8 rounded-md border border-gray-200 bg-white text-center text-[12px] font-semibold text-gray-700
+        focus:outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/10
+        disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-gray-50
+        transition-all duration-150 placeholder:text-gray-300"
+    />
+);
+
+const Th = ({ children }) => (
+    <div className="py-2.5 text-[10px] font-black uppercase tracking-[0.07em] text-gray-400 text-center border-r border-gray-100 last:border-r-0 bg-gray-50/80">
+        {children}
+    </div>
+);
+
 const OrderWizard = () => {
     const user = useSelector((state) => state.auth.user);
     const [activeStep, setActiveStep] = useState(0);
@@ -1303,105 +1373,8 @@ const OrderWizard = () => {
         const prefix = `products.${index}.`;
         const isStock = product.orderType === 'stock';
 
-        // ── Shared sub-components ────────────────────────────────────────────────
-
-        /** Compact section card */
-        const SectionCard = ({ children, className = '' }) => (
-            <div className={`bg-white rounded-2xl border border-gray-100 shadow-[0_1px_4px_0_rgba(0,0,0,0.06)] ${className}`}>
-                {children}
-            </div>
-        );
-
-        /** Section header row inside a card */
-        const SectionHeader = ({ icon, label, right }) => (
-            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-                <div className="flex items-center gap-2">
-                    {icon && <span className="text-erp-accent/70 text-[15px]">{icon}</span>}
-                    <span className="text-[11px] font-black uppercase tracking-[0.08em] text-gray-400">{label}</span>
-                </div>
-                {right && <div>{right}</div>}
-            </div>
-        );
-
-        /** Pill-style toggle — same API as CustomToggle but rendered inline */
-        const PillToggle = ({ label, value, onChange, options, disabled, className = '' }) => (
-            <div className={`flex flex-col gap-1.5 ${className}`}>
-                {label && <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</span>}
-                <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 gap-0.5">
-                    {options.map(opt => (
-                        <button
-                            key={opt.value}
-                            type="button"
-                            disabled={disabled}
-                            onClick={() => !disabled && onChange(opt.value)}
-                            className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all duration-150 border
-                            ${value === opt.value
-                                    ? 'bg-white border-gray-200 text-erp-accent shadow-sm'
-                                    : 'border-transparent text-gray-400 hover:text-gray-600 bg-transparent'
-                                }
-                            disabled:opacity-40 disabled:cursor-not-allowed`}
-                        >
-                            {opt.label}
-                        </button>
-                    ))}
-                </div>
-            </div>
-        );
-
-        /** Mini checkbox indicator */
-        const SideCheckbox = ({ active }) => (
-            <span className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded-[3px] border transition-all duration-150 flex-shrink-0
-            ${active ? 'bg-erp-accent border-erp-accent' : 'bg-white border-gray-300'}`}>
-                {active && (
-                    <Icon icon="mdi:check" className="text-white text-[9px]" />
-                )}
-            </span>
-        );
-
-        /** Reusable power/prism cell input */
-        const CellInput = ({ name, value, onChange, disabled, placeholder = '0.00' }) => (
-            <input
-                type="text"
-                name={name}
-                value={value}
-                onChange={onChange}
-                disabled={disabled}
-                placeholder={placeholder}
-                className="w-full h-8 rounded-md border border-gray-200 bg-white text-center text-[12px] font-semibold text-gray-700
-                focus:outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/10
-                disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-gray-50
-                transition-all duration-150 placeholder:text-gray-300"
-            />
-        );
-
-        /** Table header cell */
-        const Th = ({ children }) => (
-            <div className="py-2.5 text-[10px] font-black uppercase tracking-[0.07em] text-gray-400 text-center border-r border-gray-100 last:border-r-0 bg-gray-50/80">
-                {children}
-            </div>
-        );
-
-        // ── Side row state helpers ───────────────────────────────────────────────
         const isSideDisabled = (side) => product.powerMode === 'single' && product.selectedSide !== side;
 
-        const SideLabel = ({ side }) => {
-            const active = product.powerMode === 'single' && product.selectedSide === side;
-            const isSingle = product.powerMode === 'single';
-            return (
-                <div
-                    onClick={() => isSingle && !isReadOnly && formik.setFieldValue(`${prefix}selectedSide`, side)}
-                    className={`flex items-center justify-center gap-1.5 h-full py-2
-                    ${isSingle ? 'cursor-pointer' : 'cursor-default'}
-                    ${active ? 'text-erp-accent' : 'text-gray-400'}
-                    transition-colors duration-150`}
-                >
-                    {isSingle && <SideCheckbox active={active} />}
-                    <span className="text-[11px] font-black">{side}</span>
-                </div>
-            );
-        };
-
-        // ─────────────────────────────────────────────────────────────────────────
         return (
             <div className="space-y-3 p-3 bg-gray-50/60 rounded-2xl border border-gray-100">
 
@@ -1443,6 +1416,8 @@ const OrderWizard = () => {
                                     </div>
                                     {['R', 'L'].map((side) => {
                                         const disabled = isSideDisabled(side);
+                                        const active = product.powerMode === 'single' && product.selectedSide === side;
+                                        const isSingle = product.powerMode === 'single';
                                         return (
                                             <div
                                                 key={side}
@@ -1451,7 +1426,16 @@ const OrderWizard = () => {
                                                 ${disabled ? 'opacity-30' : ''}`}
                                             >
                                                 <div className="border-r border-gray-100">
-                                                    <SideLabel side={side} />
+                                                    <div
+                                                        onClick={() => isSingle && !isReadOnly && formik.setFieldValue(`${prefix}selectedSide`, side)}
+                                                        className={`flex items-center justify-center gap-1.5 h-full py-2
+                                                        ${isSingle ? 'cursor-pointer' : 'cursor-default'}
+                                                        ${active ? 'text-erp-accent' : 'text-gray-400'}
+                                                        transition-colors duration-150`}
+                                                    >
+                                                        {isSingle && <SideCheckbox active={active} />}
+                                                        <span className="text-[11px] font-black">{side}</span>
+                                                    </div>
                                                 </div>
                                                 {['sph', 'cyl', 'axis', 'add', 'dia'].map(field => (
                                                     <div key={field} className="p-1.5 border-r border-gray-100 last:border-r-0">
@@ -1483,6 +1467,8 @@ const OrderWizard = () => {
                                         </div>
                                         {['R', 'L'].map((side) => {
                                             const disabled = isSideDisabled(side);
+                                            const active = product.powerMode === 'single' && product.selectedSide === side;
+                                            const isSingle = product.powerMode === 'single';
                                             return (
                                                 <div
                                                     key={side}
@@ -1491,7 +1477,16 @@ const OrderWizard = () => {
                                                     ${disabled ? 'opacity-30' : ''}`}
                                                 >
                                                     <div className="border-r border-gray-100">
-                                                        <SideLabel side={side} />
+                                                        <div
+                                                            onClick={() => isSingle && !isReadOnly && formik.setFieldValue(`${prefix}selectedSide`, side)}
+                                                            className={`flex items-center justify-center gap-1.5 h-full py-2
+                                                            ${isSingle ? 'cursor-pointer' : 'cursor-default'}
+                                                            ${active ? 'text-erp-accent' : 'text-gray-400'}
+                                                            transition-colors duration-150`}
+                                                        >
+                                                            {isSingle && <SideCheckbox active={active} />}
+                                                            <span className="text-[11px] font-black">{side}</span>
+                                                        </div>
                                                     </div>
                                                     {['prism', 'base'].map(field => (
                                                         <div key={field} className="p-1.5 border-r border-gray-100 last:border-r-0">
