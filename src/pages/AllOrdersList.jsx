@@ -16,38 +16,38 @@ import api from '../services/apiInstance';
 import usePermissions from '../hooks/usePermissions';
 
 const ALLOWED_TRANSITIONS = {
-    Draft:           ['Submitted', 'Cancelled'],
-    Submitted:       ['Processing', 'Cancelled'],
-    Processing:      ['QC', 'Cancelled'],
-    QC:              ['ReadyToDispatch', 'Cancelled'],
+    Draft: ['Submitted', 'Cancelled'],
+    Submitted: ['Processing', 'Cancelled'],
+    Processing: ['QC', 'Cancelled'],
+    QC: ['ReadyToDispatch', 'Cancelled'],
     ReadyToDispatch: ['Dispatched', 'Cancelled'],
-    Dispatched:      ['Delivered', 'Cancelled'],
-    Delivered:       ['Completed'],
-    Completed:       [],
-    Cancelled:       [],
+    Dispatched: ['Delivered', 'Cancelled'],
+    Delivered: ['Completed'],
+    Completed: [],
+    Cancelled: [],
 };
 
 const STATUS_CONFIG = {
-    Draft:           { label: 'Draft',             color: '#6b7280', badge: 'bg-gray-100 text-gray-600 border-gray-200' },
-    Submitted:       { label: 'Submitted',          color: '#3b82f6', badge: 'bg-blue-100 text-blue-700 border-blue-200' },
-    Processing:      { label: 'Processing',         color: '#f59e0b', badge: 'bg-amber-100 text-amber-700 border-amber-200' },
-    QC:              { label: 'Quality Check',      color: '#8b5cf6', badge: 'bg-purple-100 text-purple-700 border-purple-200' },
-    ReadyToDispatch: { label: 'Ready to Dispatch',  color: '#06b6d4', badge: 'bg-cyan-100 text-cyan-700 border-cyan-200' },
-    Dispatched:      { label: 'Dispatched',         color: '#6366f1', badge: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
-    Delivered:       { label: 'Delivered',          color: '#10b981', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-    Completed:       { label: 'Completed',          color: '#059669', badge: 'bg-green-100 text-green-700 border-green-200' },
-    Cancelled:       { label: 'Cancelled',          color: '#ef4444', badge: 'bg-red-100 text-red-700 border-red-200' },
+    Draft: { label: 'Draft', color: '#6b7280', badge: 'bg-gray-100 text-gray-600 border-gray-200' },
+    Submitted: { label: 'Submitted', color: '#3b82f6', badge: 'bg-blue-100 text-blue-700 border-blue-200' },
+    Processing: { label: 'Processing', color: '#f59e0b', badge: 'bg-amber-100 text-amber-700 border-amber-200' },
+    QC: { label: 'Quality Check', color: '#8b5cf6', badge: 'bg-purple-100 text-purple-700 border-purple-200' },
+    ReadyToDispatch: { label: 'Ready to Dispatch', color: '#06b6d4', badge: 'bg-cyan-100 text-cyan-700 border-cyan-200' },
+    Dispatched: { label: 'Dispatched', color: '#6366f1', badge: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
+    Delivered: { label: 'Delivered', color: '#10b981', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+    Completed: { label: 'Completed', color: '#059669', badge: 'bg-green-100 text-green-700 border-green-200' },
+    Cancelled: { label: 'Cancelled', color: '#ef4444', badge: 'bg-red-100 text-red-700 border-red-200' },
 };
 
 const TRANSITION_BTN = {
-    Submitted:       'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200',
-    Processing:      'bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200',
-    QC:              'bg-purple-50 text-purple-700 hover:bg-purple-100 border-purple-200',
+    Submitted: 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200',
+    Processing: 'bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200',
+    QC: 'bg-purple-50 text-purple-700 hover:bg-purple-100 border-purple-200',
     ReadyToDispatch: 'bg-cyan-50 text-cyan-700 hover:bg-cyan-100 border-cyan-200',
-    Dispatched:      'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200',
-    Delivered:       'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200',
-    Completed:       'bg-green-50 text-green-700 hover:bg-green-100 border-green-200',
-    Cancelled:       'bg-red-50 text-red-600 hover:bg-red-100 border-red-200',
+    Dispatched: 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200',
+    Delivered: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200',
+    Completed: 'bg-green-50 text-green-700 hover:bg-green-100 border-green-200',
+    Cancelled: 'bg-red-50 text-red-600 hover:bg-red-100 border-red-200',
 };
 
 const datePickerStyles = {
@@ -119,11 +119,10 @@ function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loadi
                                 return (
                                     <div key={step} className="flex items-start gap-3">
                                         <div className="flex flex-col items-center flex-shrink-0">
-                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 flex-shrink-0 ${
-                                                isDone ? 'bg-emerald-500 border-emerald-500' :
-                                                isCurrent ? 'bg-white border-blue-500 ring-2 ring-blue-100' :
-                                                'bg-white border-gray-200'
-                                            }`}>
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 flex-shrink-0 ${isDone ? 'bg-emerald-500 border-emerald-500' :
+                                                    isCurrent ? 'bg-white border-blue-500 ring-2 ring-blue-100' :
+                                                        'bg-white border-gray-200'
+                                                }`}>
                                                 {isDone
                                                     ? <Icon icon="mdi:check" className="text-white text-[10px]" />
                                                     : isCurrent
@@ -136,11 +135,10 @@ function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loadi
                                             )}
                                         </div>
                                         <div className="pb-4">
-                                            <span className={`text-[10px] font-black uppercase tracking-wider leading-tight ${
-                                                isDone ? 'text-emerald-600' :
-                                                isCurrent ? 'text-blue-600' :
-                                                'text-gray-300'
-                                            }`}>
+                                            <span className={`text-[10px] font-black uppercase tracking-wider leading-tight ${isDone ? 'text-emerald-600' :
+                                                    isCurrent ? 'text-blue-600' :
+                                                        'text-gray-300'
+                                                }`}>
                                                 {cfg.label}
                                             </span>
                                         </div>
@@ -164,11 +162,10 @@ function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loadi
                                             key={next}
                                             onClick={() => onTransition(order._id, next)}
                                             disabled={!!loading}
-                                            className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl border-2 transition-all disabled:opacity-50 ${
-                                                isCancel
+                                            className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl border-2 transition-all disabled:opacity-50 ${isCancel
                                                     ? 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100 hover:border-red-200'
                                                     : TRANSITION_BTN[next] || 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                                            }`}
+                                                }`}
                                         >
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.badge}`}>
@@ -251,6 +248,7 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+            setActiveActionMenu(null);
         } catch (error) {
             toast.error(error?.response?.data?.message || 'Failed to download challan. Please try again.');
         } finally {
@@ -273,6 +271,7 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+            setActiveActionMenu(null);
         } catch (error) {
             toast.error(error?.response?.data?.message || 'Failed to download invoice. Please try again.');
         } finally {
@@ -364,7 +363,7 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
             const activeFilters = Object.fromEntries(
                 Object.entries(currentFilters).filter(([_, v]) => v !== '')
             );
-            
+
             let response;
             if (activeFilters.status === 'Draft') {
                 import('../services/orderService').then(({ getDraftOrders }) => {
@@ -375,7 +374,7 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
             } else {
                 response = await getAllOrders(page, 10, activeFilters);
             }
-            
+
             if (response.success) {
                 setOrders(response.data.orders || []);
                 const paginationData = response.data.pagination || {};
@@ -737,48 +736,48 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
                                                                     </button>
                                                                 )}
 
-                                                                {/* Download Challan */}
-                                                                <button
-                                                                    onClick={() => {
-                                                                        downloadChallan(order._id);
-                                                                        setActiveActionMenu(null);
-                                                                    }}
-                                                                    disabled={challanLoading[order._id]}
-                                                                    className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                                >
-                                                                    {challanLoading[order._id] ? (
-                                                                        <>
-                                                                            <span className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                                                                            Downloading...
-                                                                        </>
-                                                                    ) : (
-                                                                        <>
-                                                                            <Icon icon="mdi:file-download-outline" className="text-base" />
-                                                                            Download Challan
-                                                                        </>
-                                                                    )}
-                                                                </button>
-                                                                {/* Download Invoice */}
-                                                                <button
-                                                                    onClick={() => {
-                                                                        downloadInvoice(order._id, order.orderNumber);
-                                                                        setActiveActionMenu(null);
-                                                                    }}
-                                                                    disabled={invoiceLoading[order._id]}
-                                                                    className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                                >
-                                                                    {invoiceLoading[order._id] ? (
-                                                                        <>
-                                                                            <span className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                                                                            Downloading...
-                                                                        </>
-                                                                    ) : (
-                                                                        <>
-                                                                            <Icon icon="mdi:file-download-outline" className="text-base" />
-                                                                            Download Invoice
-                                                                        </>
-                                                                    )}
-                                                                </button>
+                                                                {/* Download Challan or Download Invoice depending on billingMode */}
+                                                                {order.customer?.billingMode?.toUpperCase() === 'DC' ? (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            downloadChallan(order._id);
+                                                                        }}
+                                                                        disabled={challanLoading[order._id]}
+                                                                        className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                    >
+                                                                        {challanLoading[order._id] ? (
+                                                                            <>
+                                                                                <span className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                                                                                Downloading...
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <Icon icon="mdi:file-download-outline" className="text-base" />
+                                                                                Download  Challan
+                                                                            </>
+                                                                        )}
+                                                                    </button>
+                                                                ) : (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            downloadInvoice(order._id, order.orderNumber);
+                                                                        }}
+                                                                        disabled={invoiceLoading[order._id]}
+                                                                        className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                    >
+                                                                        {invoiceLoading[order._id] ? (
+                                                                            <>
+                                                                                <span className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                                                                                Downloading...
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <Icon icon="mdi:file-download-outline" className="text-base" />
+                                                                                Download Invoice
+                                                                            </>
+                                                                        )}
+                                                                    </button>
+                                                                )}
                                                                 <button
                                                                     onClick={() => {
                                                                         navigate(PATHS.CUSTOMER_CARE.EDIT_ORDER.replace(':id', order._id));
