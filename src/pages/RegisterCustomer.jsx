@@ -51,6 +51,7 @@ export default function RegisterCustomer() {
     const isSalesHead = user?.Department?.name?.toUpperCase() === 'SALES' && user?.EmployeeType?.toUpperCase() === 'ADMIN';
     const isSalesUser = isSalesExecutive || isSalesHead;
     const isFinanceUser = ['FINANCE', 'F&A', 'F&A CFO', 'ACCOUNTING'].includes(user?.Department?.name?.toUpperCase()) || user?.EmployeeType?.toUpperCase() === 'SUPERADMIN';
+    const hasApprovalAccess = user?.EmployeeType?.toUpperCase() === 'SUPERADMIN' || user?.pageAccess?.includes('APPROVALS') || isSalesHead || isFinanceUser;
 
     const steps = useMemo(() => {
         return ['Firm/Company Details', 'Address', 'Business Information', 'Contact Information', 'Overview'];
@@ -208,6 +209,10 @@ export default function RegisterCustomer() {
                 isGSTRegistered: values.gstType?.toLowerCase() !== 'un-registered' && values.gstType?.toLowerCase() !== 'unregistered',
                 proprietorName: values.proprietorName || values.ownerName,
                 currentlyDealtBrands: values.currentlyDealtBrands || '',
+                brands: (values.brands || []).map(b => ({
+                    brandId: b.brandId || b._id,
+                    brandName: b.brandName || b.name
+                })),
                 billToAddress: values.billToAddress ? {
                     ...values.billToAddress,
                     customerContactName: values.billToAddress.contactPerson,
@@ -265,7 +270,7 @@ export default function RegisterCustomer() {
 
                     correctionFields.forEach(field => {
                         const topKey = field.split(/[.[\]]+/)[0];
-                        if (['address', 'brandCategories'].includes(topKey)) {
+                        if (['address', 'brandCategories', 'brands'].includes(topKey)) {
                             // Send the entire array for complex nested structures
                             filteredPayload[topKey] = values[topKey];
                         } else if (values[field] !== undefined) {
@@ -328,7 +333,7 @@ export default function RegisterCustomer() {
                 } else if (isApprovalMode) {
                     const approvalPayload = {
                         action: 'APPROVE',
-                        remark: 'Done from ' + (isSalesHead ? 'Sales Head' : 'Finance') + ' team',
+                        remark: 'Done from ' + (currentStage === 'salesHead' ? 'Sales Head' : 'Finance') + ' team',
                         ...finalPayload
                     };
                     if (currentStage === 'salesHead') {
@@ -453,10 +458,10 @@ export default function RegisterCustomer() {
             let stage = customer.stage;
             let canApprove = false;
 
-            if (isSalesHead && workflow.salesHeadApprovalStatus === 'PENDING') {
+            if (hasApprovalAccess && workflow.salesHeadApprovalStatus === 'PENDING') {
                 canApprove = true;
                 stage = 'salesHead';
-            } else if (isFinanceUser && workflow.financeApprovalStatus === 'PENDING') {
+            } else if (hasApprovalAccess && workflow.financeApprovalStatus === 'PENDING') {
                 canApprove = true;
                 stage = 'finance';
             } else if (!stage && workflow) {
@@ -481,7 +486,7 @@ export default function RegisterCustomer() {
         } finally {
             setLoadingDraftData(false);
         }
-    }, [isFinanceUser, isSalesHead]);
+    }, [hasApprovalAccess]);
 
     useEffect(() => {
         const fetchConfigs = async () => {
@@ -661,7 +666,7 @@ export default function RegisterCustomer() {
                 let serviceCall;
                 const approvalPayload = {
                     action: 'APPROVE',
-                    remark: 'Done from ' + (isSalesHead ? 'Sales Head' : 'Finance') + ' team',
+                    remark: 'Done from ' + (currentStage === 'salesHead' ? 'Sales Head' : 'Finance') + ' team',
                     finnalPayload: finnalPayload
                 };
 
@@ -879,6 +884,7 @@ export default function RegisterCustomer() {
             <div className={`relative ${isCorrectionField ? 'p-1 rounded-2xl bg-red-50/50 border border-red-100 ring-2 ring-red-500/20' : ''}`}>
                 <Component
                     {...rest}
+                    labelPlacement="top"
                     disabled={isFieldDisabled}
                     isVerificationMode={hideVerify ? false : isVerificationMode}
                     isRejected={rejectedFields[props.name]}
@@ -924,7 +930,7 @@ export default function RegisterCustomer() {
                 return billValid && shipValid;
 
             case 2: // Business Information
-                const bizFields = ['minSalesValue', 'creditDaysRefId'];
+                const bizFields = ['creditDaysRefId'];
                 const bizValid = bizFields.every(f => !!values[f]) && !errors.minSalesValue && !errors.creditDaysRefId;
                 return bizValid;
 
@@ -972,19 +978,54 @@ export default function RegisterCustomer() {
     const customerName = formik.values.shopName || 'this customer';
 
     return (
-        <div className="min-h-screen p-6 bg-gray-50/50">
-            {/* Refined Minimal Header */}
+        <div className="min-h-screen bg-gray-50 pb-12">
+            {/* ── Top Header Banner ── */}
+            <div className="bg-white border-b border-gray-200 px-6 py-4 mb-6 flex items-center gap-4">
+                <button
+                    type="button"
+                    onClick={() => navigate(-1)}
+                    className="flex items-center gap-1.5 text-gray-500 hover:text-gray-800 text-sm font-semibold transition-colors"
+                >
+                    <Icon icon="mdi:arrow-left" className="text-lg" /> Go back
+                </button>
+                <div className="h-5 w-px bg-gray-200" />
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-[#2980B9] flex items-center justify-center">
+                        <Icon icon="mdi:account-group-outline" className="text-white text-lg" />
+                    </div>
+                    <div>
+                        <h1 className="text-sm font-black text-gray-800 uppercase tracking-widest">
+                            {isApprovalMode ? 'Review Customer Registration' : (correctionCustomerId ? 'Correct Customer Details' : 'Register Customer')}
+                        </h1>
+                        <p className="text-[11px] text-gray-400 font-medium">Complete all required steps to submit or update customer account</p>
+                    </div>
+                </div>
+                {!isReadOnlyMode && !isApprovalMode && (
+                    <div className="ml-auto flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={handleSaveDraft}
+                            disabled={savingDraft || loadingDraftData}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[#2980B9] text-[#2980B9] text-[12px] font-bold hover:bg-blue-50 transition-all disabled:opacity-50"
+                        >
+                            <Icon icon={savingDraft ? "mdi:loading" : "mdi:content-save-outline"} className={savingDraft ? "animate-spin text-sm" : "text-sm"} />
+                            {savingDraft ? 'Saving...' : draftCustomerId ? 'Update Draft' : 'Save Draft'}
+                        </button>
+                    </div>
+                )}
+            </div>
 
+            <div className="max-w-5xl mx-auto px-4 space-y-4">
             {/* Correction Header */}
             {correctionRequest && (
-                <div className="max-w-6xl mx-auto mb-8 bg-red-50/50 border border-red-100 rounded-2xl p-6 flex items-start gap-6 animate-in slide-in-from-top-4 duration-500 shadow-sm">
-                    <div className="w-12 h-12 rounded-2xl bg-red-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-red-500/20">
-                        <Icon icon="mdi:comment-alert" className="text-2xl" />
+                <div className="bg-red-50/80 border border-red-200 rounded-xl p-4 flex items-start gap-4 shadow-sm">
+                    <div className="w-9 h-9 rounded-lg bg-red-500 text-white flex items-center justify-center shrink-0">
+                        <Icon icon="mdi:comment-alert" className="text-xl" />
                     </div>
                     <div>
                         <h4 className="text-red-800 font-black uppercase tracking-widest text-xs mb-1">Correction Required</h4>
-                        <p className="text-red-700 font-bold text-sm leading-relaxed">{correctionRequest.remark}</p>
-                        <p className="text-red-500 text-[10px] uppercase font-black tracking-widest mt-2 flex items-center gap-2">
+                        <p className="text-red-700 font-medium text-xs leading-relaxed">{correctionRequest.remark}</p>
+                        <p className="text-red-500 text-[10px] uppercase font-bold tracking-widest mt-1">
                             Requested By: {correctionRequest.requestedBy?.employeeName || 'Finance'} • {correctionRequest.requestedAt ? new Date(correctionRequest.requestedAt).toLocaleDateString() : 'Recent'}
                         </p>
                     </div>
@@ -993,48 +1034,44 @@ export default function RegisterCustomer() {
 
             {/* Approval Mode Banner */}
             {isApprovalMode && (
-                <div className="max-w-6xl mx-auto mb-8 bg-erp-accent/5/50 border border-erp-accent/10 rounded-2xl p-6 flex items-start gap-6 animate-in slide-in-from-top-4 duration-500 shadow-sm">
-                    <div className="w-12 h-12 rounded-2xl bg-erp-accent text-white flex items-center justify-center shrink-0 shadow-lg shadow-erp-accent/20">
-                        <Icon icon="mdi:shield-check" className="text-2xl" />
+                <div className="bg-blue-50/80 border border-blue-200 rounded-xl p-4 flex items-start gap-4 shadow-sm">
+                    <div className="w-9 h-9 rounded-lg bg-[#2980B9] text-white flex items-center justify-center shrink-0">
+                        <Icon icon="mdi:shield-check" className="text-xl" />
                     </div>
                     <div className="flex-1">
-                        <h4 className="text-erp-accent font-black uppercase tracking-widest text-xs mb-1">
+                        <h4 className="text-[#2980B9] font-black uppercase tracking-widest text-xs mb-1">
                             {currentStage === 'salesHead' ? 'Sales Head Approval Mode' : 'Finance Approval Mode'}
                         </h4>
-                        <p className="text-erp-accent font-bold text-sm leading-relaxed">
+                        <p className="text-gray-700 font-medium text-xs leading-relaxed">
                             {currentStage === 'salesHead'
                                 ? 'You are reviewing a customer registration as Sales Head. Please verify all details and Approve or Request Redirection.'
-                                : 'You are reviewing a customer registration submitted by Sales. Please verify all details, provide the mandatory Login Details, and click Approve to finalize.'}
+                                : 'You are reviewing a customer registration submitted by Sales. Please verify all details, provide mandatory details, and click Approve to finalize.'}
                         </p>
                     </div>
-                    {(isFinanceUser || isSalesHead) && (activeStep === 0 || activeStep === 1 || activeStep === steps.length - 1) && (
-                        <Button
-                            variant="outlined"
-                            className="bg-white border-erp-accent/20 text-erp-accent hover:bg-erp-accent/10 flex gap-2 align-center justify-center"
-                            onClick={() => {
-                                dispatch(toggleVerificationMode());
-                                // We don't necessarily need to open the modal immediately, 
-                                // the user can click "Needs Correction" at the bottom too.
-                            }}
+                    {hasApprovalAccess && (activeStep === 0 || activeStep === 1 || activeStep === steps.length - 1) && (
+                        <button
+                            type="button"
+                            className="px-3 py-1.5 rounded-lg border border-[#2980B9] text-[#2980B9] text-xs font-bold hover:bg-blue-100/50 transition-all"
+                            onClick={() => dispatch(toggleVerificationMode())}
                         >
                             {isVerificationMode ? 'Cancel Selection' : 'Send for Correction'}
-                        </Button>
+                        </button>
                     )}
                 </div>
             )}
 
             {isReadOnlyMode && (
-                <div className="max-w-6xl mx-auto mb-8 bg-gray-50 border border-gray-100 rounded-2xl p-6 flex items-start gap-6 animate-in slide-in-from-top-4 duration-500 shadow-sm">
-                    <div className="w-12 h-12 rounded-2xl bg-gray-400 text-white flex items-center justify-center shrink-0 shadow-lg shadow-gray-400/20">
-                        <Icon icon="mdi:eye" className="text-2xl" />
+                <div className="bg-gray-100 border border-gray-200 rounded-xl p-4 flex items-start gap-4 shadow-sm">
+                    <div className="w-9 h-9 rounded-lg bg-gray-500 text-white flex items-center justify-center shrink-0">
+                        <Icon icon="mdi:eye" className="text-xl" />
                     </div>
                     <div className="flex-1">
                         <h4 className="text-gray-800 font-black uppercase tracking-widest text-xs mb-1">View Only Mode</h4>
-                        <p className="text-gray-600 font-bold text-sm leading-relaxed">
-                            This registration is currently <span className="text-erp-accent">Pending {currentStage === 'salesHead' ? 'Sales Head' : 'Finance'} Approval</span>. You can review the submitted details, but modifications are restricted at this stage.
+                        <p className="text-gray-600 font-medium text-xs leading-relaxed">
+                            This registration is currently <span className="text-[#2980B9] font-bold">Pending {currentStage === 'salesHead' ? 'Sales Head' : 'Finance'} Approval</span>. Modifications are restricted at this stage.
                         </p>
                     </div>
-                    <div className="px-4 py-2 bg-erp-accent/5 text-erp-accent rounded-xl text-[10px] font-black uppercase tracking-widest border border-erp-accent/10">
+                    <div className="px-3 py-1 bg-gray-200 text-gray-700 rounded-md text-[10px] font-black uppercase tracking-widest">
                         READ ONLY
                     </div>
                 </div>
@@ -1062,11 +1099,11 @@ export default function RegisterCustomer() {
                                 return (
                                     <div
                                         key={idx}
-                                        className={`bg-white rounded-2xl border transition-all duration-300 ${hasError
-                                            ? 'border-red-200 bg-red-50/10 shadow-lg ring-1 ring-red-100'
+                                        className={`bg-white rounded-xl border overflow-hidden transition-all duration-300 ${hasError
+                                            ? 'border-red-300 shadow-sm'
                                             : isActive
-                                                ? 'shadow-2xl ring-1 ring-erp-accent/10 border-erp-accent/20'
-                                                : 'shadow-sm border-gray-100'
+                                                ? 'border-[#2980B9] shadow-md ring-1 ring-[#2980B9]/20'
+                                                : 'border-gray-200 shadow-sm hover:border-gray-300'
                                             }`}
                                     >
                                         {/* Accordion Header */}
@@ -1079,56 +1116,55 @@ export default function RegisterCustomer() {
                                                     toast.warning(`Please complete the current step first.`);
                                                 }
                                             }}
-                                            className="w-full flex items-center justify-between p-6 cursor-pointer group"
+                                            className={`w-full flex items-center justify-between px-5 py-3.5 cursor-pointer transition-colors ${isActive ? 'bg-gray-50/80 border-b border-gray-100' : 'bg-white hover:bg-gray-50/50'}`}
                                         >
-                                            <div className="flex items-center gap-4">
-                                                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-300 ${hasError
-                                                    ? 'bg-red-500 text-white shadow-lg scale-110'
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-7 h-7 rounded-md flex items-center justify-center text-xs font-bold transition-all ${hasError
+                                                    ? 'bg-red-500 text-white'
                                                     : isActive
-                                                        ? 'bg-erp-accent text-white shadow-lg rotate-12 scale-110'
+                                                        ? 'bg-[#2980B9] text-white shadow-sm'
                                                         : isCompleted
-                                                            ? 'bg-green-500 text-white'
-                                                            : 'bg-gray-100 text-gray-400 group-hover:bg-erp-accent/5'
+                                                            ? 'bg-emerald-600 text-white'
+                                                            : 'bg-gray-100 text-gray-500'
                                                     }`}>
-                                                    {hasError ? <Icon icon="mdi:alert-circle" className="text-xl" /> : (isCompleted ? <Icon icon="mdi:check" className="text-xl" /> : <span className="font-black italic text-lg">{idx + 1}</span>)}
+                                                    {hasError ? <Icon icon="mdi:alert-circle" className="text-base" /> : (isCompleted ? <Icon icon="mdi:check" className="text-base" /> : idx + 1)}
                                                 </div>
                                                 <div className="text-left">
-                                                    <h3 className={`font-black uppercase tracking-widest text-sm transition-colors ${hasError
+                                                    <h3 className={`font-black uppercase tracking-widest text-xs transition-colors ${hasError
                                                         ? 'text-red-600'
                                                         : isActive
-                                                            ? 'text-erp-accent'
+                                                            ? 'text-[#2980B9]'
                                                             : 'text-gray-700'
                                                         }`}>
                                                         {label}
                                                     </h3>
-                                                    <p className="text-[10px] text-gray-400 font-bold uppercase  ">
-                                                        {hasError ? 'Attention Required' : (isActive ? 'Currently Editing' : isCompleted ? 'Verification Complete' : 'Pending Details')}
+                                                    <p className="text-[10px] text-gray-400 font-medium">
+                                                        {hasError ? 'Attention Required' : (isActive ? 'Currently Editing' : isCompleted ? 'Completed' : 'Pending Details')}
                                                     </p>
                                                 </div>
                                             </div>
-                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-500 ${isActive ? (hasError ? 'bg-red-50 rotate-180' : 'bg-erp-accent/5 rotate-180') : 'bg-gray-50'}`}>
-                                                <Icon icon="mdi:chevron-down" className={`text-xl ${isActive ? (hasError ? 'text-red-500' : 'text-erp-accent') : 'text-gray-400'}`} />
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-transform duration-300 ${isActive ? 'rotate-180 bg-blue-50 text-[#2980B9]' : 'bg-gray-100 text-gray-400'}`}>
+                                                <Icon icon="mdi:chevron-down" className="text-lg" />
                                             </div>
                                         </button>
 
                                         {/* Accordion Content */}
                                         {isActive && (
-                                            <div className="p-8 md:p-12 pt-0 animate-in fade-in slide-in-from-top-4 duration-500">
-                                                <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-100 to-transparent mb-12" />
+                                            <div className="p-6 md:p-8 animate-in fade-in duration-300">
                                                 {renderStepContent(idx)}
 
                                                 {/* Step Footer Navigation */}
                                                 {!isReadOnlyMode && (
-                                                    <div className="mt-12 pt-8 border-t border-gray-50 flex flex-col sm:flex-row items-center justify-between gap-6">
-                                                        <div className="flex items-center gap-3">
+                                                    <div className="mt-8 pt-5 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                                        <div className="flex items-center gap-2">
                                                             {!isApprovalMode && (
                                                                 <button
                                                                     type="button"
                                                                     onClick={handleSaveDraft}
                                                                     disabled={savingDraft || loadingDraftData}
-                                                                    className="flex items-center px-6 py-3 bg-white border border-gray-200 text-gray-600 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all active:scale-95 disabled:opacity-50 shadow-sm"
+                                                                    className="flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-600 text-[11px] font-bold uppercase tracking-wider rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50"
                                                                 >
-                                                                    <Icon icon={draftCustomerId ? "mdi:cloud-check" : "mdi:content-save"} className="mr-2 text-base text-gray-400" />
+                                                                    <Icon icon={draftCustomerId ? "mdi:cloud-check" : "mdi:content-save"} className="text-sm text-gray-400" />
                                                                     {draftCustomerId ? 'Update Draft' : 'Save Draft'}
                                                                 </button>
                                                             )}
@@ -1137,22 +1173,22 @@ export default function RegisterCustomer() {
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => setStep(activeStep - 1)}
-                                                                    className="flex items-center px-6 py-3 bg-gray-100 text-gray-600 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-gray-200 transition-all active:scale-95 shadow-sm"
+                                                                    className="flex items-center gap-1 px-4 py-2 bg-gray-100 text-gray-600 text-[11px] font-bold uppercase tracking-wider rounded-lg hover:bg-gray-200 transition-all"
                                                                 >
-                                                                    <Icon icon="mdi:chevron-left" className="mr-1 text-base" />
+                                                                    <Icon icon="mdi:chevron-left" className="text-base" />
                                                                     Back
                                                                 </button>
                                                             )}
                                                         </div>
 
-                                                        <div className="flex items-center gap-3 w-full sm:w-auto">
-                                                            {(isFinanceUser || isSalesHead) && isApprovalMode && (
+                                                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                                                            {hasApprovalAccess && isApprovalMode && (
                                                                 <div className="flex gap-2 w-full sm:w-auto">
                                                                     {!isVerificationMode ? (
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => dispatch(toggleVerificationMode())}
-                                                                            className="flex-1 sm:flex-none flex items-center justify-center px-6 py-3 bg-erp-accent/5 border border-erp-accent/20 text-erp-accent text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-erp-accent/10 transition-all shadow-sm"
+                                                                            className="flex-1 sm:flex-none px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold uppercase tracking-wider rounded-lg hover:bg-amber-100 transition-all"
                                                                         >
                                                                             Needs Correction
                                                                         </button>
@@ -1161,7 +1197,7 @@ export default function RegisterCustomer() {
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={() => dispatch(toggleVerificationMode())}
-                                                                                className="flex-1 sm:flex-none px-6 py-3 bg-gray-100 text-gray-600 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-gray-200 transition-all shadow-sm"
+                                                                                className="flex-1 sm:flex-none px-4 py-2 bg-gray-100 text-gray-600 text-[11px] font-bold uppercase tracking-wider rounded-lg hover:bg-gray-200 transition-all"
                                                                             >
                                                                                 Cancel
                                                                             </button>
@@ -1176,7 +1212,7 @@ export default function RegisterCustomer() {
                                                                                     setCorrectionRequest({ fields, remarks: '' });
                                                                                     setIsCorrectionModalOpen(true);
                                                                                 }}
-                                                                                className="flex-1 sm:flex-none px-6 py-3 bg-red-600 text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-red-700 shadow-lg shadow-red-600/20 transition-all"
+                                                                                className="flex-1 sm:flex-none px-4 py-2 bg-red-600 text-white text-[11px] font-bold uppercase tracking-wider rounded-lg hover:bg-red-700 transition-all"
                                                                             >
                                                                                 Confirm Rejection
                                                                             </button>
@@ -1189,25 +1225,25 @@ export default function RegisterCustomer() {
                                                                 type="button"
                                                                 disabled={isVerificationMode}
                                                                 onClick={handleMainAction}
-                                                                className={`flex-1 sm:flex-none flex items-center justify-center px-10 py-3 bg-erp-accent text-white text-[11px] font-black uppercase tracking-widest rounded-xl transition-all duration-300 active:scale-95 gap-2 shadow-lg shadow-erp-accent/20 ${isVerificationMode ? 'opacity-30 cursor-not-allowed grayscale' : 'hover:bg-erp-accent hover:-translate-y-0.5'}`}
+                                                                className={`flex-1 sm:flex-none flex items-center justify-center px-6 py-2 bg-[#2980B9] hover:bg-[#2471a3] text-white text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all gap-1.5 shadow-sm active:scale-95 ${isVerificationMode ? 'opacity-30 cursor-not-allowed grayscale' : ''}`}
                                                             >
                                                                 <span>
                                                                     {activeStep === steps.length - 1
-                                                                        ? (isApprovalMode ? 'Approve' : (correctionCustomerId ? 'Resubmit' : ((user?.EmployeeType === 'SUPERADMIN' || isFinanceUser || isSalesHead) ? 'Register' : 'Submit')))
+                                                                        ? (isApprovalMode ? 'Approve' : (correctionCustomerId ? 'Resubmit' : (hasApprovalAccess ? 'Register' : 'Submit')))
                                                                         : 'Next Step'}
                                                                 </span>
-                                                                <Icon icon={activeStep === steps.length - 1 ? "mdi:check-decagram" : "mdi:arrow-right-circle"} className="text-base" />
+                                                                <Icon icon={activeStep === steps.length - 1 ? "mdi:check-decagram" : "mdi:arrow-right-circle"} className="text-sm" />
                                                             </button>
                                                         </div>
                                                     </div>
                                                 )}
 
                                                 {isReadOnlyMode && activeStep === steps.length - 1 && (
-                                                    <div className="mt-12 pt-8 border-t border-gray-50 flex justify-end">
+                                                    <div className="mt-8 pt-5 border-t border-gray-100 flex justify-end">
                                                         <button
                                                             type="button"
                                                             onClick={handleMainAction}
-                                                            className="px-10 py-3 bg-gray-800 text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-gray-900 transition-all active:scale-95 shadow-lg shadow-gray-800/20"
+                                                            className="px-6 py-2 bg-gray-800 text-white text-[11px] font-bold uppercase tracking-wider rounded-lg hover:bg-gray-900 transition-all active:scale-95"
                                                         >
                                                             Close Review
                                                         </button>
@@ -1233,8 +1269,9 @@ export default function RegisterCustomer() {
                 customerName={formik.values.shopName || formik.values.ownerName}
                 initialFields={correctionRequest?.fields || correctionRequest?.fieldsToCorrect || []}
                 loading={saving}
-                showTargetRole={isSalesHead}
+                showTargetRole={currentStage === 'salesHead'}
             />
+            </div>
         </div>
     );
 }

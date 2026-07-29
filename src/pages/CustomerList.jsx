@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { getAllCustomers, getCustomerById, getCustomerConfigs, deactivateCustomer, sendCustomerForCorrection } from '../services/customerService';
 import { getAllZones } from '../services/locationService';
@@ -412,16 +413,16 @@ const CustomerList = () => {
                     <div className="overflow-x-auto overflow-y-auto max-h-[1000px] custom-scrollbar">
                         <table className="w-full border-collapse min-w-[1240px]">
                             <thead>
-                                <tr className="bg-[#eaf4fb]/50 border-b border-[#2980B9]/15">
-                                    <th className="py-2.5 px-3 w-10 text-[#1F618D] border-r border-gray-100 last:border-r-0 text-center uppercase tracking-wider"></th>
-                                    <th className="py-3 px-4 font-bold text-xs text-[#1F618D] border-r border-gray-100 last:border-r-0 text-center uppercase tracking-wider">Customer Code</th>
-                                    <th className="py-3 px-6 font-bold text-xs text-[#1F618D] border-r border-gray-100 last:border-r-0 text-center uppercase tracking-wider">Name / Shop</th>
-                                    <th className="py-3 px-4 font-bold text-xs text-[#1F618D] border-r border-gray-100 last:border-r-0 text-center uppercase tracking-wider">Account Type</th>
-                                    <th className="py-3 px-6 font-bold text-xs text-[#1F618D] border-r border-gray-100 last:border-r-0 text-center uppercase tracking-wider">Email / Phone</th>
-                                    <th className="py-3 px-6 font-bold text-xs text-[#1F618D] border-r border-gray-100 last:border-r-0 text-center uppercase tracking-wider">City / Country</th>
-                                    <th className="py-3 px-4 font-bold text-xs text-[#1F618D] border-r border-gray-100 last:border-r-0 text-center uppercase tracking-wider">Status</th>
-                                    <th className="py-3 px-4 font-bold text-xs text-[#1F618D] border-r border-gray-100 last:border-r-0 text-center uppercase tracking-wider">Sales Person / Zone</th>
-                                    <th className="py-3 px-4 font-bold text-xs text-[#1F618D] text-center uppercase tracking-wider">Action</th>
+                                <tr className="bg-gray-100/80 border-b border-gray-200 sticky top-0 z-10">
+                                    <th className="py-2.5 px-3 w-10 text-gray-500 border-r border-gray-200/60 text-center uppercase tracking-wider text-[11px] font-extrabold"></th>
+                                    <th className="py-2.5 px-4 font-extrabold text-[11px] text-gray-600 border-r border-gray-200/60 text-center uppercase tracking-wider">Customer Code</th>
+                                    <th className="py-2.5 px-6 font-extrabold text-[11px] text-gray-600 border-r border-gray-200/60 text-center uppercase tracking-wider">Name / Shop</th>
+                                    <th className="py-2.5 px-4 font-extrabold text-[11px] text-gray-600 border-r border-gray-200/60 text-center uppercase tracking-wider">Account Type</th>
+                                    <th className="py-2.5 px-6 font-extrabold text-[11px] text-gray-600 border-r border-gray-200/60 text-center uppercase tracking-wider">Email / Phone</th>
+                                    <th className="py-2.5 px-6 font-extrabold text-[11px] text-gray-600 border-r border-gray-200/60 text-center uppercase tracking-wider">City / Country</th>
+                                    <th className="py-2.5 px-4 font-extrabold text-[11px] text-gray-600 border-r border-gray-200/60 text-center uppercase tracking-wider">Status</th>
+                                    <th className="py-2.5 px-4 font-extrabold text-[11px] text-gray-600 border-r border-gray-200/60 text-center uppercase tracking-wider">Sales Person / Zone</th>
+                                    <th className="py-2.5 px-4 font-extrabold text-[11px] text-gray-600 text-center uppercase tracking-wider">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="text-gray-600">
@@ -484,66 +485,25 @@ const CustomerList = () => {
                                                 </div>
                                             </td> */}
                                             <td className="px-4 py-2 text-center relative" onClick={(e) => e.stopPropagation()}>
+                                                {/* Action Menu Button */}
                                                 <button
-                                                    onClick={() => setActiveActionMenu(activeActionMenu === cust._id ? null : cust._id)}
-                                                    className={`p-2 rounded-xl transition-all ${activeActionMenu === cust._id ? 'bg-erp-accent text-white shadow-lg' : 'text-gray-400 hover:text-erp-accent hover:bg-erp-accent/5'}`}
+                                                    onClick={(e) => {
+                                                        const rect = e.currentTarget.getBoundingClientRect();
+                                                        if (activeActionMenu?.id === cust._id) {
+                                                            setActiveActionMenu(null);
+                                                        } else {
+                                                            setActiveActionMenu({
+                                                                id: cust._id,
+                                                                top: rect.top + window.scrollY,
+                                                                left: rect.left + window.scrollX,
+                                                                cust
+                                                            });
+                                                        }
+                                                    }}
+                                                    className={`p-2 rounded-xl transition-all ${activeActionMenu?.id === cust._id ? 'bg-erp-accent text-white shadow-lg' : 'text-gray-400 hover:text-erp-accent hover:bg-erp-accent/5'}`}
                                                 >
                                                     <Icon icon="mdi:dots-vertical" className="w-6 h-6" />
                                                 </button>
-
-                                                {/* Absolute Action Dropdown */}
-                                                {activeActionMenu === cust._id && (
-                                                    <>
-                                                        <div
-                                                            className="fixed inset-0 z-[60]"
-                                                            onClick={() => setActiveActionMenu(null)}
-                                                        />
-                                                        <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2 z-[70] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden min-w-[140px] animate-in fade-in slide-in-from-right-4 duration-200">
-                                                            <button
-                                                                onClick={() => { handleViewDetails(cust._id); setActiveActionMenu(null); }}
-                                                                className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-erp-accent/5 hover:text-erp-accent/80 transition-colors"
-                                                            >
-                                                                <Icon icon="mdi:eye" className="text-lg" />
-                                                                View
-                                                            </button>
-                                                            <PermissionWrapper permission="UPDATE_CUSTOMER">
-                                                                <button
-                                                                    onClick={() => navigate(`${PATHS.CUSTOMER.SHIP_TO}?customerId=${cust._id}`)}
-                                                                    className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-emerald-600 hover:bg-emerald-50 transition-colors"
-                                                                >
-                                                                    <Icon icon="mdi:truck-delivery-outline" className="text-lg" />
-                                                                    Edit Ship-To
-                                                                </button>
-                                                            </PermissionWrapper>
-                                                            <PermissionWrapper permission="UPDATE_CUSTOMER">
-                                                                <button className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-blue-500 hover:bg-blue-50 border-y border-gray-50 transition-colors">
-                                                                    <Icon icon="mdi:pencil" className="text-lg" />
-                                                                    Edit
-                                                                </button>
-                                                            </PermissionWrapper>
-                                                            <PermissionWrapper permission="DELETE_CUSTOMER">
-                                                                <button
-                                                                    onClick={() => handleDeactivateClick(cust)}
-                                                                    className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors"
-                                                                >
-                                                                    <Icon icon="mdi:account-off" className="text-lg" />
-                                                                    Deactivate
-                                                                </button>
-                                                            </PermissionWrapper>
-                                                            <PermissionWrapper permission="APPROVE_ORDER">
-                                                                {(cust.approvalStatus === 'PENDING_FINANCE' || !cust.approvalStatus) && (
-                                                                    <button
-                                                                        onClick={() => handleCorrectionClick(cust)}
-                                                                        className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-erp-accent/80 hover:bg-erp-accent/5 transition-colors border-t border-gray-50"
-                                                                    >
-                                                                        <Icon icon="mdi:comment-alert" className="text-lg" />
-                                                                        Correction
-                                                                    </button>
-                                                                )}
-                                                            </PermissionWrapper>
-                                                        </div>
-                                                    </>
-                                                )}
                                             </td>
                                         </tr>
 
@@ -580,6 +540,20 @@ const CustomerList = () => {
                                                                 <DetailItem label="Sales Person" value={cust.salesPerson?.name || cust.salesPerson} />
                                                                 <DetailItem label="Courier" value={cust.courierName?.name || cust.courierName} />
                                                                 <DetailItem label="Courier Time" value={cust.courierTime?.name || cust.courierTime} />
+                                                                <div>
+                                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1">Assigned Brands</p>
+                                                                    <div className="flex flex-wrap gap-1.5">
+                                                                        {Array.isArray(cust.brands) && cust.brands.length > 0 ? (
+                                                                            cust.brands.map((b, i) => (
+                                                                                <span key={i} className="px-2 py-0.5 bg-blue-50 text-[#2980B9] border border-blue-100 rounded text-[10px] font-black uppercase">
+                                                                                    {b.brandName || b.name}
+                                                                                </span>
+                                                                            ))
+                                                                        ) : (
+                                                                            <span className="text-xs text-gray-400 font-semibold">---</span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
                                                             </div>
 
                                                             <div className="space-y-6">
@@ -719,9 +693,70 @@ const CustomerList = () => {
                 )}
             </div>
 
+            {/* Action Menu Portal Popup */}
+            {activeActionMenu && createPortal(
+                <>
+                    <div
+                        className="fixed inset-0 z-[9990]"
+                        onClick={() => setActiveActionMenu(null)}
+                    />
+                    <div
+                        className="fixed z-[9999] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden min-w-[150px] animate-in fade-in zoom-in-95 duration-150"
+                        style={{
+                            top: Math.min(window.innerHeight - 200, activeActionMenu.top - window.scrollY - 10),
+                            left: Math.max(10, activeActionMenu.left - window.scrollX - 160)
+                        }}
+                    >
+                        <button
+                            onClick={() => { navigate(`/customer/profile/${activeActionMenu.id}`); setActiveActionMenu(null); }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-erp-accent/5 hover:text-erp-accent transition-colors"
+                        >
+                            <Icon icon="mdi:eye" className="text-lg" />
+                            View Profile
+                        </button>
+                        <PermissionWrapper permission="UPDATE_CUSTOMER">
+                            <button
+                                onClick={() => { navigate(`${PATHS.CUSTOMER.SHIP_TO}?customerId=${activeActionMenu.id}`); setActiveActionMenu(null); }}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-emerald-600 hover:bg-emerald-50 transition-colors"
+                            >
+                                <Icon icon="mdi:truck-delivery-outline" className="text-lg" />
+                                Edit Ship-To
+                            </button>
+                        </PermissionWrapper>
+                        <PermissionWrapper permission="UPDATE_CUSTOMER">
+                            <button className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-blue-500 hover:bg-blue-50 border-y border-gray-50 transition-colors">
+                                <Icon icon="mdi:pencil" className="text-lg" />
+                                Edit
+                            </button>
+                        </PermissionWrapper>
+                        <PermissionWrapper permission="DELETE_CUSTOMER">
+                            <button
+                                onClick={() => { handleDeactivateClick(activeActionMenu.cust); setActiveActionMenu(null); }}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors"
+                            >
+                                <Icon icon="mdi:account-off" className="text-lg" />
+                                Deactivate
+                            </button>
+                        </PermissionWrapper>
+                        <PermissionWrapper permission="APPROVE_ORDER">
+                            {(activeActionMenu.cust?.approvalStatus === 'PENDING_FINANCE' || !activeActionMenu.cust?.approvalStatus) && (
+                                <button
+                                    onClick={() => { handleCorrectionClick(activeActionMenu.cust); setActiveActionMenu(null); }}
+                                    className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-amber-600 hover:bg-amber-50 transition-colors border-t border-gray-50"
+                                >
+                                    <Icon icon="mdi:comment-alert" className="text-lg" />
+                                    Correction
+                                </button>
+                            )}
+                        </PermissionWrapper>
+                    </div>
+                </>,
+                document.body
+            )}
+
             {/* Customer Detail Modal */}
-            {selectedCustomer && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            {selectedCustomer && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
                     <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col scale-in-center">
                         <div className="bg-erp-accent p-6 text-white flex justify-between items-center">
                             <div className="flex items-center gap-3">
@@ -809,14 +844,16 @@ const CustomerList = () => {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* View Loading Overlay */}
-            {viewLoading && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/10 backdrop-blur-[2px]">
+            {viewLoading && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/10 backdrop-blur-[2px]">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-erp-accent"></div>
-                </div>
+                </div>,
+                document.body
             )}
             <ConfirmationModal
                 isOpen={!!selectedCustomerForDeactivate}

@@ -24,19 +24,20 @@ const usePermissions = () => {
     })();
 
     const isSuperAdmin = user?.EmployeeType === 'SUPERADMIN';
+    const isPlatformOwner = user?.EmployeeType === 'PLATFORM_OWNER';
 
     /**
      * hasPageAccess('STAFF_LIST')
      *
      * Returns true when:
      *   - no key is provided (open route), OR
-     *   - user is SUPERADMIN, OR
+     *   - user is SUPERADMIN or PLATFORM_OWNER, OR
      *   - user.pageAccess[] contains the key
      */
     const hasPageAccess = (pageName) => {
         if (!pageName) return true;       // no restriction — open route
         if (!user) return false;          // not logged in
-        if (isSuperAdmin) return true;    // SUPERADMIN: full access
+        if (isSuperAdmin || isPlatformOwner) return true;    // SUPERADMIN & PLATFORM_OWNER: full access
         return Array.isArray(user.pageAccess) && user.pageAccess.includes(pageName);
     };
 
@@ -45,7 +46,7 @@ const usePermissions = () => {
      *
      * Returns true when:
      *   - no key is provided, OR
-     *   - user is SUPERADMIN, OR
+     *   - user is SUPERADMIN or PLATFORM_OWNER, OR
      *   - user.accessPermissions[] contains the key
      *
      * Backend validates independently — this only controls UI visibility.
@@ -53,11 +54,11 @@ const usePermissions = () => {
     const hasPermission = (permissionName) => {
         if (!permissionName) return true; // no restriction
         if (!user) return false;
-        if (isSuperAdmin) return true;    // SUPERADMIN: full access
+        if (isSuperAdmin || isPlatformOwner) return true;    // SUPERADMIN & PLATFORM_OWNER: full access
         return Array.isArray(user.accessPermissions) && user.accessPermissions.includes(permissionName);
     };
 
-    return { user, isSuperAdmin, hasPageAccess, hasPermission };
+    return { user, isSuperAdmin, isPlatformOwner, hasPageAccess, hasPermission };
 };
 
 export default usePermissions;

@@ -27,6 +27,7 @@ import { getAllVendors } from '../services/vendorService';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { PATHS } from '../routes/paths';
 import { getOrderById, updateOrder } from '../services/orderService';
+import { uploadImage } from '../services/bucketService';
 
 const SectionCard = ({ children, className = '' }) => (
     <div className={`bg-white rounded-2xl border border-gray-100 shadow-[0_1px_4px_0_rgba(0,0,0,0.06)] ${className}`}>
@@ -125,6 +126,23 @@ const OrderWizard = () => {
     const [activeProductIndex, setActiveProductIndex] = useState(0);
     const [expandedProductIndices, setExpandedProductIndices] = useState([]);
     const [activeCategories, setActiveCategories] = useState([]);
+    const [uploadingItemImages, setUploadingItemImages] = useState({});
+
+    const handleItemImageUpload = async (index, file) => {
+        if (!file) return;
+        setUploadingItemImages(prev => ({ ...prev, [index]: true }));
+        try {
+            const response = await uploadImage(file);
+            const url = response.data?.url || response.url || response;
+            const currentPhotos = formik.values.products[index]?.photos || [];
+            formik.setFieldValue(`products.${index}.photos`, [...currentPhotos, url]);
+            toast.success("Product image uploaded successfully!");
+        } catch (error) {
+            toast.error(error.message || 'Product image upload failed');
+        } finally {
+            setUploadingItemImages(prev => ({ ...prev, [index]: false }));
+        }
+    };
 
     const steps = ['Customer Details', 'Product Details', 'Advanced Details'];
 
@@ -133,6 +151,8 @@ const OrderWizard = () => {
         unit: 'piece',
         price: 0,
         discount: 0,
+        brand: '',
+        photos: [],
         powerMode: 'both',
         productMode: 'stock',
         orderType: 'stock',
@@ -204,6 +224,7 @@ const OrderWizard = () => {
         orderReference: '',
         consumerCardName: '',
         opticianName: '',
+        estimatedDeliveryDate: '',
         customerBalance: '0.00',
 
         // Product Details Array
@@ -532,7 +553,12 @@ const OrderWizard = () => {
             return name;
         };
 
-        const items = values.products.map(prod => {
+        const activeProducts = (values.products || []).filter(prod => {
+            return !!(prod.productName || prod.productId || prod.brandId || prod.categoryId || prod.brand);
+        });
+        const finalProducts = activeProducts.length > 0 ? activeProducts : [(values.products || [])[0]];
+
+        const items = finalProducts.map(prod => {
             const brandData = getFieldData('brand', prod.brandId);
             const categoryData = getFieldData('category', prod.categoryId);
             const productData = getProductNameData(prod.productName);
@@ -563,7 +589,14 @@ const OrderWizard = () => {
                 price: price,
                 gst: parseFloat(prod.gstDetails?.gstPercent) || 0,
                 hsnSac: prod.HSNSAC || '',
-                mrp: parseFloat(prod.MRP) || 0
+                mrp: parseFloat(prod.MRP) || 0,
+                brand: prod.brand || brandData?.name || prod.Brand || '',
+                code: prod.code || prod.Code || '',
+                color: prod.color || '',
+                size: prod.size || prod.Size || '',
+                shape: prod.shape || prod.Shape || '',
+                dimensions: prod.dimensions || prod.Dimensions || '',
+                photos: prod.photos || []
             };
 
             // Add fields only for LENS & CONTACT_LENS
@@ -695,6 +728,7 @@ const OrderWizard = () => {
             orders: [
                 {
                     orderNumber: values.orderReference || undefined,
+                    estimatedDeliveryDate: values.estimatedDeliveryDate || undefined,
                     items,
                     cgst: cgstStr,
                     sgst: sgstStr,
@@ -710,6 +744,14 @@ const OrderWizard = () => {
 
     const handleSaveDraft = async () => {
         try {
+            const cleanedProducts = (formik.values.products || []).filter(prod => {
+                return !!(prod.productName || prod.productId || prod.brandId || prod.categoryId || prod.brand);
+            });
+            const finalProducts = cleanedProducts.length > 0 ? cleanedProducts : [(formik.values.products || [])[0]];
+            if (finalProducts.length !== (formik.values.products || []).length) {
+                formik.setFieldValue('products', finalProducts);
+                formik.values.products = finalProducts;
+            }
             const payload = formatOrderPayload(formik.values, 'Draft');
             let res;
             if (isEditMode) {
@@ -1173,6 +1215,18 @@ const OrderWizard = () => {
     };
 
     const handleNext = async () => {
+        // Clean out empty product rows first if we are in Step 2 (Product details)
+        if (activeStep === 1) {
+            const cleanedProducts = (formik.values.products || []).filter(prod => {
+                return !!(prod.productName || prod.productId || prod.brandId || prod.categoryId || prod.brand);
+            });
+            const finalProducts = cleanedProducts.length > 0 ? cleanedProducts : [(formik.values.products || [])[0]];
+            if (finalProducts.length !== (formik.values.products || []).length) {
+                formik.setFieldValue('products', finalProducts);
+                formik.values.products = finalProducts;
+            }
+        }
+
         // Define fields for each step to validate partially
         const stepFields = [
             ['customerId'], // Step 1
@@ -1342,7 +1396,7 @@ const OrderWizard = () => {
                 <div className="mx-6 border-t border-gray-100 mb-4" />
 
                 {/* ── Additional fields ──────────────────────────────────────── */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-6 pb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 px-6 pb-6">
                     {wrapInput(Input, {
                         label: "Order reference",
                         name: "orderReference",
@@ -1358,6 +1412,12 @@ const OrderWizard = () => {
                         name: "opticianName",
                         placeholder: "Enter optician's name"
                     })}
+                    {wrapInput(Input, {
+                        label: "Estimated Delivery Date",
+                        name: "estimatedDeliveryDate",
+                        type: "datetime-local",
+                        disabled: isReadOnly
+                    })}
                 </div>
 
             </div>
@@ -1365,28 +1425,31 @@ const OrderWizard = () => {
     };
 
     // ─── Enhanced renderActiveProductDetails ────────────────────────────────────
-    // Drop-in replacement. All props, state, and helpers are unchanged.
-    // Only className strings and minor structural wrappers are modified.
+    // Compact layout: less scrolling, everything visible at a glance.
 
     const renderActiveProductDetails = (index) => {
         const product = formik.values.products[index];
         const prefix = `products.${index}.`;
         const isStock = product.orderType === 'stock';
 
-        const isSideDisabled = (side) => product.powerMode === 'single' && product.selectedSide !== side;
+        const categoryObj = configs.category?.find(c => c._id === product.categoryId || c.name === product.category);
+        const catName = (categoryObj?.name || product.category || '').toUpperCase();
+        const isLensCategory = !catName || catName.includes('LENS') || catName.includes('GLASS') || catName.includes('RX') || product.orderType === 'rx';
+
+        const isSideDisabled = (side) => !isLensCategory || (product.powerMode === 'single' && product.selectedSide !== side);
 
         return (
-            <div className="space-y-3 p-3 bg-gray-50/60 rounded-2xl border border-gray-100">
+            <div className="space-y-2 p-2 bg-gray-50/60 rounded-xl border border-gray-100">
 
-                {/* ── NON-STOCK SECTIONS ──────────────────────────────────────── */}
+                {/* ── NON-STOCK: Prescription (toggles + power + prism inline) ── */}
                 {!isStock && (
-                    <>
-                        {/* ── TOGGLES ── */}
-                        <SectionCard>
-                            <SectionHeader label="Power options" />
-                            <div className="flex flex-wrap gap-5 px-5 py-4">
+                    <div className="bg-white rounded-xl border border-gray-100 shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden">
+                        {/* Header with toggles */}
+                        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+                            <span className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-500">Prescription</span>
+                            <div className="flex flex-wrap gap-4">
                                 <PillToggle
-                                    label="Power details"
+                                    label="Power"
                                     value={product.powerMode}
                                     onChange={(v) => formik.setFieldValue(`${prefix}powerMode`, v)}
                                     options={[{ label: 'Single', value: 'single' }, { label: 'Both', value: 'both' }]}
@@ -1400,352 +1463,267 @@ const OrderWizard = () => {
                                     disabled={isReadOnly}
                                 />
                             </div>
-                        </SectionCard>
-
-                        {/* ── POWER + PRISM TABLES ── */}
-                        <SectionCard>
-                            <SectionHeader label="Prescription" />
-                            <div className="flex flex-col lg:flex-row gap-4 p-4">
-
-                                {/* Power Table */}
-                                <div className="flex-1 rounded-xl border border-gray-200 overflow-hidden">
-                                    <div className="grid grid-cols-6">
-                                        {['Side', 'SPH', 'CYL', 'Axis', 'Add', 'Dia'].map(h => (
-                                            <Th key={h}>{h}</Th>
-                                        ))}
+                        </div>
+                        {/* Tables inline */}
+                        <div className="flex flex-wrap gap-3 p-3">
+                            {/* Power Table */}
+                            <div className="flex-1 min-w-[320px] rounded-lg border border-gray-200 overflow-hidden">
+                                <div className="grid grid-cols-6">
+                                    {['Side', 'SPH', 'CYL', 'Axis', 'Add', 'Dia'].map(h => (
+                                        <Th key={h}>{h}</Th>
+                                    ))}
+                                </div>
+                                {['R', 'L'].map((side) => {
+                                    const disabled = isSideDisabled(side);
+                                    const active = product.powerMode === 'single' && product.selectedSide === side;
+                                    const isSingle = product.powerMode === 'single';
+                                    return (
+                                        <div key={side} className={`grid grid-cols-6 border-t border-gray-100 transition-opacity duration-200 ${side === 'L' ? 'bg-blue-50/20' : 'bg-white'} ${disabled ? 'opacity-30' : ''}`}>
+                                            <div className="border-r border-gray-100">
+                                                <div onClick={() => isSingle && !isReadOnly && formik.setFieldValue(`${prefix}selectedSide`, side)} className={`flex items-center justify-center gap-1 h-full py-1.5 ${isSingle ? 'cursor-pointer' : 'cursor-default'} ${active ? 'text-erp-accent' : 'text-gray-400'} transition-colors duration-150`}>
+                                                    {isSingle && <SideCheckbox active={active} />}
+                                                    <span className="text-[11px] font-black">{side}</span>
+                                                </div>
+                                            </div>
+                                            {['sph', 'cyl', 'axis', 'add', 'dia'].map(field => (
+                                                <div key={field} className="p-1 border-r border-gray-100 last:border-r-0">
+                                                    <CellInput name={`${prefix}powerTable.${side}.${field}`} value={product.powerTable[side][field]} onChange={formik.handleChange} disabled={disabled} placeholder={field === 'axis' ? '0' : '0.00'} />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            {/* Prism Table (inline) */}
+                            {product.hasPrism === 'yes' && (
+                                <div className="w-full lg:w-52 rounded-lg border border-erp-accent/20 overflow-hidden animate-in slide-in-from-right-3 fade-in duration-200">
+                                    <div className="px-2 py-1 bg-erp-accent/5 border-b border-erp-accent/10">
+                                        <span className="text-[9px] font-black uppercase tracking-[0.07em] text-erp-accent/70">Prism</span>
+                                    </div>
+                                    <div className="grid grid-cols-3">
+                                        {['Side', 'Prism', 'Base'].map(h => (<Th key={h}>{h}</Th>))}
                                     </div>
                                     {['R', 'L'].map((side) => {
                                         const disabled = isSideDisabled(side);
                                         const active = product.powerMode === 'single' && product.selectedSide === side;
                                         const isSingle = product.powerMode === 'single';
                                         return (
-                                            <div
-                                                key={side}
-                                                className={`grid grid-cols-6 border-t border-gray-100 transition-opacity duration-200
-                                                ${side === 'L' ? 'bg-blue-50/20' : 'bg-white'}
-                                                ${disabled ? 'opacity-30' : ''}`}
-                                            >
+                                            <div key={side} className={`grid grid-cols-3 border-t border-gray-100 transition-opacity duration-200 ${side === 'L' ? 'bg-blue-50/20' : 'bg-white'} ${disabled ? 'opacity-30' : ''}`}>
                                                 <div className="border-r border-gray-100">
-                                                    <div
-                                                        onClick={() => isSingle && !isReadOnly && formik.setFieldValue(`${prefix}selectedSide`, side)}
-                                                        className={`flex items-center justify-center gap-1.5 h-full py-2
-                                                        ${isSingle ? 'cursor-pointer' : 'cursor-default'}
-                                                        ${active ? 'text-erp-accent' : 'text-gray-400'}
-                                                        transition-colors duration-150`}
-                                                    >
+                                                    <div onClick={() => isSingle && !isReadOnly && formik.setFieldValue(`${prefix}selectedSide`, side)} className={`flex items-center justify-center gap-1 h-full py-1.5 ${isSingle ? 'cursor-pointer' : 'cursor-default'} ${active ? 'text-erp-accent' : 'text-gray-400'} transition-colors duration-150`}>
                                                         {isSingle && <SideCheckbox active={active} />}
                                                         <span className="text-[11px] font-black">{side}</span>
                                                     </div>
                                                 </div>
-                                                {['sph', 'cyl', 'axis', 'add', 'dia'].map(field => (
-                                                    <div key={field} className="p-1.5 border-r border-gray-100 last:border-r-0">
-                                                        <CellInput
-                                                            name={`${prefix}powerTable.${side}.${field}`}
-                                                            value={product.powerTable[side][field]}
-                                                            onChange={formik.handleChange}
-                                                            disabled={disabled}
-                                                            placeholder={field === 'axis' ? '0' : '0.00'}
-                                                        />
+                                                {['prism', 'base'].map(field => (
+                                                    <div key={field} className="p-1 border-r border-gray-100 last:border-r-0">
+                                                        <CellInput name={`${prefix}prismTable.${side}.${field}`} value={product.prismTable[side][field]} onChange={formik.handleChange} disabled={disabled} placeholder={field === 'base' ? 'Base' : '0.00'} />
                                                     </div>
                                                 ))}
                                             </div>
                                         );
                                     })}
                                 </div>
-
-                                {/* Prism Table */}
-                                {product.hasPrism === 'yes' && (
-                                    <div className="w-full lg:w-72 rounded-xl border border-erp-accent/20 overflow-hidden
-                                    animate-in slide-in-from-right-3 fade-in duration-200">
-                                        <div className="px-3 py-2 bg-erp-accent/5 border-b border-erp-accent/10">
-                                            <span className="text-[10px] font-black uppercase tracking-[0.07em] text-erp-accent/70">Prism</span>
-                                        </div>
-                                        <div className="grid grid-cols-3">
-                                            {['Side', 'Prism', 'Base'].map(h => (
-                                                <Th key={h}>{h}</Th>
-                                            ))}
-                                        </div>
-                                        {['R', 'L'].map((side) => {
-                                            const disabled = isSideDisabled(side);
-                                            const active = product.powerMode === 'single' && product.selectedSide === side;
-                                            const isSingle = product.powerMode === 'single';
-                                            return (
-                                                <div
-                                                    key={side}
-                                                    className={`grid grid-cols-3 border-t border-gray-100 transition-opacity duration-200
-                                                    ${side === 'L' ? 'bg-blue-50/20' : 'bg-white'}
-                                                    ${disabled ? 'opacity-30' : ''}`}
-                                                >
-                                                    <div className="border-r border-gray-100">
-                                                        <div
-                                                            onClick={() => isSingle && !isReadOnly && formik.setFieldValue(`${prefix}selectedSide`, side)}
-                                                            className={`flex items-center justify-center gap-1.5 h-full py-2
-                                                            ${isSingle ? 'cursor-pointer' : 'cursor-default'}
-                                                            ${active ? 'text-erp-accent' : 'text-gray-400'}
-                                                            transition-colors duration-150`}
-                                                        >
-                                                            {isSingle && <SideCheckbox active={active} />}
-                                                            <span className="text-[11px] font-black">{side}</span>
-                                                        </div>
-                                                    </div>
-                                                    {['prism', 'base'].map(field => (
-                                                        <div key={field} className="p-1.5 border-r border-gray-100 last:border-r-0">
-                                                            <CellInput
-                                                                name={`${prefix}prismTable.${side}.${field}`}
-                                                                value={product.prismTable[side][field]}
-                                                                onChange={formik.handleChange}
-                                                                disabled={disabled}
-                                                                placeholder={field === 'base' ? 'Base' : '0.00'}
-                                                            />
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-                        </SectionCard>
-                    </>
-                )}
-
-                {/* ── PRODUCT FIELDS ──────────────────────────────────────────── */}
-                {isStock ? (
-                    <SectionCard>
-                        <SectionHeader label="Stock product" />
-                        <div className="p-5 flex flex-col gap-4">
-                            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-                                {/* Restore your SearchableSelect + Input here as needed */}
-                            </div>
-
-                            {product.productName && (
-                                <div className="mt-2">
-                                    {/* Product Name & Image Header */}
-                                    <div className="flex items-center gap-4 mb-6 pb-4 border-b border-gray-100">
-                                        {product.image && (
-                                            <div className="w-14 h-14 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0 shadow-sm">
-                                                <img src={product.image} alt={product.productName} className="w-full h-full object-cover" />
-                                            </div>
-                                        )}
-                                        <div className="flex flex-col">
-                                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Product</span>
-                                            <span className="font-bold text-gray-900 text-[16px] leading-snug">{product.productName}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-5 gap-x-6 gap-y-8">
-                                        {[
-                                            {
-                                                label: 'Product info', color: 'text-blue-500', borderColor: 'border-blue-100',
-                                                fields: [
-                                                    { label: 'Product code', value: product.productCode || product.code },
-                                                    { label: 'Brand', value: product.Brand || product.brand || configs.brand?.find(b => b._id === product.brandId)?.name },
-                                                    { label: 'Category', value: product.category || configs.category?.find(c => c._id === product.categoryId)?.name },
-                                                    { label: 'Type', value: product.type },
-                                                    { label: 'Material', value: product.material },
-                                                ]
-                                            },
-                                            {
-                                                label: 'Specifications', color: 'text-blue-500', borderColor: 'border-blue-100',
-                                                fields: [
-                                                    { label: 'Index', value: product.index || configs.index?.find(i => i._id === product.indexId)?.value?.toString() },
-                                                    { label: 'Coating', value: product.coating || configs.coating?.find(c => c._id === product.coatingId)?.name },
-                                                    { label: 'Treatment', value: product.treatment || configs.treatment?.find(t => t._id === product.treatmentId)?.name },
-                                                    { label: 'Tint', value: product.tint || configs.tints?.find(t => t._id === product.tintId)?.name },
-                                                    { label: 'Shape', value: product.shape },
-                                                ]
-                                            },
-                                            {
-                                                label: 'Powers & dimensions', color: 'text-blue-500', borderColor: 'border-blue-100',
-                                                fields: [
-                                                    { label: 'SPH', value: product.sph || product.powerTable?.R?.sph || product.powerTable?.L?.sph },
-                                                    { label: 'CYL', value: product.cyl || product.powerTable?.R?.cyl || product.powerTable?.L?.cyl },
-                                                    { label: 'Axis', value: product.axis || product.powerTable?.R?.axis || product.powerTable?.L?.axis },
-                                                    { label: 'Add', value: product.addition || product.powerTable?.R?.add || product.powerTable?.L?.add },
-                                                    { label: 'Size', value: product.size },
-                                                    { label: 'Dimensions', value: product.dimensions },
-                                                ]
-                                            },
-                                            {
-                                                label: 'Other details', color: 'text-blue-500', borderColor: 'border-blue-100',
-                                                fields: [
-                                                    { label: 'Color', value: product.color },
-                                                    { label: 'HSN / SAC', value: product.HSNSAC || product.hsnSac },
-                                                    { label: 'Expiry', value: product.expiry ? new Date(product.expiry).toLocaleDateString() : null },
-                                                ]
-                                            },
-                                            {
-                                                label: 'Pricing & stock', color: 'text-blue-500', borderColor: 'border-blue-100',
-                                                fields: [
-                                                    { label: 'Price', value: product.price ? `₹${product.price}` : null },
-                                                    { label: 'MRP', value: product.MRP ? `₹${product.MRP}` : null },
-                                                    { label: 'GST', value: product.gstDetails?.gstPercent ? `${product.gstDetails.gstPercent}%` : null },
-                                                    { label: 'Quantity', value: product.qty || null },
-                                                ]
-                                            },
-                                        ].map(({ label, color, borderColor, fields }) => (
-                                            <div key={label} className="flex flex-col">
-                                                <h5 className={`text-[10px] font-black ${color} uppercase tracking-[0.08em] border-b ${borderColor} pb-2 mb-4`}>
-                                                    {label}
-                                                </h5>
-                                                <div className="space-y-4">
-                                                    {fields.map((item, i) => item.value ? (
-                                                        <div key={i} className="flex flex-col gap-0.5">
-                                                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{item.label}</span>
-                                                            <span className="font-semibold text-gray-800 text-[14px]">{item.value}</span>
-                                                        </div>
-                                                    ) : null)}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
                             )}
                         </div>
-                    </SectionCard>
-                ) : (
-                    <SectionCard>
-                        <SectionHeader label="Product details" />
-                        <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-                            {wrapInput(SearchableSelect, {
-                                label: "Brand",
-                                name: `${prefix}brandId`,
-                                options: (Array.isArray(configs.brand) ? configs.brand : []).map(b => ({ value: b._id, label: b.name })),
-                                placeholder: "Select brand",
-                                disabled: isReadOnly
-                            })}
-                            {wrapInput(SearchableSelect, {
-                                label: "Category",
-                                name: `${prefix}categoryId`,
-                                options: (Array.isArray(configs.category) ? configs.category : []).map(c => ({ value: c._id, label: c.name })),
-                                placeholder: "Select category",
-                                disabled: !product.brandId || isReadOnly
-                            })}
-                            <div className="md:col-span-1">
-                                <SearchableSelect
-                                    label="Product name"
-                                    name={`${prefix}productName`}
-                                    value={{ value: product.productId || product.productName, label: product.productName }}
-                                    onChange={(e) => handleProductSelection(index, e.target.value)}
-                                    onSearch={(q) => searchProductsForIndex(q, index)}
-                                    options={productNames}
-                                    loading={loadingProductNames}
-                                    placeholder="Search product…"
-                                    disabled={!product.brandId || !product.categoryId || isReadOnly}
-                                    renderOption={renderProductOption}
-                                />
-                            </div>
+                    </div>
+                )}
 
-                            {wrapInput(Select, {
-                                label: "Treatment",
-                                name: `${prefix}treatmentId`,
-                                placeholder: "Treatment",
-                                options: (Array.isArray(configs.treatment) ? configs.treatment : []).map(t => ({ value: t._id, label: t.name })),
-                                disabled: isReadOnly
-                            })}
-                            {wrapInput(Select, {
-                                label: "Index",
-                                name: `${prefix}indexId`,
-                                placeholder: "Index",
-                                options: (Array.isArray(configs.index) ? configs.index : []).map(i => {
-                                    const val = i.value?.toString() || i.toString() || '';
-                                    return { value: val, label: val };
-                                }),
-                                disabled: isReadOnly
-                            })}
-                            {wrapInput(Select, {
-                                label: "Coating",
-                                name: `${prefix}coatingId`,
-                                placeholder: "Coating",
-                                options: (Array.isArray(configs.coating) ? configs.coating : []).map(c => ({ value: c._id, label: c.name })),
-                                disabled: isReadOnly
-                            })}
 
-                            {wrapInput(Select, {
-                                label: "Tint",
-                                name: `${prefix}tintId`,
-                                placeholder: "Tint",
-                                options: (Array.isArray(configs.tints) ? configs.tints : []).map(t => ({ value: t._id, label: t.name })),
-                                disabled: isReadOnly
-                            })}
-                            {wrapInput(Input, {
-                                label: "Tint details",
-                                name: `${prefix}tintDetails`,
-                                placeholder: "Tint details",
-                                disabled: isReadOnly
-                            })}
-                            {wrapInput(Input, {
-                                label: "Remarks",
-                                name: `${prefix}remarks`,
-                                placeholder: "Enter remarks",
-                                disabled: isReadOnly
-                            })}
+                {/* ── PRODUCT FIELDS ──────────────────────────────────────────── */}
+                <SectionCard>
+                    <SectionHeader label={isStock ? "Stock Product Details" : "Prescription Product Details"} />
+                    <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {wrapInput(SearchableSelect, {
+                            label: "Brand",
+                            name: `${prefix}brandId`,
+                            options: (Array.isArray(configs.brand) ? configs.brand : []).map(b => ({ value: b._id, label: b.name })),
+                            placeholder: "Select brand",
+                            disabled: isReadOnly,
+                            onChange: (e) => {
+                                const bId = e.target.value;
+                                const bObj = configs.brand?.find(b => b._id === bId);
+                                formik.setFieldValue(`${prefix}brandId`, bId);
+                                if (bObj) formik.setFieldValue(`${prefix}Brand`, bObj.name);
+                            }
+                        })}
 
+                        {wrapInput(SearchableSelect, {
+                            label: "Category",
+                            name: `${prefix}categoryId`,
+                            options: (Array.isArray(configs.category) ? configs.category : []).map(c => ({ value: c._id, label: c.name })),
+                            placeholder: "Select category",
+                            disabled: isReadOnly,
+                            onChange: (e) => {
+                                const cId = e.target.value;
+                                const cObj = configs.category?.find(c => c._id === cId);
+                                formik.setFieldValue(`${prefix}categoryId`, cId);
+                                if (cObj) formik.setFieldValue(`${prefix}category`, cObj.name);
+                            }
+                        })}
+
+                        <div className="md:col-span-1">
+                            <SearchableSelect
+                                label="Product name"
+                                name={`${prefix}productName`}
+                                value={{ value: product.productId || product.productName, label: product.productName }}
+                                onChange={(e) => handleProductSelection(index, e.target.value)}
+                                onSearch={(q) => searchProductsForIndex(q, index)}
+                                options={productNames}
+                                loading={loadingProductNames}
+                                placeholder="Search product…"
+                                disabled={isReadOnly}
+                                renderOption={renderProductOption}
+                            />
+                        </div>
+
+                        {/* Lens Specific Fields - Only enabled for Lens categories */}
+                        {wrapInput(Select, {
+                            label: "Treatment",
+                            name: `${prefix}treatmentId`,
+                            placeholder: isLensCategory ? "Treatment" : "N/A (Lens Only)",
+                            options: (Array.isArray(configs.treatment) ? configs.treatment : []).map(t => ({ value: t._id, label: t.name })),
+                            disabled: !isLensCategory || isReadOnly
+                        })}
+
+                        {wrapInput(Select, {
+                            label: "Index",
+                            name: `${prefix}indexId`,
+                            placeholder: isLensCategory ? "Index" : "N/A (Lens Only)",
+                            options: (Array.isArray(configs.index) ? configs.index : []).map(i => {
+                                const val = i.value?.toString() || i.toString() || '';
+                                return { value: val, label: val };
+                            }),
+                            disabled: !isLensCategory || isReadOnly
+                        })}
+
+                        {wrapInput(Select, {
+                            label: "Coating",
+                            name: `${prefix}coatingId`,
+                            placeholder: isLensCategory ? "Coating" : "N/A (Lens Only)",
+                            options: (Array.isArray(configs.coating) ? configs.coating : []).map(c => ({ value: c._id, label: c.name })),
+                            disabled: !isLensCategory || isReadOnly
+                        })}
+
+                        {wrapInput(Select, {
+                            label: "Tint",
+                            name: `${prefix}tintId`,
+                            placeholder: isLensCategory ? "Tint" : "N/A (Lens Only)",
+                            options: (Array.isArray(configs.tints) ? configs.tints : []).map(t => ({ value: t._id, label: t.name })),
+                            disabled: !isLensCategory || isReadOnly
+                        })}
+
+                        {wrapInput(Input, {
+                            label: "Tint details",
+                            name: `${prefix}tintDetails`,
+                            placeholder: isLensCategory ? "Tint details" : "N/A",
+                            disabled: !isLensCategory || isReadOnly
+                        })}
+
+                        {/* Frame / General Product Specs */}
+                        {wrapInput(Input, {
+                            label: "Color",
+                            name: `${prefix}color`,
+                            placeholder: "e.g., Black / Gold",
+                            disabled: isReadOnly
+                        })}
+
+                        {wrapInput(Input, {
+                            label: "Size",
+                            name: `${prefix}size`,
+                            placeholder: "e.g., 52-18-140",
+                            disabled: isReadOnly
+                        })}
+
+                        {wrapInput(Input, {
+                            label: "Shape / Type",
+                            name: `${prefix}shape`,
+                            placeholder: "e.g., Rectangle / Full Rim",
+                            disabled: isReadOnly
+                        })}
+
+                        {wrapInput(Input, {
+                            label: "Material",
+                            name: `${prefix}material`,
+                            placeholder: "e.g., Titanium / Acetate",
+                            disabled: isReadOnly
+                        })}
+
+                        {wrapInput(Input, {
+                            label: "HSN / SAC",
+                            name: `${prefix}HSNSAC`,
+                            placeholder: "HSN Code",
+                            disabled: isReadOnly
+                        })}
+
+                        {wrapInput(Input, {
+                            label: "MRP",
+                            name: `${prefix}MRP`,
+                            placeholder: "0.00",
+                            type: "number",
+                            disabled: isReadOnly
+                        })}
+
+                        {wrapInput(Input, {
+                            label: "Remarks",
+                            name: `${prefix}remarks`,
+                            placeholder: "Enter remarks",
+                            disabled: isReadOnly
+                        })}
+
+                        {isLensCategory && (
                             <div className="flex items-end pb-0.5">
                                 <PillToggle
                                     label="Mirror"
                                     value={product.hasMirror}
                                     onChange={(v) => formik.setFieldValue(`${prefix}hasMirror`, v)}
                                     options={[{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }]}
-                                    disabled={isReadOnly}
+                                    disabled={!isLensCategory || isReadOnly}
                                     className="w-full md:w-auto"
                                 />
                             </div>
+                        )}
 
-                            {product.orderType === 'rx' &&
-                                (product.category?.toUpperCase().includes('LENS') ||
-                                    configs.category?.find(c => c._id === product.categoryId)?.name?.toUpperCase().includes('LENS')) && (
-                                    <>
-                                        {wrapInput(SearchableSelect, {
-                                            label: "Vendor",
-                                            name: `${prefix}vendorId`,
-                                            options: (Array.isArray(configs.vendors) ? configs.vendors : []).map(v => ({ value: v._id || v.vendorNumber, label: v.name })),
-                                            placeholder: "Select vendor",
-                                            disabled: isReadOnly
-                                        })}
-                                        {wrapInput(Input, {
-                                            label: "Lab name",
-                                            name: `${prefix}labName`,
-                                            placeholder: "Enter lab name",
-                                            disabled: isReadOnly
-                                        })}
-                                    </>
-                                )}
-                        </div>
-                    </SectionCard>
-                )}
+                        {product.orderType === 'rx' && isLensCategory && (
+                            <>
+                                {wrapInput(SearchableSelect, {
+                                    label: "Vendor",
+                                    name: `${prefix}vendorId`,
+                                    options: (Array.isArray(configs.vendors) ? configs.vendors : []).map(v => ({ value: v._id || v.vendorNumber, label: v.name })),
+                                    placeholder: "Select vendor",
+                                    disabled: isReadOnly
+                                })}
+                                {wrapInput(Input, {
+                                    label: "Lab name",
+                                    name: `${prefix}labName`,
+                                    placeholder: "Enter lab name",
+                                    disabled: isReadOnly
+                                })}
+                            </>
+                        )}
+                    </div>
+                </SectionCard>
 
-                {/* ── CENTRATION TABLE ────────────────────────────────────────── */}
-                <SectionCard>
-                    <SectionHeader label="Centration data" />
-                    <div className="p-4">
-                        <div className="rounded-xl border border-gray-200 overflow-hidden max-w-2xl">
+                {/* ── CENTRATION ── */}
+                <div className="bg-white rounded-xl border border-gray-100 shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-2 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+                        <span className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-500">Centration</span>
+                    </div>
+                    <div className="p-3">
+                        <div className="rounded-lg border border-gray-200 overflow-hidden max-w-lg">
                             <div className="grid grid-cols-4">
-                                {['Side', 'PD', 'Corridor', 'Fitting height'].map(h => (
-                                    <Th key={h}>{h}</Th>
-                                ))}
+                                {['Side', 'PD', 'Corridor', 'Fit Ht'].map(h => (<Th key={h}>{h}</Th>))}
                             </div>
                             {['R', 'L'].map((side) => {
                                 const disabled = product.powerMode === 'single' && product.selectedSide !== side;
                                 return (
-                                    <div
-                                        key={side}
-                                        className={`grid grid-cols-4 border-t border-gray-100 transition-opacity duration-200
-                                        ${side === 'L' ? 'bg-blue-50/20' : 'bg-white'}
-                                        ${disabled ? 'opacity-30' : ''}`}
-                                    >
-                                        <div className="flex items-center justify-center border-r border-gray-100 py-2">
+                                    <div key={side} className={`grid grid-cols-4 border-t border-gray-100 transition-opacity duration-200 ${side === 'L' ? 'bg-blue-50/20' : 'bg-white'} ${disabled ? 'opacity-30' : ''}`}>
+                                        <div className="flex items-center justify-center border-r border-gray-100 py-1.5">
                                             <span className="text-[11px] font-black text-gray-400">{side}</span>
                                         </div>
                                         {['pd', 'corridor', 'fittingHeight'].map(field => (
-                                            <div key={field} className="p-1.5 border-r border-gray-100 last:border-r-0">
-                                                <CellInput
-                                                    name={`${prefix}centrationData.${side}.${field}`}
-                                                    value={product.centrationData[side][field]}
-                                                    onChange={formik.handleChange}
-                                                    disabled={isStock || disabled}
-                                                    placeholder="—"
-                                                />
+                                            <div key={field} className="p-1 border-r border-gray-100 last:border-r-0">
+                                                <CellInput name={`${prefix}centrationData.${side}.${field}`} value={product.centrationData[side][field]} onChange={formik.handleChange} disabled={isStock || disabled} placeholder="—" />
                                             </div>
                                         ))}
                                     </div>
@@ -1753,101 +1731,65 @@ const OrderWizard = () => {
                             })}
                         </div>
                     </div>
-                </SectionCard>
+                </div>
 
-                {/* ── FITTING & LENS DETAILS (Rx lens only) ───────────────────── */}
+                {/* ── FITTING & LENS (compact horizontal row) ── */}
                 {!isStock && (() => {
-                    const catName = (
-                        product.category ||
-                        configs.category?.find(c => c._id === product.categoryId)?.name ||
-                        ''
-                    ).toUpperCase();
-
+                    const catName = (product.category || configs.category?.find(c => c._id === product.categoryId)?.name || '').toUpperCase();
                     if (!(catName === 'LENS' || catName === 'CONTACT_LENS' || catName.includes('LENS'))) return null;
-
                     return (
-                        <SectionCard>
-                            <SectionHeader label="Fitting & lens details" />
-                            <div className="p-5 flex flex-col gap-6">
-
-                                <div>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.07em] text-erp-accent mb-3 pb-2 border-b border-erp-accent/10">
-                                        Fitting details
-                                    </p>
-                                    <div className="mb-4">
-                                        <PillToggle
-                                            label="Flat fitting"
-                                            value={product.hasFlatFitting}
-                                            onChange={(v) => formik.setFieldValue(`${prefix}hasFlatFitting`, v)}
-                                            options={[{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }]}
-                                            disabled={isReadOnly}
-                                        />
-                                    </div>
-
-                                    {product.hasFlatFitting === 'yes' && (
-                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end animate-in fade-in slide-in-from-top-2 duration-200">
-                                            {wrapInput(Input, {
-                                                label: "DBL",
-                                                name: `${prefix}dbl`,
-                                                placeholder: "DBL",
-                                                disabled: isReadOnly
-                                            })}
-                                            {wrapInput(Select, {
-                                                label: "Frame type",
-                                                name: `${prefix}frameType`,
-                                                placeholder: "Select type",
-                                                options: (Array.isArray(configs.frameTypes) ? configs.frameTypes : []).map(f => {
-                                                    const val = f.name || f._id || f;
-                                                    return { value: val, label: f.name || f.label || f };
-                                                }),
-                                                disabled: isReadOnly
-                                            })}
-                                            {wrapInput(Input, {
-                                                label: "Frame length",
-                                                name: `${prefix}frameLength`,
-                                                placeholder: "Length",
-                                                disabled: isReadOnly
-                                            })}
-                                            {wrapInput(Input, {
-                                                label: "Frame height",
-                                                name: `${prefix}frameHeight`,
-                                                placeholder: "Height",
-                                                disabled: isReadOnly
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.07em] text-erp-accent mb-3 pb-2 border-b border-erp-accent/10">
-                                        Lens details
-                                    </p>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                        {wrapInput(Input, {
-                                            label: "Pantoscopic angle",
-                                            name: `${prefix}pantoscopicAngle`,
-                                            placeholder: "Angle",
-                                            disabled: isReadOnly
-                                        })}
-                                        {wrapInput(Input, {
-                                            label: "Bow angle",
-                                            name: `${prefix}bowAngle`,
-                                            placeholder: "Bow angle",
-                                            disabled: isReadOnly
-                                        })}
-                                        {wrapInput(Input, {
-                                            label: "BVD",
-                                            name: `${prefix}bvd`,
-                                            placeholder: "BVD",
-                                            disabled: isReadOnly
-                                        })}
-                                    </div>
-                                </div>
-
+                        <div className="bg-white rounded-xl border border-gray-100 shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden">
+                            <div className="px-4 py-2 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+                                <span className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-500">Fitting & Lens Details</span>
                             </div>
-                        </SectionCard>
+                            <div className="p-3">
+                                <div className="flex flex-wrap items-end gap-3">
+                                    <PillToggle label="Flat fitting" value={product.hasFlatFitting} onChange={(v) => formik.setFieldValue(`${prefix}hasFlatFitting`, v)} options={[{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }]} disabled={isReadOnly} />
+                                    {product.hasFlatFitting === 'yes' && (
+                                        <>
+                                            {wrapInput(Input, { label: "DBL", name: `${prefix}dbl`, placeholder: "DBL", disabled: isReadOnly })}
+                                            {wrapInput(Select, { label: "Frame type", name: `${prefix}frameType`, placeholder: "Type", options: (Array.isArray(configs.frameTypes) ? configs.frameTypes : []).map(f => { const val = f.name || f._id || f; return { value: val, label: f.name || f.label || f }; }), disabled: isReadOnly })}
+                                            {wrapInput(Input, { label: "Frame length", name: `${prefix}frameLength`, placeholder: "Length", disabled: isReadOnly })}
+                                            {wrapInput(Input, { label: "Frame height", name: `${prefix}frameHeight`, placeholder: "Height", disabled: isReadOnly })}
+                                        </>
+                                    )}
+                                    <div className="w-px h-8 bg-gray-200 mx-1 hidden md:block" />
+                                    {wrapInput(Input, { label: "Pantoscopic", name: `${prefix}pantoscopicAngle`, placeholder: "Angle", disabled: isReadOnly })}
+                                    {wrapInput(Input, { label: "Bow angle", name: `${prefix}bowAngle`, placeholder: "Bow", disabled: isReadOnly })}
+                                    {wrapInput(Input, { label: "BVD", name: `${prefix}bvd`, placeholder: "BVD", disabled: isReadOnly })}
+                                </div>
+                            </div>
+                        </div>
                     );
                 })()}
+
+                {/* ── PHOTOS (inline strip) ── */}
+                <div className="bg-white rounded-xl border border-gray-100 shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden">
+                    <div className="flex items-center gap-3 px-4 py-2.5">
+                        <span className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-500 whitespace-nowrap">Photos</span>
+                        <div className="flex flex-wrap gap-2 items-center">
+                            {(product.photos || []).map((photoUrl, photoIdx) => (
+                                <div key={photoIdx} className="w-9 h-9 rounded-lg border border-gray-200 overflow-hidden shadow-sm relative group">
+                                    <img src={photoUrl} alt={`Upload ${photoIdx}`} className="w-full h-full object-cover" />
+                                    {!isReadOnly && (
+                                        <button type="button" onClick={() => { const updated = (product.photos || []).filter((_, pI) => pI !== photoIdx); formik.setFieldValue(`${prefix}photos`, updated); }} className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Icon icon="mdi:trash-can-outline" className="text-xs" />
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                            {!isReadOnly && (
+                                <div className="relative">
+                                    <input type="file" accept="image/*" onChange={(e) => handleItemImageUpload(index, e.target.files[0])} disabled={uploadingItemImages[index]} className="hidden" id={`item-image-upload-${index}`} />
+                                    <label htmlFor={`item-image-upload-${index}`} className="inline-flex w-9 h-9 items-center justify-center border-2 border-dashed border-gray-300 rounded-lg hover:border-erp-accent hover:bg-gray-50 cursor-pointer text-gray-400 hover:text-erp-accent transition-all">
+                                        {uploadingItemImages[index] ? <Icon icon="mdi:loading" className="text-sm animate-spin" /> : <Icon icon="mdi:camera-plus" className="text-sm" />}
+                                    </label>
+                                </div>
+                            )}
+                            {(product.photos || []).length === 0 && isReadOnly && <span className="text-xs text-gray-400 italic">No photos</span>}
+                        </div>
+                    </div>
+                </div>
 
             </div>
         );
@@ -1945,6 +1887,8 @@ const OrderWizard = () => {
 
                                         const categoryName = product.category || configs.category?.find(c => c._id === product.categoryId)?.name || '-';
                                         const brandName = product.Brand || product.brand || configs.brand?.find(b => b._id === product.brandId)?.name || '-';
+                                        const catUpper = categoryName.toUpperCase();
+                                        const isLensItem = !catUpper || catUpper.includes('LENS') || catUpper.includes('GLASS') || catUpper.includes('RX') || product.orderType === 'rx';
 
                                         const renderPowerField = (field) => {
                                             if (product.powerMode === 'single') return product.powerTable[product.selectedSide]?.[field] || '';
@@ -2014,25 +1958,40 @@ const OrderWizard = () => {
                                                         />
                                                     </td>
 
-                                                    {/* Category */}
-                                                    <td className="px-4 py-3 text-xs font-medium text-gray-700 text-center whitespace-nowrap">
-                                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 font-medium">
-                                                            {categoryName}
-                                                        </span>
+                                                    {/* Category Select */}
+                                                    <td className="px-2 py-2 min-w-[130px]">
+                                                        <select
+                                                            className="w-full text-xs bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-medium text-gray-700 cursor-pointer"
+                                                            name={`products.${index}.categoryId`}
+                                                            value={product.categoryId || ''}
+                                                            onChange={(e) => {
+                                                                const cId = e.target.value;
+                                                                const cObj = configs.category?.find(c => c._id === cId);
+                                                                formik.setFieldValue(`products.${index}.categoryId`, cId);
+                                                                if (cObj) formik.setFieldValue(`products.${index}.category`, cObj.name);
+                                                            }}
+                                                            disabled={isReadOnly}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <option value="">Category</option>
+                                                            {(Array.isArray(configs.category) ? configs.category : []).map(c => (
+                                                                <option key={c._id} value={c._id}>{c.name}</option>
+                                                            ))}
+                                                        </select>
                                                     </td>
 
                                                     {/* Power Fields */}
                                                     <td className="px-4 py-3 text-xs font-semibold text-gray-700 text-center whitespace-nowrap">
-                                                        {renderPowerField('sph') || <span className="text-gray-300">—</span>}
+                                                        {isLensItem ? (renderPowerField('sph') || <span className="text-gray-300">—</span>) : <span className="text-gray-300 font-normal italic">N/A</span>}
                                                     </td>
                                                     <td className="px-4 py-3 text-xs font-semibold text-gray-700 text-center whitespace-nowrap">
-                                                        {renderPowerField('cyl') || <span className="text-gray-300">—</span>}
+                                                        {isLensItem ? (renderPowerField('cyl') || <span className="text-gray-300">—</span>) : <span className="text-gray-300 font-normal italic">N/A</span>}
                                                     </td>
                                                     <td className="px-4 py-3 text-xs font-semibold text-gray-700 text-center whitespace-nowrap">
-                                                        {renderPowerField('axis') || <span className="text-gray-300">—</span>}
+                                                        {isLensItem ? (renderPowerField('axis') || <span className="text-gray-300">—</span>) : <span className="text-gray-300 font-normal italic">N/A</span>}
                                                     </td>
                                                     <td className="px-4 py-3 text-xs font-semibold text-gray-700 text-center whitespace-nowrap">
-                                                        {renderPowerField('add') || <span className="text-gray-300">—</span>}
+                                                        {isLensItem ? (renderPowerField('add') || <span className="text-gray-300">—</span>) : <span className="text-gray-300 font-normal italic">N/A</span>}
                                                     </td>
 
                                                     {/* Unit Select */}

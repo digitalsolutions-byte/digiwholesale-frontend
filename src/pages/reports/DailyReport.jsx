@@ -12,39 +12,41 @@ const firstOfMonth = () => { const d = new Date(); return new Date(d.getFullYear
 
 const StatCard = ({ icon, label, value, sub, color = "blue" }) => {
   const themes = {
-    orange: "bg-orange-50 text-orange-600 border-orange-100",
-    green: "bg-emerald-50 text-emerald-600 border-emerald-100",
-    red: "bg-rose-50 text-rose-600 border-rose-100",
-    blue: "bg-blue-50 text-blue-600 border-blue-100",
-    teal: "bg-teal-50 text-teal-600 border-teal-100"
+    orange: "bg-orange-50 text-orange-600 border-orange-200",
+    green: "bg-emerald-50 text-emerald-600 border-emerald-200",
+    red: "bg-rose-50 text-rose-600 border-rose-200",
+    blue: "bg-blue-50 text-[#2980B9] border-blue-200",
+    teal: "bg-teal-50 text-teal-600 border-teal-200"
   };
 
   return (
-    <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm p-6 flex items-start gap-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-      <div className={`p-4 rounded-2xl ${themes[color] || themes.blue} flex-shrink-0 flex items-center justify-center shadow-inner`}>
-        <Icon icon={icon} className="text-2xl" />
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-start gap-4 hover:border-[#2980B9]/30 transition-all">
+      <div className={`p-3 rounded-lg ${themes[color] || themes.blue} flex-shrink-0 flex items-center justify-center`}>
+        <Icon icon={icon} className="text-xl" />
       </div>
       <div className="min-w-0">
-        <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">{label}</p>
-        <p className="text-xl font-black text-gray-800 truncate">{value}</p>
-        {sub && <p className="text-[11px] font-bold text-gray-400 mt-1 uppercase  ">{sub}</p>}
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">{label}</p>
+        <p className="text-lg font-black text-gray-800 truncate">{value}</p>
+        {sub && <p className="text-[11px] font-semibold text-gray-400 mt-0.5">{sub}</p>}
       </div>
     </div>
   );
 };
 
 const DataCard = ({ title, icon, children, footer }) => (
-  <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-200/40 flex flex-col overflow-hidden">
-    <div className="px-8 py-5 border-b border-gray-50 flex items-center gap-3 bg-gray-50/30">
-      <Icon icon={icon} className="text-erp-accent text-lg" />
+  <div className="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col overflow-hidden">
+    <div className="px-5 py-3.5 border-b border-gray-100 flex items-center gap-2.5 bg-gray-50/80">
+      <div className="w-6 h-6 rounded bg-[#2980B9]/10 text-[#2980B9] flex items-center justify-center">
+        <Icon icon={icon} className="text-sm" />
+      </div>
       <h3 className="text-xs font-black text-gray-700 uppercase tracking-widest">{title}</h3>
     </div>
-    <div className="flex-1 overflow-x-auto overflow-y-auto max-h-[400px] custom-scrollbar">
+    <div className="flex-1 overflow-x-auto overflow-y-auto max-h-[350px] custom-scrollbar">
       {children}
     </div>
     {footer !== undefined && (
-      <div className="px-8 py-3 border-t border-gray-50 bg-gray-50/10">
-        <p className="text-[9px] font-black text-gray-300 uppercase tracking-[0.2em]">{footer}</p>
+      <div className="px-5 py-2.5 border-t border-gray-100 bg-gray-50/50">
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{footer}</p>
       </div>
     )}
   </div>
@@ -52,24 +54,24 @@ const DataCard = ({ title, icon, children, footer }) => (
 
 const InnerTable = ({ headers, rows, emptyMsg = "No records available", highlightLast = false }) => (
   <table className="w-full border-collapse">
-    <thead className="sticky top-0 bg-white z-10">
-      <tr className="border-b border-gray-50">
+    <thead className="sticky top-0 bg-gray-100/90 z-10 border-b border-gray-200 backdrop-blur-sm">
+      <tr>
         {headers.map((h, i) => (
-          <th key={i} className="px-6 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">
+          <th key={i} className="px-5 py-2.5 text-left text-[10px] font-extrabold text-gray-600 uppercase tracking-wider whitespace-nowrap border-r border-gray-200/60 last:border-r-0">
             {h}
           </th>
         ))}
       </tr>
     </thead>
-    <tbody className="divide-y divide-gray-50">
+    <tbody className="divide-y divide-gray-100 bg-white">
       {rows.length === 0
-        ? <tr><td colSpan={headers.length} className="px-6 py-12 text-center text-[10px] font-black uppercase tracking-widest text-gray-300">{emptyMsg}</td></tr>
+        ? <tr><td colSpan={headers.length} className="px-5 py-8 text-center text-xs font-bold uppercase tracking-wider text-gray-400">{emptyMsg}</td></tr>
         : rows.map((row, i) => {
           const hi = highlightLast && i === rows.length - 1;
           return (
-            <tr key={i} className={`transition-colors group ${hi ? "bg-erp-accent text-white" : "hover:bg-erp-accent/[0.02]"}`}>
+            <tr key={i} className={`transition-colors ${hi ? "bg-[#2980B9] text-white" : "hover:bg-blue-50/30"}`}>
               {row.map((cell, j) => (
-                <td key={j} className={`px-6 py-3 whitespace-nowrap text-[11px] font-bold ${hi ? "text-white" : "text-gray-600 group-hover:text-gray-900"}`}>
+                <td key={j} className={`px-5 py-2.5 whitespace-nowrap text-xs font-semibold border-r border-gray-50 last:border-r-0 ${hi ? "text-white font-extrabold" : "text-gray-700"}`}>
                   {cell}
                 </td>
               ))}
@@ -149,47 +151,48 @@ export default function DailyReport() {
     <div className="w-full flex flex-col gap-6 animate-in fade-in duration-500">
 
       {/* ══ HEADER ══════════════════════════════════════════════════════ */}
-      <div>
-        <h1 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">Business Report</h1>
-        <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mt-1">Daily Report</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+        <div>
+          <h1 className="text-xl font-black text-gray-800 uppercase tracking-widest">Business Daily Report</h1>
+          <p className="text-[11px] text-gray-400 font-medium">Daily Revenue, Collections & Expense Overview</p>
+        </div>
       </div>
 
       {/* Date Filter */}
-      <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-200/40 p-8">
-        <div className="flex flex-wrap gap-3 mb-8">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-4">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mr-2 flex items-center gap-1">
+            <Icon icon="mdi:clock-fast" className="text-sm text-[#2980B9]" /> Presets:
+          </span>
           {presets.map(({ label, fn }) => (
             <button key={label} type="button" onClick={() => { setForm(fn()); setErrors({}); }}
-              className="px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border border-gray-100 text-gray-400 hover:border-erp-accent hover:text-erp-accent hover:bg-erp-accent/5 transition-all">
+              className="px-3.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider border border-gray-200 text-gray-600 hover:border-[#2980B9] hover:text-[#2980B9] bg-white transition-all">
               {label}
             </button>
           ))}
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-6 items-end">
-          <div className="flex-1 w-full">
-            <label className="block text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-4">Start Date</label>
-            <div className="relative">
-              <Icon icon="mdi:calendar-start" className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 text-lg" />
+        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between pt-2 border-t border-gray-100">
+          <div className="flex flex-col sm:flex-row gap-3 items-center w-full lg:w-auto">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Start</span>
               <input type="date" value={form.startDate} max={today()}
                 onChange={(e) => { setForm(p => ({ ...p, startDate: e.target.value })); setErrors(p => ({ ...p, startDate: "" })); }}
-                className={inputCls(errors.startDate)} />
+                className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 outline-none focus:border-[#2980B9]" />
             </div>
-          </div>
-          <div className="flex-1 w-full">
-            <label className="block text-[10px] font-black text-gray-300 uppercase tracking-widest mb-2 ml-4">End Date</label>
-            <div className="relative">
-              <Icon icon="mdi:calendar-end" className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 text-lg" />
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">End</span>
               <input type="date" value={form.endDate} min={form.startDate} max={today()}
                 onChange={(e) => { setForm(p => ({ ...p, endDate: e.target.value })); setErrors(p => ({ ...p, endDate: "" })); }}
-                className={inputCls(errors.endDate)} />
+                className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 outline-none focus:border-[#2980B9]" />
             </div>
           </div>
           <button type="button" onClick={handleFetch} disabled={loading}
-            className="w-full lg:w-auto flex items-center justify-center gap-3 px-12 py-3.5 bg-erp-accent hover:bg-erp-accent/90 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-full shadow-xl shadow-erp-accent/20 transition-all disabled:opacity-50">
+            className="w-full lg:w-auto flex items-center justify-center gap-1.5 px-6 py-2 bg-[#2980B9] hover:bg-[#2471a3] text-white text-xs font-bold uppercase tracking-wider rounded-lg shadow-sm transition-all disabled:opacity-50 active:scale-95">
             {loading ? (
-              <Icon icon="mdi:loading" className="animate-spin text-xl" />
+              <Icon icon="mdi:loading" className="animate-spin text-base" />
             ) : (
-              <Icon icon="mdi:lightning-bolt" className="text-xl" />
+              <Icon icon="mdi:lightning-bolt" className="text-base" />
             )}
             {loading ? "Generating..." : "Generate Report"}
           </button>

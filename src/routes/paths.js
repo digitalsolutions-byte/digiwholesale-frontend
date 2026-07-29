@@ -24,6 +24,7 @@ export const PATHS = {
     CUSTOMER: {
         REGISTER: '/customer/register',
         LIST: '/customer/list',
+        PROFILE: '/customer/profile/:id',
         SHIP_TO: '/customer/ship-to',
     },
 
@@ -106,5 +107,13 @@ export const PATHS = {
     REPORTS: {
         DAILY: '/reports/daily',
         MAIN: '/reports/main',
+    },
+
+    // TENANT MODULE (PLATFORM OWNER)
+    TENANTS: {
+        REGISTER: '/tenants/register',
+        LIST: '/tenants/list',
+        DETAILS: '/tenants/view/:id',
+        EDIT: '/tenants/edit/:id',
     }
 };

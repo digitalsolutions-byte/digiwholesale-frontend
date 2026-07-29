@@ -84,7 +84,7 @@ const PurchaseItems = () => {
     }, [fetchPurchaseOrders]);
 
     return (
-        <div className="p-2 w-full h-full flex flex-col">
+        <div className="p-4 w-full h-full flex flex-col">
             <div className="flex justify-between items-center mb-6">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
@@ -158,18 +158,18 @@ const PurchaseItems = () => {
                                                     <Icon icon="lucide:arrow-right" className="text-gray-400 group-hover:text-[#1F618D] text-xs" />
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-2">
-                                                <span className="font-mono text-xs text-gray-600" title={order._id}>
+                                            <td className="px-4 py-3">
+                                                <span className="font-mono text-[13px] text-gray-600" title={order._id}>
                                                     {order._id.substring(order._id.length - 8).toUpperCase()}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-2">
-                                                <span className="font-semibold text-xs text-gray-800">
+                                            <td className="px-4 py-3">
+                                                <span className="font-semibold text-[13px] text-gray-800">
                                                     {order.vendor?.vendorName || order.vendor?.vendorId || order.vendorId?.name || order.vendorId || 'N/A'}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-2">
-                                                <span className={`inline-flex items-center justify-center px-2 py-0.5 text-[10px] font-medium rounded-full ${
+                                                <span className={`inline-flex items-center justify-center px-2.5 py-0.5 text-xs font-medium rounded-full ${
                                                     order.overallStatus === 'QC Completed' ? 'bg-emerald-50 text-emerald-700' :
                                                     order.overallStatus === 'Partially Received' ? 'bg-amber-50 text-amber-700' :
                                                     order.overallStatus === 'Fully Received' ? 'bg-blue-50 text-blue-700' :
@@ -180,7 +180,7 @@ const PurchaseItems = () => {
                                             </td>
                                             <td className="px-4 py-2">
                                                 {order.purchaseOrderSummary ? (
-                                                    <div className="text-[10px] text-gray-600 space-y-0.5">
+                                                    <div className="text-xs text-gray-600 space-y-0.5">
                                                         <div>Total Items: <span className="font-semibold text-gray-800">{order.purchaseOrderSummary.totalItems}</span></div>
                                                         <div>Inward: <span className="font-semibold text-gray-800">{order.purchaseOrderSummary.inwardDone}</span></div>
                                                         <div className="flex items-center gap-2">
@@ -192,15 +192,15 @@ const PurchaseItems = () => {
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-[10px] text-gray-400">No summary</span>
+                                                    <span className="text-xs text-gray-400">No summary</span>
                                                 )}
                                             </td>
-                                            <td className="px-4 py-2">
-                                                <span className="font-semibold text-xs text-gray-800">
+                                            <td className="px-4 py-3">
+                                                <span className="font-semibold text-[13px] text-gray-800">
                                                     ₹{order.orders?.reduce((acc, subOrder) => acc + (subOrder.items?.reduce((sum, item) => sum + ((item.price || 0) * (item.qty || 1)), 0) || 0), 0)?.toFixed(2)}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-2 text-[10px] text-gray-500">
+                                            <td className="px-4 py-3 text-xs text-gray-500">
                                                 {new Date(order.createdAt).toLocaleDateString('en-IN')}
                                             </td>
                                             <td className="px-4 py-2 text-right">

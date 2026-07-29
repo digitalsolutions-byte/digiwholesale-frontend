@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { getQCFailedReport, getAllPurchaseReturns, updatePurchaseReturnItemStatus } from '../../services/vendorOrderService';
@@ -277,6 +278,22 @@ const QCFailedReport = () => {
                                                                                         &ldquo;{info.remarks}&rdquo;
                                                                                     </p>
                                                                                 )}
+                                                                                {/* QC Failure Evidence Photos */}
+                                                                                {item.photos && item.photos.length > 0 && (
+                                                                                    <div className="flex flex-wrap gap-2 mt-2">
+                                                                                        {item.photos.map((photo, pIdx) => (
+                                                                                            <a
+                                                                                                key={pIdx}
+                                                                                                href={photo}
+                                                                                                target="_blank"
+                                                                                                rel="noopener noreferrer"
+                                                                                                className="w-12 h-12 rounded-lg border border-red-200 overflow-hidden shadow-sm hover:ring-2 hover:ring-red-400 transition-all block"
+                                                                                            >
+                                                                                                <img src={photo} alt={`QC fail ${pIdx + 1}`} className="w-full h-full object-cover" />
+                                                                                            </a>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                )}
                                                                             </div>
                                                                         </div>
 
@@ -310,8 +327,8 @@ const QCFailedReport = () => {
             </div>
 
             {/* Modal for status update */}
-            {modal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {modal && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center">
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setModal(null)} />
                     <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
                         <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-amber-50 to-orange-50 flex items-center justify-between">
@@ -367,7 +384,8 @@ const QCFailedReport = () => {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

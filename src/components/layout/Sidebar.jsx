@@ -22,7 +22,7 @@ import {
     alpha
 } from '@mui/material';
 import { logoutUser } from '../../services/authService';
-import { logOut, selectCurrentUser } from '../../store/slices/authSlice';
+import { logOut, selectCurrentUser, selectCurrentTenant } from '../../store/slices/authSlice';
 import usePermissions from '../../hooks/usePermissions';
 import { resetRegistration } from '../../store/slices/customerRegistrationSlice';
 import logo from '../../assets/logo.png';
@@ -120,18 +120,33 @@ const navItems = [
     { label: 'Inventory', icon: 'lucide:package-search', path: PATHS.INVENTORY, page: 'INVENTORY' },
 ];
 
+const platformOwnerNavItems = [
+    { label: ' Dashboard', icon: 'lucide:layout-dashboard', path: PATHS.ROOT },
+    {
+        label: 'Wholesalers',
+        icon: 'lucide:building-2',
+        subItems: [
+            { label: 'Register Wholesaler ', path: PATHS.TENANTS.REGISTER },
+            { label: 'Wholesalers List', path: PATHS.TENANTS.LIST },
+        ],
+    },
+];
+
 const Sidebar = ({ isOpen, toggleSidebar }) => {
     const dispatch = useDispatch();
     const location = useLocation();
     const user = useSelector(selectCurrentUser);
+    const tenant = useSelector(selectCurrentTenant);
     const { hasPageAccess } = usePermissions();
     const theme = useTheme();
     const [openSubmenus, setOpenSubmenus] = useState({});
 
     // Filter nav items using user.pageAccess[] only.
-    // Items without a `page` key are always shown.
-    // Parent groups are hidden when ALL their children are hidden.
+    // Platform Owner gets dedicated store management menu items.
     const filteredNavItems = useMemo(() => {
+        if (user?.EmployeeType === 'PLATFORM_OWNER') {
+            return platformOwnerNavItems;
+        }
         return navItems
             .map(item => {
                 if (item.subItems) {
@@ -181,14 +196,14 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         return item.subItems?.some(sub => sub.path === location.pathname);
     };
 
-    const drawerWidth = 280;
+    const drawerWidth = 269;
 
     const renderNavIcon = (icon, active) => (
-        <ListItemIcon sx={{ minWidth: 40 }}>
+        <ListItemIcon sx={{ minWidth: 36 }}>
             <Icon
                 icon={icon}
                 style={{
-                    fontSize: '22px',
+                    fontSize: '20px',
                     color: active ? '#FFFFFF' : '#636e72'
                 }}
             />
@@ -220,9 +235,19 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                     },
                 }}
             >
-                {/* Logo Area */}
-                <Box sx={{ p: 4, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                    <img src={logo} alt="DigiOptics" style={{ width: '100%', maxWidth: '160px', objectFit: 'contain' }} />
+                {/* Logo & Wholesaler Header Area */}
+                <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                    <img
+                        src={tenant?.storeInformation?.storeLogo || logo}
+                        alt={tenant?.storeInformation?.storeName || "DigiOptics"}
+                        style={{ width: '100%', maxWidth: '220px', objectFit: 'contain' }}
+                        onError={(e) => { e.target.onerror = null; e.target.src = logo; }}
+                    />
+                    {tenant?.storeInformation?.storeName && (
+                        <Typography sx={{ fontSize: '13px', fontWeight: 800, color: '#1E293B', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'center', mt: 0.5 }}>
+                            {tenant.storeInformation.storeName}
+                        </Typography>
+                    )}
                 </Box>
 
                 {/* Nav Items */}
@@ -258,7 +283,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
                                                     primaryTypographyProps={{
                                                         fontWeight: isActive ? 700 : 500,
-                                                        fontSize: '0.95rem',
+                                                        fontSize: '0.875rem',
                                                         color: isActive ? "white" : "text.primary"
                                                     }}
                                                 />
@@ -338,7 +363,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                                                             <ListItemText
                                                                 primary={sub.label}
                                                                 primaryTypographyProps={{
-                                                                    fontSize: '0.85rem',
+                                                                    fontSize: '0.8125rem',
                                                                     fontWeight: isSubActive ? 700 : 500
                                                                 }}
                                                             />
@@ -367,7 +392,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                         <ListItemIcon sx={{ minWidth: 40 }}>
                             <Icon icon="lucide:log-out" style={{ fontSize: '20px', color: theme.palette.error.main }} />
                         </ListItemIcon>
-                        <ListItemText primary="Logout" primaryTypographyProps={{ fontWeight: 600, fontSize: '0.9rem' }} />
+                        <ListItemText primary="Logout" primaryTypographyProps={{ fontWeight: 600, fontSize: '0.875rem' }} />
                     </ListItemButton>
                 </Box>
             </Drawer>

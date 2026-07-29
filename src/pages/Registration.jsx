@@ -638,302 +638,377 @@ const Registration = () => {
     const showDocumentFields = formik.values.employeeType?.toUpperCase() !== 'SUPERADMIN';
 
     return (
-        <div className="flex justify-center p-2 min-h-screen">
-            <div className="bg-white rounded-[3rem] shadow-2xl p-8 md:p-12 w-full max-w-5xl border border-gray-100">
-                <form onSubmit={formik.handleSubmit} className="space-y-8">
+        <div className="min-h-screen bg-gray-50 pb-12">
+            {/* ── Header Banner ── */}
+            <div className="bg-white border-b border-gray-200 px-6 py-4 mb-6 flex items-center gap-4">
+                <button
+                    type="button"
+                    onClick={() => navigate(-1)}
+                    className="flex items-center gap-1.5 text-gray-500 hover:text-gray-800 text-sm font-semibold transition-colors"
+                >
+                    <Icon icon="mdi:arrow-left" className="text-lg" /> Go back
+                </button>
+                <div className="h-5 w-px bg-gray-200" />
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-[#2980B9] flex items-center justify-center">
+                        <Icon icon="mdi:account-plus" className="text-white text-lg" />
+                    </div>
+                    <div>
+                        <h1 className="text-sm font-black text-gray-800 uppercase tracking-widest">Register Staff</h1>
+                        <p className="text-[11px] text-gray-400 font-medium">Fill in all required details to create a new staff account</p>
+                    </div>
+                </div>
+                <div className="ml-auto flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={handleSaveDraft}
+                        disabled={savingDraft}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[#2980B9] text-[#2980B9] text-[12px] font-bold hover:bg-blue-50 transition-all disabled:opacity-50"
+                    >
+                        <Icon icon={savingDraft ? "mdi:loading" : "mdi:content-save-outline"} className={savingDraft ? "animate-spin text-sm" : "text-sm"} />
+                        {savingDraft ? 'Saving...' : draftEmployeeId ? 'Update Draft' : 'Save Draft'}
+                    </button>
+                </div>
+            </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-                        <Select
-                            label="Staff Category *"
-                            name="employeeType"
-                            variant="orange"
-                            value={formik.values.employeeType}
-                            onChange={(e) => {
-                                const newType = e.target.value?.toUpperCase();
-                                formik.handleChange(e);
-                                if (newType === 'ADMIN') {
-                                    formik.setFieldValue('role', '');
-                                }
-                                applyDefaultPermissions(newType, formik.values.department, newType === 'ADMIN' ? '' : formik.values.role);
-                            }}
-                            onBlur={formik.handleBlur}
-                            placeholder="Select Staff Category"
-                            error={formik.touched.employeeType && formik.errors.employeeType ? { message: formik.errors.employeeType } : null}
-                            options={configs.EmployeeType.map(type => ({ value: type, label: type }))}
-                            disabled={loadingConfigs}
-                        />
-                        <Input
-                            label="Staff Name *"
-                            name="employeeName"
-                            placeholder="Enter Staff Name"
-                            value={formik.values.employeeName}
-                            onChange={formik.handleChange}
-                            onBlur={formik.handleBlur}
-                            error={formik.touched.employeeName && formik.errors.employeeName ? { message: formik.errors.employeeName } : null}
-                        />
-                        <Input
-                            label="Username *"
-                            name="username"
-                            placeholder="Enter Username"
-                            value={formik.values.username}
-                            onChange={(e) => {
-                                // Double check: prevent spaces during typing as well if possible, or just rely on validation
-                                formik.handleChange(e);
-                            }}
-                            onBlur={formik.handleBlur}
-                            error={formik.touched.username && formik.errors.username ? { message: formik.errors.username } : null}
-                        />
+            <div className="max-w-5xl mx-auto px-4 space-y-4">
+                <form onSubmit={formik.handleSubmit} className="space-y-4">
 
-                        <Input
-                            label="Email *"
-                            name="email"
-                            placeholder="Enter Email"
-                            value={formik.values.email}
-                            onChange={formik.handleChange}
-                            onBlur={formik.handleBlur}
-                            error={formik.touched.email && formik.errors.email ? { message: formik.errors.email } : null}
-                        />
-                        <Input
-                            label="Password *"
-                            name="password"
-                            type="password"
-                            placeholder="Enter Password"
-                            value={formik.values.password}
-                            onChange={formik.handleChange}
-                            onBlur={formik.handleBlur}
-                            error={formik.touched.password && formik.errors.password ? { message: formik.errors.password } : null}
-                        />
-
-                        <Input
-                            label="Mobile No. *"
-                            name="phone"
-                            placeholder="Enter Mobile No."
-                            value={formik.values.phone}
-                            onChange={formik.handleChange}
-                            onBlur={formik.handleBlur}
-                            error={formik.touched.phone && formik.errors.phone ? { message: formik.errors.phone } : null}
-                        />
-                        <Input
-                            label="Address *"
-                            name="address"
-                            placeholder="Enter Address"
-                            value={formik.values.address}
-                            onChange={formik.handleChange}
-                            onBlur={formik.handleBlur}
-                            error={formik.touched.address && formik.errors.address ? { message: formik.errors.address } : null}
-                        />
-
-                        {showDeptFields && (
+                    {/* ── Section: Personal & Account Info ── */}
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2.5 bg-gray-50">
+                            <div className="w-6 h-6 rounded-md bg-[#2980B9]/10 flex items-center justify-center">
+                                <Icon icon="mdi:account-outline" className="text-[#2980B9] text-sm" />
+                            </div>
+                            <span className="text-[11px] font-black uppercase tracking-widest text-gray-600">Personal &amp; Account Information</span>
+                        </div>
+                        <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                             <Select
-                                label="Select Department *"
-                                name="department"
+                                label="Staff Category *"
+                                name="employeeType"
                                 variant="orange"
-                                value={formik.values.department}
-                                onChange={handleDeptChange}
-                                onBlur={formik.handleBlur}
-                                placeholder="Select Department"
-                                error={formik.touched.department && formik.errors.department ? { message: formik.errors.department } : null}
-                                options={(configs.departments || []).map(dept => ({ value: dept._id, label: dept.name }))}
-                            />
-                        )}
-
-                        {showRoleField && (
-                            <Select
-                                label="Role *"
-                                name="role"
-                                variant="orange"
-                                value={formik.values.role}
-                                onClick={() => { if (!formik.values.department) toast.error("Please select department first") }}
+                                value={formik.values.employeeType}
                                 onChange={(e) => {
-                                    const newRole = e.target.value;
+                                    const newType = e.target.value?.toUpperCase();
                                     formik.handleChange(e);
-                                    applyDefaultPermissions(formik.values.employeeType, formik.values.department, newRole);
+                                    if (newType === 'ADMIN') formik.setFieldValue('role', '');
+                                    applyDefaultPermissions(newType, formik.values.department, newType === 'ADMIN' ? '' : formik.values.role);
                                 }}
                                 onBlur={formik.handleBlur}
-                                placeholder="Select Role"
-                                error={formik.touched.role && formik.errors.role ? { message: formik.errors.role } : null}
-                                options={(subRoles || []).map(role => ({ value: role.code, label: role.name }))}
-                                disabled={!formik.values.department || loadingSubRoles}
+                                placeholder="Select Staff Category"
+                                error={formik.touched.employeeType && formik.errors.employeeType ? { message: formik.errors.employeeType } : null}
+                                options={configs.EmployeeType.map(type => ({ value: type, label: type }))}
+                                disabled={loadingConfigs}
                             />
-                        )}
-
-                        <Input
-                            label="Country *"
-                            name="country"
-                            placeholder="Enter Country"
-                            value={formik.values.country}
-                            onChange={formik.handleChange}
-                            onBlur={formik.handleBlur}
-                            error={formik.touched.country && formik.errors.country ? { message: formik.errors.country } : null}
-                        />
-                        {isSalesDept ? (
-                            <>
-                                {console.log(locationData, 'locationData')}
-                                <Select
-                                    label="Region *"
-                                    name="zoneRefId"
-                                    value={formik.values.zoneRefId}
-                                    onChange={handleZoneChange}
-                                    onBlur={formik.handleBlur}
-                                    placeholder="Select Region"
-                                    error={formik.touched.zoneRefId && formik.errors.zoneRefId ? { message: formik.errors.zoneRefId } : null}
-                                    options={(Array.isArray(locationData.zones) ? locationData.zones : []).map(z => ({ value: z._id, label: z.name || z.zone }))}
-                                    disabled={loadingLocation}
-                                />
-                                <Select
-                                    label="State *"
-                                    name="state"
-                                    value={formik.values.state}
-                                    onChange={handleStateChange}
-                                    onBlur={formik.handleBlur}
-                                    placeholder="Select State"
-                                    options={(Array.isArray(locationData.states) ? locationData.states : []).map(s => ({ value: s._id, label: s.name }))}
-                                    disabled={!formik.values.zoneRefId || loadingLocation}
-                                />
-                                <Select
-                                    label="City *"
-                                    name="city"
-                                    value={formik.values.city}
-                                    onChange={handleCityChange}
-                                    onBlur={formik.handleBlur}
-                                    placeholder="Select City"
-                                    options={(Array.isArray(locationData.cities) ? locationData.cities : []).map(c => ({ value: c._id, label: c.name }))}
-                                    disabled={!formik.values.state || loadingLocation}
-                                />
-                                <Select
-                                    label="Pincode *"
-                                    name="pincode"
-                                    value={formik.values.pincode}
-                                    onChange={(e) => {
-                                        formik.handleChange(e);
-                                    }}
-                                    onBlur={formik.handleBlur}
-                                    placeholder="Select Pincode"
-                                    error={formik.touched.pincode && formik.errors.pincode ? { message: formik.errors.pincode } : null}
-                                    options={(Array.isArray(locationData.zipcodes) ? locationData.zipcodes : []).map(z => ({ value: z.code, label: `${z.code} - ${z.area}` }))}
-                                    disabled={!formik.values.city || loadingLocation}
-                                />
-                            </>
-                        ) : (
                             <Input
-                                label="Pincode *"
-                                name="pincode"
-                                placeholder="Enter Pincode"
-                                value={formik.values.pincode}
+                                label="Staff Name *"
+                                name="employeeName"
+                                placeholder="Enter Staff Name"
+                                value={formik.values.employeeName}
                                 onChange={formik.handleChange}
                                 onBlur={formik.handleBlur}
-                                error={formik.touched.pincode && formik.errors.pincode ? { message: formik.errors.pincode } : null}
+                                error={formik.touched.employeeName && formik.errors.employeeName ? { message: formik.errors.employeeName } : null}
                             />
-                        )}
-
-                        <DatePicker
-                            label="Access Expiry"
-                            value={formik.values.expiry ? dayjs(formik.values.expiry) : null}
-                            onChange={(newValue) => formik.setFieldValue('expiry', newValue ? newValue.format('YYYY-MM-DD') : '')}
-                            slotProps={{
-                                textField: {
-                                    fullWidth: true,
-                                    error: formik.touched.expiry && !!formik.errors.expiry,
-                                    helperText: formik.touched.expiry && formik.errors.expiry ? formik.errors.expiry : null,
-                                    sx: datePickerStyles,
-                                    InputLabelProps: { shrink: true }
-                                }
-                            }}
-                        />
-
-
-                        {showDocumentFields && (
-                            <div className="flex flex-col gap-4 col-span-1 md:col-span-2 mt-4">
-                                <label className="text-erp-accent font-bold uppercase text-lg text-center">Upload Aadhar Card & PAN Card</label>
-                                <div className="flex gap-12 justify-center mt-2">
-                                    {/* Aadhar Upload */}
-                                    <div className="flex flex-col items-center gap-2">
-                                        <input type="file" hidden ref={aadharInputRef} onChange={(e) => handleFileSelect(e, 'aadhar')} accept="image/*" />
-                                        <div
-                                            onClick={() => aadharInputRef.current.click()}
-                                            className={`w-40 h-28 border-2 border-dashed rounded-2xl flex items-center justify-center overflow-hidden cursor-pointer transition-all shadow-sm ${formik.touched.aadharCard && formik.errors.aadharCard ? 'border-red-500 bg-red-50' : 'border-erp-accent/30 hover:bg-erp-accent/5'}`}
-                                        >
-                                            {images.aadhar.preview ? (
-                                                <img src={images.aadhar.preview} alt="Aadhar Preview" className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="text-center text-xs text-erp-accent/80">
-                                                    <Icon icon="ph:identification-card-bold" className="text-4xl mb-1 mx-auto" />
-                                                    <span className="font-bold">Aadhar Card Image</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="flex gap-2 items-center">
-                                            {images.aadhar.file && !images.aadhar.url && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleUpload('aadhar')}
-                                                    className="text-[10px] bg-erp-accent text-white px-4 py-1.5 rounded-full uppercase font-black hover:bg-erp-accent/90 transition-colors shadow-md"
-                                                >
-                                                    {images.aadhar.uploading ? '...' : 'Upload'}
-                                                </button>
-                                            )}
-                                            {images.aadhar.url && <Icon icon="mdi:check-circle" className="text-green-500 text-2xl animate-bounce-short" />}
-                                        </div>
-                                        {formik.touched.aadharCard && formik.errors.aadharCard && (
-                                            <p className="text-[10px] text-red-500 font-bold">Image required</p>
-                                        )}
-                                    </div>
-
-                                    {/* PAN Upload */}
-                                    <div className="flex flex-col items-center gap-2">
-                                        <input type="file" hidden ref={panInputRef} onChange={(e) => handleFileSelect(e, 'pan')} accept="image/*" />
-                                        <div
-                                            onClick={() => panInputRef.current.click()}
-                                            className={`w-40 h-28 border-2 border-dashed rounded-2xl flex items-center justify-center overflow-hidden cursor-pointer transition-all shadow-sm ${formik.touched.panCard && formik.errors.panCard ? 'border-red-500 bg-red-50' : 'border-erp-accent/30 hover:bg-erp-accent/5'}`}
-                                        >
-                                            {images.pan.preview ? (
-                                                <img src={images.pan.preview} alt="PAN Preview" className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="text-center text-xs text-erp-accent/80">
-                                                    <Icon icon="ph:credit-card-bold" className="text-4xl mb-1 mx-auto" />
-                                                    <span className="font-bold">PAN Card Image</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="flex gap-2 items-center">
-                                            {images.pan.file && !images.pan.url && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleUpload('pan')}
-                                                    className="text-[10px] bg-erp-accent text-white px-4 py-1.5 rounded-full uppercase font-black hover:bg-erp-accent/90 transition-colors shadow-md"
-                                                >
-                                                    {images.pan.uploading ? '...' : 'Upload'}
-                                                </button>
-                                            )}
-                                            {images.pan.url && <Icon icon="mdi:check-circle" className="text-green-500 text-2xl animate-bounce-short" />}
-                                        </div>
-                                        {formik.touched.panCard && formik.errors.panCard && (
-                                            <p className="text-[10px] text-red-500 font-bold">Image required</p>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                            <Input
+                                label="Username *"
+                                name="username"
+                                placeholder="Enter Username"
+                                value={formik.values.username}
+                                onChange={formik.handleChange}
+                                onBlur={formik.handleBlur}
+                                error={formik.touched.username && formik.errors.username ? { message: formik.errors.username } : null}
+                            />
+                            <Input
+                                label="Email *"
+                                name="email"
+                                placeholder="Enter Email"
+                                value={formik.values.email}
+                                onChange={formik.handleChange}
+                                onBlur={formik.handleBlur}
+                                error={formik.touched.email && formik.errors.email ? { message: formik.errors.email } : null}
+                            />
+                            <Input
+                                label="Password *"
+                                name="password"
+                                type="password"
+                                placeholder="Enter Password"
+                                value={formik.values.password}
+                                onChange={formik.handleChange}
+                                onBlur={formik.handleBlur}
+                                error={formik.touched.password && formik.errors.password ? { message: formik.errors.password } : null}
+                            />
+                            <Input
+                                label="Mobile No. *"
+                                name="phone"
+                                placeholder="Enter Mobile No."
+                                value={formik.values.phone}
+                                onChange={formik.handleChange}
+                                onBlur={formik.handleBlur}
+                                error={formik.touched.phone && formik.errors.phone ? { message: formik.errors.phone } : null}
+                            />
+                        </div>
                     </div>
 
-                    {/* Page Access */}
-                    <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-6 space-y-4">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-black uppercase tracking-widest text-erp-accent">Page Access</h3>
+                    {/* ── Section: Work Details ── */}
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2.5 bg-gray-50">
+                            <div className="w-6 h-6 rounded-md bg-[#2980B9]/10 flex items-center justify-center">
+                                <Icon icon="mdi:briefcase-outline" className="text-[#2980B9] text-sm" />
+                            </div>
+                            <span className="text-[11px] font-black uppercase tracking-widest text-gray-600">Work Details</span>
+                        </div>
+                        <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                            {showDeptFields && (
+                                <Select
+                                    label="Select Department *"
+                                    name="department"
+                                    variant="orange"
+                                    value={formik.values.department}
+                                    onChange={handleDeptChange}
+                                    onBlur={formik.handleBlur}
+                                    placeholder="Select Department"
+                                    error={formik.touched.department && formik.errors.department ? { message: formik.errors.department } : null}
+                                    options={(configs.departments || []).map(dept => ({ value: dept._id, label: dept.name }))}
+                                />
+                            )}
+                            {showRoleField && (
+                                <Select
+                                    label="Role *"
+                                    name="role"
+                                    variant="orange"
+                                    value={formik.values.role}
+                                    onClick={() => { if (!formik.values.department) toast.error("Please select department first") }}
+                                    onChange={(e) => {
+                                        const newRole = e.target.value;
+                                        formik.handleChange(e);
+                                        applyDefaultPermissions(formik.values.employeeType, formik.values.department, newRole);
+                                    }}
+                                    onBlur={formik.handleBlur}
+                                    placeholder="Select Role"
+                                    error={formik.touched.role && formik.errors.role ? { message: formik.errors.role } : null}
+                                    options={(subRoles || []).map(role => ({ value: role.code, label: role.name }))}
+                                    disabled={!formik.values.department || loadingSubRoles}
+                                />
+                            )}
+                            <div>
+                                <DatePicker
+                                    label="Access Expiry"
+                                    value={formik.values.expiry ? dayjs(formik.values.expiry) : null}
+                                    onChange={(newValue) => formik.setFieldValue('expiry', newValue ? newValue.format('YYYY-MM-DD') : '')}
+                                    slotProps={{
+                                        textField: {
+                                            fullWidth: true,
+                                            error: formik.touched.expiry && !!formik.errors.expiry,
+                                            helperText: formik.touched.expiry && formik.errors.expiry ? formik.errors.expiry : null,
+                                            sx: datePickerStyles,
+                                            InputLabelProps: { shrink: true }
+                                        }
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── Section: Location ── */}
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2.5 bg-gray-50">
+                            <div className="w-6 h-6 rounded-md bg-[#2980B9]/10 flex items-center justify-center">
+                                <Icon icon="mdi:map-marker-outline" className="text-[#2980B9] text-sm" />
+                            </div>
+                            <span className="text-[11px] font-black uppercase tracking-widest text-gray-600">Location</span>
+                        </div>
+                        <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                            <Input
+                                label="Address *"
+                                name="address"
+                                placeholder="Enter Address"
+                                value={formik.values.address}
+                                onChange={formik.handleChange}
+                                onBlur={formik.handleBlur}
+                                error={formik.touched.address && formik.errors.address ? { message: formik.errors.address } : null}
+                            />
+                            <Input
+                                label="Country *"
+                                name="country"
+                                placeholder="Enter Country"
+                                value={formik.values.country}
+                                onChange={formik.handleChange}
+                                onBlur={formik.handleBlur}
+                                error={formik.touched.country && formik.errors.country ? { message: formik.errors.country } : null}
+                            />
+                            {isSalesDept ? (
+                                <>
+                                    <Select
+                                        label="Region *"
+                                        name="zoneRefId"
+                                        value={formik.values.zoneRefId}
+                                        onChange={handleZoneChange}
+                                        onBlur={formik.handleBlur}
+                                        placeholder="Select Region"
+                                        error={formik.touched.zoneRefId && formik.errors.zoneRefId ? { message: formik.errors.zoneRefId } : null}
+                                        options={(Array.isArray(locationData.zones) ? locationData.zones : []).map(z => ({ value: z._id, label: z.name || z.zone }))}
+                                        disabled={loadingLocation}
+                                    />
+                                    <Select
+                                        label="State *"
+                                        name="state"
+                                        value={formik.values.state}
+                                        onChange={handleStateChange}
+                                        onBlur={formik.handleBlur}
+                                        placeholder="Select State"
+                                        options={(Array.isArray(locationData.states) ? locationData.states : []).map(s => ({ value: s._id, label: s.name }))}
+                                        disabled={!formik.values.zoneRefId || loadingLocation}
+                                    />
+                                    <Select
+                                        label="City *"
+                                        name="city"
+                                        value={formik.values.city}
+                                        onChange={handleCityChange}
+                                        onBlur={formik.handleBlur}
+                                        placeholder="Select City"
+                                        options={(Array.isArray(locationData.cities) ? locationData.cities : []).map(c => ({ value: c._id, label: c.name }))}
+                                        disabled={!formik.values.state || loadingLocation}
+                                    />
+                                    <Select
+                                        label="Pincode *"
+                                        name="pincode"
+                                        value={formik.values.pincode}
+                                        onChange={(e) => { formik.handleChange(e); }}
+                                        onBlur={formik.handleBlur}
+                                        placeholder="Select Pincode"
+                                        error={formik.touched.pincode && formik.errors.pincode ? { message: formik.errors.pincode } : null}
+                                        options={(Array.isArray(locationData.zipcodes) ? locationData.zipcodes : []).map(z => ({ value: z.code, label: `${z.code} - ${z.area}` }))}
+                                        disabled={!formik.values.city || loadingLocation}
+                                    />
+                                </>
+                            ) : (
+                                <Input
+                                    label="Pincode *"
+                                    name="pincode"
+                                    placeholder="Enter Pincode"
+                                    value={formik.values.pincode}
+                                    onChange={formik.handleChange}
+                                    onBlur={formik.handleBlur}
+                                    error={formik.touched.pincode && formik.errors.pincode ? { message: formik.errors.pincode } : null}
+                                />
+                            )}
+                        </div>
+                    </div>
+
+                    {/* ── Section: Documents ── */}
+                    {showDocumentFields && (
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                            <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2.5 bg-gray-50">
+                                <div className="w-6 h-6 rounded-md bg-[#2980B9]/10 flex items-center justify-center">
+                                    <Icon icon="mdi:file-document-outline" className="text-[#2980B9] text-sm" />
+                                </div>
+                                <span className="text-[11px] font-black uppercase tracking-widest text-gray-600">Identity Documents</span>
+                            </div>
+                            <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Aadhar Upload */}
+                                <div className="flex flex-col gap-3">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Aadhar Card *</span>
+                                    <input type="file" hidden ref={aadharInputRef} onChange={(e) => handleFileSelect(e, 'aadhar')} accept="image/*" />
+                                    <div
+                                        onClick={() => aadharInputRef.current.click()}
+                                        className={`relative h-36 border-2 border-dashed rounded-xl flex items-center justify-center overflow-hidden cursor-pointer transition-all group ${formik.touched.aadharCard && formik.errors.aadharCard ? 'border-red-400 bg-red-50' : 'border-gray-300 hover:border-[#2980B9] hover:bg-blue-50/30'}`}
+                                    >
+                                        {images.aadhar.preview ? (
+                                            <img src={images.aadhar.preview} alt="Aadhar Preview" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="flex flex-col items-center gap-2 text-gray-400 group-hover:text-[#2980B9] transition-colors">
+                                                <Icon icon="ph:identification-card-bold" className="text-4xl" />
+                                                <span className="text-[11px] font-bold uppercase tracking-wide">Click to upload Aadhar</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {images.aadhar.file && !images.aadhar.url && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleUpload('aadhar')}
+                                                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-[#2980B9] text-white text-[11px] font-bold hover:bg-[#2471a3] transition-all shadow-sm"
+                                            >
+                                                <Icon icon={images.aadhar.uploading ? "mdi:loading" : "mdi:cloud-upload"} className={images.aadhar.uploading ? "animate-spin text-sm" : "text-sm"} />
+                                                {images.aadhar.uploading ? 'Uploading...' : 'Upload Aadhar'}
+                                            </button>
+                                        )}
+                                        {images.aadhar.url && (
+                                            <div className="flex items-center gap-1.5 text-green-600 text-[11px] font-bold">
+                                                <Icon icon="mdi:check-circle" className="text-base" /> Uploaded Successfully
+                                            </div>
+                                        )}
+                                    </div>
+                                    {formik.touched.aadharCard && formik.errors.aadharCard && (
+                                        <p className="text-[10px] text-red-500 font-bold">Aadhar card image is required</p>
+                                    )}
+                                </div>
+
+                                {/* PAN Upload */}
+                                <div className="flex flex-col gap-3">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">PAN Card *</span>
+                                    <input type="file" hidden ref={panInputRef} onChange={(e) => handleFileSelect(e, 'pan')} accept="image/*" />
+                                    <div
+                                        onClick={() => panInputRef.current.click()}
+                                        className={`relative h-36 border-2 border-dashed rounded-xl flex items-center justify-center overflow-hidden cursor-pointer transition-all group ${formik.touched.panCard && formik.errors.panCard ? 'border-red-400 bg-red-50' : 'border-gray-300 hover:border-[#2980B9] hover:bg-blue-50/30'}`}
+                                    >
+                                        {images.pan.preview ? (
+                                            <img src={images.pan.preview} alt="PAN Preview" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="flex flex-col items-center gap-2 text-gray-400 group-hover:text-[#2980B9] transition-colors">
+                                                <Icon icon="ph:credit-card-bold" className="text-4xl" />
+                                                <span className="text-[11px] font-bold uppercase tracking-wide">Click to upload PAN</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {images.pan.file && !images.pan.url && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleUpload('pan')}
+                                                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-[#2980B9] text-white text-[11px] font-bold hover:bg-[#2471a3] transition-all shadow-sm"
+                                            >
+                                                <Icon icon={images.pan.uploading ? "mdi:loading" : "mdi:cloud-upload"} className={images.pan.uploading ? "animate-spin text-sm" : "text-sm"} />
+                                                {images.pan.uploading ? 'Uploading...' : 'Upload PAN'}
+                                            </button>
+                                        )}
+                                        {images.pan.url && (
+                                            <div className="flex items-center gap-1.5 text-green-600 text-[11px] font-bold">
+                                                <Icon icon="mdi:check-circle" className="text-base" /> Uploaded Successfully
+                                            </div>
+                                        )}
+                                    </div>
+                                    {formik.touched.panCard && formik.errors.panCard && (
+                                        <p className="text-[10px] text-red-500 font-bold">PAN card image is required</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── Section: Page Access ── */}
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-6 h-6 rounded-md bg-[#2980B9]/10 flex items-center justify-center">
+                                    <Icon icon="mdi:monitor-dashboard" className="text-[#2980B9] text-sm" />
+                                </div>
+                                <span className="text-[11px] font-black uppercase tracking-widest text-gray-600">Page Access</span>
+                                {pageAccess.length > 0 && (
+                                    <span className="ml-1 px-2 py-0.5 rounded-full bg-[#2980B9] text-white text-[10px] font-black">{pageAccess.length}</span>
+                                )}
+                            </div>
                             <button
                                 type="button"
                                 onClick={() => toggleAll(PAGE_ACCESS_OPTIONS, pageAccess, setPageAccess)}
-                                className="text-[10px] font-black uppercase tracking-widest text-erp-accent/70 hover:text-erp-accent border border-erp-accent/20 hover:border-erp-accent/50 px-3 py-1.5 rounded-full transition-all hover:bg-erp-accent/5"
+                                className="text-[10px] font-black uppercase tracking-widest text-[#2980B9] hover:text-[#2471a3] border border-[#2980B9]/30 hover:border-[#2980B9]/60 px-3 py-1 rounded-lg transition-all hover:bg-blue-50"
                             >
                                 {pageAccess.length === PAGE_ACCESS_OPTIONS.length ? 'Deselect All' : 'Select All'}
                             </button>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-3">
+                        <div className="p-5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-2.5">
                             {PAGE_ACCESS_OPTIONS.map(option => (
-                                <label
-                                    key={option.value}
-                                    className="flex items-center gap-2.5 cursor-pointer group"
-                                >
+                                <label key={option.value} className="flex items-center gap-2 cursor-pointer group py-1">
                                     <div className="relative flex-shrink-0">
                                         <input
                                             type="checkbox"
@@ -941,43 +1016,39 @@ const Registration = () => {
                                             checked={pageAccess.includes(option.value)}
                                             onChange={() => toggleItem(pageAccess, setPageAccess, option.value)}
                                         />
-                                        <div className="w-4 h-4 rounded border-2 border-gray-300 peer-checked:bg-erp-accent peer-checked:border-erp-accent transition-all group-hover:border-erp-accent/50 flex items-center justify-center">
-                                            {pageAccess.includes(option.value) && (
-                                                <Icon icon="mdi:check" className="text-white text-[10px]" />
-                                            )}
+                                        <div className="w-4 h-4 rounded border-2 border-gray-300 peer-checked:bg-[#2980B9] peer-checked:border-[#2980B9] transition-all group-hover:border-[#2980B9]/50 flex items-center justify-center">
+                                            {pageAccess.includes(option.value) && <Icon icon="mdi:check" className="text-white text-[10px]" />}
                                         </div>
                                     </div>
-                                    <span className="text-[11px] font-bold text-gray-600 group-hover:text-gray-800 transition-colors leading-tight">
-                                        {option.label}
-                                    </span>
+                                    <span className="text-[11px] font-semibold text-gray-600 group-hover:text-gray-800 transition-colors leading-tight">{option.label}</span>
                                 </label>
                             ))}
                         </div>
-                        {pageAccess.length > 0 && (
-                            <p className="text-[10px] font-black text-erp-accent/60 uppercase tracking-widest">
-                                {pageAccess.length} page{pageAccess.length !== 1 ? 's' : ''} selected
-                            </p>
-                        )}
                     </div>
 
-                    {/* Access Permissions */}
-                    <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-6 space-y-4">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-black uppercase tracking-widest text-erp-accent">Access Permissions</h3>
+                    {/* ── Section: Access Permissions ── */}
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-6 h-6 rounded-md bg-[#2980B9]/10 flex items-center justify-center">
+                                    <Icon icon="mdi:shield-lock-outline" className="text-[#2980B9] text-sm" />
+                                </div>
+                                <span className="text-[11px] font-black uppercase tracking-widest text-gray-600">Access Permissions</span>
+                                {accessPermissions.length > 0 && (
+                                    <span className="ml-1 px-2 py-0.5 rounded-full bg-[#2980B9] text-white text-[10px] font-black">{accessPermissions.length}</span>
+                                )}
+                            </div>
                             <button
                                 type="button"
                                 onClick={() => toggleAll(ACCESS_PERMISSION_OPTIONS, accessPermissions, setAccessPermissions)}
-                                className="text-[10px] font-black uppercase tracking-widest text-erp-accent/70 hover:text-erp-accent border border-erp-accent/20 hover:border-erp-accent/50 px-3 py-1.5 rounded-full transition-all hover:bg-erp-accent/5"
+                                className="text-[10px] font-black uppercase tracking-widest text-[#2980B9] hover:text-[#2471a3] border border-[#2980B9]/30 hover:border-[#2980B9]/60 px-3 py-1 rounded-lg transition-all hover:bg-blue-50"
                             >
                                 {accessPermissions.length === ACCESS_PERMISSION_OPTIONS.length ? 'Deselect All' : 'Select All'}
                             </button>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-3">
+                        <div className="p-5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-2.5">
                             {ACCESS_PERMISSION_OPTIONS.map(option => (
-                                <label
-                                    key={option.value}
-                                    className="flex items-center gap-2.5 cursor-pointer group"
-                                >
+                                <label key={option.value} className="flex items-center gap-2 cursor-pointer group py-1">
                                     <div className="relative flex-shrink-0">
                                         <input
                                             type="checkbox"
@@ -985,48 +1056,42 @@ const Registration = () => {
                                             checked={accessPermissions.includes(option.value)}
                                             onChange={() => toggleItem(accessPermissions, setAccessPermissions, option.value)}
                                         />
-                                        <div className="w-4 h-4 rounded border-2 border-gray-300 peer-checked:bg-erp-accent peer-checked:border-erp-accent transition-all group-hover:border-erp-accent/50 flex items-center justify-center">
-                                            {accessPermissions.includes(option.value) && (
-                                                <Icon icon="mdi:check" className="text-white text-[10px]" />
-                                            )}
+                                        <div className="w-4 h-4 rounded border-2 border-gray-300 peer-checked:bg-[#2980B9] peer-checked:border-[#2980B9] transition-all group-hover:border-[#2980B9]/50 flex items-center justify-center">
+                                            {accessPermissions.includes(option.value) && <Icon icon="mdi:check" className="text-white text-[10px]" />}
                                         </div>
                                     </div>
-                                    <span className="text-[11px] font-bold text-gray-600 group-hover:text-gray-800 transition-colors leading-tight">
-                                        {option.label}
-                                    </span>
+                                    <span className="text-[11px] font-semibold text-gray-600 group-hover:text-gray-800 transition-colors leading-tight">{option.label}</span>
                                 </label>
                             ))}
                         </div>
-                        {accessPermissions.length > 0 && (
-                            <p className="text-[10px] font-black text-erp-accent/60 uppercase tracking-widest">
-                                {accessPermissions.length} permission{accessPermissions.length !== 1 ? 's' : ''} selected
-                            </p>
-                        )}
                     </div>
 
-                    <div className="flex justify-center gap-6 pt-10">
-                        <Button
-                            type="submit"
-                            className="max-w-[200px]"
-                            disabled={formik.isSubmitting}
-                        >
-                            {formik.isSubmitting ? 'Submitting...' : 'Submit'}
-                        </Button>
+                    {/* ── Footer Actions ── */}
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-center justify-end gap-3">
                         <button
                             type="button"
                             onClick={handleSaveDraft}
                             disabled={savingDraft}
-                            className="px-16 py-4 rounded-full border-2 border-erp-accent text-erp-accent font-bold hover:bg-erp-accent/5 transition-all uppercase tracking-widest min-w-[240px] disabled:opacity-50"
+                            className="flex items-center gap-2 px-6 py-2.5 rounded-lg border border-[#2980B9] text-[#2980B9] text-sm font-bold hover:bg-blue-50 transition-all disabled:opacity-50"
                         >
+                            <Icon icon={savingDraft ? "mdi:loading" : "mdi:content-save-outline"} className={savingDraft ? "animate-spin" : ""} />
                             {savingDraft ? 'Saving...' : draftEmployeeId ? 'Update Draft' : 'Save as Draft'}
                         </button>
+                        <button
+                            type="submit"
+                            disabled={formik.isSubmitting}
+                            className="flex items-center gap-2 px-8 py-2.5 rounded-lg bg-[#2980B9] hover:bg-[#2471a3] text-white text-sm font-bold transition-all shadow-sm disabled:opacity-60 active:scale-95"
+                        >
+                            <Icon icon={formik.isSubmitting ? "mdi:loading" : "mdi:account-plus"} className={formik.isSubmitting ? "animate-spin" : ""} />
+                            {formik.isSubmitting ? 'Submitting...' : 'Register Staff'}
+                        </button>
                     </div>
+
                 </form>
             </div>
         </div>
     );
 };
 
+
 export default Registration;
-
-

@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { getQcPendingItems, createPurchaseQC } from '../../services/vendorOrderService';
+import { uploadImage } from '../../services/bucketService';
 import { toast } from 'react-toastify';
 
 const categoryIcon = {
-    LENS:         'lucide:eye',
-    FRAME:        'lucide:glasses',
+    LENS: 'lucide:eye',
+    FRAME: 'lucide:glasses',
     CONTACT_LENS: 'lucide:circle-dot',
 };
 
 const QcPending = () => {
     const [items, setItems] = useState([]);
+    console.log(items, 'items')
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
@@ -25,6 +28,8 @@ const QcPending = () => {
     const [remarks, setRemarks] = useState('');
     const [notifyVendor, setNotifyVendor] = useState(false);
     const [submittingQC, setSubmittingQC] = useState(false);
+    const [qcPhotos, setQcPhotos] = useState([]);
+    const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
     const fetchItems = useCallback(async () => {
         setLoading(true);
@@ -53,6 +58,7 @@ const QcPending = () => {
         setFailureReason('');
         setRemarks('');
         setNotifyVendor(false);
+        setQcPhotos([]);
     };
 
     const handlePassedQtyChange = (val, maxVal) => {
@@ -67,6 +73,29 @@ const QcPending = () => {
         setPassedQty(maxVal - failed);
     };
 
+    const handleQcPhotoUpload = async (file) => {
+        if (!file) return;
+        setUploadingPhoto(true);
+        try {
+            const res = await uploadImage(file);
+            const url = res?.data?.url || res?.url || res?.data;
+            if (url) {
+                setQcPhotos(prev => [...prev, url]);
+                toast.success('Photo uploaded');
+            } else {
+                toast.error('Upload succeeded but no URL returned');
+            }
+        } catch (err) {
+            toast.error(err.message || 'Failed to upload photo');
+        } finally {
+            setUploadingPhoto(false);
+        }
+    };
+
+    const removeQcPhoto = (index) => {
+        setQcPhotos(prev => prev.filter((_, i) => i !== index));
+    };
+
     const handleSubmitQC = async () => {
         if (!selectedItem) return;
         if (failedQty > 0 && !failureReason.trim()) {
@@ -76,18 +105,23 @@ const QcPending = () => {
 
         setSubmittingQC(true);
         try {
+            const itemPayload = {
+                itemId: selectedItem.itemId || selectedItem._id,
+                passedQty: Number(passedQty),
+                failedQty: Number(failedQty),
+                failureReason: failureReason,
+                remarks: remarks,
+            };
+            // Attach photos only when there are failed items
+            if (failedQty > 0 && qcPhotos.length > 0) {
+                itemPayload.photos = qcPhotos;
+            }
             const payload = {
                 purchaseOrderId: selectedItem.purchaseOrderId,
                 purchaseInwardId: selectedItem.purchaseInwardId,
                 notifyVendor,
                 remarks: remarks || `Direct QC check for ${selectedItem.itemName}`,
-                items: [{
-                    itemId: selectedItem.itemId || selectedItem._id,
-                    passedQty: Number(passedQty),
-                    failedQty: Number(failedQty),
-                    failureReason: failureReason,
-                    remarks: remarks,
-                }],
+                items: [itemPayload],
             };
 
             const res = await createPurchaseQC(payload);
@@ -309,11 +343,11 @@ const QcPending = () => {
             </div>
 
             {/* QC Check Modal */}
-            {selectedItem && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {selectedItem && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center">
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSelectedItem(null)} />
                     <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
-                        
+
                         {/* Header */}
                         <div className="p-5 border-b border-gray-100 bg-[#eaf4fb] flex items-center justify-between">
                             <div className="flex items-center gap-3">
@@ -365,16 +399,61 @@ const QcPending = () => {
                             </div>
 
                             {failedQty > 0 && (
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-[#E74C3C] mb-1.5">Failure Reason *</label>
-                                    <input
-                                        type="text"
-                                        value={failureReason}
-                                        onChange={e => setFailureReason(e.target.value)}
-                                        placeholder="e.g. Scratches on coating, broken frame..."
-                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#E74C3C]/20 focus:border-[#E74C3C]"
-                                    />
-                                </div>
+                                <>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-[#E74C3C] mb-1.5">Failure Reason *</label>
+                                        <input
+                                            type="text"
+                                            value={failureReason}
+                                            onChange={e => setFailureReason(e.target.value)}
+                                            placeholder="e.g. Scratches on coating, broken frame..."
+                                            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#E74C3C]/20 focus:border-[#E74C3C]"
+                                        />
+                                    </div>
+
+                                    {/* QC Failure Photos Upload */}
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">Failure Evidence Photos</label>
+                                        <div className="flex flex-wrap gap-2 items-center">
+                                            {qcPhotos.map((url, idx) => (
+                                                <div key={idx} className="w-16 h-16 rounded-xl border border-gray-200 overflow-hidden relative group shadow-sm">
+                                                    <img src={url} alt={`QC ${idx + 1}`} className="w-full h-full object-cover" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeQcPhoto(idx)}
+                                                        className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    >
+                                                        <Icon icon="lucide:trash-2" className="text-sm" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            <div className="relative">
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={(e) => handleQcPhotoUpload(e.target.files[0])}
+                                                    disabled={uploadingPhoto}
+                                                    className="hidden"
+                                                    id="qc-photo-upload"
+                                                />
+                                                <label
+                                                    htmlFor="qc-photo-upload"
+                                                    className="inline-flex w-16 h-16 items-center justify-center border-2 border-dashed border-gray-300 rounded-xl hover:border-[#E74C3C] hover:bg-red-50 cursor-pointer text-gray-400 hover:text-[#E74C3C] transition-all"
+                                                >
+                                                    {uploadingPhoto ? (
+                                                        <Icon icon="lucide:loader-2" className="text-lg animate-spin" />
+                                                    ) : (
+                                                        <div className="flex flex-col items-center">
+                                                            <Icon icon="lucide:camera" className="text-lg" />
+                                                            <span className="text-[8px] mt-0.5 font-medium">Add</span>
+                                                        </div>
+                                                    )}
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <p className="text-[10px] text-gray-400 mt-1.5">Upload photos showing the defects/damage for the failed items</p>
+                                    </div>
+                                </>
                             )}
 
                             <div>
@@ -418,7 +497,8 @@ const QcPending = () => {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

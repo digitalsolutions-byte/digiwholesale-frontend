@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { getPendingInwardItems, createPurchaseInward } from '../../services/vendorOrderService';
 import { toast } from 'react-toastify';
@@ -314,8 +315,8 @@ const PendingInward = () => {
             </div>
 
             {/* Inward Modal */}
-            {selectedItem && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {selectedItem && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center">
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSelectedItem(null)} />
                     <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
                         
@@ -409,7 +410,8 @@ const PendingInward = () => {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

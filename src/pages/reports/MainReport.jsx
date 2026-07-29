@@ -31,16 +31,17 @@ const PRESETS = [
 ];
 
 /* ─── Status badge ──────────────────────────────────────────────────────── */
+/* ─── Status badge ──────────────────────────────────────────────────────── */
 const Badge = ({ v }) => {
     const cfg = {
-        Active: "bg-emerald-100 text-emerald-700 border-emerald-200",
-        Delivered: "bg-blue-100 text-blue-700 border-blue-200",
-        Draft: "bg-gray-100 text-gray-500 border-gray-200",
-        "In-process": "bg-amber-100 text-amber-700 border-amber-200",
-        Pending: "bg-rose-100 text-rose-700 border-rose-200",
+        Active: "bg-emerald-50 text-emerald-700 border-emerald-200",
+        Delivered: "bg-[#2980B9]/10 text-[#2980B9] border-blue-200",
+        Draft: "bg-gray-100 text-gray-600 border-gray-200",
+        "In-process": "bg-amber-50 text-amber-700 border-amber-200",
+        Pending: "bg-rose-50 text-rose-700 border-rose-200",
     };
     return (
-        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${cfg[v] || "bg-gray-100 text-gray-500 border-gray-200"}`}>
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${cfg[v] || "bg-gray-50 text-gray-600 border-gray-200"}`}>
             {v || "—"}
         </span>
     );
@@ -48,55 +49,56 @@ const Badge = ({ v }) => {
 
 /* ─── Metric card ───────────────────────────────────────────────────────── */
 const MetricCard = ({ label, value, sub, icon, highlight }) => (
-    <div className={`group relative rounded-[2rem] p-6 overflow-hidden border transition-all duration-300 hover:-translate-y-1
+    <div className={`group relative rounded-xl p-5 overflow-hidden border transition-all duration-300
         ${highlight
-            ? "bg-erp-accent border-erp-accent shadow-xl shadow-erp-accent/20"
-            : "bg-white border-gray-100 shadow-sm hover:shadow-xl hover:border-erp-accent/20"
+            ? "bg-[#2980B9] border-[#2980B9] text-white shadow-md"
+            : "bg-white border-gray-200 shadow-sm hover:border-[#2980B9]/40"
         }`}>
-        <div className="relative z-10">
-            <div className={`w-10 h-10 rounded-2xl mb-4 flex items-center justify-center transition-transform group-hover:scale-110 duration-500 ${highlight ? 'bg-white/20' : 'bg-erp-accent/5'}`}>
-                <Icon icon={icon} className={`text-xl ${highlight ? 'text-white' : 'text-erp-accent'}`} />
+        <div className="relative z-10 flex items-start justify-between">
+            <div>
+                <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${highlight ? 'text-blue-100' : 'text-gray-400'}`}>{label}</p>
+                <p className={`text-xl font-black leading-none ${highlight ? 'text-white' : 'text-gray-800'}`}>{value ?? 0}</p>
+                {sub && <p className={`text-[11px] font-semibold mt-2 ${highlight ? 'text-blue-100' : 'text-gray-400'}`}>{sub}</p>}
             </div>
-            <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${highlight ? 'text-white/70' : 'text-gray-400'}`}>{label}</p>
-            <p className={`text-2xl font-black leading-none ${highlight ? 'text-white' : 'text-gray-800'}`}>{value ?? 0}</p>
-            {sub && <p className={`text-[11px] font-bold mt-2 ${highlight ? 'text-white/60' : 'text-gray-400'}`}>{sub}</p>}
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${highlight ? 'bg-white/20 text-white' : 'bg-blue-50 text-[#2980B9]'}`}>
+                <Icon icon={icon} className="text-xl" />
+            </div>
         </div>
-        {highlight && <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />}
     </div>
 );
 
 /* ─── Transaction pill ──────────────────────────────────────────────────── */
 const TxnPill = ({ label, count, amount, icon, colorClass }) => (
-    <div className={`flex items-center gap-4 px-6 py-4 rounded-[1.5rem] border transition-all hover:shadow-md ${colorClass}`}>
-        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center flex-shrink-0 shadow-sm">
-            <Icon icon={icon} className="text-xl opacity-70" />
+    <div className={`flex items-center gap-3.5 px-5 py-3.5 rounded-xl border transition-all ${colorClass}`}>
+        <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center flex-shrink-0 shadow-sm border border-gray-100">
+            <Icon icon={icon} className="text-lg opacity-80" />
         </div>
         <div className="flex-1">
-            <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-0.5">{label}</p>
-            <p className="text-sm font-black text-gray-800">{count ?? 0} Orders</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-0.5">{label}</p>
+            <p className="text-xs font-black text-gray-800">{count ?? 0} Orders</p>
         </div>
         <div className="text-right">
-            <p className="text-[9px] font-black uppercase tracking-widest opacity-40">Revenue</p>
-            <p className="text-xs font-black text-erp-accent">₹{amount?.toLocaleString() || 0}</p>
+            <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Revenue</p>
+            <p className="text-xs font-black text-[#2980B9]">₹{amount?.toLocaleString() || 0}</p>
         </div>
     </div>
 );
 
 /* ─── Section wrapper ───────────────────────────────────────────────────── */
 const Section = ({ icon, title, badge, children }) => (
-    <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-200/40 overflow-hidden mb-8">
-        <div className="flex items-center justify-between px-8 py-6 border-b border-gray-50 bg-gray-50/30">
-            <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-2xl bg-erp-accent/5 border border-erp-accent/10 text-erp-accent flex items-center justify-center">
-                    <Icon icon={icon} className="text-xl" />
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/80">
+            <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-[#2980B9]/10 text-[#2980B9] flex items-center justify-center">
+                    <Icon icon={icon} className="text-lg" />
                 </div>
                 <div className="flex flex-col">
-                    <span className="text-xs font-black text-gray-700 uppercase tracking-[0.2em]">{title}</span>
-                    {badge !== undefined && <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{badge} records found</span>}
+                    <span className="text-xs font-black text-gray-800 uppercase tracking-widest">{title}</span>
+                    {badge !== undefined && <span className="text-[10px] font-medium text-gray-400">{badge} records found</span>}
                 </div>
             </div>
         </div>
-        <div className="p-8">{children}</div>
+        <div className="p-6">{children}</div>
     </div>
 );
 
@@ -104,34 +106,34 @@ const Section = ({ icon, title, badge, children }) => (
 const DataTable = ({ table, colCount, empty = "No records found" }) => {
     const rows = table.getRowModel().rows;
     return (
-        <div className="overflow-x-auto overflow-y-auto max-h-[600px] rounded-[2rem] border border-gray-100 custom-scrollbar">
+        <div className="overflow-x-auto overflow-y-auto max-h-[550px] rounded-lg border border-gray-200 custom-scrollbar">
             <table className="w-full border-collapse">
-                <thead className="sticky top-0 z-20 bg-erp-accent text-white">
+                <thead className="sticky top-0 z-20 bg-gray-100/90 border-b border-gray-200 backdrop-blur-sm">
                     {table.getHeaderGroups().map(hg => (
                         <tr key={hg.id}>
                             {hg.headers.map(h => (
-                                <th key={h.id} className="px-6 py-4 text-center text-[10px] font-black uppercase tracking-[0.2em] border-r border-white/10 last:border-r-0 whitespace-nowrap">
+                                <th key={h.id} className="px-5 py-3 text-center text-[10px] font-extrabold text-gray-600 uppercase tracking-wider border-r border-gray-200/60 last:border-r-0 whitespace-nowrap">
                                     {flexRender(h.column.columnDef.header, h.getContext())}
                                 </th>
                             ))}
                         </tr>
                     ))}
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-gray-100 bg-white">
                     {rows.length === 0 ? (
                         <tr>
-                            <td colSpan={colCount} className="py-24 text-center">
-                                <Icon icon="mdi:database-off-outline" className="text-5xl mx-auto mb-3 opacity-10" />
-                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-300">
+                            <td colSpan={colCount} className="py-16 text-center">
+                                <Icon icon="mdi:database-off-outline" className="text-4xl mx-auto mb-2 opacity-20 text-gray-400" />
+                                <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
                                     {empty}
                                 </p>
                             </td>
                         </tr>
-                    ) : rows.map((row, i) => (
-                        <tr key={row.id} className="hover:bg-erp-accent/[0.02] transition-colors group">
+                    ) : rows.map((row) => (
+                        <tr key={row.id} className="hover:bg-blue-50/30 transition-colors">
                             {row.getVisibleCells().map(cell => (
-                                <td key={cell.id} className="px-6 py-4 text-center">
-                                    <div className="text-[11px] font-bold text-gray-600 group-hover:text-gray-900 transition-colors">
+                                <td key={cell.id} className="px-5 py-3 text-center border-r border-gray-50 last:border-r-0">
+                                    <div className="text-xs font-semibold text-gray-700">
                                         {flexRender(cell.column.columnDef.cell ?? cell.column.columnDef.accessorKey, cell.getContext())}
                                     </div>
                                 </td>
@@ -370,71 +372,64 @@ export default function MainReport() {
         <div className="w-full flex flex-col gap-6 animate-in fade-in duration-500">
 
             {/* ══ HEADER ══════════════════════════════════════════════════════ */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
                 <div>
-                    <h1 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">Main Analytical Report</h1>
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mt-1">Cross-Module Performance & Financial Intelligence</p>
+                    <h1 className="text-xl font-black text-gray-800 uppercase tracking-widest">Analytical Main Report</h1>
+                    <p className="text-[11px] text-gray-400 font-medium">Cross-Module Performance & Financial Intelligence</p>
                 </div>
                 {fetched && (
-                    <div className="flex items-center gap-2 px-6 py-2 bg-white border border-gray-100 rounded-full shadow-sm">
-                        <Icon icon="mdi:calendar-range" className="text-erp-accent" />
-                        <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
-                            {fromDate} <span className="mx-2 opacity-30">→</span> {toDate}
-                        </span>
+                    <div className="flex items-center gap-2 px-4 py-1.5 bg-blue-50 border border-blue-100 rounded-lg text-[#2980B9] text-xs font-bold uppercase">
+                        <Icon icon="mdi:calendar-range" className="text-base" />
+                        <span>{fromDate} <span className="mx-1 opacity-40">→</span> {toDate}</span>
                     </div>
                 )}
             </div>
 
             {/* ══ FILTER BAR ══════════════════════════════════════════════════ */}
-            <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-200/40 p-8">
-                <div className="flex flex-col lg:flex-row gap-8 items-start lg:items-end justify-between">
-
+            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-4">
+                <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
                     {/* Preset pills */}
-                    <div className="flex flex-col gap-3">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 flex items-center gap-2 ml-4">
-                            <Icon icon="mdi:clock-fast" className="text-lg text-erp-accent" /> Timeline Presets
-                        </p>
-                        <div className="flex gap-3 flex-wrap">
-                            {PRESETS.map((p, i) => (
-                                <button
-                                    key={p.label}
-                                    onClick={() => applyPreset(i)}
-                                    className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all duration-300
-                                        ${activePreset === i
-                                            ? "bg-erp-accent text-white border-erp-accent shadow-lg shadow-erp-accent/20 scale-105"
-                                            : "bg-white text-gray-400 border-gray-100 hover:border-erp-accent/30 hover:text-erp-accent"
-                                        }`}
-                                >
-                                    <Icon icon={p.icon} className="text-lg" />
-                                    {p.label}
-                                </button>
-                            ))}
-                        </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mr-2 flex items-center gap-1">
+                            <Icon icon="mdi:clock-fast" className="text-sm text-[#2980B9]" /> Presets:
+                        </span>
+                        {PRESETS.map((p, i) => (
+                            <button
+                                key={p.label}
+                                onClick={() => applyPreset(i)}
+                                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider border transition-all
+                                    ${activePreset === i
+                                        ? "bg-[#2980B9] text-white border-[#2980B9] shadow-sm"
+                                        : "bg-white text-gray-600 border-gray-200 hover:border-[#2980B9] hover:text-[#2980B9]"
+                                    }`}
+                            >
+                                <Icon icon={p.icon} className="text-sm" />
+                                {p.label}
+                            </button>
+                        ))}
                     </div>
 
                     {/* Custom date range */}
-                    <div className="flex flex-col sm:flex-row gap-4 items-end w-full lg:w-auto">
-                        <div className="w-full sm:w-auto">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-300 mb-2 ml-4">Start Date</p>
+                    <div className="flex flex-col sm:flex-row gap-3 items-center w-full lg:w-auto">
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">From</span>
                             <input
                                 type="date" value={fromDate}
                                 onChange={e => { setFromDate(e.target.value); setActivePreset(null); }}
-                                className={inputCls}
+                                className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 outline-none focus:border-[#2980B9]"
                             />
-                        </div>
-                        <div className="w-full sm:w-auto">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-300 mb-2 ml-4">End Date</p>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">To</span>
                             <input
                                 type="date" value={toDate}
                                 onChange={e => { setToDate(e.target.value); setActivePreset(null); }}
-                                className={inputCls}
+                                className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 outline-none focus:border-[#2980B9]"
                             />
                         </div>
                         <button
                             onClick={() => fetchReport(fromDate, toDate)}
-                            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-erp-accent hover:bg-erp-accent/90 active:scale-95 text-white text-[10px] font-black uppercase tracking-[0.2em] px-10 py-3 rounded-full transition-all shadow-xl shadow-erp-accent/20 whitespace-nowrap"
+                            className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-[#2980B9] hover:bg-[#2471a3] text-white text-xs font-bold uppercase tracking-wider px-5 py-2 rounded-lg transition-all shadow-sm active:scale-95"
                         >
-                            <Icon icon="mdi:file-chart-outline" className="text-xl" /> Generate Insights
+                            <Icon icon="mdi:file-chart-outline" className="text-base" /> Generate
                         </button>
                     </div>
                 </div>

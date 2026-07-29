@@ -75,5 +75,9 @@ export const mapCustomerToFormValues = (customer, configs = {}) => {
         finalDiscount: customer.finalDiscount || customer.discountPercent || '',
         minSalesValue: customer.minSalesValue || '',
         creditLimit: customer.creditLimit || '',
+        brands: Array.isArray(customer.brands) ? customer.brands.map(b => ({
+            brandId: b.brandId || b._id || b.id || '',
+            brandName: b.brandName || b.name || ''
+        })) : [],
     };
 };

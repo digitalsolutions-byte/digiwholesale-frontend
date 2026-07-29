@@ -21,30 +21,35 @@ import QRCode from "qrcode"; // npm install qrcode
 import * as XLSX from "xlsx";
 import { FiUpload, FiDownload, FiCheckCircle, FiAlertCircle } from "react-icons/fi";
 
+import { createPortal } from "react-dom";
+
 // ─── shared primitives ────────────────────────────────────────────────────────
-const Modal = ({ children, onClose, maxWidth = "max-w-5xl" }) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-        <div className={`bg-white w-full ${maxWidth} max-h-[92vh] rounded-2xl shadow-2xl flex flex-col animate-fadeIn`}>
-            {children}
-        </div>
-    </div>
-);
+const Modal = ({ children, onClose, maxWidth = "max-w-5xl" }) => {
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className={`bg-white w-full ${maxWidth} max-h-[95vh] rounded-2xl shadow-2xl flex flex-col animate-fadeIn overflow-hidden`}>
+                {children}
+            </div>
+        </div>,
+        document.body
+    );
+};
 
 const ModalHeader = ({ title, subtitle, onClose, icon: Icon }) => (
     <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
         <div className="flex items-center gap-3">
             {Icon && (
-                <div className="w-8 h-8 rounded-xl bg-[#2980b9]/10 flex items-center justify-center">
-                    <Icon size={15} className="text-[#2980b9]" />
+                <div className="w-10 h-10 rounded-xl bg-[#2980b9]/10 flex items-center justify-center">
+                    <Icon size={18} className="text-[#2980b9]" />
                 </div>
             )}
             <div>
-                <h2 className="text-sm font-bold text-gray-800">{title}</h2>
-                {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
+                <h2 className="text-base font-bold text-gray-800">{title}</h2>
+                {subtitle && <p className="text-sm text-gray-400 mt-0.5">{subtitle}</p>}
             </div>
         </div>
         <button onClick={onClose} className="p-2 rounded-full text-gray-400 hover:bg-gray-100 transition">
-            <FiX size={15} />
+            <FiX size={18} />
         </button>
     </div>
 );
@@ -368,7 +373,7 @@ export default function Inventory() {
                                             </button>
                                         )}
                                     </div>
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                                         <FieldInput label="Date">
                                             <input type="date" className={inputCls} onChange={e => handleChange(i, "date", e.target.value)} />
                                         </FieldInput>
@@ -843,7 +848,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
     const selectCls = "w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none transition bg-gray-50 text-gray-700 focus:border-orange-300 focus:ring-2 focus:ring-orange-100 hover:border-gray-300";
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl flex flex-col max-h-[90vh]">
 
                 {/* Header */}
@@ -3121,8 +3126,8 @@ ${pagesHtml}
     // ─── Render ───────────────────────────────────────────────────────────────
     const inputCls = "w-full text-xs rounded-xl border border-gray-200 px-3 py-2 outline-none focus:border-[#2980b9]/60 focus:bg-white bg-white transition placeholder:text-gray-300 text-gray-700";
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[94vh]">
 
                 {/* Header */}
@@ -3446,7 +3451,8 @@ ${pagesHtml}
                 </div>
 
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
 

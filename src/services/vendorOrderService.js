@@ -268,7 +268,7 @@ export const getInwardById = async (id) => {
 /**
  * Creates a purchase QC record (quality check after inward)
  * POST /api/purchase-qc/create
- * @param {Object} data - { purchaseOrderId, purchaseInwardId, notifyVendor, remarks, items: [{ itemId, passedQty, failedQty, failureReason, remarks }] }
+ * @param {Object} data - { purchaseOrderId, purchaseInwardId, notifyVendor, remarks, items: [{ itemId, passedQty, failedQty, failureReason, remarks, photos?: string[] }] }
  * @returns {Promise}
  */
 export const createPurchaseQC = async (data) => {

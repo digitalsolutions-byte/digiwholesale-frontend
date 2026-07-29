@@ -27,6 +27,7 @@
 export const hasAccess = (pageKey, user) => {
     if (!pageKey) return true;   // no restriction
     if (!user) return false;     // not logged in
+    if (user.EmployeeType === 'SUPERADMIN' || user.EmployeeType === 'PLATFORM_OWNER') return true;
     return Array.isArray(user.pageAccess) && user.pageAccess.includes(pageKey);
 };
 

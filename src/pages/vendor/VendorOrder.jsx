@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
     useReactTable, getCoreRowModel, getPaginationRowModel,
     getFilteredRowModel, flexRender,
@@ -16,14 +17,17 @@ const PAGE_SIZE = 100;
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared UI primitives
 // ─────────────────────────────────────────────────────────────────────────────
-const Modal = ({ onClose, children, maxWidth = "max-w-lg" }) => (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 transition-all duration-300"
-        onClick={onClose}>
-        <div className={`relative bg-white rounded-[2.5rem] shadow-2xl w-full ${maxWidth} overflow-hidden scale-in-center`} onClick={e => e.stopPropagation()}>
-            {children}
-        </div>
-    </div>
-);
+const Modal = ({ onClose, children, maxWidth = "max-w-lg" }) => {
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 transition-all duration-300"
+            onClick={onClose}>
+            <div className={`relative bg-white rounded-[2.5rem] shadow-2xl w-full ${maxWidth} overflow-hidden scale-in-center`} onClick={e => e.stopPropagation()}>
+                {children}
+            </div>
+        </div>,
+        document.body
+    );
+};
 
 const ModalHeader = ({ title, subtitle, icon, onClose }) => (
     <div className="bg-erp-accent p-6 text-white flex justify-between items-center relative overflow-hidden flex-shrink-0">
@@ -458,7 +462,7 @@ export default function VendorOrder() {
                         <Icon icon="mdi:magnify" className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-erp-accent" />
                         <input type="text" value={globalFilter ?? ""} onChange={e => setGlobalFilter(e.target.value)}
                             placeholder="Search..."
-                            className="w-full pl-11 pr-4 py-2.5 text-[10px] font-black border border-gray-100 rounded-full outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 transition-all bg-white"
+                            className="w-full pl-11 pr-4 py-2.5 text-xs font-black border border-gray-100 rounded-full outline-none focus:border-erp-accent/30 focus:ring-4 focus:ring-erp-accent/5 transition-all bg-white"
                         />
                     </div>
                 </div>
@@ -468,7 +472,7 @@ export default function VendorOrder() {
                         <thead>
                             <tr className="bg-erp-accent text-white">
                                 {table.getHeaderGroups().map(hg => hg.headers.map(h => (
-                                    <th key={h.id} className="px-6 py-4 text-center text-[10px] font-black uppercase tracking-[0.2em] border-r border-white/10 last:border-r-0 whitespace-nowrap">
+                                    <th key={h.id} className="px-6 py-4 text-center text-xs font-black uppercase tracking-[0.2em] border-r border-white/10 last:border-r-0 whitespace-nowrap">
                                         {flexRender(h.column.columnDef.header, h.getContext())}
                                     </th>
                                 )))}
@@ -486,7 +490,7 @@ export default function VendorOrder() {
                                 <tr key={row.id} className="hover:bg-erp-accent/[0.02] transition-all group">
                                     {row.getVisibleCells().map(cell => (
                                         <td key={cell.id} className="px-6 py-4 text-center">
-                                            <div className="text-[11px] font-bold text-gray-600 group-hover:text-gray-900 transition-colors">
+                                            <div className="text-xs font-bold text-gray-600 group-hover:text-gray-900 transition-colors">
                                                 {flexRender(cell.column.columnDef.cell ?? cell.column.columnDef.accessorKey, cell.getContext())}
                                             </div>
                                         </td>
@@ -502,7 +506,7 @@ export default function VendorOrder() {
                     <button
                         onClick={isSearching ? handleResetSearch : handleLoadMore}
                         disabled={loadingMore || (!isSearching && !hasMore)}
-                        className={`px-10 py-3 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg transition-all
+                        className={`px-10 py-3 rounded-full text-xs font-black uppercase tracking-widest shadow-lg transition-all
                             ${loadingMore || (!isSearching && !hasMore)
                                 ? "bg-gray-100 text-gray-300 shadow-none cursor-not-allowed"
                                 : isSearching ? "bg-white border border-gray-100 text-gray-600 hover:bg-gray-50"
@@ -518,7 +522,7 @@ export default function VendorOrder() {
                         <div className="flex items-center gap-1 px-4">
                             {pages.slice(Math.max(0, currentPage - 2), Math.min(totalPages, currentPage + 3)).map(p => (
                                 <button key={p} onClick={() => table.setPageIndex(p)}
-                                    className={`w-9 h-9 rounded-full text-[10px] font-black transition-all ${p === currentPage ? "bg-erp-accent text-white shadow-lg shadow-erp-accent/20 scale-110" : "bg-white text-gray-400 border border-gray-100 hover:bg-gray-50"}`}>
+                                    className={`w-9 h-9 rounded-full text-xs font-black transition-all ${p === currentPage ? "bg-erp-accent text-white shadow-lg shadow-erp-accent/20 scale-110" : "bg-white text-gray-400 border border-gray-100 hover:bg-gray-50"}`}>
                                     {p + 1}
                                 </button>
                             ))}
@@ -557,8 +561,8 @@ export default function VendorOrder() {
 
                         {selectedOrder.notes && (
                             <div className="space-y-2">
-                                <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest ml-4">Procurement Notes</span>
-                                <p className="text-[11px] font-bold text-gray-600 bg-gray-50 p-4 rounded-2xl border border-gray-100">{selectedOrder.notes}</p>
+                                <span className="text-xs font-black text-gray-400 uppercase tracking-widest ml-4">Procurement Notes</span>
+                                <p className="text-sm font-bold text-gray-600 bg-gray-50 p-4 rounded-2xl border border-gray-100">{selectedOrder.notes}</p>
                             </div>
                         )}
 
@@ -566,14 +570,14 @@ export default function VendorOrder() {
                         <div className="space-y-4">
                             <div className="flex items-center gap-3">
                                 <div className="w-1.5 h-4 bg-erp-accent rounded-full" />
-                                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Product List</h3>
+                                <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Product List</h3>
                             </div>
                             <div className="overflow-x-auto rounded-[2rem] border border-gray-100 shadow-inner">
                                 <table className="w-full border-collapse">
                                     <thead className="bg-erp-accent text-white">
                                         <tr className="whitespace-nowrap">
                                             {["Ret", "Code", "Category", "Description", "Qty", "Price", "Sub", "Tax", "Total", "Est. Date"].map((h, i) => (
-                                                <th key={i} className="px-5 py-3 text-center text-[9px] font-black uppercase tracking-widest border-r border-white/10 last:border-0">{h}</th>
+                                                <th key={i} className="px-5 py-3 text-center text-xs font-black uppercase tracking-widest border-r border-white/10 last:border-0">{h}</th>
                                             ))}
                                         </tr>
                                     </thead>
@@ -588,15 +592,15 @@ export default function VendorOrder() {
                                                         </button>
                                                     )}
                                                 </td>
-                                                <td className="px-4 py-3 text-[10px] font-bold text-gray-500">{p.productCode}</td>
-                                                <td className="px-4 py-3 text-[10px] font-black uppercase tracking-tighter text-gray-400">{p.category}</td>
-                                                <td className="px-4 py-3 text-[11px] font-black text-gray-700">{p.productName}</td>
-                                                <td className="px-4 py-3 text-center text-[11px] font-black text-gray-500">{p.quantity}</td>
-                                                <td className="px-4 py-3 text-center text-[10px] font-bold">₹{p.price?.toLocaleString()}</td>
-                                                <td className="px-4 py-3 text-center text-[10px] font-bold">₹{p.subTotal?.toLocaleString()}</td>
-                                                <td className="px-4 py-3 text-center text-[9px] font-black text-gray-400">{p.gstPercent}% (₹{p.gstAmount})</td>
-                                                <td className="px-4 py-3 text-center text-[11px] font-black text-erp-accent">₹{p.total?.toLocaleString()}</td>
-                                                <td className="px-4 py-3 text-center text-[10px] font-bold text-gray-400 opacity-60">
+                                                <td className="px-4 py-3 text-xs font-bold text-gray-500">{p.productCode}</td>
+                                                <td className="px-4 py-3 text-xs font-black uppercase tracking-tighter text-gray-400">{p.category}</td>
+                                                <td className="px-4 py-3 text-sm font-black text-gray-700">{p.productName}</td>
+                                                <td className="px-4 py-3 text-center text-sm font-black text-gray-500">{p.quantity}</td>
+                                                <td className="px-4 py-3 text-center text-xs font-bold">₹{p.price?.toLocaleString()}</td>
+                                                <td className="px-4 py-3 text-center text-xs font-bold">₹{p.subTotal?.toLocaleString()}</td>
+                                                <td className="px-4 py-3 text-center text-xs font-black text-gray-400">{p.gstPercent}% (₹{p.gstAmount})</td>
+                                                <td className="px-4 py-3 text-center text-sm font-black text-erp-accent">₹{p.total?.toLocaleString()}</td>
+                                                <td className="px-4 py-3 text-center text-xs font-bold text-gray-400 opacity-60">
                                                     {p.expectedDate ? new Date(p.expectedDate).toLocaleDateString("en-IN") : "—"}
                                                 </td>
                                             </tr>

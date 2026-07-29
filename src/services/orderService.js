@@ -197,9 +197,11 @@ export const getRxOrders = async (search = '') => {
 
 
 
-export const updateBulkOrderStatus = async (orderId, status, orderNumber = null) => {
+export const updateBulkOrderStatus = async (orderId, status, orderNumber = null, remarks = '') => {
     try {
-        const payload = orderNumber ? { orderNumber, status } : { status };
+        const payload = { status };
+        if (orderNumber) payload.orderNumber = orderNumber;
+        if (remarks) payload.remarks = remarks;
         const response = await api.patch(`/api/order/bulk-orders/${orderId}/status`, payload);
         return response.data;
     } catch (error) {

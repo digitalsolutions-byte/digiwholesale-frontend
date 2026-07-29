@@ -177,7 +177,7 @@ const ShipTo = () => {
         , [customers]);
 
     return (
-        <div className="p-6 max-w-7xl mx-auto space-y-8">
+        <div className="space-y-8 w-full">
             {/* Header / Selection Card */}
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
                 <div className="flex flex-col md:flex-row gap-8 items-start md:items-center">

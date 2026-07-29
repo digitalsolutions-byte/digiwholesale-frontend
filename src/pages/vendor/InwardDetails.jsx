@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { getInwardById, createPurchaseQC } from '../../services/vendorOrderService';
@@ -283,7 +284,7 @@ const InwardDetails = () => {
             </div>
 
             {/* ── QC Modal ── */}
-            {showQCModal && (
+            {showQCModal && createPortal(
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-xl shadow-lg w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
                         {/* Modal Header */}
@@ -381,13 +382,21 @@ const InwardDetails = () => {
                                                         />
                                                     </td>
                                                     <td className="p-3">
-                                                        <input
-                                                            type="text"
-                                                            placeholder="Reason..."
-                                                            value={item.failureReason}
-                                                            onChange={e => handleQCItemChange(index, 'failureReason', e.target.value)}
-                                                            className="w-full bg-transparent border border-gray-100 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 outline-none focus:border-erp-accent/30 focus:ring-2 focus:ring-erp-accent/5 transition-all placeholder:text-gray-300"
-                                                        />
+                                                         <select
+                                                             value={item.failureReason || ''}
+                                                             onChange={e => handleQCItemChange(index, 'failureReason', e.target.value)}
+                                                             className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-2 text-xs font-medium text-gray-700 outline-none focus:border-erp-accent/40 focus:ring-2 focus:ring-erp-accent/10 transition-all cursor-pointer"
+                                                         >
+                                                             <option value="">Select Problem Reason</option>
+                                                             <option value="Damaged / Broken">Damaged / Broken</option>
+                                                             <option value="Scratched Lens / Surface">Scratched Lens / Surface</option>
+                                                             <option value="Wrong Power / Coating">Wrong Power / Coating</option>
+                                                             <option value="Manufacturing Defect">Manufacturing Defect</option>
+                                                             <option value="Color / Spec Mismatch">Color / Spec Mismatch</option>
+                                                             <option value="Missing Parts / Accessories">Missing Parts / Accessories</option>
+                                                             <option value="Expired / Seal Broken">Expired / Seal Broken</option>
+                                                             <option value="Other">Other Reason</option>
+                                                         </select>
                                                     </td>
                                                     <td className="p-3">
                                                         <input
@@ -439,7 +448,8 @@ const InwardDetails = () => {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

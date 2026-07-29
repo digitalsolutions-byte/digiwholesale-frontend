@@ -35,6 +35,7 @@ export const INITIAL_FORM_VALUES = {
     discountPercent: '',
     minSalesValue: '',
     currentlyDealtBrands: '',
+    brands: [],
     creditLimit: '',
     creditDays: '',
     creditDaysRefId: '',

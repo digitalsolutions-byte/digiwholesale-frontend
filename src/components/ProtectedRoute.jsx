@@ -24,6 +24,8 @@ const ProtectedRoute = ({ page, children }) => {
     const user = useSelector(selectCurrentUser);
 
     const isSuperAdmin = user?.EmployeeType === 'SUPERADMIN';
+    const isPlatformOwner = user?.EmployeeType === 'PLATFORM_OWNER';
+    const hasFullBypass = isSuperAdmin || isPlatformOwner;
 
     // ── DEV diagnostic ─────────────────────────────────────────────────────
     if (import.meta.env.DEV) {
@@ -31,7 +33,7 @@ const ProtectedRoute = ({ page, children }) => {
             ? true
             : !user
             ? false
-            : isSuperAdmin
+            : hasFullBypass
             ? true
             : Array.isArray(user.pageAccess) && user.pageAccess.includes(page);
 
@@ -41,10 +43,10 @@ const ProtectedRoute = ({ page, children }) => {
         );
         console.log('Required page     :', page ?? '— none (open route)');
         console.log('EmployeeType      :', user?.EmployeeType ?? 'NOT LOGGED IN');
-        console.log('SUPERADMIN bypass :', isSuperAdmin ? 'YES — full access' : 'no');
+        console.log('Admin/Owner bypass:', hasFullBypass ? 'YES — full access' : 'no');
         console.log('pageAccess[]      :',
-            isSuperAdmin
-                ? '— skipped (SUPERADMIN)'
+            hasFullBypass
+                ? '— skipped (SUPERADMIN / PLATFORM_OWNER)'
                 : user?.pageAccess?.length
                 ? user.pageAccess.join(', ')
                 : user
@@ -58,13 +60,18 @@ const ProtectedRoute = ({ page, children }) => {
     // 1. Not logged in
     if (!user) return <Navigate to={PATHS.LOGIN} replace />;
 
-    // 2. No page restriction on this route
+    // 2. TENANTS page (Wholesaler Tenant Management) — strictly PLATFORM_OWNER only!
+    if (page === 'TENANTS') {
+        return isPlatformOwner ? children : <Navigate to={PATHS.UNAUTHORIZED} replace />;
+    }
+
+    // 3. No page restriction on this route
     if (!page) return children;
 
-    // 3. SUPERADMIN — unrestricted access to all pages
-    if (isSuperAdmin) return children;
+    // 4. SUPERADMIN or PLATFORM_OWNER — unrestricted access to all standard pages
+    if (hasFullBypass) return children;
 
-    // 4+5. Check pageAccess[]
+    // 5. Check pageAccess[]
     const allowed = Array.isArray(user.pageAccess) && user.pageAccess.includes(page);
     return allowed ? children : <Navigate to={PATHS.UNAUTHORIZED} replace />;
 };

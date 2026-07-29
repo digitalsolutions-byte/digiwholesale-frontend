@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-toastify';
 import { getEmployeeById, updateEmployee } from '../services/employeeService';
@@ -200,10 +201,10 @@ const EditEmployeeModal = ({ employeeId, onClose, onSaved }) => {
         }
     };
 
-    return (
+    return createPortal(
         // Backdrop
         <div
-            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
         >
             <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
@@ -310,7 +311,8 @@ const EditEmployeeModal = ({ employeeId, onClose, onSaved }) => {
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

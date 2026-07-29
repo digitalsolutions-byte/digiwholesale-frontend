@@ -45,6 +45,60 @@ export const BusinessInformation = ({ formik, wrapInput, configs, isReadOnlyMode
                 })}
                 {wrapInput(Input, { label: 'Min. Sales Value (/Month sales)', name: 'minSalesValue', placeholder: 'Enter Min Sales Value', type: 'number' })}
                 {wrapInput(Input, { label: 'Currently Dealt Brands', name: 'currentlyDealtBrands', placeholder: 'E.g., Lenskart, Titan, etc.' })}
+                
+                {/* Brand Selection Multi-Select */}
+                <div className="col-span-1 md:col-span-2 bg-gray-50/60 p-5 rounded-xl border border-gray-200 space-y-3">
+                    <span className="text-xs font-bold text-gray-700 uppercase tracking-wider block">Assigned Brands*</span>
+                    <Select
+                        label="Select Brand to Add"
+                        name="brandSelect"
+                        placeholder="Choose Brand..."
+                        disabled={isReadOnlyMode}
+                        options={(configs.brands || [])
+                            .filter(b => !(formik.values.brands || []).some(sb => sb.brandId === b._id))
+                            .map(b => ({ value: b._id, label: b.name }))}
+                        onChange={(e) => {
+                            const brandId = e.target.value;
+                            if (!brandId) return;
+                            const brand = (configs.brands || []).find(b => b._id === brandId);
+                            if (brand) {
+                                const currentBrands = formik.values.brands || [];
+                                formik.setFieldValue('brands', [
+                                    ...currentBrands,
+                                    { brandId: brand._id, brandName: brand.name }
+                                ]);
+                            }
+                            e.target.value = '';
+                        }}
+                    />
+
+                    {/* Selected Brands Chips */}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                        {(formik.values.brands || []).length > 0 ? (
+                            formik.values.brands.map((b, index) => (
+                                <div key={b.brandId || index} className="flex items-center gap-1.5 px-3 py-1 bg-[#2980B9] text-white rounded-md text-xs font-bold uppercase tracking-wider shadow-sm">
+                                    <Icon icon="mdi:tag" className="text-sm" />
+                                    <span>{b.brandName || b.name}</span>
+                                    {!isReadOnlyMode && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const updated = (formik.values.brands || []).filter((_, i) => i !== index);
+                                                formik.setFieldValue('brands', updated);
+                                            }}
+                                            className="hover:bg-white/20 p-0.5 rounded transition-colors ml-1"
+                                        >
+                                            <Icon icon="mdi:close" className="text-sm" />
+                                        </button>
+                                    )}
+                                </div>
+                            ))
+                        ) : (
+                            <span className="text-xs text-gray-400 font-medium italic">No brands assigned yet. Select brands from the dropdown above.</span>
+                        )}
+                    </div>
+                </div>
+
                 {wrapInput(Select, {
                     label: 'Credit Days*',
                     name: 'creditDaysRefId',
@@ -79,9 +133,13 @@ export const BusinessInformation = ({ formik, wrapInput, configs, isReadOnlyMode
                     <span className="text-xs text-gray-500 font-medium">Please provide 3 blank cheques or state the reason.</span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {formik.values.chequeDetails.map((cheque, index) => (
-                        <div key={index} className="p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-4">
+                        <div key={index} className="p-4 bg-white rounded-xl border border-gray-200 space-y-3 shadow-sm">
+                            <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
+                                <div className="w-6 h-6 rounded-full bg-[#2980B9] text-white text-[11px] font-black flex items-center justify-center">{index + 1}</div>
+                                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Cheque {index + 1}</span>
+                            </div>
                             {wrapInput(Input, {
                                 label: `Cheque ${index + 1} Number`,
                                 name: `chequeDetails[${index}].chequeNumber`,

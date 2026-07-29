@@ -1,7 +1,6 @@
 import React from 'react';
 import { Icon } from '@iconify/react';
 import Input from '../ui/Input';
-import Button from '../ui/Button';
 
 const isPDF = (url) => {
     if (!url) return false;
@@ -14,55 +13,61 @@ export const FileUploadField = ({ label, name, placeholder, fileRef: externalFil
     const ref = externalFileRef || internalRef;
 
     return (
-        <div className="flex flex-col gap-4 p-6 bg-gray-50/50 rounded-2xl border border-dashed border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300">
+        <div className="flex flex-col gap-3">
             {(!hideInput || label) && (
-                <div className="flex flex-col gap-2">
-                    <span className="text-gray-400 text-[10px] uppercase font-bold  ml-1">{label}</span>
+                <div className="flex flex-col gap-1.5">
+                    <span className="text-gray-400 text-[10px] uppercase font-bold tracking-wider">{label}</span>
                     {!hideInput && wrapInput(Input, { label: '', name, placeholder, className: "bg-white", maxLength, onChange })}
                 </div>
             )}
 
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3">
                 <input type="file" accept="image/*,application/pdf" hidden ref={ref} onChange={onFileChange} />
 
                 {enableCamera ? (
                     <>
                         <input type="file" accept="image/*" capture="environment" hidden ref={cameraRef} onChange={onFileChange} />
-                        <div className="grid grid-cols-2 gap-3">
-                            <Button
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
                                 onClick={() => ref.current?.click()}
                                 disabled={uploading || isReadOnlyMode}
                                 type="button"
-                                className={(uploading || isReadOnlyMode) ? "bg-gray-400 text-white rounded-xl h-[52px] px-2 flex items-center justify-center gap-2 cursor-not-allowed opacity-50 text-center" : "bg-erp-accent text-white rounded-xl h-[52px] px-2 flex items-center justify-center gap-2 transition-all hover:bg-erp-accent/80 shadow-sm font-bold uppercase tracking-tighter text-[10px] text-center"}
+                                className={(uploading || isReadOnlyMode)
+                                    ? "flex items-center justify-center gap-1.5 px-3 h-9 rounded-lg bg-gray-200 text-gray-400 text-[11px] font-semibold cursor-not-allowed opacity-60 border border-gray-200"
+                                    : "flex items-center justify-center gap-1.5 px-3 h-9 rounded-lg bg-[#2980B9] hover:bg-[#2471a3] text-white text-[11px] font-semibold transition-all shadow-sm border border-[#2471a3] active:scale-95"}
                             >
-                                <Icon icon={uploading ? "mdi:loading" : "mdi:folder-upload"} className={uploading ? "animate-spin text-lg" : "text-lg"} />
-                                {uploading ? '...' : 'Files/Gallery'}
-                            </Button>
-                            <Button
+                                <Icon icon={uploading ? "mdi:loading" : "mdi:folder-upload"} className={uploading ? "animate-spin text-sm" : "text-sm"} />
+                                {uploading ? 'Uploading...' : 'Files/Gallery'}
+                            </button>
+                            <button
                                 onClick={() => cameraRef.current?.click()}
                                 disabled={uploading || isReadOnlyMode}
                                 type="button"
-                                className={(uploading || isReadOnlyMode) ? "bg-gray-400 text-white rounded-xl h-[52px] px-2 flex items-center justify-center gap-2 cursor-not-allowed opacity-50 text-center" : "bg-erp-primary text-white rounded-xl h-[52px] px-2 flex items-center justify-center gap-2 transition-all hover:bg-erp-primary/80 shadow-sm font-bold uppercase tracking-tighter text-[10px] text-center"}
+                                className={(uploading || isReadOnlyMode)
+                                    ? "flex items-center justify-center gap-1.5 px-3 h-9 rounded-lg bg-gray-200 text-gray-400 text-[11px] font-semibold cursor-not-allowed opacity-60 border border-gray-200"
+                                    : "flex items-center justify-center gap-1.5 px-3 h-9 rounded-lg bg-slate-700 hover:bg-slate-800 text-white text-[11px] font-semibold transition-all shadow-sm border border-slate-800 active:scale-95"}
                             >
-                                <Icon icon={uploading ? "mdi:loading" : "mdi:camera"} className={uploading ? "animate-spin text-lg" : "text-lg"} />
-                                {uploading ? '...' : 'Take Photo'}
-                            </Button>
+                                <Icon icon={uploading ? "mdi:loading" : "mdi:camera"} className={uploading ? "animate-spin text-sm" : "text-sm"} />
+                                {uploading ? 'Uploading...' : 'Take Photo'}
+                            </button>
                         </div>
                     </>
                 ) : (
-                    <Button
+                    <button
                         onClick={() => ref.current?.click()}
                         disabled={uploading || isReadOnlyMode}
                         type="button"
-                        className={(uploading || isReadOnlyMode) ? "bg-gray-400 text-white rounded-xl h-[52px] px-6 flex items-center justify-center gap-2 cursor-not-allowed opacity-50" : "bg-erp-accent text-white rounded-xl h-[52px] px-6 flex items-center justify-center gap-2 transition-all hover:bg-erp-accent/80 shadow-sm font-bold uppercase tracking-tighter text-xs"}
+                        className={(uploading || isReadOnlyMode)
+                            ? "flex items-center justify-center gap-2 px-4 h-9 rounded-lg bg-gray-200 text-gray-400 text-[11px] font-semibold cursor-not-allowed opacity-60 border border-gray-200 w-full"
+                            : "flex items-center justify-center gap-2 px-4 h-9 rounded-lg bg-[#2980B9] hover:bg-[#2471a3] text-white text-[11px] font-semibold transition-all shadow-sm border border-[#2471a3] w-full active:scale-95"}
                     >
-                        <Icon icon={uploading ? "mdi:loading" : "mdi:cloud-upload"} className={uploading ? "animate-spin text-xl" : "text-xl"} />
+                        <Icon icon={uploading ? "mdi:loading" : "mdi:cloud-upload"} className={uploading ? "animate-spin text-sm" : "text-sm"} />
                         {uploading ? 'Uploading...' : 'Upload Document'}
-                    </Button>
+                    </button>
                 )}
 
                 {currentValue && (
-                    <div className="relative group rounded-2xl overflow-hidden border border-gray-100 aspect-video bg-white flex items-center justify-center shadow-inner">
+                    <div className="relative group rounded-xl overflow-hidden border border-gray-200 aspect-video bg-white flex items-center justify-center shadow-inner">
                         {isPDF(currentValue) ? (
                             <div className="flex flex-col items-center gap-2">
                                 <Icon icon="mdi:file-pdf-box" className="text-5xl text-red-500" />

@@ -145,19 +145,21 @@ const QcPassed = () => {
                                 <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Order #</th>
                                 <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Category</th>
                                 <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Passed Qty</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">QC Done By</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">QC Date</th>
                                 <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">QC Status</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {loading ? (
-                                <tr><td colSpan="6" className="p-8 text-center text-gray-500">
+                                <tr><td colSpan="8" className="p-8 text-center text-gray-500">
                                     <div className="flex justify-center items-center gap-2">
                                         <Icon icon="lucide:loader-2" className="animate-spin text-xl text-[#2980B9]" />
                                         <span>Loading QC passed items...</span>
                                     </div>
                                 </td></tr>
                             ) : filtered.length === 0 ? (
-                                <tr><td colSpan="6" className="p-12 text-center">
+                                <tr><td colSpan="8" className="p-12 text-center">
                                     <div className="flex flex-col items-center gap-3">
                                         <Icon icon="lucide:inbox" className="text-4xl text-gray-300" />
                                         <p className="text-gray-500 font-medium">No QC passed items found</p>
@@ -166,6 +168,9 @@ const QcPassed = () => {
                             ) : (
                                 filtered.map((item, idx) => {
                                     const catIcon = categoryIcon[item.category] || 'lucide:box';
+                                    const formattedQcDate = item.qcDate 
+                                        ? new Date(item.qcDate).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
+                                        : '—';
                                     return (
                                         <tr key={item._id || idx} className="hover:bg-[#eaf4fb]/20 transition-colors">
                                             <td className="px-4 py-2">
@@ -191,6 +196,12 @@ const QcPassed = () => {
                                                     <span className="text-xs font-bold text-[#1F618D]">{item.receivedQty ?? item.qty ?? 0}</span>
                                                     <span className="text-[10px] text-gray-400">{item.unit}</span>
                                                 </div>
+                                            </td>
+                                            <td className="px-4 py-2">
+                                                <span className="text-xs font-semibold text-gray-800">{item.qcDoneByName || '—'}</span>
+                                            </td>
+                                            <td className="px-4 py-2">
+                                                <span className="text-[11px] font-medium text-gray-600">{formattedQcDate}</span>
                                             </td>
                                             <td className="px-4 py-2">
                                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-[#eaf4fb] text-[#1F618D]">

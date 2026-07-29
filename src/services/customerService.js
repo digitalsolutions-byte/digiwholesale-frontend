@@ -14,7 +14,7 @@ export const getCustomerConfigs = async () => {
             '/api/product/states',
             '/api/product/billing-currencies',
             '/api/employee/sales-persons',
-            '/api/product/brands',
+            '/api/order/product-fields/brand',
             '/api/product/categories'
         ];
 
@@ -32,7 +32,7 @@ export const getCustomerConfigs = async () => {
             states: responses[8]?.data?.data || [],
             billingCurrencies: responses[9]?.data?.data || [],
             salesPersons: responses[10]?.data?.data || [],
-            brands: responses[11]?.data?.data || [],
+            brands: (responses[11]?.data?.data || []).map(b => typeof b === 'string' ? { _id: b, name: b } : { _id: b._id || b.brandId || b.name, name: b.name || b.brandName || b._id }),
             categories: responses[12]?.data?.data || []
         };
     } catch (error) {

@@ -77,7 +77,9 @@ api.interceptors.response.use(
 
             if (!refreshToken) {
                 store.dispatch(logOut());
-                window.location.href = '/login';
+                if (!window.location.pathname.startsWith('/orders/status')) {
+                    window.location.href = '/login';
+                }
                 return Promise.reject(error);
             }
 
@@ -98,7 +100,9 @@ api.interceptors.response.use(
             } catch (refreshError) {
                 processQueue(refreshError, null);
                 store.dispatch(logOut());
-                window.location.href = '/login';
+                if (!window.location.pathname.startsWith('/orders/status')) {
+                    window.location.href = '/login';
+                }
                 return Promise.reject(refreshError);
             } finally {
                 isRefreshing = false;

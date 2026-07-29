@@ -115,8 +115,34 @@ function ProductSearchInput({ value, onChange, onSelect }) {
     );
 }
 
+// ─── Direction Badge Component ────────────────────────────────────────────────
+function DirectionBadge({ direction, label }) {
+    if (direction === 'HIGHER') {
+        return (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200/80">
+                <Icon icon="lucide:arrow-up-right" className="text-amber-600 text-sm" />
+                {label || 'HIGHER'}
+            </span>
+        );
+    }
+    if (direction === 'LOWER') {
+        return (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/80">
+                <Icon icon="lucide:arrow-down-right" className="text-emerald-600 text-sm" />
+                {label || 'LOWER'}
+            </span>
+        );
+    }
+    return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-700 border border-gray-200">
+            <Icon icon="lucide:minus" className="text-gray-500 text-xs" />
+            {label || 'SAME'}
+        </span>
+    );
+}
+
 // ─── Replacement Order Modal ──────────────────────────────────────────────────
-function ReplacementOrderModal({ returnRecord, onClose }) {
+function ReplacementOrderModal({ returnRecord, onClose, onRefresh }) {
     const emptyRow = {
         productId: null, isNewProduct: false,
         productName: '', productCode: '', category: 'LENS',
@@ -124,9 +150,26 @@ function ReplacementOrderModal({ returnRecord, onClose }) {
         unit: 'PIECE', quantity: 1, price: '', mrp: '', gstPercent: '0',
         expectedDate: '',
     };
-    const [rows, setRows] = useState([emptyRow]);
+
+    // Pre-fill initial row with return item 0 details if available
+    const initialRows = (returnRecord.items && returnRecord.items.length > 0)
+        ? returnRecord.items.map(retItem => ({
+            ...emptyRow,
+            productName: retItem.itemName || '',
+            productCode: retItem.code || retItem.productCode || '',
+            category: retItem.category || 'LENS',
+            brand: retItem.brand || '',
+            unit: retItem.unit || 'PIECE',
+            quantity: retItem.qty || 1,
+            price: retItem.price || retItem.mrp || '',
+            mrp: retItem.mrp || retItem.price || '',
+        }))
+        : [emptyRow];
+
+    const [rows, setRows] = useState(initialRows);
     const [remarks, setRemarks] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [resResult, setResResult] = useState(null); // Stores server response on success
 
     const handleAddRow = () => {
         setRows(prev => [...prev, emptyRow]);
@@ -200,7 +243,6 @@ function ReplacementOrderModal({ returnRecord, onClose }) {
                 return item;
             });
 
-            // Calculate overall CGST / SGST based on first item for simplicity, or 0
             const firstGst = items.length > 0 ? items[0].gst : 0;
             const halfGst = (firstGst / 2).toString();
 
@@ -211,7 +253,6 @@ function ReplacementOrderModal({ returnRecord, onClose }) {
                 remarks: remarks || `Replacement order for return #${returnRecord._id?.slice(-6).toUpperCase()}`,
                 replacementItems: rows.map((row, idx) => {
                     const item = items[idx];
-                    // Clean up isNewProduct as it's not in the new payload structure specification directly
                     if (item.isNewProduct !== undefined) delete item.isNewProduct;
                     return {
                         returnItemId: returnRecord.items?.[idx]?.itemId || returnRecord.items?.[0]?.itemId,
@@ -223,8 +264,12 @@ function ReplacementOrderModal({ returnRecord, onClose }) {
             const res = await submitReplacementOrder(payload);
             if (res.success) {
                 toast.success('Replacement order created successfully!');
-                onClose();
-                fetchReturns(); // Refresh returns to show update if any
+                if (res.data?.priceDifferences || res.data?.totalPriceDifference) {
+                    setResResult(res.data);
+                } else {
+                    onClose();
+                }
+                if (onRefresh) onRefresh();
             } else {
                 toast.error(res.message || 'Failed to create replacement order');
             }
@@ -235,7 +280,7 @@ function ReplacementOrderModal({ returnRecord, onClose }) {
         }
     };
 
-    // Calculate summary
+    // Live Summary & Price Diff Calculations
     const orderSummary = rows.reduce((acc, r) => {
         const base = (Number(r.quantity) || 0) * (Number(r.price) || 0);
         const gst = (base * (Number(r.gstPercent) || 0)) / 100;
@@ -245,231 +290,410 @@ function ReplacementOrderModal({ returnRecord, onClose }) {
         return acc;
     }, { subtotal: 0, gstTotal: 0, grandTotal: 0 });
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+    const totalOriginalSubtotal = rows.reduce((acc, r, idx) => {
+        const origItem = returnRecord.items?.[idx] || returnRecord.items?.[0];
+        const origPrice = Number(origItem?.price || origItem?.mrp || 0);
+        const qty = Number(r.quantity) || 0;
+        return acc + (origPrice * qty);
+    }, 0);
+
+    const overallNetDiff = orderSummary.subtotal - totalOriginalSubtotal;
+    let overallDirection = 'SAME';
+    if (overallNetDiff > 0) overallDirection = 'HIGHER';
+    else if (overallNetDiff < 0) overallDirection = 'LOWER';
+
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
             <div className="relative bg-white rounded-xl shadow-lg w-full max-w-4xl mx-4 overflow-hidden max-h-[90vh] flex flex-col">
 
-                {/* Header */}
-                <div className="p-4 border-b border-gray-100 bg-[#eaf4fb] flex items-center justify-between shrink-0">
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-[#1F618D] flex items-center justify-center">
-                            <Icon icon="lucide:package-plus" className="text-white text-lg" />
-                        </div>
-                        <div>
-                            <h2 className="text-sm font-bold text-[#1F618D]">Create Replacement Order</h2>
-                            <p className="text-xs text-[#2980B9]">
-                                Vendor: <strong>{returnRecord.vendorName}</strong> · Return #{returnRecord._id?.slice(-6).toUpperCase()}
-                            </p>
-                        </div>
-                    </div>
-                    <button onClick={onClose} className="p-2 hover:bg-white/50 rounded-lg transition-colors">
-                        <Icon icon="lucide:x" className="text-gray-500" />
-                    </button>
-                </div>
-
-                {/* Body */}
-                <div className="p-6 overflow-y-auto flex-1 space-y-4">
-                    <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Items ({rows.length})</span>
-                        <button
-                            type="button"
-                            onClick={handleAddRow}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#1F618D] bg-[#eaf4fb] hover:bg-[#d4eaf6] rounded-lg transition-colors"
-                        >
-                            <Icon icon="lucide:plus" /> Add Item
-                        </button>
-                    </div>
-
-                    <div className="space-y-4">
-                        {rows.map((row, idx) => (
-                            <div key={idx} className="relative p-4 bg-gray-50 border border-gray-100 rounded-xl space-y-3">
-                                {/* Header / Row count & remove button */}
-                                <div className="flex justify-between items-center border-b border-gray-200/60 pb-2">
-                                    <span className="text-xs font-bold text-[#1F618D]">Item #{idx + 1}</span>
-                                    {rows.length > 1 && (
-                                        <button
-                                            type="button"
-                                            onClick={() => handleRemoveRow(idx)}
-                                            className="p-1 text-[#E74C3C] hover:bg-red-50 rounded-lg transition-colors"
-                                            title="Remove Item"
-                                        >
-                                            <Icon icon="lucide:trash" />
-                                        </button>
-                                    )}
+                {/* ── SUCCESS RESULT SCREEN (If Server Returned Price Differences) ── */}
+                {resResult ? (
+                    <div className="flex flex-col h-full overflow-hidden">
+                        <div className="p-5 border-b border-gray-100 bg-emerald-50 flex items-center justify-between shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center shadow-sm">
+                                    <Icon icon="lucide:check-circle-2" className="text-white text-xl" />
                                 </div>
+                                <div>
+                                    <h2 className="text-base font-bold text-emerald-900">Replacement Order Created</h2>
+                                    <p className="text-xs text-emerald-700 mt-0.5">
+                                        Return #{returnRecord._id?.slice(-6).toUpperCase()} · Vendor Notified
+                                    </p>
+                                </div>
+                            </div>
+                            <button onClick={onClose} className="p-2 hover:bg-white/50 rounded-lg transition-colors">
+                                <Icon icon="lucide:x" className="text-gray-500" />
+                            </button>
+                        </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                    {/* Product search */}
-                                    <div className="md:col-span-2">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <label className="block text-[11px] font-semibold text-gray-500">
-                                                Product Name <span className="text-[#E74C3C]">*</span>
-                                            </label>
-                                            <label className="flex items-center gap-1.5 text-[10px] text-[#1F618D] cursor-pointer">
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={row.isNewProduct}
-                                                    onChange={e => handleRowChange(idx, 'isNewProduct', e.target.checked)}
-                                                    className="rounded border-gray-300 text-[#2980B9] focus:ring-[#2980B9]"
-                                                />
-                                                Add Custom Item
-                                            </label>
+                        <div className="p-6 overflow-y-auto flex-1 space-y-5">
+                            {/* Overall Difference Banner */}
+                            {resResult.totalPriceDifference && (
+                                <div className={`p-4 rounded-xl border flex items-center justify-between ${
+                                    resResult.totalPriceDifference.direction === 'HIGHER'
+                                        ? 'bg-amber-50 border-amber-200 text-amber-900'
+                                        : resResult.totalPriceDifference.direction === 'LOWER'
+                                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                                        : 'bg-gray-50 border-gray-200 text-gray-800'
+                                }`}>
+                                    <div className="flex items-center gap-3">
+                                        <DirectionBadge direction={resResult.totalPriceDifference.direction} />
+                                        <div>
+                                            <p className="text-sm font-bold">
+                                                {resResult.totalPriceDifference.label || `Net Difference: ₹${resResult.totalPriceDifference.amount}`}
+                                            </p>
+                                            <p className="text-xs opacity-75 mt-0.5">
+                                                {resResult.totalPriceDifference.direction === 'HIGHER'
+                                                    ? 'Replacement is expensive compared to original item(s)'
+                                                    : resResult.totalPriceDifference.direction === 'LOWER'
+                                                    ? 'Replacement is cheaper compared to original item(s)'
+                                                    : 'No price difference'}
+                                            </p>
                                         </div>
-                                        {row.isNewProduct ? (
-                                            <input
-                                                value={row.productName}
-                                                onChange={e => handleRowChange(idx, 'productName', e.target.value)}
-                                                className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/20"
-                                                placeholder="Enter custom product name"
-                                            />
-                                        ) : (
-                                            <ProductSearchInput
-                                                value={row.productName}
-                                                onChange={(v) => handleRowChange(idx, 'productName', v)}
-                                                onSelect={(s) => handleSelectProduct(idx, s)}
-                                            />
+                                    </div>
+                                    <span className="text-lg font-black">
+                                        ₹{Math.abs(resResult.totalPriceDifference.amount).toFixed(2)}
+                                    </span>
+                                </div>
+                            )}
+
+                            {/* Itemized Price Differences Table */}
+                            {resResult.priceDifferences && resResult.priceDifferences.length > 0 && (
+                                <div>
+                                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                                        Item Price Breakdown
+                                    </h3>
+                                    <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+                                        <table className="w-full text-left text-xs">
+                                            <thead>
+                                                <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 font-semibold">
+                                                    <th className="p-3">Item Name</th>
+                                                    <th className="p-3 text-center">Qty</th>
+                                                    <th className="p-3 text-right">Original Price</th>
+                                                    <th className="p-3 text-right">Replacement Price</th>
+                                                    <th className="p-3 text-right">Diff / Unit</th>
+                                                    <th className="p-3 text-right">Total Diff</th>
+                                                    <th className="p-3 text-center">Direction</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100">
+                                                {resResult.priceDifferences.map((pd, i) => (
+                                                    <tr key={i} className="hover:bg-gray-50/50">
+                                                        <td className="p-3 font-semibold text-gray-800">{pd.itemName}</td>
+                                                        <td className="p-3 text-center font-bold">{pd.qty}</td>
+                                                        <td className="p-3 text-right font-mono">₹{pd.originalPrice}</td>
+                                                        <td className="p-3 text-right font-mono font-bold text-gray-900">₹{pd.replacementPrice}</td>
+                                                        <td className="p-3 text-right font-mono font-semibold">
+                                                            {pd.priceDiffPerUnit > 0 ? `+₹${pd.priceDiffPerUnit}` : `₹${pd.priceDiffPerUnit}`}
+                                                        </td>
+                                                        <td className="p-3 text-right font-mono font-bold">
+                                                            {pd.totalItemDiff > 0 ? `+₹${pd.totalItemDiff}` : `₹${pd.totalItemDiff}`}
+                                                        </td>
+                                                        <td className="p-3 text-center">
+                                                            <DirectionBadge direction={pd.direction} />
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex justify-end shrink-0">
+                            <button
+                                onClick={onClose}
+                                className="px-6 py-2.5 text-xs font-bold text-white bg-[#1F618D] hover:bg-[#174e71] rounded-lg transition-colors"
+                            >
+                                Done & Close
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                        {/* ── FORM SCREEN ── */}
+                        {/* Header */}
+                        <div className="p-4 border-b border-gray-100 bg-[#eaf4fb] flex items-center justify-between shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-[#1F618D] flex items-center justify-center">
+                                    <Icon icon="lucide:package-plus" className="text-white text-lg" />
+                                </div>
+                                <div>
+                                    <h2 className="text-sm font-bold text-[#1F618D]">Create Replacement Order</h2>
+                                    <p className="text-xs text-[#2980B9]">
+                                        Vendor: <strong>{returnRecord.vendorName}</strong> · Return #{returnRecord._id?.slice(-6).toUpperCase()}
+                                    </p>
+                                </div>
+                            </div>
+                            <button onClick={onClose} className="p-2 hover:bg-white/50 rounded-lg transition-colors">
+                                <Icon icon="lucide:x" className="text-gray-500" />
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="p-6 overflow-y-auto flex-1 space-y-4">
+                            <div className="flex justify-between items-center">
+                                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Items ({rows.length})</span>
+                                <button
+                                    type="button"
+                                    onClick={handleAddRow}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#1F618D] bg-[#eaf4fb] hover:bg-[#d4eaf6] rounded-lg transition-colors"
+                                >
+                                    <Icon icon="lucide:plus" /> Add Item
+                                </button>
+                            </div>
+
+                            <div className="space-y-4">
+                                {rows.map((row, idx) => {
+                                    const origItem = returnRecord.items?.[idx] || returnRecord.items?.[0];
+                                    const origPrice = Number(origItem?.price || origItem?.mrp || 0);
+                                    const repPrice = Number(row.price) || 0;
+                                    const diffPerUnit = repPrice - origPrice;
+                                    const qty = Number(row.quantity) || 1;
+                                    const totalItemDiff = diffPerUnit * qty;
+                                    let itemDirection = 'SAME';
+                                    if (diffPerUnit > 0) itemDirection = 'HIGHER';
+                                    else if (diffPerUnit < 0) itemDirection = 'LOWER';
+
+                                    return (
+                                        <div key={idx} className="relative p-4 bg-gray-50 border border-gray-100 rounded-xl space-y-3">
+                                            {/* Header / Row count & Live Price Diff Tag */}
+                                            <div className="flex justify-between items-center border-b border-gray-200/60 pb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-bold text-[#1F618D]">Item #{idx + 1}</span>
+                                                    {origItem && (
+                                                        <span className="text-[10px] text-gray-400">
+                                                            (Original: <span className="font-semibold text-gray-600">₹{origPrice}</span>)
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex items-center gap-3">
+                                                    {/* Live Item Price Difference Tag */}
+                                                    {repPrice > 0 && origPrice > 0 && (
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="text-[10px] font-semibold text-gray-500">
+                                                                Diff: {diffPerUnit > 0 ? `+₹${diffPerUnit}` : `₹${diffPerUnit}`}/unit
+                                                            </span>
+                                                            <DirectionBadge direction={itemDirection} />
+                                                        </div>
+                                                    )}
+
+                                                    {rows.length > 1 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRemoveRow(idx)}
+                                                            className="p-1 text-[#E74C3C] hover:bg-red-50 rounded-lg transition-colors"
+                                                            title="Remove Item"
+                                                        >
+                                                            <Icon icon="lucide:trash" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                {/* Product search */}
+                                                <div className="md:col-span-2">
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <label className="block text-[11px] font-semibold text-gray-500">
+                                                            Product Name <span className="text-[#E74C3C]">*</span>
+                                                        </label>
+                                                        <label className="flex items-center gap-1.5 text-[10px] text-[#1F618D] cursor-pointer">
+                                                            <input 
+                                                                type="checkbox" 
+                                                                checked={row.isNewProduct}
+                                                                onChange={e => handleRowChange(idx, 'isNewProduct', e.target.checked)}
+                                                                className="rounded border-gray-300 text-[#2980B9] focus:ring-[#2980B9]"
+                                                            />
+                                                            Add Custom Item
+                                                        </label>
+                                                    </div>
+                                                    {row.isNewProduct ? (
+                                                        <input
+                                                            value={row.productName}
+                                                            onChange={e => handleRowChange(idx, 'productName', e.target.value)}
+                                                            className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/20"
+                                                            placeholder="Enter custom product name"
+                                                        />
+                                                    ) : (
+                                                        <ProductSearchInput
+                                                            value={row.productName}
+                                                            onChange={(v) => handleRowChange(idx, 'productName', v)}
+                                                            onSelect={(s) => handleSelectProduct(idx, s)}
+                                                        />
+                                                    )}
+                                                </div>
+
+                                                {/* Product Code */}
+                                                <div>
+                                                    <label className="block text-[11px] font-semibold text-gray-500 mb-1">
+                                                        Product Code <span className="text-[#E74C3C]">*</span>
+                                                    </label>
+                                                    <input
+                                                        value={row.productCode}
+                                                        onChange={e => handleRowChange(idx, 'productCode', e.target.value)}
+                                                        className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/20"
+                                                        placeholder="Code"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                                                <div>
+                                                    <label className="block text-[11px] font-semibold text-gray-500 mb-1">Category</label>
+                                                    <select
+                                                        value={row.category}
+                                                        onChange={e => handleRowChange(idx, 'category', e.target.value)}
+                                                        className="w-full bg-white border border-gray-200 rounded-lg px-2 py-2 text-xs focus:outline-none focus:border-[#2980B9]"
+                                                    >
+                                                        <option value="LENS">Lens</option>
+                                                        <option value="FRAME">Frame</option>
+                                                        <option value="CONTACT_LENS">Contact Lens</option>
+                                                    </select>
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-[11px] font-semibold text-gray-500 mb-1">Qty <span className="text-[#E74C3C]">*</span></label>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        value={row.quantity}
+                                                        onChange={e => handleRowChange(idx, 'quantity', e.target.value)}
+                                                        className="w-full bg-white border border-gray-200 rounded-lg px-2 py-2 text-xs focus:outline-none focus:border-[#2980B9]"
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-[11px] font-semibold text-gray-500 mb-1">Price ₹ <span className="text-[#E74C3C]">*</span></label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        value={row.price}
+                                                        onChange={e => handleRowChange(idx, 'price', e.target.value)}
+                                                        className="w-full bg-white border border-gray-200 rounded-lg px-2 py-2 text-xs focus:outline-none focus:border-[#2980B9]"
+                                                        placeholder="0.00"
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-[11px] font-semibold text-gray-500 mb-1">MRP ₹</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        value={row.mrp}
+                                                        onChange={e => handleRowChange(idx, 'mrp', e.target.value)}
+                                                        className="w-full bg-white border border-gray-200 rounded-lg px-2 py-2 text-xs focus:outline-none focus:border-[#2980B9]"
+                                                        placeholder="0.00"
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-[11px] font-semibold text-gray-500 mb-1">GST %</label>
+                                                    <input
+                                                        type="number"
+                                                        value={row.gstPercent}
+                                                        onChange={e => handleRowChange(idx, 'gstPercent', e.target.value)}
+                                                        className="w-full bg-white border border-gray-200 rounded-lg px-2 py-2 text-xs focus:outline-none focus:border-[#2980B9]"
+                                                        placeholder="0"
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-[11px] font-semibold text-gray-500 mb-1">Expected Date <span className="text-[#E74C3C]">*</span></label>
+                                                    <input
+                                                        type="date"
+                                                        value={row.expectedDate}
+                                                        onChange={e => handleRowChange(idx, 'expectedDate', e.target.value)}
+                                                        className="w-full bg-white border border-gray-200 rounded-lg px-2 py-2 text-xs focus:outline-none focus:border-[#2980B9]"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Overall Remarks */}
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Remarks</label>
+                                <textarea
+                                    rows={2}
+                                    value={remarks}
+                                    onChange={e => setRemarks(e.target.value)}
+                                    placeholder="Overall remarks for this replacement order..."
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/20 resize-none"
+                                />
+                            </div>
+
+                            {/* Live Summary & Price Difference Card */}
+                            {orderSummary.subtotal > 0 && (
+                                <div className="bg-[#eaf4fb] border border-[#2980B9]/20 rounded-xl p-4 space-y-3">
+                                    <div className="flex justify-between items-center">
+                                        <p className="text-xs font-bold text-[#1F618D]">Order Summary</p>
+                                        {/* Total Price Diff Chip */}
+                                        {totalOriginalSubtotal > 0 && (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[11px] font-semibold text-gray-600">
+                                                    Overall Price Diff:
+                                                </span>
+                                                <DirectionBadge
+                                                    direction={overallDirection}
+                                                    label={
+                                                        overallDirection === 'HIGHER'
+                                                            ? `HIGHER (+₹${overallNetDiff.toFixed(2)})`
+                                                            : overallDirection === 'LOWER'
+                                                            ? `LOWER (-₹${Math.abs(overallNetDiff).toFixed(2)})`
+                                                            : 'SAME (₹0)'
+                                                    }
+                                                />
+                                            </div>
                                         )}
                                     </div>
 
-                                    {/* Product Code */}
-                                    <div>
-                                        <label className="block text-[11px] font-semibold text-gray-500 mb-1">
-                                            Product Code <span className="text-[#E74C3C]">*</span>
-                                        </label>
-                                        <input
-                                            value={row.productCode}
-                                            onChange={e => handleRowChange(idx, 'productCode', e.target.value)}
-                                            className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/20"
-                                            placeholder="Code"
-                                        />
+                                    <div className="flex justify-between text-xs text-gray-700">
+                                        <span>Original Subtotal</span>
+                                        <span className="font-semibold font-mono">₹{totalOriginalSubtotal.toFixed(2)}</span>
                                     </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-                                    <div>
-                                        <label className="block text-[11px] font-semibold text-gray-500 mb-1">Category</label>
-                                        <select
-                                            value={row.category}
-                                            onChange={e => handleRowChange(idx, 'category', e.target.value)}
-                                            className="w-full bg-white border border-gray-200 rounded-lg px-2 py-2 text-xs focus:outline-none focus:border-[#2980B9]"
-                                        >
-                                            <option value="LENS">Lens</option>
-                                            <option value="FRAME">Frame</option>
-                                            <option value="CONTACT_LENS">Contact Lens</option>
-                                        </select>
+                                    <div className="flex justify-between text-xs text-gray-700">
+                                        <span>Replacement Subtotal</span>
+                                        <span className="font-semibold font-mono">₹{orderSummary.subtotal.toFixed(2)}</span>
                                     </div>
-
-                                    <div>
-                                        <label className="block text-[11px] font-semibold text-gray-500 mb-1">Qty <span className="text-[#E74C3C]">*</span></label>
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            value={row.quantity}
-                                            onChange={e => handleRowChange(idx, 'quantity', e.target.value)}
-                                            className="w-full bg-white border border-gray-200 rounded-lg px-2 py-2 text-xs focus:outline-none focus:border-[#2980B9]"
-                                        />
+                                    {orderSummary.gstTotal > 0 && (
+                                        <div className="flex justify-between text-xs text-gray-700">
+                                            <span>GST Total</span>
+                                            <span className="font-semibold font-mono">₹{orderSummary.gstTotal.toFixed(2)}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between text-sm font-bold text-[#1F618D] border-t border-[#2980B9]/20 pt-2">
+                                        <span>Grand Total</span>
+                                        <span className="font-mono">₹{orderSummary.grandTotal.toFixed(2)}</span>
                                     </div>
-
-                                    <div>
-                                        <label className="block text-[11px] font-semibold text-gray-500 mb-1">Price ₹ <span className="text-[#E74C3C]">*</span></label>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={row.price}
-                                            onChange={e => handleRowChange(idx, 'price', e.target.value)}
-                                            className="w-full bg-white border border-gray-200 rounded-lg px-2 py-2 text-xs focus:outline-none focus:border-[#2980B9]"
-                                            placeholder="0.00"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-[11px] font-semibold text-gray-500 mb-1">MRP ₹</label>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={row.mrp}
-                                            onChange={e => handleRowChange(idx, 'mrp', e.target.value)}
-                                            className="w-full bg-white border border-gray-200 rounded-lg px-2 py-2 text-xs focus:outline-none focus:border-[#2980B9]"
-                                            placeholder="0.00"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-[11px] font-semibold text-gray-500 mb-1">GST %</label>
-                                        <input
-                                            type="number"
-                                            value={row.gstPercent}
-                                            onChange={e => handleRowChange(idx, 'gstPercent', e.target.value)}
-                                            className="w-full bg-white border border-gray-200 rounded-lg px-2 py-2 text-xs focus:outline-none focus:border-[#2980B9]"
-                                            placeholder="0"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-[11px] font-semibold text-gray-500 mb-1">Expected Date <span className="text-[#E74C3C]">*</span></label>
-                                        <input
-                                            type="date"
-                                            value={row.expectedDate}
-                                            onChange={e => handleRowChange(idx, 'expectedDate', e.target.value)}
-                                            className="w-full bg-white border border-gray-200 rounded-lg px-2 py-2 text-xs focus:outline-none focus:border-[#2980B9]"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Overall Remarks */}
-                    <div>
-                        <label className="block text-xs font-semibold text-gray-600 mb-1">Remarks</label>
-                        <textarea
-                            rows={2}
-                            value={remarks}
-                            onChange={e => setRemarks(e.target.value)}
-                            placeholder="Overall remarks for this replacement order..."
-                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/20 resize-none"
-                        />
-                    </div>
-
-                    {/* Summary Card */}
-                    {orderSummary.subtotal > 0 && (
-                        <div className="bg-[#eaf4fb] border border-[#2980B9]/20 rounded-xl p-4">
-                            <p className="text-xs font-semibold text-[#1F618D] mb-2">Order Summary</p>
-                            <div className="flex justify-between text-xs text-gray-700">
-                                <span>Subtotal</span>
-                                <span className="font-semibold">₹{orderSummary.subtotal.toFixed(2)}</span>
-                            </div>
-                            {orderSummary.gstTotal > 0 && (
-                                <div className="flex justify-between text-xs text-gray-700 mt-1">
-                                    <span>GST Total</span>
-                                    <span className="font-semibold">₹{orderSummary.gstTotal.toFixed(2)}</span>
                                 </div>
                             )}
-                            <div className="flex justify-between text-sm font-bold text-[#1F618D] border-t border-[#2980B9]/20 mt-2 pt-2">
-                                <span>Grand Total</span>
-                                <span>₹{orderSummary.grandTotal.toFixed(2)}</span>
-                            </div>
                         </div>
-                    )}
-                </div>
 
-                {/* Footer */}
-                <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-3 shrink-0">
-                    <button onClick={onClose}
-                        className="px-5 py-2.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                        Cancel
-                    </button>
-                    <button onClick={handleSubmit} disabled={submitting}
-                        className="px-6 py-2.5 text-xs font-semibold text-white bg-[#1F618D] hover:bg-[#174e71] rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50">
-                        {submitting
-                            ? <><Icon icon="lucide:loader-2" className="animate-spin" /> Submitting…</>
-                            : <><Icon icon="lucide:package-plus" /> Create Replacement Order</>
-                        }
-                    </button>
-                </div>
+                        {/* Footer */}
+                        <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-3 shrink-0">
+                            <button onClick={onClose}
+                                className="px-5 py-2.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                                Cancel
+                            </button>
+                            <button onClick={handleSubmit} disabled={submitting}
+                                className="px-6 py-2.5 text-xs font-semibold text-white bg-[#1F618D] hover:bg-[#174e71] rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50">
+                                {submitting
+                                    ? <><Icon icon="lucide:loader-2" className="animate-spin" /> Submitting…</>
+                                    : <><Icon icon="lucide:package-plus" /> Create Replacement Order</>
+                                }
+                            </button>
+                        </div>
+                    </>
+                )}
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
 
@@ -747,6 +971,22 @@ const PurchaseReturnList = () => {
                                                                                         Updated: {new Date(item.itemUpdatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                                                     </p>
                                                                                 )}
+                                                                                {/* QC Failure Evidence Photos */}
+                                                                                {item.photos && item.photos.length > 0 && (
+                                                                                    <div className="flex flex-wrap gap-2 mt-2">
+                                                                                        {item.photos.map((photo, pIdx) => (
+                                                                                            <a
+                                                                                                key={pIdx}
+                                                                                                href={photo}
+                                                                                                target="_blank"
+                                                                                                rel="noopener noreferrer"
+                                                                                                className="w-12 h-12 rounded-lg border border-red-200 overflow-hidden shadow-sm hover:ring-2 hover:ring-red-400 transition-all block"
+                                                                                            >
+                                                                                                <img src={photo} alt={`QC fail ${pIdx + 1}`} className="w-full h-full object-cover" />
+                                                                                            </a>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                )}
                                                                             </div>
                                                                         </div>
 
@@ -806,8 +1046,8 @@ const PurchaseReturnList = () => {
             </div>
 
             {/* ── Update Return Item Status Modal ────────────────────────── */}
-            {modal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {modal && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center">
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setModal(null)} />
                     <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
 
@@ -866,7 +1106,8 @@ const PurchaseReturnList = () => {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* ── Replacement Order Modal ───────────────────────────────── */}
@@ -874,6 +1115,7 @@ const PurchaseReturnList = () => {
                 <ReplacementOrderModal
                     returnRecord={replacementModal}
                     onClose={() => setReplacementModal(null)}
+                    onRefresh={fetchReturns}
                 />
             )}
         </div>

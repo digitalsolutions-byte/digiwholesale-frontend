@@ -86,6 +86,10 @@ function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loadi
     const normalised = Object.keys(STATUS_CONFIG).find(k => k.toLowerCase() === currentStatus?.toLowerCase()) || currentStatus;
     const transitions = ALLOWED_TRANSITIONS[normalised] || [];
     const currentIdx = ALL_STEPS.indexOf(normalised);
+    const [remarks, setRemarks] = useState('');
+
+    // Extract statusHistory from order or first subOrder
+    const statusHistory = order?.statusHistory || order?.orders?.[0]?.statusHistory || [];
 
     return createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
@@ -102,7 +106,26 @@ function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loadi
                         <p className="text-xs font-bold text-gray-400 mt-0.5 truncate">
                             {order?.customer?.customerName} &bull; #{order?.orders?.[0]?.orderNumber}
                         </p>
+                        {(() => {
+                            const est = order?.estimatedDeliveryDate || order?.orders?.[0]?.estimatedDeliveryDate;
+                            return est ? (
+                                <p className="text-[11px] font-bold text-[#2980B9] mt-0.5">
+                                    Est. Delivery: {dayjs(est).format('DD MMM YYYY, hh:mm A')}
+                                </p>
+                            ) : null;
+                        })()}
                     </div>
+                    <button
+                        onClick={() => {
+                            const shareUrl = `${window.location.origin}/orders/status?orderId=${order._id || order.orders?.[0]?.orderNumber}`;
+                            navigator.clipboard.writeText(shareUrl);
+                            toast.success("Public status link copied to clipboard!");
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-[#2980B9] border border-blue-100 hover:bg-blue-100 rounded-xl text-xs font-bold transition-all"
+                        title="Copy Public Tracking Link"
+                    >
+                        <Icon icon="mdi:share-variant-outline" className="text-base" /> Share Link
+                    </button>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors flex-shrink-0">
                         <Icon icon="mdi:close" className="text-xl text-gray-400" />
                     </button>
@@ -148,56 +171,106 @@ function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loadi
                         </div>
                     </div>
 
-                    <div className="flex-1 p-6 overflow-y-auto">
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4">
-                            {transitions.length > 0 ? 'Available Actions' : 'No Actions Available'}
-                        </p>
-                        <div className="flex flex-col gap-3">
-                            {transitions.length > 0 ? (
-                                transitions.map(next => {
-                                    const cfg = STATUS_CONFIG[next];
-                                    const isCancel = next === 'Cancelled';
-                                    return (
-                                        <button
-                                            key={next}
-                                            onClick={() => onTransition(order._id, next)}
-                                            disabled={!!loading}
-                                            className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl border-2 transition-all disabled:opacity-50 ${isCancel
-                                                    ? 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100 hover:border-red-200'
-                                                    : TRANSITION_BTN[next] || 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                                                }`}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.badge}`}>
-                                                    <Icon icon={isCancel ? 'mdi:close-circle-outline' : 'mdi:arrow-right-circle-outline'} className="text-lg" />
+                    <div className="flex-1 p-6 overflow-y-auto space-y-6">
+                        {/* Status Change Remarks Input */}
+                        {transitions.length > 0 && (
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">
+                                    Status Change Remarks / Notes (Optional)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={remarks}
+                                    onChange={e => setRemarks(e.target.value)}
+                                    placeholder="e.g. Order ReadyToDispatch by production team..."
+                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition-all bg-gray-50/50"
+                                />
+                            </div>
+                        )}
+
+                        <div>
+                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">
+                                {transitions.length > 0 ? 'Available Actions' : 'No Actions Available'}
+                            </p>
+                            <div className="flex flex-col gap-3">
+                                {transitions.length > 0 ? (
+                                    transitions.map(next => {
+                                        const cfg = STATUS_CONFIG[next];
+                                        const isCancel = next === 'Cancelled';
+                                        return (
+                                            <button
+                                                key={next}
+                                                onClick={() => onTransition(order._id, next, order?.orders?.[0]?.orderNumber, remarks)}
+                                                disabled={!!loading}
+                                                className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl border-2 transition-all disabled:opacity-50 ${isCancel
+                                                        ? 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100 hover:border-red-200'
+                                                        : TRANSITION_BTN[next] || 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                                                    }`}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.badge}`}>
+                                                        <Icon icon={isCancel ? 'mdi:close-circle-outline' : 'mdi:arrow-right-circle-outline'} className="text-lg" />
+                                                    </div>
+                                                    <div className="text-left">
+                                                        <p className="text-xs font-black uppercase tracking-wider">{cfg.label}</p>
+                                                        <p className="text-[10px] font-medium opacity-60 mt-0.5">
+                                                            {isCancel ? 'Stop and cancel this order' : 'Move order to this stage'}
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                                <div className="text-left">
-                                                    <p className="text-xs font-black uppercase tracking-wider">{cfg.label}</p>
-                                                    <p className="text-[10px] font-medium opacity-60 mt-0.5">
-                                                        {isCancel ? 'Stop and cancel this order' : 'Move order to this stage'}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            {loading === next
-                                                ? <Icon icon="mdi:loading" className="animate-spin text-xl flex-shrink-0" />
-                                                : <Icon icon="mdi:chevron-right" className="text-xl opacity-40 flex-shrink-0" />
-                                            }
-                                        </button>
-                                    );
-                                })
-                            ) : (
-                                <div className="flex flex-col items-center justify-center py-12 text-center">
-                                    <Icon
-                                        icon={normalised === 'Cancelled' ? 'mdi:close-circle' : 'mdi:check-circle'}
-                                        className={`text-5xl mb-3 ${normalised === 'Cancelled' ? 'text-red-300' : 'text-emerald-300'}`}
-                                    />
-                                    <p className="text-sm font-black text-gray-400 uppercase tracking-widest">
-                                        {normalised === 'Cancelled' ? 'Order Cancelled' : 'Order Completed'}
-                                    </p>
-                                    <p className="text-xs text-gray-300 font-medium mt-1">No further actions available</p>
-                                </div>
-                            )}
+                                                {loading === next
+                                                    ? <Icon icon="mdi:loading" className="animate-spin text-xl flex-shrink-0" />
+                                                    : <Icon icon="mdi:chevron-right" className="text-xl opacity-40 flex-shrink-0" />
+                                                }
+                                            </button>
+                                        );
+                                    })
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-6 text-center">
+                                        <Icon
+                                            icon={normalised === 'Cancelled' ? 'mdi:close-circle' : 'mdi:check-circle'}
+                                            className={`text-5xl mb-3 ${normalised === 'Cancelled' ? 'text-red-300' : 'text-emerald-300'}`}
+                                        />
+                                        <p className="text-sm font-black text-gray-400 uppercase tracking-widest">
+                                            {normalised === 'Cancelled' ? 'Order Cancelled' : 'Order Completed'}
+                                        </p>
+                                        <p className="text-xs text-gray-300 font-medium mt-1">No further actions available</p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
+
+                        {/* Status History Audit Trail inside Modal */}
+                        {statusHistory && statusHistory.length > 0 && (
+                            <div className="border-t border-gray-100 pt-4 mt-4">
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                                    <Icon icon="mdi:history" className="text-blue-500 text-sm" />
+                                    Status Change Audit Logs
+                                </p>
+                                <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
+                                    {statusHistory.map((h, hIdx) => (
+                                        <div key={hIdx} className="bg-gray-50 p-3 rounded-xl border border-gray-100 text-xs flex flex-col gap-1">
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="font-bold text-gray-800">{h.changedByName || h.changedBy || 'System User'}</span>
+                                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold">
+                                                        {h.from || 'Started'} &rarr; {h.to}
+                                                    </span>
+                                                </div>
+                                                <span className="text-[10px] text-gray-400 font-mono">
+                                                    {h.changedAt ? dayjs(h.changedAt).format('DD MMM YYYY, hh:mm A') : ''}
+                                                </span>
+                                            </div>
+                                            {h.remarks && (
+                                                <p className="text-[11px] text-gray-500 italic bg-white p-2 rounded-lg border border-gray-100 mt-1">
+                                                    &ldquo;{h.remarks}&rdquo;
+                                                </p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -296,14 +369,14 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
     const { hasPermission } = usePermissions();
     const canUpdateStatus = hasPermission('UPDATE_ORDER');
 
-    const handleStatusTransition = async (orderId, newStatus, orderNumber = null) => {
+    const handleStatusTransition = async (orderId, newStatus, orderNumber = null, remarks = '') => {
         if (newStatus === 'Cancelled') {
-            setCancelConfirm({ isOpen: true, orderId, orderNumber, loading: false });
+            setCancelConfirm({ isOpen: true, orderId, orderNumber, remarks, loading: false });
             return;
         }
         setStatusUpdate(prev => ({ loading: { ...prev.loading, [orderId]: newStatus } }));
         try {
-            const res = await updateBulkOrderStatus(orderId, newStatus, orderNumber);
+            const res = await updateBulkOrderStatus(orderId, newStatus, orderNumber, remarks);
             if (res.success) {
                 toast.success(`Status updated to ${STATUS_CONFIG[newStatus]?.label || newStatus}`);
                 setStatusPopup({ isOpen: false, order: null, currentStatus: '' });
@@ -499,7 +572,7 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
     };
 
     return (
-        <div className="flex flex-col gap-6 w-full max-w-[1400px] mx-auto p-4 animate-in fade-in duration-500">
+        <div className="flex flex-col gap-6 w-full animate-in fade-in duration-500">
             <div className="bg-white p-4 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] shadow-sm border border-gray-100/80 flex flex-col gap-4 md:gap-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:flex lg:flex-wrap items-end gap-3 md:gap-6">
                     <div className="flex flex-col gap-1.5 col-span-1 md:col-span-2 lg:min-w-[300px] lg:flex-1">
@@ -612,6 +685,7 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
                                     <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Order Code</th>
                                     <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Customer / Shop</th>
                                     <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Date / Time</th>
+                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Est. Delivery</th>
                                     <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Sub Orders</th>
                                     <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Total Qty</th>
                                     <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Order Total</th>
@@ -660,6 +734,19 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
                                                         <span className="text-xs font-bold text-gray-700">{dayjs(order?.createdAt).format('DD MMM YYYY')}</span>
                                                         <span className="text-[10px] font-black text-erp-accent/80 uppercase tracking-tighter">{dayjs(order?.createdAt).format('hh:mm A')}</span>
                                                     </div>
+                                                </td>
+                                                <td className="px-4 py-2 text-center border-r border-gray-50">
+                                                    {(() => {
+                                                        const est = order.estimatedDeliveryDate || order.orders?.[0]?.estimatedDeliveryDate;
+                                                        return est ? (
+                                                            <div className="flex flex-col items-center">
+                                                                <span className="text-xs font-bold text-[#2980B9]">{dayjs(est).format('DD MMM YYYY')}</span>
+                                                                <span className="text-[10px] font-black text-gray-400 uppercase">{dayjs(est).format('hh:mm A')}</span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-xs text-gray-400 font-medium">---</span>
+                                                        );
+                                                    })()}
                                                 </td>
                                                 <td className="px-4 py-2 text-center border-r border-gray-50">
                                                     <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-black uppercase tracking-widest border border-blue-100">
@@ -721,6 +808,19 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
                                                                 >
                                                                     <Icon icon="mdi:file-document" className="text-base" />
                                                                     Full Details
+                                                                </button>
+
+                                                                <button
+                                                                    onClick={() => {
+                                                                        const shareUrl = `${window.location.origin}/orders/status?orderId=${order._id || order.orders?.[0]?.orderNumber}`;
+                                                                        navigator.clipboard.writeText(shareUrl);
+                                                                        toast.success("Public status tracking link copied!");
+                                                                        setActiveActionMenu(null);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-[#2980B9] hover:bg-blue-50 transition-colors"
+                                                                >
+                                                                    <Icon icon="mdi:share-variant-outline" className="text-base" />
+                                                                    Share Status Link
                                                                 </button>
 
                                                                 {canUpdateStatus && (
@@ -945,6 +1045,41 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
                                                                             </div>
                                                                         ))}
                                                                     </div>
+
+                                                                    {/* Status Change Audit History */}
+                                                                    {((subOrder.statusHistory && subOrder.statusHistory.length > 0) || (order.statusHistory && order.statusHistory.length > 0)) && (
+                                                                        <div className="bg-white p-5 rounded-2xl border border-gray-100 flex flex-col gap-3">
+                                                                            <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
+                                                                                <Icon icon="mdi:history" className="text-blue-500 text-lg" />
+                                                                                <span className="text-xs font-black text-gray-800 uppercase tracking-wider">Status Change History & Audit Logs</span>
+                                                                            </div>
+                                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                                                {(subOrder.statusHistory || order.statusHistory || []).map((sh, shIdx) => (
+                                                                                    <div key={shIdx} className="p-3 rounded-xl bg-gray-50/80 border border-gray-100 flex flex-col gap-1.5 text-xs">
+                                                                                        <div className="flex justify-between items-center">
+                                                                                            <div className="flex items-center gap-1.5">
+                                                                                                <Icon icon="mdi:account-circle-outline" className="text-gray-400 text-sm" />
+                                                                                                <span className="font-bold text-gray-800">{sh.changedByName || sh.changedBy || 'System'}</span>
+                                                                                            </div>
+                                                                                            <span className="text-[10px] text-gray-400 font-mono">
+                                                                                                {sh.changedAt ? dayjs(sh.changedAt).format('DD MMM YYYY, hh:mm A') : ''}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        <div className="flex items-center gap-1.5 font-semibold text-[11px]">
+                                                                                            <span className="text-gray-500">{sh.from || 'Started'}</span>
+                                                                                            <Icon icon="mdi:arrow-right" className="text-blue-400 text-xs" />
+                                                                                            <span className="text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">{sh.to}</span>
+                                                                                        </div>
+                                                                                        {sh.remarks && (
+                                                                                            <p className="text-[11px] text-gray-600 bg-white p-2 rounded-lg border border-gray-100 italic">
+                                                                                                &ldquo;{sh.remarks}&rdquo;
+                                                                                            </p>
+                                                                                        )}
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             ))}
                                                         </div>

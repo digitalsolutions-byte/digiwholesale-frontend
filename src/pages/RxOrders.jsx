@@ -57,7 +57,7 @@ const RxOrders = () => {
     const paginatedOrders = orders.slice((page - 1) * limit, page * limit);
 
     return (
-        <div className="p-6 max-w-7xl mx-auto h-full flex flex-col">
+        <div className="h-full flex flex-col w-full">
             <div className="flex justify-between items-center mb-6">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
@@ -95,6 +95,8 @@ const RxOrders = () => {
                             <tr className="bg-gray-50 border-b border-gray-100">
                                 <th className="p-4 w-12"></th>
                                 <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Order ID</th>
+                                <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Vendor Name</th>
+
                                 <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer Name</th>
                                 <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Branch</th>
                                 <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">RX Items</th>
@@ -122,19 +124,24 @@ const RxOrders = () => {
                             ) : (
                                 paginatedOrders.map((order) => (
                                     <React.Fragment key={order._id}>
-                                        <tr 
-                                            className="hover:bg-gray-50/50 transition-colors cursor-pointer" 
+                                        <tr
+                                            className="hover:bg-gray-50/50 transition-colors cursor-pointer"
                                             onClick={() => toggleRow(order._id)}
                                         >
                                             <td className="p-4">
-                                                <Icon 
-                                                    icon={expandedRows.has(order._id) ? "lucide:chevron-down" : "lucide:chevron-right"} 
-                                                    className="text-gray-400 text-lg" 
+                                                <Icon
+                                                    icon={expandedRows.has(order._id) ? "lucide:chevron-down" : "lucide:chevron-right"}
+                                                    className="text-gray-400 text-lg"
                                                 />
                                             </td>
                                             <td className="p-4">
                                                 <span className="font-mono text-sm text-gray-600" title={order._id}>
                                                     {order._id.substring(order._id.length - 8).toUpperCase()}
+                                                </span>
+                                            </td>
+                                            <td className="p-4">
+                                                <span className="font-medium text-gray-800">
+                                                    {order.orders?.[0]?.rxItems?.[0]?.rx?.vendor?.name || 'N/A'}
                                                 </span>
                                             </td>
                                             <td className="p-4">
@@ -168,9 +175,9 @@ const RxOrders = () => {
                                         </tr>
                                         {expandedRows.has(order._id) && (
                                             <tr>
-                                                <td colSpan="8" className="p-0 border-b border-gray-100 bg-gray-50/50">
+                                                <td colSpan="9" className="p-0 border-b border-gray-100 bg-gray-50/50">
                                                     <div className="p-6 pl-14">
-                                                        <h4 className="text-sm font-bold text-gray-800 mb-4">Product Details</h4>
+                                                        <h4 className="text-sm font-bold text-gray-800 mb-4">RX Item Details</h4>
                                                         <div className="space-y-4">
                                                             {order.orders?.map((subOrder, idx) => (
                                                                 <div key={idx} className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
@@ -179,38 +186,86 @@ const RxOrders = () => {
                                                                         <span className="text-sm font-bold text-gray-700">Total: ₹{subOrder.totalOrderPrice || 0}</span>
                                                                     </div>
                                                                     {subOrder.rxItems?.length > 0 ? (
-                                                                        <div className="overflow-x-auto">
-                                                                            <table className="w-full text-left text-sm">
-                                                                                <thead>
-                                                                                    <tr className="text-gray-500 border-b border-gray-100">
-                                                                                        <th className="pb-3 font-medium">Item Name</th>
-                                                                                        <th className="pb-3 font-medium">Category</th>
-                                                                                        <th className="pb-3 font-medium text-center">SPH / CYL / AXIS</th>
-                                                                                        <th className="pb-3 font-medium text-center">ADD</th>
-                                                                                        <th className="pb-3 font-medium text-center">Qty</th>
-                                                                                        <th className="pb-3 font-medium text-right">Price</th>
-                                                                                    </tr>
-                                                                                </thead>
-                                                                                <tbody className="divide-y divide-gray-50">
-                                                                                    {subOrder.rxItems.map((item, itemIdx) => (
-                                                                                        <tr key={itemIdx}>
-                                                                                            <td className="py-3">
-                                                                                                <div className="font-medium text-gray-800">{item.itemName}</div>
-                                                                                                <div className="text-xs text-gray-500 mt-1">{item.orderType} • {item.coating}</div>
-                                                                                            </td>
-                                                                                            <td className="py-3 text-gray-600">{item.category}</td>
-                                                                                            <td className="py-3 text-gray-600 text-center">
-                                                                                                {item.sph || 0} / {item.cyl || 0} / {item.axis || 0}
-                                                                                            </td>
-                                                                                            <td className="py-3 text-gray-600 text-center">{item.add || '-'}</td>
-                                                                                            <td className="py-3 text-gray-600 text-center">{item.qty}</td>
-                                                                                            <td className="py-3 text-gray-800 font-medium text-right">
-                                                                                                ₹{item.price * (item.qty || 1)}
-                                                                                            </td>
-                                                                                        </tr>
-                                                                                    ))}
-                                                                                </tbody>
-                                                                            </table>
+                                                                        <div className="space-y-4">
+                                                                            {subOrder.rxItems.map((item, itemIdx) => (
+                                                                                <div key={itemIdx} className="border border-gray-100 rounded-xl overflow-hidden">
+                                                                                    {/* Item Header */}
+                                                                                    <div className="bg-gray-50 px-4 py-3 flex flex-wrap gap-4 items-center justify-between">
+                                                                                        <div>
+                                                                                            <span className="font-semibold text-gray-800 text-sm">{item.itemName}</span>
+                                                                                            <span className="ml-2 text-xs text-gray-500">{item.category} • {item.orderType}</span>
+                                                                                        </div>
+                                                                                        <div className="flex gap-4 text-xs text-gray-500 flex-wrap">
+                                                                                            {item.rx?.vendor?.name && (
+                                                                                                <span className="flex items-center gap-1">
+                                                                                                    <Icon icon="lucide:store" className="text-gray-400" />
+                                                                                                    <strong>Vendor:</strong> {item.rx.vendor.name}
+                                                                                                </span>
+                                                                                            )}
+                                                                                            {item.rx?.lab?.name && (
+                                                                                                <span className="flex items-center gap-1">
+                                                                                                    <Icon icon="lucide:flask-conical" className="text-gray-400" />
+                                                                                                    <strong>Lab:</strong> {item.rx.lab.name}
+                                                                                                </span>
+                                                                                            )}
+                                                                                            {(item.rx?.coating?.name || item.coating) && (
+                                                                                                <span className="flex items-center gap-1">
+                                                                                                    <Icon icon="lucide:layers" className="text-gray-400" />
+                                                                                                    <strong>Coating:</strong> {item.rx?.coating?.name || item.coating}
+                                                                                                </span>
+                                                                                            )}
+                                                                                            {item.rx?.powerType && (
+                                                                                                <span className="flex items-center gap-1">
+                                                                                                    <Icon icon="lucide:eye" className="text-gray-400" />
+                                                                                                    <strong>Power Type:</strong> {item.rx.powerType}
+                                                                                                </span>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    {/* Powers Table */}
+                                                                                    {item.rx?.powers?.length > 0 && (
+                                                                                        <div className="overflow-x-auto px-4 py-3">
+                                                                                            <table className="w-full text-sm text-left">
+                                                                                                <thead>
+                                                                                                    <tr className="text-xs text-gray-500 border-b border-gray-100">
+                                                                                                        <th className="pb-2 font-semibold">Side</th>
+                                                                                                        <th className="pb-2 font-semibold text-center">SPH</th>
+                                                                                                        <th className="pb-2 font-semibold text-center">CYL</th>
+                                                                                                        <th className="pb-2 font-semibold text-center">AXIS</th>
+                                                                                                        <th className="pb-2 font-semibold text-center">ADD</th>
+                                                                                                        <th className="pb-2 font-semibold text-center">Diameter</th>
+                                                                                                    </tr>
+                                                                                                </thead>
+                                                                                                <tbody className="divide-y divide-gray-50">
+                                                                                                    {item.rx.powers.map((pw, pwIdx) => (
+                                                                                                        <tr key={pwIdx} className="text-gray-700">
+                                                                                                            <td className="py-2">
+                                                                                                                <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${pw.side === 'R' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                                                                                                    {pw.side}
+                                                                                                                </span>
+                                                                                                            </td>
+                                                                                                            <td className="py-2 text-center font-mono">{pw.sph ?? '—'}</td>
+                                                                                                            <td className="py-2 text-center font-mono">{pw.cyl ?? '—'}</td>
+                                                                                                            <td className="py-2 text-center font-mono">{pw.axis ?? '—'}</td>
+                                                                                                            <td className="py-2 text-center font-mono">{pw.add ?? '—'}</td>
+                                                                                                            <td className="py-2 text-center font-mono">{pw.diameter ?? '—'}</td>
+                                                                                                        </tr>
+                                                                                                    ))}
+                                                                                                </tbody>
+                                                                                            </table>
+                                                                                        </div>
+                                                                                    )}
+                                                                                    {/* Footer: Qty, Price, Remarks */}
+                                                                                    <div className="px-4 pb-3 flex gap-6 text-xs text-gray-500 flex-wrap">
+                                                                                        <span><strong>Qty:</strong> {item.qty}</span>
+                                                                                        <span><strong>Price:</strong> ₹{item.price * (item.qty || 1)}</span>
+                                                                                        {item.rx?.remarks && <span><strong>Remarks:</strong> {item.rx.remarks}</span>}
+                                                                                        {item.rx?.directCustomer && <span><strong>Customer Type:</strong> {item.rx.directCustomer}</span>}
+                                                                                        {(item.rx?.shippingCharges > 0) && <span><strong>Shipping:</strong> ₹{item.rx.shippingCharges}</span>}
+                                                                                        {(item.rx?.otherCharges > 0) && <span><strong>Other:</strong> ₹{item.rx.otherCharges}</span>}
+                                                                                    </div>
+                                                                                </div>
+                                                                            ))}
                                                                         </div>
                                                                     ) : (
                                                                         <p className="text-sm text-gray-500 italic py-2">No RX items available for this order.</p>
@@ -223,12 +278,13 @@ const RxOrders = () => {
                                             </tr>
                                         )}
                                     </React.Fragment>
+
                                 ))
                             )}
                         </tbody>
                     </table>
                 </div>
-                
+
                 {/* Pagination */}
                 {orders.length > 0 && (
                     <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50/50 shrink-0">

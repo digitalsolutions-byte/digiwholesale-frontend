@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { getAllEmployees, deleteEmployee } from '../services/employeeService';
 import ConfirmationModal from '../components/ui/ConfirmationModal';
@@ -312,15 +313,15 @@ const EmployeeList = () => {
                     <div className="overflow-x-auto">
                         <table className="w-full border-collapse min-w-[1000px]">
                             <thead>
-                                <tr className="bg-[#eaf4fb]/50 border-b border-[#2980B9]/15">
-                                    <th className="py-2.5 px-3 w-10 text-[#1F618D] border-r border-gray-100 last:border-r-0 text-center uppercase tracking-wider"></th>
-                                    <th className="py-2.5 px-4 font-bold text-xs text-[#1F618D] border-r border-gray-100 last:border-r-0 text-center uppercase tracking-wider">Employee Code</th>
-                                    <th className="py-2.5 px-6 font-bold text-xs text-[#1F618D] border-r border-gray-100 last:border-r-0 text-center uppercase tracking-wider">Name</th>
-                                    <th className="py-2.5 px-4 font-bold text-xs text-[#1F618D] border-r border-gray-100 last:border-r-0 text-center uppercase tracking-wider">Department</th>
-                                    <th className="py-2.5 px-4 font-bold text-xs text-[#1F618D] border-r border-gray-100 last:border-r-0 text-center uppercase tracking-wider">Type</th>
-                                    <th className="py-2.5 px-6 font-bold text-xs text-[#1F618D] border-r border-gray-100 last:border-r-0 text-center uppercase tracking-wider">Phone</th>
-                                    <th className="py-2.5 px-4 font-bold text-xs text-[#1F618D] border-r border-gray-100 last:border-r-0 text-center uppercase tracking-wider">Status</th>
-                                    <th className="py-2.5 px-4 font-bold text-xs text-[#1F618D] text-center uppercase tracking-wider">Action</th>
+                                <tr className="bg-gray-100/80 border-b border-gray-200 sticky top-0 z-10">
+                                    <th className="py-2.5 px-3 w-10 text-gray-500 border-r border-gray-200/60 text-center uppercase tracking-wider text-[11px] font-extrabold"></th>
+                                    <th className="py-2.5 px-4 font-extrabold text-[11px] text-gray-600 border-r border-gray-200/60 text-center uppercase tracking-wider">Employee Code</th>
+                                    <th className="py-2.5 px-6 font-extrabold text-[11px] text-gray-600 border-r border-gray-200/60 text-center uppercase tracking-wider">Name</th>
+                                    <th className="py-2.5 px-4 font-extrabold text-[11px] text-gray-600 border-r border-gray-200/60 text-center uppercase tracking-wider">Department</th>
+                                    <th className="py-2.5 px-4 font-extrabold text-[11px] text-gray-600 border-r border-gray-200/60 text-center uppercase tracking-wider">Type</th>
+                                    <th className="py-2.5 px-6 font-extrabold text-[11px] text-gray-600 border-r border-gray-200/60 text-center uppercase tracking-wider">Phone</th>
+                                    <th className="py-2.5 px-4 font-extrabold text-[11px] text-gray-600 border-r border-gray-200/60 text-center uppercase tracking-wider">Status</th>
+                                    <th className="py-2.5 px-4 font-extrabold text-[11px] text-gray-600 text-center uppercase tracking-wider">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="text-gray-600">
@@ -363,47 +364,25 @@ const EmployeeList = () => {
                                                     {emp.isActive ? 'ACTIVE' : 'INACTIVE'}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-2 text-center relative" onClick={(e) => e.stopPropagation()}>
+                                             <td className="px-4 py-2 text-center relative" onClick={(e) => e.stopPropagation()}>
                                                 <button
-                                                    onClick={() => setActiveActionMenu(activeActionMenu === emp._id ? null : emp._id)}
-                                                    className={`p-2 rounded-xl transition-all ${activeActionMenu === emp._id ? 'bg-erp-accent text-white shadow-lg' : 'text-gray-400 hover:text-erp-accent hover:bg-erp-accent/10'}`}
+                                                    onClick={(e) => {
+                                                        const rect = e.currentTarget.getBoundingClientRect();
+                                                        if (activeActionMenu?.id === emp._id) {
+                                                            setActiveActionMenu(null);
+                                                        } else {
+                                                            setActiveActionMenu({
+                                                                id: emp._id,
+                                                                top: rect.top + window.scrollY,
+                                                                left: rect.left + window.scrollX,
+                                                                emp
+                                                            });
+                                                        }
+                                                    }}
+                                                    className={`p-2 rounded-xl transition-all ${activeActionMenu?.id === emp._id ? 'bg-erp-accent text-white shadow-lg' : 'text-gray-400 hover:text-erp-accent hover:bg-erp-accent/10'}`}
                                                 >
                                                     <Icon icon="mdi:dots-vertical" className="w-6 h-6" />
                                                 </button>
-
-                                                {activeActionMenu === emp._id && (
-                                                    <>
-                                                        <div
-                                                            className="fixed inset-0 z-[60]"
-                                                            onClick={() => setActiveActionMenu(null)}
-                                                        />
-                                                        <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2 z-[70] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden min-w-[140px] animate-in fade-in slide-in-from-right-4 duration-200">
-                                                            <button
-                                                                onClick={() => { toggleRow(emp._id); setActiveActionMenu(null); }}
-                                                                className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-erp-accent/10 hover:text-erp-accent/80 transition-colors"
-                                                            >
-                                                                <Icon icon="mdi:eye" className="text-lg" />
-                                                                View
-                                                            </button>
-                                                            <button
-                                                                onClick={() => {
-                                                                    setEditEmployeeId(emp._id);
-                                                                    setActiveActionMenu(null);
-                                                                }}
-                                                                className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors border-y border-gray-50">
-                                                                <Icon icon="mdi:pencil" className="text-lg" />
-                                                                Edit
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDeleteClick(emp)}
-                                                                className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors"
-                                                            >
-                                                                <Icon icon="mdi:trash-can" className="text-lg" />
-                                                                Delete
-                                                            </button>
-                                                        </div>
-                                                    </>
-                                                )}
                                             </td>
                                         </tr>
 
@@ -503,10 +482,54 @@ const EmployeeList = () => {
                 )}
             </div>
 
-            {viewLoading && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/10 backdrop-blur-[2px]">
+            {viewLoading && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/10 backdrop-blur-[2px]">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-erp-accent"></div>
-                </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Action Menu Portal Popup */}
+            {activeActionMenu && createPortal(
+                <>
+                    <div
+                        className="fixed inset-0 z-[9990]"
+                        onClick={() => setActiveActionMenu(null)}
+                    />
+                    <div
+                        className="fixed z-[9999] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden min-w-[140px] animate-in fade-in zoom-in-95 duration-150"
+                        style={{
+                            top: Math.min(window.innerHeight - 180, activeActionMenu.top - window.scrollY - 10),
+                            left: Math.max(10, activeActionMenu.left - window.scrollX - 150)
+                        }}
+                    >
+                        <button
+                            onClick={() => { toggleRow(activeActionMenu.id); setActiveActionMenu(null); }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-erp-accent/10 hover:text-erp-accent transition-colors"
+                        >
+                            <Icon icon="mdi:eye" className="text-lg" />
+                            View Details
+                        </button>
+                        <button
+                            onClick={() => {
+                                setEditEmployeeId(activeActionMenu.id);
+                                setActiveActionMenu(null);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors border-y border-gray-50"
+                        >
+                            <Icon icon="mdi:pencil" className="text-lg" />
+                            Edit
+                        </button>
+                        <button
+                            onClick={() => { handleDeleteClick(activeActionMenu.emp); setActiveActionMenu(null); }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                            <Icon icon="mdi:trash-can" className="text-lg" />
+                            Delete
+                        </button>
+                    </div>
+                </>,
+                document.body
             )}
 
             <ConfirmationModal

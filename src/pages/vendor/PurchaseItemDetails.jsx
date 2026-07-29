@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { getPurchaseItemDetails, getVendorPurchaseOrders, updatePurchaseItem, deletePurchaseItem, createPurchaseInward, updateVendorRefIds, updatePurchaseReturnItemStatus, updateVendorPurchaseOrder } from '../../services/vendorOrderService';
@@ -520,6 +521,7 @@ const PurchaseItemDetails = () => {
                                                             <th className="p-3 font-medium text-center">GST</th>
                                                             <th className="p-3 font-medium text-right">MRP</th>
                                                             <th className="p-3 font-medium text-right">Total</th>
+                                                            <th className="p-3 font-medium text-center">QC By</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-gray-50">
@@ -545,6 +547,27 @@ const PurchaseItemDetails = () => {
                                                                 <td className="p-3 text-gray-600 text-right">₹{item.mrp || 0}</td>
                                                                 <td className="p-3 text-gray-800 font-medium text-right">
                                                                     ₹{((item.mrp || 0) * (item.qty || 1))}
+                                                                </td>
+                                                                <td className="p-3 text-center">
+                                                                    {item.qcBy ? (
+                                                                        <div className="flex flex-col items-center gap-0.5">
+                                                                            <span className="text-xs font-medium text-gray-700">{typeof item.qcBy === 'object' ? (item.qcBy.name || item.qcBy.fullName || `${item.qcBy.firstName || ''} ${item.qcBy.lastName || ''}`.trim()) : item.qcBy}</span>
+                                                                            {item.qcDate && <span className="text-[10px] text-gray-400">{new Date(item.qcDate).toLocaleDateString()}</span>}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="text-[10px] text-gray-400">—</span>
+                                                                    )}
+                                                                    {/* QC Failure Photos */}
+                                                                    {item.qcPhotos && item.qcPhotos.length > 0 && (
+                                                                        <div className="flex gap-1 mt-1 justify-center">
+                                                                            {item.qcPhotos.slice(0, 3).map((photo, pIdx) => (
+                                                                                <a key={pIdx} href={photo} target="_blank" rel="noopener noreferrer" className="w-6 h-6 rounded border border-gray-200 overflow-hidden hover:ring-2 hover:ring-red-300 transition-all">
+                                                                                    <img src={photo} alt={`QC ${pIdx + 1}`} className="w-full h-full object-cover" />
+                                                                                </a>
+                                                                            ))}
+                                                                            {item.qcPhotos.length > 3 && <span className="text-[9px] text-gray-400 self-center">+{item.qcPhotos.length - 3}</span>}
+                                                                        </div>
+                                                                    )}
                                                                 </td>
                                                             </tr>
                                                         ))}
@@ -608,8 +631,8 @@ const PurchaseItemDetails = () => {
             </div>
 
             {/* ── Inward Items Modal ─────────────────────────────────────────────── */}
-            {showInwardModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {showInwardModal && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center">
                     {/* Backdrop */}
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowInwardModal(false)} />
 
@@ -769,12 +792,13 @@ const PurchaseItemDetails = () => {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* ── Vendor Ref ID Modal ─────────────────────────────────────────────── */}
-            {showRefModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {showRefModal && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center">
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowRefModal(false)} />
                     <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col mx-4 overflow-hidden">
                         <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-indigo-50 flex items-center justify-between shrink-0">
@@ -819,12 +843,13 @@ const PurchaseItemDetails = () => {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* ── Return Item Status Modal ──────────────────────────────────────── */}
-            {showReturnModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {showReturnModal && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center">
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowReturnModal(false)} />
                     <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
                         <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-amber-50 to-orange-50 flex items-center justify-between">
@@ -881,10 +906,11 @@ const PurchaseItemDetails = () => {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}\n\n            {/* ── Edit Order Modal ─────────────────────────────────────────────── */}
-            {showEditModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {showEditModal && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center">
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowEditModal(false)} />
                     <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col mx-4 overflow-hidden">
 
@@ -1085,7 +1111,8 @@ const PurchaseItemDetails = () => {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

@@ -6,6 +6,10 @@ import {
     PieChart, Pie, Legend
 } from 'recharts';
 
+import { useSelector } from 'react-redux';
+import { selectCurrentUser } from '../store/slices/authSlice';
+import PlatformOwnerDashboard from './PlatformOwnerDashboard';
+
 const STATUS_CONFIG = {
     Active: { color: '#2980B9', bg: 'bg-blue-50', text: 'text-blue-700' },
     Submitted: { color: '#7C3AED', bg: 'bg-violet-50', text: 'text-violet-700' },
@@ -53,8 +57,13 @@ const OrderStatusRow = ({ label, value, color }) => {
 };
 
 const Dashboard = () => {
+    const user = useSelector(selectCurrentUser);
     const [analytics, setAnalytics] = useState(null);
     const [loading, setLoading] = useState(true);
+
+    if (user?.EmployeeType === 'PLATFORM_OWNER') {
+        return <PlatformOwnerDashboard />;
+    }
 
     useEffect(() => {
         const fetchAnalytics = async () => {
@@ -160,23 +169,32 @@ const Dashboard = () => {
             </div>
 
             {/* Secondary Metrics Row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-                {[
-                    { label: 'Submitted', value: ord.submitted, icon: 'lucide:send', ...STATUS_CONFIG.Submitted },
-                    { label: 'Processing', value: ord.processing, icon: 'lucide:loader-2', ...STATUS_CONFIG.Processing },
-                    { label: 'QC', value: ord.qc, icon: 'lucide:shield-check', ...STATUS_CONFIG.QC },
-                    { label: 'Ready Dispatch', value: ord.readyToDispatch, icon: 'lucide:truck', ...STATUS_CONFIG.ReadyToDispatch },
-                    { label: 'Dispatched', value: ord.dispatched, icon: 'lucide:package-open', ...STATUS_CONFIG.Dispatched },
-                    { label: 'Delivered', value: ord.delivered, icon: 'lucide:package-check', ...STATUS_CONFIG.Delivered },
-                    { label: 'Completed', value: ord.completed, icon: 'lucide:check-circle-2', ...STATUS_CONFIG.Completed },
-                    { label: 'Cancelled', value: ord.cancelled, icon: 'lucide:x-circle', ...STATUS_CONFIG.Cancelled },
-                ].map((item, idx) => (
-                    <div key={idx} className={`${item.bg} rounded-xl px-3 py-3 flex flex-col items-center gap-1 border border-white shadow-sm hover:shadow-md transition-shadow`}>
-                        <Icon icon={item.icon} className={`${item.text} text-base`} />
-                        <span className={`text-xl font-black ${item.text}`}>{item.value ?? 0}</span>
-                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider text-center leading-tight">{item.label}</span>
-                    </div>
-                ))}
+
+
+            {/* Order Summary */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <h2 className="text-sm font-bold text-gray-800 mb-5 flex items-center gap-2">
+                    <Icon icon="lucide:clipboard-list" className="text-[#2980B9]" />
+                    Order Summary
+                </h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                    {[
+                        { label: 'Total Orders', value: ord.totalOrders, icon: 'lucide:shopping-bag', bg: 'bg-[#2980B9]', text: 'text-white' },
+                        { label: 'Active', value: ord.active, icon: 'lucide:activity', bg: 'bg-blue-50', text: 'text-blue-700' },
+                        { label: 'In Progress', value: (ord.submitted || 0) + (ord.processing || 0) + (ord.qc || 0), icon: 'lucide:loader-2', bg: 'bg-amber-50', text: 'text-amber-700' },
+                        { label: 'Ready / Dispatched', value: (ord.readyToDispatch || 0) + (ord.dispatched || 0), icon: 'lucide:truck', bg: 'bg-emerald-50', text: 'text-emerald-700' },
+                        { label: 'Completed', value: (ord.delivered || 0) + (ord.completed || 0), icon: 'lucide:check-circle-2', bg: 'bg-green-50', text: 'text-green-700' },
+                        { label: 'Cancelled', value: ord.cancelled, icon: 'lucide:x-circle', bg: 'bg-red-50', text: 'text-red-600' },
+                    ].map((item, idx) => (
+                        <div key={idx} className={`${item.bg} rounded-2xl p-4 flex flex-col gap-2 hover:shadow-md transition-shadow`}>
+                            <div className="flex items-center justify-between">
+                                <Icon icon={item.icon} className={`${item.text} text-lg`} />
+                            </div>
+                            <p className={`text-2xl font-black ${item.text} tabular-nums`}>{item.value ?? 0}</p>
+                            <p className={`text-[10px] font-bold uppercase tracking-wider ${item.text} opacity-70`}>{item.label}</p>
+                        </div>
+                    ))}
+                </div>
             </div>
 
             {/* Charts */}

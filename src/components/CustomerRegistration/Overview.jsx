@@ -90,6 +90,20 @@ export const Overview = ({ formik, configs = {}, isSalesUser }) => {
                 <DetailItem label="Business Type" value={configs.businessTypes?.find(b => b._id === values.businessTypeRefId)?.name} />
                 <DetailItem label="Zone" value={getZone()} />
                 <DetailItem label="Sales Person" value={getSalesPerson()} />
+                <div className="col-span-full border-t border-gray-50 pt-3 mt-2">
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider block mb-2">Assigned Brands</span>
+                    <div className="flex flex-wrap gap-2">
+                        {Array.isArray(values.brands) && values.brands.length > 0 ? (
+                            values.brands.map((b, i) => (
+                                <span key={i} className="px-2.5 py-1 bg-blue-50 text-[#2980B9] border border-blue-100 rounded text-xs font-bold uppercase">
+                                    {b.brandName || b.name}
+                                </span>
+                            ))
+                        ) : (
+                            <span className="text-xs text-gray-400 font-medium italic">None selected</span>
+                        )}
+                    </div>
+                </div>
             </SummaryCard>
 
             <SummaryCard title="Cheque Details" icon="mdi:checkbook">

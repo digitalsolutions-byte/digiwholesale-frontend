@@ -529,32 +529,32 @@ export default function ReturnRefund() {
      MAIN RENDER
   ═══════════════════════════════════════════ */
   return (
-    <div className="w-full flex flex-col gap-6 fade-in px-4 md:px-8">
+    <div className="w-full flex flex-col gap-6 fade-in px-4 md:px-6">
       {/* ── Header with Tabs ── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+          <h1 className="text-xl font-black text-gray-800 uppercase tracking-widest">
             Return & Refund
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Manage return requests and refunds
+          <p className="text-[11px] text-gray-400 font-medium">
+            Manage customer return requests and refunds efficiently
           </p>
         </div>
-        <div className="flex bg-gray-100 p-1.5 rounded-full self-start md:self-auto">
+        <div className="flex bg-gray-100 p-1 rounded-lg self-start md:self-auto border border-gray-200">
           <button
             onClick={() => setActiveTab("form")}
-            className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all ${activeTab === "form"
-              ? "bg-white text-erp-primary shadow-md"
-              : "text-gray-500 hover:text-gray-800"
+            className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all ${activeTab === "form"
+              ? "bg-[#2980B9] text-white shadow-sm"
+              : "text-gray-600 hover:text-gray-900"
               }`}
           >
             Create Request
           </button>
           <button
             onClick={() => setActiveTab("list")}
-            className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all ${activeTab === "list"
-              ? "bg-white text-erp-primary shadow-md"
-              : "text-gray-500 hover:text-gray-800"
+            className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all ${activeTab === "list"
+              ? "bg-[#2980B9] text-white shadow-sm"
+              : "text-gray-600 hover:text-gray-900"
               }`}
           >
             Request List
@@ -573,7 +573,7 @@ export default function ReturnRefund() {
           {/* ─────────────────────────────────
               LEFT COLUMN: Form Fields
           ───────────────────────────────── */}
-          <div className="bg-white rounded-3xl border border-gray-100 shadow-xl shadow-gray-200/40 p-6 md:p-8 space-y-6">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-6">
             {/* Return Type Selector */}
             {/* <div className="flex items-center gap-3">
               <span className="bg-erp-primary/10 p-2 rounded-full">
@@ -834,7 +834,7 @@ export default function ReturnRefund() {
           ───────────────────────────────── */}
           <div className="space-y-6">
             {/* ── Photos Section ── */}
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-xl shadow-gray-200/40 p-6 space-y-4">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <span className="bg-erp-primary/10 p-2 rounded-full">
@@ -939,12 +939,12 @@ export default function ReturnRefund() {
             </div>
 
             {/* ── Items Table ── */}
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-xl shadow-gray-200/40 overflow-hidden">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-orange-100">
-                      <th className="px-4 py-3 font-bold text-gray-600 whitespace-nowrap w-10 text-center">
+                    <tr className="bg-gray-100/90 border-b border-gray-200">
+                      <th className="px-4 py-3 font-extrabold text-gray-600 uppercase text-[10px] tracking-wider whitespace-nowrap w-10 text-center">
                         ✓
                       </th>
                       <th className="px-4 py-3 font-bold text-gray-600 whitespace-nowrap">

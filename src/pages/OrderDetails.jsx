@@ -129,8 +129,7 @@ const OrderDetails = () => {
     );
 
     return (
-        <div className="min-h-screen bg-gray-50/50 p-6 md:p-10 pb-24">
-            <div className="max-w-7xl mx-auto space-y-10">
+        <div className="w-full space-y-10">
                 {/* Header Action Bar */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div className="space-y-2">
@@ -394,7 +393,6 @@ const OrderDetails = () => {
                     </div>
                 </div>
             </div>
-        </div>
     );
 };
 

@@ -54,8 +54,9 @@ const Login = () => {
                 if (response.success) {
                     dispatch(setCredentials({
                         user: response.data.user,
-                        token: response.data.tokens.accessToken,
-                        refreshToken: response.data.tokens.refreshToken
+                        tenant: response.data.tenant,
+                        token: response.data.tokens?.accessToken,
+                        refreshToken: response.data.tokens?.refreshToken
                     }));
                     toast.success('Login Successful');
                     navigate(PATHS.WELCOME, { state: { from: 'login' } });

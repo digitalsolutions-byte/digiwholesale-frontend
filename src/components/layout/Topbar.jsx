@@ -15,8 +15,11 @@ import {
     Tooltip
 } from '@mui/material';
 
+import { selectCurrentUser, selectCurrentTenant } from '../../store/slices/authSlice';
+
 const Topbar = ({ onMenuClick }) => {
-    const user = useSelector((state) => state.auth.user);
+    const user = useSelector(selectCurrentUser);
+    const tenant = useSelector(selectCurrentTenant);
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -114,6 +117,29 @@ const Topbar = ({ onMenuClick }) => {
                             {user?.employeeName || 'Team Member'}
                         </Typography>
 
+                        {!isMobile && tenant?.storeInformation?.storeName && (
+                            <Box
+                                sx={{
+                                    px: 1.2,
+                                    py: '3px',
+                                    borderRadius: '8px',
+                                    bgcolor: 'rgba(255, 255, 255, 0.2)',
+                                    color: 'white',
+                                    fontSize: '10px',
+                                    fontWeight: 800,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.06em',
+                                    whiteSpace: 'nowrap',
+                                    flexShrink: 0,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 0.5
+                                }}
+                            >
+                                <Icon icon="lucide:building-2" style={{ fontSize: '12px' }} />
+                                <span>{tenant.storeInformation.storeName}</span>
+                            </Box>
+                        )}
                         {!isMobile && user?.Department?.name && (
                             <Box
                                 sx={{

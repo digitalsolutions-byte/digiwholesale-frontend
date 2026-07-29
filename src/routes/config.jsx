@@ -16,6 +16,7 @@ import AllOrdersList from '../pages/AllOrdersList';
 import DraftOrders from '../pages/DraftOrders';
 import RxOrders from '../pages/RxOrders';
 import OrderDetails from '../pages/OrderDetails';
+import PublicOrderStatus from '../pages/PublicOrderStatus';
 import PlaceholderPage from '../pages/PlaceholderPage';
 import AuthWrapper from '../components/AuthWrapper';
 import MainLayout from '../components/layout/MainLayout';
@@ -44,6 +45,9 @@ import QcPassed from '../pages/vendor/QcPassed';
 import ReplacementOrderList from '../pages/vendor/ReplacementOrderList';
 import ReplacementOrderDetail from '../pages/vendor/ReplacementOrderDetail';
 import SalesList from '../pages/sales/SalesList';
+import RegisterTenant from '../pages/tenants/RegisterTenant';
+import TenantList from '../pages/tenants/TenantList';
+import TenantDetails from '../pages/tenants/TenantDetails';
 
 import CustomerLogin from '../pages/CustomerLogin';
 import CustomerLayout from '../components/layout/CustomerLayout';
@@ -68,6 +72,8 @@ export { PATHS };
  * Access is determined ONLY by user.pageAccess[].
  */
 
+import CustomerProfile from '../pages/CustomerProfile';
+
 // ── Staff ─────────────────────────────────────────────────────────────────────
 const STAFF_MODULE = [
     { path: 'staff/register', element: Registration, page: 'REGISTER_STAFF', props: { title: 'Register Staff' } },
@@ -78,6 +84,7 @@ const STAFF_MODULE = [
 const CUSTOMER_MODULE = [
     { path: 'customer/register', element: RegisterCustomer, page: 'REGISTER_CUSTOMER' },
     { path: 'customer/list', element: CustomerList, page: 'CUSTOMER_LIST' },
+    { path: 'customer/profile/:id', element: CustomerProfile, page: 'CUSTOMER_LIST' },
     { path: 'customer/ship-to', element: ShipTo, page: 'SHIP_TO' },
 ];
 
@@ -88,7 +95,6 @@ const CUSTOMER_CARE_MODULE = [
     { path: PATHS.CUSTOMER_CARE.DRAFT_ORDERS, element: DraftOrders, page: 'ALL_ORDERS' },
     { path: PATHS.CUSTOMER_CARE.RX_ORDERS, element: RxOrders, page: 'ALL_ORDERS' },
     { path: PATHS.CUSTOMER_CARE.PENDING_ORDERS, element: AllOrdersList, page: 'PENDING_ORDERS', props: { isPendingOnly: true, defaultStatus: 'PENDING' } },
-    { path: PATHS.CUSTOMER_CARE.ORDER_STATUS, element: PlaceholderPage, page: 'ALL_ORDERS', props: { title: 'Order Status' } },
     { path: PATHS.CUSTOMER_CARE.SERVICE_GOODS, element: OtherSales, page: 'OTHER_SALES' },
     { path: PATHS.CUSTOMER_CARE.VIEW_ORDERS, element: PlaceholderPage, page: 'ALL_ORDERS', props: { title: 'View Orders' } },
     { path: PATHS.CUSTOMER_CARE.UPGRADE_ORDERS, element: PlaceholderPage, page: 'ALL_ORDERS', props: { title: 'Upgrade Orders' } },
@@ -160,6 +166,14 @@ const REPORTS_MODULE = [
     { path: PATHS.REPORTS.MAIN, element: MainReport, page: 'MAIN_REPORT' },
 ];
 
+// ── Tenants (Platform Owner) ──────────────────────────────────────────────────
+const TENANTS_MODULE = [
+    { path: PATHS.TENANTS.REGISTER, element: RegisterTenant, page: 'TENANTS' },
+    { path: PATHS.TENANTS.LIST, element: TenantList, page: 'TENANTS' },
+    { path: PATHS.TENANTS.DETAILS, element: TenantDetails, page: 'TENANTS' },
+    { path: PATHS.TENANTS.EDIT, element: TenantDetails, page: 'TENANTS' },
+];
+
 // ── Full config ───────────────────────────────────────────────────────────────
 export const routesConfig = [
     // Public routes
@@ -168,6 +182,7 @@ export const routesConfig = [
     { path: PATHS.FORGOT_PASSWORD, element: ForgotPassword, isPublic: true },
     { path: PATHS.CUSTOMER_FORGOT_PASSWORD, element: ForgotPassword, isPublic: true, props: { type: 'customer' } },
     { path: PATHS.RESET_PASSWORD_CONFIRM, element: ResetPasswordConfirm, isPublic: true },
+    { path: PATHS.CUSTOMER_CARE.ORDER_STATUS, element: PublicOrderStatus, isPublic: true },
 
     // Authenticated scope
     {
@@ -204,6 +219,7 @@ export const routesConfig = [
                     ...VENDOR_MODULE,
                     ...SALES_MODULE,
                     ...REPORTS_MODULE,
+                    ...TENANTS_MODULE,
                 ],
             },
         ],
@@ -213,7 +229,7 @@ export const routesConfig = [
 // ── Helper to find the first allowed route ────────────────────────────────────
 export const getFirstAllowedRoute = (user) => {
     if (!user) return PATHS.LOGIN;
-    if (user.EmployeeType === 'SUPERADMIN') return PATHS.ROOT;
+    if (user.EmployeeType === 'SUPERADMIN' || user.EmployeeType === 'PLATFORM_OWNER') return PATHS.ROOT;
 
     const pageAccess = Array.isArray(user.pageAccess) ? user.pageAccess : [];
     

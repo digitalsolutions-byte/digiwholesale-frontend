@@ -24,7 +24,7 @@ const MainLayout = () => {
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
     useEffect(() => {
-        document.documentElement.style.setProperty('--sidebar-width', isSidebarOpen && !isMobile ? '280px' : '0px');
+        document.documentElement.style.setProperty('--sidebar-width', isSidebarOpen && !isMobile ? '269px' : '0px');
     }, [isSidebarOpen, isMobile]);
 
     return (

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useReactTable, getCoreRowModel, getPaginationRowModel, getFilteredRowModel, flexRender } from "@tanstack/react-table";
 import { toast } from "react-toastify";
 import { useDispatch, useSelector } from "react-redux";
@@ -126,8 +127,8 @@ const SaleModal = ({ sale, onClose, onSuccess }) => {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
       onClick={onClose}>
       <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="bg-erp-accent p-6 text-white flex justify-between items-center">
@@ -215,7 +216,8 @@ const SaleModal = ({ sale, onClose, onSuccess }) => {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

@@ -20,15 +20,18 @@ const PAGE_SIZE = 100;
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared UI primitives
 // ─────────────────────────────────────────────────────────────────────────────
-const Modal = ({ onClose, children, maxWidth = "max-w-lg" }) => (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 transition-all duration-300"
-        onClick={onClose}>
-        <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidth} animate-fadeIn`} onClick={e => e.stopPropagation()}>
-            {children}
-        </div>
-        <style>{`@keyframes fadeIn{from{opacity:0;transform:scale(.97) translateY(6px)}to{opacity:1;transform:scale(1) translateY(0)}}.animate-fadeIn{animation:fadeIn .18s ease both}`}</style>
-    </div>
-);
+const Modal = ({ onClose, children, maxWidth = "max-w-lg" }) => {
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 transition-all duration-300"
+            onClick={onClose}>
+            <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidth} animate-fadeIn`} onClick={e => e.stopPropagation()}>
+                {children}
+            </div>
+            <style>{`@keyframes fadeIn{from{opacity:0;transform:scale(.97) translateY(6px)}to{opacity:1;transform:scale(1) translateY(0)}}.animate-fadeIn{animation:fadeIn .18s ease both}`}</style>
+        </div>,
+        document.body
+    );
+};
 
 const ModalHeader = ({ title, subtitle, onClose }) => (
     <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
@@ -50,7 +53,7 @@ const ModalFooter = ({ children }) => (
 
 const InfoRow = ({ label, value }) => (
     <div>
-        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">{label}</p>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">{label}</p>
         <p className="text-sm font-semibold text-gray-800 break-words">{value || "-"}</p>
     </div>
 );
@@ -250,7 +253,7 @@ function ProductSearchInput({ value, onChange, onSelect }) {
                 onChange={handleChange}
                 onFocus={() => fetchSuggestions(value)}
                 placeholder="Enter Product Name..."
-                className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400"
+                className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400"
             />
             {searching && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 border-2 border-blue-300 border-t-transparent rounded-full animate-spin pointer-events-none" />
@@ -264,7 +267,7 @@ function ProductSearchInput({ value, onChange, onSelect }) {
                                     className="w-full flex items-center gap-2 px-3 py-2 hover:bg-blue-50 transition text-left">
                                     <div className="min-w-0">
                                         <p className="text-xs font-bold text-gray-800 truncate">{s.name || s.itemName || s.productName || "-"}</p>
-                                        <p className="text-[10px] text-gray-400 truncate">
+                                        <p className="text-xs text-gray-400 truncate">
                                             {s.code || s.productCode || ""} {s.category ? `· ${s.category}` : ""}
                                         </p>
                                     </div>
@@ -747,7 +750,7 @@ export default function VendorList() {
                         <div className="flex items-center gap-1.5 px-4">
                             {pages.map(p => (
                                 <button key={p} onClick={() => table.setPageIndex(p)}
-                                    className={`w-9 h-9 text-[10px] font-black rounded-full transition-all shadow-sm ${p === currentPage ? "bg-erp-accent text-white scale-110 shadow-lg shadow-erp-accent/20" : "bg-white text-gray-400 hover:bg-gray-50 hover:text-erp-accent border border-gray-50"}`}>
+                                    className={`w-9 h-9 text-xs font-black rounded-full transition-all shadow-sm ${p === currentPage ? "bg-erp-accent text-white scale-110 shadow-lg shadow-erp-accent/20" : "bg-white text-gray-400 hover:bg-gray-50 hover:text-erp-accent border border-gray-50"}`}>
                                     {p + 1}
                                 </button>
                             ))}
@@ -808,8 +811,8 @@ export default function VendorList() {
             )}
 
             {/* ── Purchase Order Modal ── */}
-            {showOrderModal && (
-                <div className="fixed inset-0 z-[1001] flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4 animate-fadeIn transition-all duration-300">
+            {showOrderModal && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4 animate-fadeIn transition-all duration-300">
                     <div className="bg-white w-full max-w-7xl h-[88%] sm:h-[92%] rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden border border-white/20">
 
                         {/* Header */}
@@ -821,7 +824,7 @@ export default function VendorList() {
                                 <div>
                                     <h2 className="text-xl font-bold">Order</h2>
                                     {selectedVendor && (
-                                        <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mt-1 flex items-center gap-2">
+                                        <p className="text-xs font-bold text-white/70 uppercase tracking-widest mt-1 flex items-center gap-2">
                                             <Icon icon="mdi:account-tie" /> Vendor: {selectedVendor.name} {selectedVendor.firm ? `• ${selectedVendor.firm}` : ""}
                                         </p>
                                     )}
@@ -843,39 +846,39 @@ export default function VendorList() {
                                         <thead>
                                             <tr className="bg-[#2980B9] text-white">
                                                 {/* ── PRIORITY GROUP: always visible ── */}
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-8 border-r border-white/10 sticky left-0 bg-[#2980B9]">#</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-24 border-r border-white/10">Category</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest min-w-[160px] border-r border-white/10">Product Name</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-16 border-r border-white/10 bg-green-600/80">QTY</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-20 border-r border-white/10 bg-green-600/80">Price</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-20 border-r border-white/10 bg-green-600/80">MRP</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-16 border-r border-white/10 bg-green-600/80">GST %</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-20 border-r border-white/10 bg-green-600/80">Disc %</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-8 border-r border-white/10 sticky left-0 bg-[#2980B9]">#</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-24 border-r border-white/10">Category</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest min-w-[160px] border-r border-white/10">Product Name</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-16 border-r border-white/10 bg-green-600/80">QTY</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-20 border-r border-white/10 bg-green-600/80">Price</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-20 border-r border-white/10 bg-green-600/80">MRP</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-16 border-r border-white/10 bg-green-600/80">GST %</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-20 border-r border-white/10 bg-green-600/80">Disc %</th>
                                                 {/* ── PRODUCT DETAILS ── */}
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-24 border-r border-white/10">Prod Code</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-20 border-r border-white/10">Brand</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-20 border-r border-white/10">Unit</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-24 border-r border-white/10">Prod Code</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-20 border-r border-white/10">Brand</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-20 border-r border-white/10">Unit</th>
                                                 {/* ── LENS FIELDS ── */}
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-14 border-r border-white/10">Sph</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-14 border-r border-white/10">Cyl</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-14 border-r border-white/10">Axis</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-14 border-r border-white/10">Add</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-16 border-r border-white/10">Index</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-16 border-r border-white/10">Tint</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-20 border-r border-white/10">Coating</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-14 border-r border-white/10">Sph</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-14 border-r border-white/10">Cyl</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-14 border-r border-white/10">Axis</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-14 border-r border-white/10">Add</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-16 border-r border-white/10">Index</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-16 border-r border-white/10">Tint</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-20 border-r border-white/10">Coating</th>
                                                 {/* ── CONTACT LENS FIELDS ── */}
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-28 border-r border-white/10">Expiry</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-24 border-r border-white/10">Disposability</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-28 border-r border-white/10">Expiry</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-24 border-r border-white/10">Disposability</th>
                                                 {/* ── EXTRA DETAILS ── */}
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-16 border-r border-white/10">Color</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-14 border-r border-white/10">Size</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-16 border-r border-white/10">Shape</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-20 border-r border-white/10">Material</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-20 border-r border-white/10">Dims</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-20 border-r border-white/10">HSN/SAC</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-20 border-r border-white/10">Disc Amt</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-28 border-r border-white/10">Exp. Date</th>
-                                                <th className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest w-10"></th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-16 border-r border-white/10">Color</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-14 border-r border-white/10">Size</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-16 border-r border-white/10">Shape</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-20 border-r border-white/10">Material</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-20 border-r border-white/10">Dims</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-20 border-r border-white/10">HSN/SAC</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-20 border-r border-white/10">Disc Amt</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-28 border-r border-white/10">Exp. Date</th>
+                                                <th className="px-2 py-2.5 text-center text-xs font-black uppercase tracking-widest w-10"></th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100 bg-white">
@@ -883,11 +886,11 @@ export default function VendorList() {
                                                 <tr key={index} className="hover:bg-blue-50/30 transition-colors group">
                                                     {/* # */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100 sticky left-0 bg-white group-hover:bg-blue-50/30">
-                                                        <div className="text-center text-[11px] font-bold text-gray-500">{index + 1}</div>
+                                                        <div className="text-center text-xs font-bold text-gray-500">{index + 1}</div>
                                                     </td>
                                                     {/* Category */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100">
-                                                        <select value={row.category || "LENS"} onChange={e => handleChangeRow(index, "category", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all">
+                                                        <select value={row.category || "LENS"} onChange={e => handleChangeRow(index, "category", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all">
                                                             <option value="" disabled>Select</option>
                                                             <option value="LENS">LENS</option>
                                                             <option value="FRAME">FRAME</option>
@@ -908,24 +911,24 @@ export default function VendorList() {
                                                                 onSelect={(product) => handleSelectProduct(index, product)}
                                                             />
                                                         ) : (
-                                                            <input type="text" placeholder="Product Name" value={row.productName} onChange={e => handleChangeRow(index, "productName", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400" />
+                                                            <input type="text" placeholder="Product Name" value={row.productName} onChange={e => handleChangeRow(index, "productName", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400" />
                                                         )}
                                                     </td>
                                                     {/* QTY */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100 bg-green-50/40">
-                                                        <input type="number" placeholder="0" value={row.quantity} onChange={e => handleChangeRow(index, "quantity", e.target.value)} className="w-full bg-white border border-green-300 rounded-md px-1.5 py-1.5 text-[11px] font-bold text-gray-850 outline-none focus:border-green-600 focus:ring-1 focus:ring-green-500 transition-all text-center" />
+                                                        <input type="number" placeholder="0" value={row.quantity} onChange={e => handleChangeRow(index, "quantity", e.target.value)} className="w-full bg-white border border-green-300 rounded-md px-1.5 py-1.5 text-xs font-bold text-gray-850 outline-none focus:border-green-600 focus:ring-1 focus:ring-green-500 transition-all text-center" />
                                                     </td>
                                                     {/* Price */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100 bg-green-50/40">
-                                                        <input type="number" placeholder="0.00" value={row.price} onChange={e => handleChangeRow(index, "price", e.target.value)} className="w-full bg-white border border-green-300 rounded-md px-1.5 py-1.5 text-[11px] font-bold text-gray-850 outline-none focus:border-green-600 focus:ring-1 focus:ring-green-500 transition-all text-center" />
+                                                        <input type="number" placeholder="0.00" value={row.price} onChange={e => handleChangeRow(index, "price", e.target.value)} className="w-full bg-white border border-green-300 rounded-md px-1.5 py-1.5 text-xs font-bold text-gray-850 outline-none focus:border-green-600 focus:ring-1 focus:ring-green-500 transition-all text-center" />
                                                     </td>
                                                     {/* MRP */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100 bg-green-50/40">
-                                                        <input type="number" placeholder="0.00" value={row.mrp} onChange={e => handleChangeRow(index, "mrp", e.target.value)} className="w-full bg-white border border-green-300 rounded-md px-1.5 py-1.5 text-[11px] font-bold text-gray-850 outline-none focus:border-green-600 focus:ring-1 focus:ring-green-500 transition-all text-center" />
+                                                        <input type="number" placeholder="0.00" value={row.mrp} onChange={e => handleChangeRow(index, "mrp", e.target.value)} className="w-full bg-white border border-green-300 rounded-md px-1.5 py-1.5 text-xs font-bold text-gray-850 outline-none focus:border-green-600 focus:ring-1 focus:ring-green-500 transition-all text-center" />
                                                     </td>
                                                     {/* GST % */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100 bg-green-50/40">
-                                                        <select value={row.gstPercent || "0"} onChange={e => handleChangeRow(index, "gstPercent", e.target.value)} className="w-full bg-white border border-green-300 rounded-md px-1.5 py-1.5 text-[11px] font-bold text-gray-850 outline-none focus:border-green-600 focus:ring-1 focus:ring-green-500 transition-all">
+                                                        <select value={row.gstPercent || "0"} onChange={e => handleChangeRow(index, "gstPercent", e.target.value)} className="w-full bg-white border border-green-300 rounded-md px-1.5 py-1.5 text-xs font-bold text-gray-850 outline-none focus:border-green-600 focus:ring-1 focus:ring-green-500 transition-all">
                                                             <option value="0">0%</option>
                                                             <option value="5">5%</option>
                                                             <option value="12">12%</option>
@@ -935,19 +938,19 @@ export default function VendorList() {
                                                     </td>
                                                     {/* Discount % */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100 bg-green-50/40">
-                                                        <input type="number" placeholder="0" value={row.discountPercent} onChange={e => handleChangeRow(index, "discountPercent", e.target.value)} className="w-full bg-white border border-green-300 rounded-md px-1.5 py-1.5 text-[11px] font-bold text-gray-850 outline-none focus:border-green-600 focus:ring-1 focus:ring-green-500 transition-all text-center" />
+                                                        <input type="number" placeholder="0" value={row.discountPercent} onChange={e => handleChangeRow(index, "discountPercent", e.target.value)} className="w-full bg-white border border-green-300 rounded-md px-1.5 py-1.5 text-xs font-bold text-gray-850 outline-none focus:border-green-600 focus:ring-1 focus:ring-green-500 transition-all text-center" />
                                                     </td>
                                                     {/* Product Code */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100">
-                                                        <input type="text" placeholder="Code" value={row.productCode} onChange={e => handleChangeRow(index, "productCode", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400" />
+                                                        <input type="text" placeholder="Code" value={row.productCode} onChange={e => handleChangeRow(index, "productCode", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400" />
                                                     </td>
                                                     {/* Brand */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100">
-                                                        <input type="text" placeholder="Brand" value={row.brand} onChange={e => handleChangeRow(index, "brand", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400" />
+                                                        <input type="text" placeholder="Brand" value={row.brand} onChange={e => handleChangeRow(index, "brand", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400" />
                                                     </td>
                                                     {/* Unit */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100">
-                                                        <select value={row.unit || "PIECE"} onChange={e => handleChangeRow(index, "unit", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all">
+                                                        <select value={row.unit || "PIECE"} onChange={e => handleChangeRow(index, "unit", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all">
                                                             <option value="PIECE">PIECE</option>
                                                             <option value="BOX">BOX</option>
                                                             <option value="PAIR">PAIR</option>
@@ -955,71 +958,71 @@ export default function VendorList() {
                                                     </td>
                                                     {/* Sph */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100">
-                                                        <input type="text" placeholder="Sph" value={row.sph} onChange={e => handleChangeRow(index, "sph", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400 disabled:bg-gray-100 disabled:opacity-40" disabled={row.category && row.category !== 'LENS' && row.category !== 'CONTACT_LENS'} />
+                                                        <input type="text" placeholder="Sph" value={row.sph} onChange={e => handleChangeRow(index, "sph", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400 disabled:bg-gray-100 disabled:opacity-40" disabled={row.category && row.category !== 'LENS' && row.category !== 'CONTACT_LENS'} />
                                                     </td>
                                                     {/* Cyl */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100">
-                                                        <input type="text" placeholder="Cyl" value={row.cyl} onChange={e => handleChangeRow(index, "cyl", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400 disabled:bg-gray-100 disabled:opacity-40" disabled={row.category && row.category !== 'LENS' && row.category !== 'CONTACT_LENS'} />
+                                                        <input type="text" placeholder="Cyl" value={row.cyl} onChange={e => handleChangeRow(index, "cyl", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400 disabled:bg-gray-100 disabled:opacity-40" disabled={row.category && row.category !== 'LENS' && row.category !== 'CONTACT_LENS'} />
                                                     </td>
                                                     {/* Axis */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100">
-                                                        <input type="text" placeholder="Axis" value={row.axis} onChange={e => handleChangeRow(index, "axis", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400 disabled:bg-gray-100 disabled:opacity-40" disabled={row.category && row.category !== 'LENS' && row.category !== 'CONTACT_LENS'} />
+                                                        <input type="text" placeholder="Axis" value={row.axis} onChange={e => handleChangeRow(index, "axis", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400 disabled:bg-gray-100 disabled:opacity-40" disabled={row.category && row.category !== 'LENS' && row.category !== 'CONTACT_LENS'} />
                                                     </td>
                                                     {/* Add */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100">
-                                                        <input type="text" placeholder="Add" value={row.add} onChange={e => handleChangeRow(index, "add", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400 disabled:bg-gray-100 disabled:opacity-40" disabled={row.category && row.category !== 'LENS' && row.category !== 'CONTACT_LENS'} />
+                                                        <input type="text" placeholder="Add" value={row.add} onChange={e => handleChangeRow(index, "add", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400 disabled:bg-gray-100 disabled:opacity-40" disabled={row.category && row.category !== 'LENS' && row.category !== 'CONTACT_LENS'} />
                                                     </td>
                                                     {/* Index */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100">
-                                                        <input type="text" placeholder="Index" value={row.index} onChange={e => handleChangeRow(index, "index", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400 disabled:bg-gray-100 disabled:opacity-40" disabled={row.category && row.category !== 'LENS' && row.category !== 'CONTACT_LENS'} />
+                                                        <input type="text" placeholder="Index" value={row.index} onChange={e => handleChangeRow(index, "index", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400 disabled:bg-gray-100 disabled:opacity-40" disabled={row.category && row.category !== 'LENS' && row.category !== 'CONTACT_LENS'} />
                                                     </td>
                                                     {/* Tint */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100">
-                                                        <input type="text" placeholder="Tint" value={row.tint} onChange={e => handleChangeRow(index, "tint", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400 disabled:bg-gray-100 disabled:opacity-40" disabled={row.category && row.category !== 'LENS'} />
+                                                        <input type="text" placeholder="Tint" value={row.tint} onChange={e => handleChangeRow(index, "tint", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400 disabled:bg-gray-100 disabled:opacity-40" disabled={row.category && row.category !== 'LENS'} />
                                                     </td>
                                                     {/* Coating */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100">
-                                                        <input type="text" placeholder="Coating" value={row.coating} onChange={e => handleChangeRow(index, "coating", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400 disabled:bg-gray-100 disabled:opacity-40" disabled={row.category && row.category !== 'LENS'} />
+                                                        <input type="text" placeholder="Coating" value={row.coating} onChange={e => handleChangeRow(index, "coating", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400 disabled:bg-gray-100 disabled:opacity-40" disabled={row.category && row.category !== 'LENS'} />
                                                     </td>
                                                     {/* Expiry */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100">
-                                                        <input type="date" value={row.expiry} onChange={e => handleChangeRow(index, "expiry", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400 disabled:bg-gray-100 disabled:opacity-40" disabled={row.category && row.category !== 'CONTACT_LENS'} />
+                                                        <input type="date" value={row.expiry} onChange={e => handleChangeRow(index, "expiry", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400 disabled:bg-gray-100 disabled:opacity-40" disabled={row.category && row.category !== 'CONTACT_LENS'} />
                                                     </td>
                                                     {/* Disposability */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100">
-                                                        <input type="text" placeholder="Daily/Monthly" value={row.disposability} onChange={e => handleChangeRow(index, "disposability", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400 disabled:bg-gray-100 disabled:opacity-40" disabled={row.category && row.category !== 'CONTACT_LENS'} />
+                                                        <input type="text" placeholder="Daily/Monthly" value={row.disposability} onChange={e => handleChangeRow(index, "disposability", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400 disabled:bg-gray-100 disabled:opacity-40" disabled={row.category && row.category !== 'CONTACT_LENS'} />
                                                     </td>
                                                     {/* Color */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100">
-                                                        <input type="text" placeholder="Color" value={row.color} onChange={e => handleChangeRow(index, "color", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400" />
+                                                        <input type="text" placeholder="Color" value={row.color} onChange={e => handleChangeRow(index, "color", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400" />
                                                     </td>
                                                     {/* Size */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100">
-                                                        <input type="text" placeholder="Size" value={row.size} onChange={e => handleChangeRow(index, "size", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400" />
+                                                        <input type="text" placeholder="Size" value={row.size} onChange={e => handleChangeRow(index, "size", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400" />
                                                     </td>
                                                     {/* Shape */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100">
-                                                        <input type="text" placeholder="Shape" value={row.shape} onChange={e => handleChangeRow(index, "shape", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400" />
+                                                        <input type="text" placeholder="Shape" value={row.shape} onChange={e => handleChangeRow(index, "shape", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400" />
                                                     </td>
                                                     {/* Material */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100">
-                                                        <input type="text" placeholder="Material" value={row.material} onChange={e => handleChangeRow(index, "material", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400" />
+                                                        <input type="text" placeholder="Material" value={row.material} onChange={e => handleChangeRow(index, "material", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400" />
                                                     </td>
                                                     {/* Dimensions */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100">
-                                                        <input type="text" placeholder="e.g. 52-18" value={row.dimensions} onChange={e => handleChangeRow(index, "dimensions", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400" />
+                                                        <input type="text" placeholder="e.g. 52-18" value={row.dimensions} onChange={e => handleChangeRow(index, "dimensions", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400" />
                                                     </td>
                                                     {/* HSN/SAC */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100">
-                                                        <input type="text" placeholder="HSN/SAC" value={row.hsnSac} onChange={e => handleChangeRow(index, "hsnSac", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400" />
+                                                        <input type="text" placeholder="HSN/SAC" value={row.hsnSac} onChange={e => handleChangeRow(index, "hsnSac", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400" />
                                                     </td>
                                                     {/* Discount Amt */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100">
-                                                        <input type="number" placeholder="0" value={row.discountAmount} onChange={e => handleChangeRow(index, "discountAmount", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all text-center" />
+                                                        <input type="number" placeholder="0" value={row.discountAmount} onChange={e => handleChangeRow(index, "discountAmount", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all text-center" />
                                                     </td>
                                                     {/* Expected Date */}
                                                     <td className="px-1 py-1.5 border-r border-gray-100">
-                                                        <input type="date" value={row.expectedDate} onChange={e => handleChangeRow(index, "expectedDate", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400" />
+                                                        <input type="date" value={row.expectedDate} onChange={e => handleChangeRow(index, "expectedDate", e.target.value)} className="w-full bg-white border border-gray-300 rounded-md px-1.5 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-[#2980B9] focus:ring-1 focus:ring-[#2980B9] transition-all placeholder:text-gray-400" />
                                                     </td>
                                                     {/* Delete */}
                                                     <td className="px-1 py-1.5 text-center bg-gray-50/30 group-hover:bg-white transition-colors">
@@ -1037,7 +1040,7 @@ export default function VendorList() {
                                 <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-3 flex-wrap bg-gray-50/80">
                                     <div className="flex items-center gap-1.5">
                                         <Icon icon="mdi:table-row-plus-after" className="text-[#2980B9] text-base" />
-                                        <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">ADD ROWS:</span>
+                                        <span className="text-xs font-black uppercase tracking-widest text-gray-500">ADD ROWS:</span>
                                     </div>
                                     {[1, 5, 10, 20, 50].map(num => (
                                         <button key={num} onClick={() => setActiveRows(prev => [...prev, ...Array(num).fill(emptyRow)])}
@@ -1074,16 +1077,16 @@ export default function VendorList() {
                                 {/* Totals */}
                                 <div className="w-full lg:w-80 bg-gray-50/50 border border-gray-100 rounded-[2rem] p-6 space-y-3 shadow-inner">
                                     <div className="flex justify-between items-center px-2">
-                                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Net Amount</span>
+                                        <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Net Amount</span>
                                         <span className="text-xs font-bold text-gray-700">₹ {orderSummary.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                     </div>
                                     <div className="flex justify-between items-center px-2">
-                                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">GST Surcharge</span>
+                                        <span className="text-xs font-black text-gray-400 uppercase tracking-widest">GST Surcharge</span>
                                         <span className="text-xs font-bold text-gray-700">₹ {orderSummary.gstTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                     </div>
                                     <div className="h-px bg-gray-100 mx-2 my-1" />
                                     <div className="flex justify-between items-center px-2 pt-1">
-                                        <span className="text-[10px] font-black text-erp-accent uppercase tracking-[0.2em]">Grand Total</span>
+                                        <span className="text-xs font-black text-erp-accent uppercase tracking-[0.2em]">Grand Total</span>
                                         <span className="text-xl font-black text-erp-accent">₹ {orderSummary.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                     </div>
                                 </div>
@@ -1092,23 +1095,24 @@ export default function VendorList() {
                             {/* Action buttons */}
                             <div className="flex items-center justify-between gap-4">
                                 <button onClick={handleClearOrder}
-                                    className="flex items-center gap-2 px-8 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 bg-white border border-gray-100 rounded-full hover:bg-gray-50 hover:text-gray-600 transition-all">
+                                    className="flex items-center gap-2 px-8 py-3.5 text-xs font-black uppercase tracking-[0.2em] text-gray-400 bg-white border border-gray-100 rounded-full hover:bg-gray-50 hover:text-gray-600 transition-all">
                                     <Icon icon="mdi:refresh" className="text-lg" /> Reset Order
                                 </button>
                                 <div className="flex gap-4">
                                     <button onClick={() => { setShowOrderModal(false); handleClearOrder(); }}
-                                        className="px-8 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 hover:text-gray-600 transition-all">
+                                        className="px-8 py-3.5 text-xs font-black uppercase tracking-[0.2em] text-gray-400 hover:text-gray-600 transition-all">
                                         Cancel
                                     </button>
                                     <button onClick={handleSubmitOrder}
-                                        className="flex items-center gap-3 px-12 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] text-white bg-erp-accent hover:bg-erp-accent/90 active:scale-95 rounded-full transition-all shadow-xl shadow-erp-accent/30">
+                                        className="flex items-center gap-3 px-12 py-3.5 text-xs font-black uppercase tracking-[0.2em] text-white bg-erp-accent hover:bg-erp-accent/90 active:scale-95 rounded-full transition-all shadow-xl shadow-erp-accent/30">
                                         <Icon icon="mdi:cart-check" className="text-xl" /> Create Order
                                     </button>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* ── Edit Vendor Modal ── */}
@@ -1175,7 +1179,7 @@ function EditVendorModal({ vendor, onClose, onSuccess }) {
                     </div>
                     <div>
                         <h2 className="text-lg font-black uppercase tracking-widest text-gray-800">Edit Vendor</h2>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Update partner credentials</p>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Update partner credentials</p>
                     </div>
                 </div>
                 <button onClick={onClose} className="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 transition-all group">
@@ -1186,7 +1190,7 @@ function EditVendorModal({ vendor, onClose, onSuccess }) {
             {/* Fields */}
             <div className="px-8 py-8 space-y-6">
                 {error && (
-                    <div className="bg-rose-50 border border-rose-100 text-rose-500 text-[10px] font-black uppercase tracking-widest px-4 py-3 rounded-xl animate-shake">
+                    <div className="bg-rose-50 border border-rose-100 text-rose-500 text-xs font-black uppercase tracking-widest px-4 py-3 rounded-xl animate-shake">
                         {error}
                     </div>
                 )}
@@ -1257,11 +1261,11 @@ function EditVendorModal({ vendor, onClose, onSuccess }) {
 
             {/* Footer */}
             <div className="px-8 py-6 border-t border-gray-50 bg-gray-50/30 flex justify-end gap-4 rounded-b-2xl">
-                <button onClick={onClose} className="px-8 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-all">
+                <button onClick={onClose} className="px-8 py-3 text-xs font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-all">
                     Cancel
                 </button>
                 <button onClick={handleSubmit} disabled={loading}
-                    className="flex items-center gap-3 px-10 py-3 text-[10px] font-black uppercase tracking-widest text-white bg-erp-accent hover:bg-erp-accent/90 active:scale-95 disabled:opacity-50 rounded-full transition-all shadow-xl shadow-erp-accent/20">
+                    className="flex items-center gap-3 px-10 py-3 text-xs font-black uppercase tracking-widest text-white bg-erp-accent hover:bg-erp-accent/90 active:scale-95 disabled:opacity-50 rounded-full transition-all shadow-xl shadow-erp-accent/20">
                     {loading ? <Icon icon="mdi:loading" className="animate-spin text-lg" /> : <Icon icon="mdi:content-save-check" className="text-lg" />}
                     {loading ? "Saving Changes..." : "Update Changes"}
                 </button>
