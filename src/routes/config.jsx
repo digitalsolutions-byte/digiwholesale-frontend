@@ -56,6 +56,7 @@ import CustomerDashboard from '../pages/CustomerDashboard';
 import { PATHS } from './paths';
 import Inventory from '../pages/Inventory';
 import Dashboard from '../components/Dashboard';
+import Settings from '../pages/Settings';
 import OtherSales from '../pages/OtherSales';
 
 export { PATHS };
@@ -220,6 +221,7 @@ export const routesConfig = [
                     ...SALES_MODULE,
                     ...REPORTS_MODULE,
                     ...TENANTS_MODULE,
+                    { path: PATHS.SETTINGS, element: Settings },
                 ],
             },
         ],

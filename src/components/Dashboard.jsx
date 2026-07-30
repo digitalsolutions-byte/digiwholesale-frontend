@@ -9,6 +9,8 @@ import {
 import { useSelector } from 'react-redux';
 import { selectCurrentUser } from '../store/slices/authSlice';
 import PlatformOwnerDashboard from './PlatformOwnerDashboard';
+import { Link } from 'react-router-dom';
+import { PATHS } from '../routes/paths';
 
 const STATUS_CONFIG = {
     Active: { color: '#2980B9', bg: 'bg-blue-50', text: 'text-blue-700' },
@@ -138,6 +140,10 @@ const Dashboard = () => {
                         </span>
                     </p>
                 </div>
+                <Link to={PATHS.SETTINGS} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl shadow-xs text-xs font-bold transition-all">
+                    <Icon icon="lucide:settings" className="text-lg text-gray-500" />
+                    Settings
+                </Link>
             </header>
 
             {/* Top Metric Cards */}

@@ -115,5 +115,6 @@ export const PATHS = {
         LIST: '/tenants/list',
         DETAILS: '/tenants/view/:id',
         EDIT: '/tenants/edit/:id',
-    }
+    },
+    SETTINGS: '/settings'
 };

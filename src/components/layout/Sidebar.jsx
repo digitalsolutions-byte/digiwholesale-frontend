@@ -118,6 +118,7 @@ const navItems = [
     // { label: 'Fitting', icon: 'lucide:ruler', path: PATHS.OPERATIONS.FITTING, page: 'FITTING' },
     // { label: 'Shipping', icon: 'lucide:send', path: PATHS.OPERATIONS.DISPATCH, page: 'SHIPPING' },
     { label: 'Inventory', icon: 'lucide:package-search', path: PATHS.INVENTORY, page: 'INVENTORY' },
+    { label: 'Settings', icon: 'lucide:settings', path: PATHS.SETTINGS },
 ];
 
 const platformOwnerNavItems = [
