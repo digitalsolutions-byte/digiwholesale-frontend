@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-toastify';
 import { Box, alpha, useTheme } from '@mui/material';
@@ -464,11 +465,14 @@ export default function Settings() {
                 </div>
             </div>
 
-            {/* Add / Edit Modal Dialog */}
-            {modalOpen && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div 
-                        className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-100"
+            {/* Add / Edit Modal Dialog – rendered via Portal so fixed backdrop covers full screen */}
+            {modalOpen && createPortal(
+                <div
+                    className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+                    onClick={() => setModalOpen(false)}
+                >
+                    <div
+                        className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Modal Header */}
@@ -571,7 +575,8 @@ export default function Settings() {
                             </div>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Confirmation modal for Deletion */}
