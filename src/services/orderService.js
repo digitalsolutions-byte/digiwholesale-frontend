@@ -29,41 +29,41 @@ export const updateOrderStatus = async (id, status) => {
 };
 
 export const getOrderProductConfigs = async () => {
-    try {
-        const fields = ['brand', 'category', 'treatment', 'index', 'productType', 'coating'];
-        const responses = await Promise.all(
-            fields.map(field => api.get(`/api/order/product-fields/${field}`).catch(() => ({ data: { data: [] } })))
-        );
+    // try {
+    //     const fields = ['brand', 'category', 'treatment', 'index', 'productType', 'coating'];
+    //     const responses = await Promise.all(
+    //         fields.map(field => api.get(`/api/order/product-fields/${field}`).catch(() => ({ data: { data: [] } })))
+    //     );
 
-        const configs = {};
-        fields.forEach((field, index) => {
-            configs[field] = responses[index]?.data?.data || [];
-        });
-        return configs;
-    } catch (error) {
-        console.error('Error fetching order product configs:', error);
-        return {};
-    }
+    //     const configs = {};
+    //     fields.forEach((field, index) => {
+    //         configs[field] = responses[index]?.data?.data || [];
+    //     });
+    //     return configs;
+    // } catch (error) {
+    //     console.error('Error fetching order product configs:', error);
+    //     return {};
+    // }
 };
 
 export const getTints = async () => {
-    try {
-        const response = await api.get('/api/order/product/get-tint');
-        return response.data?.data || [];
-    } catch (error) {
-        console.error('Error fetching tints:', error);
-        return [];
-    }
+    // try {
+    //     const response = await api.get('/api/order/product/get-tint');
+    //     return response.data?.data || [];
+    // } catch (error) {
+    //     console.error('Error fetching tints:', error);
+    //     return [];
+    // }
 };
 
 export const getFrameTypes = async () => {
-    try {
-        const response = await api.get('/api/order/product/get-frame-types');
-        return response.data?.data || [];
-    } catch (error) {
-        console.error('Error fetching frame types:', error);
-        return [];
-    }
+    // try {
+    //     const response = await api.get('/api/order/product/get-frame-types');
+    //     return response.data?.data || [];
+    // } catch (error) {
+    //     console.error('Error fetching frame types:', error);
+    //     return [];
+    // }
 };
 
 export const getProductNames = async (search = '', page = 1, limit = 10) => {
@@ -92,13 +92,13 @@ export const getProductById = async (id) => {
 };
 
 export const getCategoriesByBrand = async (brandName) => {
-    try {
-        const response = await api.get(`/api/order/product-fields/category?brand=${encodeURIComponent(brandName)}`);
-        return response.data?.data || [];
-    } catch (error) {
-        console.error('Error fetching categories by brand:', error);
-        return [];
-    }
+    // try {
+    //     const response = await api.get(`/api/order/product-fields/category?brand=${encodeURIComponent(brandName)}`);
+    //     return response.data?.data || [];
+    // } catch (error) {
+    //     console.error('Error fetching categories by brand:', error);
+    //     return [];
+    // }
 };
 
 export const resolveProductBase = async (payload) => {

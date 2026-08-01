@@ -14,7 +14,7 @@ export const getCustomerConfigs = async () => {
             '/api/product/states',
             '/api/product/billing-currencies',
             '/api/employee/sales-persons',
-            '/api/order/product-fields/brand',
+            '/api/product/brands',
             '/api/product/categories'
         ];
 
