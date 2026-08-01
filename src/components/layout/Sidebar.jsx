@@ -144,6 +144,10 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
     // Filter nav items using user.pageAccess[] only.
     // Platform Owner gets dedicated store management menu items.
+    const deptName = (user?.Department?.name || '').toLowerCase();
+    const isSalesDept = deptName.includes('sales');
+    const isFinanceDept = deptName.includes('finance');
+
     const filteredNavItems = useMemo(() => {
         if (user?.EmployeeType === 'PLATFORM_OWNER') {
             return platformOwnerNavItems;
@@ -151,9 +155,17 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         return navItems
             .map(item => {
                 if (item.subItems) {
-                    const filteredSubs = item.subItems.filter(sub =>
-                        sub.page ? hasPageAccess(sub.page) : true
-                    );
+                    const filteredSubs = item.subItems
+                        .filter(sub => (sub.page ? hasPageAccess(sub.page) : true))
+                        .map(sub => {
+                            if (sub.path === PATHS.APPROVALS) {
+                                let label = 'Pending Approvals';
+                                if (isSalesDept) label = 'Sales Head Approvals';
+                                else if (isFinanceDept) label = 'Finance Approvals';
+                                return { ...sub, label };
+                            }
+                            return sub;
+                        });
                     if (filteredSubs.length === 0) return null;
                     return { ...item, subItems: filteredSubs };
                 }
@@ -161,7 +173,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             })
             .filter(Boolean);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user]);  // re-filter whenever the stored user changes
+    }, [user, isSalesDept, isFinanceDept]);  // re-filter whenever stored user or department changes
 
     useEffect(() => {
         const newOpenSubmenus = {};

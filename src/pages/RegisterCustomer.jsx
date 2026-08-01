@@ -454,20 +454,23 @@ export default function RegisterCustomer() {
             lastLoadedIdRef.current = id;
 
             // Derive stage and check permissions
+            const urlStage = searchParams.get('stage');
             const workflow = customer.approvalWorkflow || {};
-            let stage = customer.stage;
+            let stage = urlStage || customer.stage;
             let canApprove = false;
 
-            if (hasApprovalAccess && workflow.salesHeadApprovalStatus === 'PENDING') {
+            if (stage === 'salesHead' || (!stage && workflow.salesHeadApprovalStatus === 'PENDING')) {
+                stage = 'salesHead';
+                canApprove = hasApprovalAccess && workflow.salesHeadApprovalStatus !== 'APPROVED';
+            } else if (stage === 'finance' || (!stage && workflow.financeApprovalStatus === 'PENDING')) {
+                stage = 'finance';
+                canApprove = hasApprovalAccess && workflow.financeApprovalStatus !== 'APPROVED';
+            } else if (hasApprovalAccess && workflow.salesHeadApprovalStatus === 'PENDING') {
                 canApprove = true;
                 stage = 'salesHead';
             } else if (hasApprovalAccess && workflow.financeApprovalStatus === 'PENDING') {
                 canApprove = true;
                 stage = 'finance';
-            } else if (!stage && workflow) {
-                // Fallback derivation for UI labels if user can't approve
-                if (workflow.salesHeadApprovalStatus === 'PENDING') stage = 'salesHead';
-                else if (workflow.financeApprovalStatus === 'PENDING') stage = 'finance';
             }
 
             setCurrentStage(stage || '');
@@ -479,14 +482,14 @@ export default function RegisterCustomer() {
                 setIsApprovalMode(false);
                 setIsReadOnlyMode(true);
             }
-            toast.info(canApprove ? 'Approval data loaded. Please complete the registration.' : 'Application details loaded (View Only).');
+            toast.info(canApprove ? `Loaded for ${stage === 'salesHead' ? 'Sales Head' : 'Finance'} approval.` : 'Application details loaded (View Only).');
         } catch (error) {
             console.error('Error loading approval data:', error);
             toast.error('Failed to load approval data');
         } finally {
             setLoadingDraftData(false);
         }
-    }, [hasApprovalAccess]);
+    }, [hasApprovalAccess, searchParams]);
 
     useEffect(() => {
         const fetchConfigs = async () => {
@@ -1229,7 +1232,7 @@ export default function RegisterCustomer() {
                                                             >
                                                                 <span>
                                                                     {activeStep === steps.length - 1
-                                                                        ? (isApprovalMode ? 'Approve' : (correctionCustomerId ? 'Resubmit' : (hasApprovalAccess ? 'Register' : 'Submit')))
+                                                                        ? (isApprovalMode ? (currentStage === 'salesHead' ? 'Approve as Sales Head' : 'Approve & Finalize (Finance)') : (correctionCustomerId ? 'Resubmit' : (hasApprovalAccess ? 'Register' : 'Submit')))
                                                                         : 'Next Step'}
                                                                 </span>
                                                                 <Icon icon={activeStep === steps.length - 1 ? "mdi:check-decagram" : "mdi:arrow-right-circle"} className="text-sm" />
