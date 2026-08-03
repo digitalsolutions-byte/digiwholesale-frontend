@@ -613,16 +613,38 @@ export default function RegisterCustomer() {
                 .trim();
         };
 
+        const getFieldsForStep = (stepIdx) => {
+            switch (stepIdx) {
+                case 0:
+                    return ['gstType', 'gstTypeRefId', 'firmName', 'gstNumber', 'gstCertificateImg', 'shopName', 'aadharCard', 'aadharCardImg', 'panCard', 'panCardImg', 'customerpassword'];
+                case 1:
+                    return ['billToAddress', 'customerShipToDetails'];
+                case 2:
+                    return ['minSalesValue', 'creditDaysRefId', 'proposedDiscount', 'finalDiscount', 'creditLimit', 'specificLabRefId', 'plantRefId', 'fittingCenterRefId', 'courierNameRefId', 'courierTimeRefId'];
+                case 3:
+                    return ['ownerName', 'mobileNo1', 'mobileNo2', 'businessEmail', 'zoneRefId', 'salesPersonRefId'];
+                default:
+                    return [];
+            }
+        };
+
         if (activeStep < steps.length - 1) {
             if (isStepValid(activeStep)) {
                 setStep(activeStep + 1);
             } else {
                 const errors = await formik.validateForm();
                 const flatErrors = getFlatErrors(errors);
-                const labels = [...new Set(flatErrors.map(e => formatLabel(e.path)))];
+                const stepFields = getFieldsForStep(activeStep);
+                const stepErrors = flatErrors.filter(e => {
+                    const rootKey = e.path.split(/[.[\]]+/)[0];
+                    return stepFields.includes(rootKey);
+                });
+                const labels = [...new Set(stepErrors.map(e => formatLabel(e.path)))];
 
                 if (labels.length > 0) {
                     toast.warning(`Please fix the following fields in ${steps[activeStep]}: ${labels.join(', ')}`);
+                } else {
+                    toast.warning(`Please complete all required fields in ${steps[activeStep]}`);
                 }
 
                 // Mark all invalid fields as touched deeply

@@ -11,6 +11,7 @@ import Button from '../components/ui/Button';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import CustomToggle from '../components/ui/CustomToggle';
 import ConfirmationModal from '../components/ui/ConfirmationModal';
+import OrderLensRangeModal from '../components/ui/OrderLensRangeModal';
 
 import { getAllCustomers, getCustomerById } from '../services/customerService';
 import {
@@ -99,9 +100,53 @@ const Th = ({ children }) => (
     </div>
 );
 
+const resolveCategory = (catVal, configCategories = []) => {
+    if (!catVal) return { categoryId: '', categoryName: '' };
+    const valStr = String(catVal).trim();
+    const matched = (configCategories || []).find(c =>
+        c._id === valStr ||
+        c.id === valStr ||
+        (c.name && c.name.toUpperCase() === valStr.toUpperCase())
+    );
+    if (matched) {
+        return { categoryId: matched._id || matched.id, categoryName: matched.name };
+    }
+    return { categoryId: valStr, categoryName: valStr };
+};
+
+const resolveBrand = (brandVal, configBrands = []) => {
+    if (!brandVal) return { brandId: '', brandName: '' };
+    const valStr = String(brandVal).trim();
+    const matched = (configBrands || []).find(b =>
+        b._id === valStr ||
+        b.id === valStr ||
+        (b.name && b.name.toUpperCase() === valStr.toUpperCase())
+    );
+    if (matched) {
+        return { brandId: matched._id || matched.id, brandName: matched.name };
+    }
+    return { brandId: brandVal, brandName: brandVal };
+};
+
+const resolveIndex = (idxVal, configIndexes = []) => {
+    if (idxVal === undefined || idxVal === null || idxVal === '') return '';
+    const valStr = String(idxVal).trim();
+    const matched = (configIndexes || []).find(i =>
+        i._id === valStr ||
+        i.id === valStr ||
+        i.value?.toString() === valStr ||
+        i.name?.toString() === valStr
+    );
+    if (matched) {
+        return matched.value?.toString() || matched.name?.toString() || matched.label?.toString() || valStr;
+    }
+    return valStr;
+};
+
 const OrderWizard = () => {
     const user = useSelector((state) => state.auth.user);
     const [activeStep, setActiveStep] = useState(0);
+    const [isLensRangeModalOpen, setIsLensRangeModalOpen] = useState(false);
     const [deleteModalState, setDeleteModalState] = useState({ isOpen: false, indexToRemove: null });
     const [customers, setCustomers] = useState([]);
     const [configs, setConfigs] = useState({});
@@ -154,8 +199,8 @@ const OrderWizard = () => {
         brand: '',
         photos: [],
         powerMode: 'both',
-        productMode: 'stock',
-        orderType: 'stock',
+        productMode: 'rx',
+        orderType: 'rx',
         hasPrism: 'no',
         powerTable: {
             R: { sph: '', cyl: '', axis: '', add: '', dia: '70' },
@@ -348,9 +393,11 @@ const OrderWizard = () => {
                                     orderType: isRx ? 'rx' : 'stock',
                                     hasPrism: (prod.hasPrism || prismsSource?.length > 0) ? 'yes' : 'no',
                                     selectedSide: powersSource?.[0]?.side || 'R',
-                                    brandId: prod.brand?.id || prod.brand || '',
-                                    categoryId: prod.category?.id || '',
-                                    category: prod.category?.name || prod.category || '',
+                                    brandId: resolveBrand(prod.brand?.name || prod.brand?.id || prod.brand || prod.brandId || prod.Brand, configs.brand).brandId,
+                                    Brand: resolveBrand(prod.brand?.name || prod.brand?.id || prod.brand || prod.brandId || prod.Brand, configs.brand).brandName,
+                                    brand: resolveBrand(prod.brand?.name || prod.brand?.id || prod.brand || prod.brandId || prod.Brand, configs.brand).brandName,
+                                    categoryId: resolveCategory(prod.category?.name || prod.category?.id || prod.category || prod.categoryId, configs.category).categoryId,
+                                    category: resolveCategory(prod.category?.name || prod.category?.id || prod.category || prod.categoryId, configs.category).categoryName,
                                     treatmentId: prod.treatment?.id || '',
                                     indexId: (prod.index !== undefined && prod.index !== null) ? prod.index.toString() : '',
                                     index: (prod.index !== undefined && prod.index !== null) ? prod.index.toString() : '',
@@ -531,6 +578,55 @@ const OrderWizard = () => {
         }
     }, [id]);
 
+    const handleAddBulkProducts = (newProducts) => {
+        const currentProducts = formik.values.products || [];
+        const substantial = currentProducts.filter(p => {
+            return !!(p.productName || p.brandId || p.categoryId || p.brand || p.productId);
+        });
+        const sanitizedNewProducts = (newProducts || []).map(p => ({
+            ...p,
+            powerTable: p.powerTable || {
+                R: { sph: p.sph || '', cyl: p.cyl || '', axis: p.axis || '', add: p.addition || '', dia: '70' },
+                L: { sph: p.sph || '', cyl: p.cyl || '', axis: p.axis || '', add: p.addition || '', dia: '70' }
+            },
+            prismTable: p.prismTable || {
+                R: { prism: '', base: '' },
+                L: { prism: '', base: '' }
+            },
+            centrationData: p.centrationData || {
+                R: { pd: '', corridor: '', fittingHeight: '' },
+                L: { pd: '', corridor: '', fittingHeight: '' }
+            }
+        }));
+        const merged = [...substantial, ...sanitizedNewProducts];
+        formik.setFieldValue('products', merged);
+        setActiveProductIndex(Math.max(0, merged.length - 1));
+
+        // Inject new products to searchable product list
+        sanitizedNewProducts.forEach(prod => {
+            setProductNames(prev => {
+                if (prev.some(p => p.value === prod.productId)) return prev;
+                return [...prev, {
+                    value: prod.productId,
+                    label: prod.productName,
+                    raw: {
+                        _id: prod.productId,
+                        productName: prod.productName,
+                        category: prod.category,
+                        brand: prod.brand,
+                        price: prod.price,
+                        mrp: prod.MRP,
+                        gst: parseFloat(prod.gstDetails?.gstPercent) || 12,
+                        hsnSac: prod.HSNSAC,
+                        sph: prod.powerTable?.R?.sph || '',
+                        cyl: prod.powerTable?.R?.cyl || '',
+                        addition: prod.powerTable?.R?.add || ''
+                    }
+                }];
+            });
+        });
+    };
+
     const formatOrderPayload = (values, status) => {
         const getFieldData = (field, id) => {
             const configSource = field === 'tints' ? configs.tints : configs[field];
@@ -601,11 +697,12 @@ const OrderWizard = () => {
 
             // Add fields only for LENS & CONTACT_LENS
             if (cat === 'LENS' || cat === 'CONTACT_LENS') {
-                const primarySide = prod.powerMode === 'single' ? prod.selectedSide : 'R';
-                baseItem.sph = parseFloat(prod.powerTable[primarySide].sph) || 0;
-                baseItem.cyl = parseFloat(prod.powerTable[primarySide].cyl) || 0;
-                baseItem.axis = parseFloat(prod.powerTable[primarySide].axis) || 0;
-                baseItem.add = parseFloat(prod.powerTable[primarySide].add) || 0;
+                const primarySide = (prod.powerMode === 'single' && prod.selectedSide) ? prod.selectedSide : 'R';
+                const pSide = prod.powerTable?.[primarySide] || {};
+                baseItem.sph = parseFloat(pSide.sph) || 0;
+                baseItem.cyl = parseFloat(pSide.cyl) || 0;
+                baseItem.axis = parseFloat(pSide.axis) || 0;
+                baseItem.add = parseFloat(pSide.add) || 0;
                 baseItem.index = parseFloat(prod.indexId || prod.index || prod.Index) || 0;
                 baseItem.tint = tintData?.name || prod.tint || prod.Tint || '';
                 baseItem.coating = coatingData?.name || prod.coating || prod.Coating || '';
@@ -630,50 +727,59 @@ const OrderWizard = () => {
             // If it is RX order, add nested rx object
             if (isRx) {
                 const powers = [];
-                const mapPower = (side) => ({
-                    side,
-                    sph: parseFloat(prod.powerTable[side].sph) || 0,
-                    cyl: parseFloat(prod.powerTable[side].cyl) || 0,
-                    axis: parseFloat(prod.powerTable[side].axis) || 0,
-                    add: parseFloat(prod.powerTable[side].add) || 0,
-                    diameter: parseFloat(prod.powerTable[side].dia) || 70
-                });
+                const mapPower = (side) => {
+                    const pSide = prod.powerTable?.[side] || {};
+                    return {
+                        side,
+                        sph: parseFloat(pSide.sph) || 0,
+                        cyl: parseFloat(pSide.cyl) || 0,
+                        axis: parseFloat(pSide.axis) || 0,
+                        add: parseFloat(pSide.add) || 0,
+                        diameter: parseFloat(pSide.dia) || 70
+                    };
+                };
 
                 if (prod.powerMode === 'both') {
                     powers.push(mapPower('R'));
                     powers.push(mapPower('L'));
                 } else {
-                    powers.push(mapPower(prod.selectedSide));
+                    powers.push(mapPower(prod.selectedSide || 'R'));
                 }
 
                 const prisms = [];
                 if (prod.hasPrism === 'yes') {
-                    const mapPrism = (side) => ({
-                        side,
-                        prism: parseFloat(prod.prismTable[side].prism) || 0,
-                        base: prod.prismTable[side].base || ''
-                    });
+                    const mapPrism = (side) => {
+                        const prSide = prod.prismTable?.[side] || {};
+                        return {
+                            side,
+                            prism: parseFloat(prSide.prism) || 0,
+                            base: prSide.base || ''
+                        };
+                    };
                     if (prod.powerMode === 'both') {
                         prisms.push(mapPrism('R'));
                         prisms.push(mapPrism('L'));
                     } else {
-                        prisms.push(mapPrism(prod.selectedSide));
+                        prisms.push(mapPrism(prod.selectedSide || 'R'));
                     }
                 }
 
                 const centration = [];
-                const mapCentration = (side) => ({
-                    side,
-                    pd: parseFloat(prod.centrationData[side].pd) || 0,
-                    corridor: parseFloat(prod.centrationData[side].corridor) || 0,
-                    fittingHeight: parseFloat(prod.centrationData[side].fittingHeight) || 0
-                });
+                const mapCentration = (side) => {
+                    const cSide = prod.centrationData?.[side] || {};
+                    return {
+                        side,
+                        pd: parseFloat(cSide.pd) || 0,
+                        corridor: parseFloat(cSide.corridor) || 0,
+                        fittingHeight: parseFloat(cSide.fittingHeight) || 0
+                    };
+                };
 
                 if (prod.powerMode === 'both') {
                     centration.push(mapCentration('R'));
                     centration.push(mapCentration('L'));
                 } else {
-                    centration.push(mapCentration(prod.selectedSide));
+                    centration.push(mapCentration(prod.selectedSide || 'R'));
                 }
 
                 const rxVendor = getFieldData('vendors', prod.vendorId);
@@ -821,8 +927,11 @@ const OrderWizard = () => {
             console.log('Searching products for index:', index, { search, brand: brandName, category: categoryName });
             setLoadingProductNames(true);
             try {
-                const data = await getProductNames(search, 1, 100);
-                const items = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+                const response = await getProductNames(search, 1, 100, brandName, categoryName);
+                const rawData = response?.data || response;
+                const items = Array.isArray(rawData?.data)
+                    ? rawData.data
+                    : (Array.isArray(rawData) ? rawData : (Array.isArray(response) ? response : []));
                 console.log('Fetched products:', items);
                 setProductNames(items.map(p => ({
                     value: p._id || p.id || p.productName || '',
@@ -839,29 +948,39 @@ const OrderWizard = () => {
     };
 
     const handleProductSelection = (index, selectedValue) => {
-        const option = productNames.find(p => p.value === selectedValue);
         const prefix = `products.${index}.`;
+
+        if (!selectedValue) {
+            formik.setFieldValue(`${prefix}productId`, '');
+            formik.setFieldValue(`${prefix}productName`, '');
+            formik.setFieldValue(`${prefix}itemName`, '');
+            return;
+        }
+
+        const option = productNames.find(p => p.value === selectedValue || p.label === selectedValue);
 
         if (option && option.raw) {
             const rawProd = option.raw;
             formik.setFieldValue(`${prefix}productId`, rawProd._id || rawProd.id || '');
             formik.setFieldValue(`${prefix}productName`, rawProd.productName || rawProd.name || '');
             formik.setFieldValue(`${prefix}itemName`, rawProd.productName || rawProd.name || '');
-            formik.setFieldValue(`${prefix}category`, rawProd.category || '');
-            formik.setFieldValue(`${prefix}Brand`, rawProd.brand || '');
+
+            // Auto select stock option when a product is selected
+            formik.setFieldValue(`${prefix}productMode`, 'stock');
+            formik.setFieldValue(`${prefix}orderType`, 'stock');
+
+            const catInfo = resolveCategory(rawProd.category, configs.category || []);
+            formik.setFieldValue(`${prefix}categoryId`, catInfo.categoryId);
+            formik.setFieldValue(`${prefix}category`, catInfo.categoryName);
+
+            const brandInfo = resolveBrand(rawProd.brand || rawProd.Brand, configs.brand || []);
+            formik.setFieldValue(`${prefix}brandId`, brandInfo.brandId);
+            formik.setFieldValue(`${prefix}Brand`, brandInfo.brandName);
+            formik.setFieldValue(`${prefix}brand`, brandInfo.brandName);
+
             formik.setFieldValue(`${prefix}price`, rawProd.price || 0);
             formik.setFieldValue(`${prefix}MRP`, rawProd.mrp || rawProd.MRP || 0);
             formik.setFieldValue(`${prefix}qty`, 1);
-
-            // Map brandId and categoryId if they exist in configs
-            const matchedCategory = configs.category?.find(c => c.name?.toUpperCase() === rawProd.category?.toUpperCase());
-            if (matchedCategory) {
-                formik.setFieldValue(`${prefix}categoryId`, matchedCategory._id);
-            }
-            const matchedBrand = configs.brand?.find(b => b.name?.toUpperCase() === rawProd.brand?.toUpperCase());
-            if (matchedBrand) {
-                formik.setFieldValue(`${prefix}brandId`, matchedBrand._id);
-            }
 
             // Set GST details
             formik.setFieldValue(`${prefix}gstDetails`, {
@@ -888,11 +1007,13 @@ const OrderWizard = () => {
             formik.setFieldValue(`${prefix}HSNSAC`, rawProd.hsnSac || rawProd.HSNSAC || '');
             formik.setFieldValue(`${prefix}expiry`, rawProd.expiry || '');
 
-            // Map lens-specific fields from raw product
-            if (rawProd.index) {
-                formik.setFieldValue(`${prefix}indexId`, rawProd.index.toString());
-                formik.setFieldValue(`${prefix}index`, rawProd.index.toString());
+            // Map lens-specific fields with resolveIndex
+            const idxVal = resolveIndex(rawProd.index, configs.index || []);
+            if (idxVal) {
+                formik.setFieldValue(`${prefix}indexId`, idxVal);
+                formik.setFieldValue(`${prefix}index`, idxVal);
             }
+
             if (rawProd.coating) {
                 const matchedCoating = configs.coating?.find(c => c.name?.toUpperCase() === rawProd.coating.toUpperCase());
                 formik.setFieldValue(`${prefix}coatingId`, matchedCoating?._id || rawProd.coating);
@@ -950,8 +1071,14 @@ const OrderWizard = () => {
 
                     set('productCode', fullProd.productCode || '');
                     set('code', fullProd.productCode || '');
-                    set('category', fullProd.category || '');
-                    set('Brand', fullProd.brand || '');
+                    const catInfo = resolveCategory(fullProd.category, configs.category || []);
+                    set('categoryId', catInfo.categoryId);
+                    set('category', catInfo.categoryName);
+
+                    const brandInfo = resolveBrand(fullProd.brand || fullProd.Brand, configs.brand || []);
+                    set('brandId', brandInfo.brandId);
+                    set('Brand', brandInfo.brandName);
+                    set('brand', brandInfo.brandName);
                     set('price', fullProd.price || 0);
                     set('MRP', fullProd.mrp || fullProd.MRP || 0);
                     set('color', fullProd.color || '');
@@ -963,7 +1090,6 @@ const OrderWizard = () => {
                     set('image', fullProd.image || '');
                     set('HSNSAC', fullProd.hsnSac || fullProd.HSNSAC || '');
                     set('expiry', fullProd.expiry || '');
-                    set('index', fullProd.index?.toString() || '');
                     set('coating', fullProd.coating || '');
                     set('treatment', fullProd.treatment || '');
                     set('tint', fullProd.tint || '');
@@ -972,10 +1098,10 @@ const OrderWizard = () => {
                     set('axis', fullProd.axis || '');
                     set('addition', fullProd.addition || fullProd.add || '');
 
-                    if (fullProd.index) {
-                        set('indexId', fullProd.index.toString());
-                        const matchedIndex = configs.index?.find(i => i.value?.toString() === fullProd.index.toString());
-                        if (matchedIndex) set('indexId', matchedIndex._id || fullProd.index.toString());
+                    const fullIdxVal = resolveIndex(fullProd.index, configs.index || []);
+                    if (fullIdxVal) {
+                        set('indexId', fullIdxVal);
+                        set('index', fullIdxVal);
                     }
                     if (fullProd.coating) {
                         const matchedCoating = configs.coating?.find(c => c.name?.toUpperCase() === fullProd.coating.toUpperCase());
@@ -1069,7 +1195,8 @@ const OrderWizard = () => {
         setResolutionResult(null);
         try {
             const powers = [];
-            const rSide = formik.values.powerTable.R;
+            const pTable = activeProduct?.powerTable || formik.values.powerTable || { R: {}, L: {} };
+            const rSide = pTable.R || {};
             powers.push({
                 side: 'R',
                 sph: parseFloat(rSide.sph) || 0,
@@ -1077,8 +1204,8 @@ const OrderWizard = () => {
                 diameter: parseFloat(rSide.dia) || 70
             });
 
-            if (formik.values.powerMode === 'both') {
-                const lSide = formik.values.powerTable.L;
+            if ((formik.values.powerMode || activeProduct?.powerMode) === 'both') {
+                const lSide = pTable.L || {};
                 powers.push({
                     side: 'L',
                     sph: parseFloat(lSide.sph) || 0,
@@ -1191,9 +1318,9 @@ const OrderWizard = () => {
                 {...props}
                 size="small"
                 error={fieldTouched && fieldError ? { message: fieldError } : null}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                value={fieldValue ?? ''}
+                onChange={props.onChange || formik.handleChange}
+                onBlur={props.onBlur || formik.handleBlur}
+                value={props.value !== undefined ? props.value : (fieldValue ?? '')}
                 disabled={props.disabled || isReadOnly}
             />
         );
@@ -1436,31 +1563,33 @@ const OrderWizard = () => {
         const catName = (categoryObj?.name || product.category || '').toUpperCase();
         const isLensCategory = !catName || catName.includes('LENS') || catName.includes('GLASS') || catName.includes('RX') || product.orderType === 'rx';
 
-        const isSideDisabled = (side) => !isLensCategory || (product.powerMode === 'single' && product.selectedSide !== side);
+        const isSideDisabled = (side) => isStock || !isLensCategory || (product.powerMode === 'single' && product.selectedSide !== side);
 
         return (
             <div className="space-y-2 p-2 bg-gray-50/60 rounded-xl border border-gray-100">
 
-                {/* ── NON-STOCK: Prescription (toggles + power + prism inline) ── */}
-                {!isStock && (
+                {/* ── Prescription (toggles + power + prism inline) ── */}
+                {isLensCategory && (
                     <div className="bg-white rounded-xl border border-gray-100 shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden">
                         {/* Header with toggles */}
                         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
-                            <span className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-500">Prescription</span>
+                            <span className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-500">
+                                Prescription {isStock ? "(Disabled in Stock mode)" : ""}
+                            </span>
                             <div className="flex flex-wrap gap-4">
                                 <PillToggle
                                     label="Power"
                                     value={product.powerMode}
                                     onChange={(v) => formik.setFieldValue(`${prefix}powerMode`, v)}
                                     options={[{ label: 'Single', value: 'single' }, { label: 'Both', value: 'both' }]}
-                                    disabled={isReadOnly}
+                                    disabled={isStock || isReadOnly}
                                 />
                                 <PillToggle
                                     label="Prism"
                                     value={product.hasPrism}
                                     onChange={(v) => formik.setFieldValue(`${prefix}hasPrism`, v)}
                                     options={[{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }]}
-                                    disabled={isReadOnly}
+                                    disabled={isStock || isReadOnly}
                                 />
                             </div>
                         </div>
@@ -1537,28 +1666,37 @@ const OrderWizard = () => {
                         {wrapInput(SearchableSelect, {
                             label: "Brand",
                             name: `${prefix}brandId`,
+                            value: {
+                                value: product.brandId || product.brand || product.Brand,
+                                label: product.Brand || product.brand || (configs.brand?.find(b => b._id === product.brandId)?.name) || product.brandId || ''
+                            },
                             options: (Array.isArray(configs.brand) ? configs.brand : []).map(b => ({ value: b._id, label: b.name })),
                             placeholder: "Select brand",
                             disabled: isReadOnly,
                             onChange: (e) => {
                                 const bId = e.target.value;
-                                const bObj = configs.brand?.find(b => b._id === bId);
+                                const bObj = configs.brand?.find(b => b._id === bId || b.name === bId);
                                 formik.setFieldValue(`${prefix}brandId`, bId);
-                                if (bObj) formik.setFieldValue(`${prefix}Brand`, bObj.name);
+                                formik.setFieldValue(`${prefix}Brand`, bObj ? bObj.name : bId);
+                                formik.setFieldValue(`${prefix}brand`, bObj ? bObj.name : bId);
                             }
                         })}
 
                         {wrapInput(SearchableSelect, {
                             label: "Category",
                             name: `${prefix}categoryId`,
+                            value: {
+                                value: product.categoryId || product.category,
+                                label: product.category || (configs.category?.find(c => c._id === product.categoryId)?.name) || product.categoryId || ''
+                            },
                             options: (Array.isArray(configs.category) ? configs.category : []).map(c => ({ value: c._id, label: c.name })),
                             placeholder: "Select category",
                             disabled: isReadOnly,
                             onChange: (e) => {
                                 const cId = e.target.value;
-                                const cObj = configs.category?.find(c => c._id === cId);
+                                const cObj = configs.category?.find(c => c._id === cId || c.name === cId);
                                 formik.setFieldValue(`${prefix}categoryId`, cId);
-                                if (cObj) formik.setFieldValue(`${prefix}category`, cObj.name);
+                                formik.setFieldValue(`${prefix}category`, cObj ? cObj.name : cId);
                             }
                         })}
 
@@ -1581,35 +1719,66 @@ const OrderWizard = () => {
                         {wrapInput(Select, {
                             label: "Treatment",
                             name: `${prefix}treatmentId`,
-                            placeholder: isLensCategory ? "Treatment" : "N/A (Lens Only)",
-                            options: (Array.isArray(configs.treatment) ? configs.treatment : []).map(t => ({ value: t._id, label: t.name })),
+                            value: product.treatmentId || (configs.treatment?.find(t => t.name?.toUpperCase() === (product.treatment || '').toUpperCase())?._id) || product.treatment || '',
+                            placeholder: isLensCategory ? "Select Treatment" : "N/A (Lens Only)",
+                            options: (Array.isArray(configs.treatment) ? configs.treatment : []).map(t => ({ value: t._id || t.name, label: t.name || t._id })),
+                            onChange: (e) => {
+                                const val = e.target.value;
+                                const tObj = configs.treatment?.find(t => t._id === val || t.name === val);
+                                formik.setFieldValue(`${prefix}treatmentId`, val);
+                                formik.setFieldValue(`${prefix}treatment`, tObj ? tObj.name : val);
+                            },
                             disabled: !isLensCategory || isReadOnly
                         })}
 
-                        {wrapInput(Select, {
+                        {wrapInput(SearchableSelect, {
                             label: "Index",
                             name: `${prefix}indexId`,
-                            placeholder: isLensCategory ? "Index" : "N/A (Lens Only)",
+                            value: {
+                                value: product.indexId || product.index || '',
+                                label: product.indexId || product.index || ''
+                            },
+                            onChange: (e) => {
+                                const val = e.target.value;
+                                formik.setFieldValue(`${prefix}indexId`, val);
+                                formik.setFieldValue(`${prefix}index`, val);
+                            },
                             options: (Array.isArray(configs.index) ? configs.index : []).map(i => {
-                                const val = i.value?.toString() || i.toString() || '';
+                                const val = i.value?.toString() || i.name?.toString() || i.toString() || '';
                                 return { value: val, label: val };
                             }),
-                            disabled: !isLensCategory || isReadOnly
+                            placeholder: isLensCategory ? "Type or select Index" : "N/A (Lens Only)",
+                            disabled: !isLensCategory || isReadOnly,
+                            freeSolo: true
                         })}
 
                         {wrapInput(Select, {
                             label: "Coating",
                             name: `${prefix}coatingId`,
-                            placeholder: isLensCategory ? "Coating" : "N/A (Lens Only)",
-                            options: (Array.isArray(configs.coating) ? configs.coating : []).map(c => ({ value: c._id, label: c.name })),
+                            value: product.coatingId || (configs.coating?.find(c => c.name?.toUpperCase() === (product.coating || '').toUpperCase())?._id) || product.coating || '',
+                            placeholder: isLensCategory ? "Select Coating" : "N/A (Lens Only)",
+                            options: (Array.isArray(configs.coating) ? configs.coating : []).map(c => ({ value: c._id || c.name, label: c.name || c._id })),
+                            onChange: (e) => {
+                                const val = e.target.value;
+                                const cObj = configs.coating?.find(c => c._id === val || c.name === val);
+                                formik.setFieldValue(`${prefix}coatingId`, val);
+                                formik.setFieldValue(`${prefix}coating`, cObj ? cObj.name : val);
+                            },
                             disabled: !isLensCategory || isReadOnly
                         })}
 
                         {wrapInput(Select, {
                             label: "Tint",
                             name: `${prefix}tintId`,
-                            placeholder: isLensCategory ? "Tint" : "N/A (Lens Only)",
-                            options: (Array.isArray(configs.tints) ? configs.tints : []).map(t => ({ value: t._id, label: t.name })),
+                            value: product.tintId || (configs.tints?.find(t => t.name?.toUpperCase() === (product.tint || '').toUpperCase())?._id) || product.tint || '',
+                            placeholder: isLensCategory ? "Select Tint" : "N/A (Lens Only)",
+                            options: (Array.isArray(configs.tints) ? configs.tints : []).map(t => ({ value: t._id || t.name, label: t.name || t._id })),
+                            onChange: (e) => {
+                                const val = e.target.value;
+                                const tObj = configs.tints?.find(t => t._id === val || t.name === val);
+                                formik.setFieldValue(`${prefix}tintId`, val);
+                                formik.setFieldValue(`${prefix}tint`, tObj ? tObj.name : val);
+                            },
                             disabled: !isLensCategory || isReadOnly
                         })}
 
@@ -1895,6 +2064,63 @@ const OrderWizard = () => {
                                             return `${product.powerTable.R?.[field] || ''} / ${product.powerTable.L?.[field] || ''}`;
                                         };
 
+                                        const renderEditablePowerCell = (field) => {
+                                            if (!isLensItem) return <span className="text-gray-300 font-normal italic">N/A</span>;
+                                            if (product.orderType === 'stock') {
+                                                const val = renderPowerField(field);
+                                                return val ? <span className="text-gray-700 font-semibold">{val}</span> : <span className="text-gray-300">—</span>;
+                                            }
+
+                                            if (product.powerMode === 'single') {
+                                                const side = product.selectedSide || 'R';
+                                                return (
+                                                    <div className="flex justify-center" onClick={(e) => e.stopPropagation()}>
+                                                        <input
+                                                            type="text"
+                                                            className="w-16 h-7 text-xs font-semibold text-center border border-gray-300 rounded-md outline-none focus:border-erp-accent focus:ring-1 focus:ring-erp-accent/20 bg-white"
+                                                            value={product.powerTable[side]?.[field] || ''}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value;
+                                                                formik.setFieldValue(`products.${index}.powerTable.${side}.${field}`, val);
+                                                            }}
+                                                            placeholder={field === 'axis' ? '0' : '0.00'}
+                                                            disabled={isReadOnly}
+                                                        />
+                                                    </div>
+                                                );
+                                            }
+
+                                            return (
+                                                <div className="flex items-center justify-center gap-1 min-w-[95px]" onClick={(e) => e.stopPropagation()}>
+                                                    <input
+                                                        type="text"
+                                                        title="Right Eye (R)"
+                                                        className="w-11 h-7 text-xs font-semibold text-center border border-gray-300 rounded-md outline-none focus:border-erp-accent focus:ring-1 focus:ring-erp-accent/20 bg-white"
+                                                        value={product.powerTable.R?.[field] || ''}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            formik.setFieldValue(`products.${index}.powerTable.R.${field}`, val);
+                                                        }}
+                                                        placeholder={field === 'axis' ? '0' : '0.00'}
+                                                        disabled={isReadOnly}
+                                                    />
+                                                    <span className="text-gray-400 font-bold text-[10px]">/</span>
+                                                    <input
+                                                        type="text"
+                                                        title="Left Eye (L)"
+                                                        className="w-11 h-7 text-xs font-semibold text-center border border-gray-300 rounded-md outline-none focus:border-erp-accent focus:ring-1 focus:ring-erp-accent/20 bg-white"
+                                                        value={product.powerTable.L?.[field] || ''}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            formik.setFieldValue(`products.${index}.powerTable.L.${field}`, val);
+                                                        }}
+                                                        placeholder={field === 'axis' ? '0' : '0.00'}
+                                                        disabled={isReadOnly}
+                                                    />
+                                                </div>
+                                            );
+                                        };
+
                                         const unitMultiplier = product.unit === 'pair' ? 2 : product.unit === 'box' ? 10 : 1;
                                         const taxableAmount = (Number(product.price || 0) * Number(product.qty || 0) * unitMultiplier) - Number(product.discount || 0);
                                         const gstPercent = Number(product.gstDetails?.gstPercent || 0);
@@ -1936,7 +2162,6 @@ const OrderWizard = () => {
                                                             loading={loadingProductNames}
                                                             placeholder="Search Product Name..."
                                                             freeSolo
-                                                            disableClearable
                                                             renderOption={renderProductOption}
                                                             sx={{
                                                                 '& .MuiOutlinedInput-root': {
@@ -1963,35 +2188,43 @@ const OrderWizard = () => {
                                                         <select
                                                             className="w-full text-xs bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-medium text-gray-700 cursor-pointer"
                                                             name={`products.${index}.categoryId`}
-                                                            value={product.categoryId || ''}
+                                                            value={
+                                                                product.categoryId ||
+                                                                (configs.category?.find(c => c.name?.toUpperCase() === (product.category || '').toUpperCase())?._id) ||
+                                                                product.category ||
+                                                                ''
+                                                            }
                                                             onChange={(e) => {
                                                                 const cId = e.target.value;
-                                                                const cObj = configs.category?.find(c => c._id === cId);
+                                                                const cObj = configs.category?.find(c => c._id === cId || c.name === cId);
                                                                 formik.setFieldValue(`products.${index}.categoryId`, cId);
-                                                                if (cObj) formik.setFieldValue(`products.${index}.category`, cObj.name);
+                                                                formik.setFieldValue(`products.${index}.category`, cObj ? cObj.name : cId);
                                                             }}
                                                             disabled={isReadOnly}
                                                             onClick={(e) => e.stopPropagation()}
                                                         >
                                                             <option value="">Category</option>
                                                             {(Array.isArray(configs.category) ? configs.category : []).map(c => (
-                                                                <option key={c._id} value={c._id}>{c.name}</option>
+                                                                <option key={c._id || c.name} value={c._id}>{c.name}</option>
                                                             ))}
+                                                            {product.category && !(configs.category || []).some(c => c._id === product.categoryId || c.name?.toUpperCase() === product.category?.toUpperCase()) && (
+                                                                <option value={product.category}>{product.category}</option>
+                                                            )}
                                                         </select>
                                                     </td>
 
                                                     {/* Power Fields */}
-                                                    <td className="px-4 py-3 text-xs font-semibold text-gray-700 text-center whitespace-nowrap">
-                                                        {isLensItem ? (renderPowerField('sph') || <span className="text-gray-300">—</span>) : <span className="text-gray-300 font-normal italic">N/A</span>}
+                                                    <td className="px-2 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap min-w-[100px]">
+                                                        {renderEditablePowerCell('sph')}
                                                     </td>
-                                                    <td className="px-4 py-3 text-xs font-semibold text-gray-700 text-center whitespace-nowrap">
-                                                        {isLensItem ? (renderPowerField('cyl') || <span className="text-gray-300">—</span>) : <span className="text-gray-300 font-normal italic">N/A</span>}
+                                                    <td className="px-2 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap min-w-[100px]">
+                                                        {renderEditablePowerCell('cyl')}
                                                     </td>
-                                                    <td className="px-4 py-3 text-xs font-semibold text-gray-700 text-center whitespace-nowrap">
-                                                        {isLensItem ? (renderPowerField('axis') || <span className="text-gray-300">—</span>) : <span className="text-gray-300 font-normal italic">N/A</span>}
+                                                    <td className="px-2 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap min-w-[100px]">
+                                                        {renderEditablePowerCell('axis')}
                                                     </td>
-                                                    <td className="px-4 py-3 text-xs font-semibold text-gray-700 text-center whitespace-nowrap">
-                                                        {isLensItem ? (renderPowerField('add') || <span className="text-gray-300">—</span>) : <span className="text-gray-300 font-normal italic">N/A</span>}
+                                                    <td className="px-2 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap min-w-[100px]">
+                                                        {renderEditablePowerCell('add')}
                                                     </td>
 
                                                     {/* Unit Select */}
@@ -2166,7 +2399,6 @@ const OrderWizard = () => {
                                     <span>{num}</span>
                                 </button>
                             ))}
-
                             <div className="w-px h-8 bg-gray-200 mx-2 self-center hidden sm:block" />
 
                             <button
@@ -2188,9 +2420,17 @@ const OrderWizard = () => {
                                 <Icon icon="mdi:delete-sweep" className="text-lg" />
                                 <span>Remove Empty</span>
                             </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setIsLensRangeModalOpen(true)}
+                                className="px-4 py-2.5 rounded-xl border-2 border-[#2980B9] text-[#2980B9] bg-white hover:bg-[#2980B9] hover:text-white transition-all duration-200 text-sm font-bold shadow-sm active:scale-95 flex items-center gap-1.5"
+                            >
+                                <Icon icon="mdi:playlist-plus" className="text-lg" />
+                                <span>Bulk Lens Generator</span>
+                            </button>
                         </div>
                     </div>
-
                     {/* Order Summary & GST Section */}
                     {formik.values.products[activeProductIndex] && (
                         <div className="flex flex-col lg:flex-row gap-6 items-stretch bg-gradient-to-br from-gray-50 to-blue-50/20 p-6 rounded-2xl border border-gray-200 shadow-sm">
@@ -2518,6 +2758,13 @@ const OrderWizard = () => {
                 title="Remove Product"
                 message="Are you sure you want to remove this product?"
                 confirmText="Remove"
+            />
+
+            <OrderLensRangeModal
+                isOpen={isLensRangeModalOpen}
+                onClose={() => setIsLensRangeModalOpen(false)}
+                configs={configs}
+                onAddProducts={handleAddBulkProducts}
             />
         </div>
     );
