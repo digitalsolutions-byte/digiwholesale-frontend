@@ -1355,6 +1355,9 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
     const settings = useSelector((state) => state.settings.data);
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalProducts, setTotalProducts] = useState(0);
+    const [fetchLimit, setFetchLimit] = useState(FETCH_LIMIT);
 
     const [openBarcodeModal, setOpenBarcodeModal] = useState(false);
     const [barcodeProduct, setBarcodeProduct] = useState(null);
@@ -1399,32 +1402,38 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
 
     const clearSelection = () => setSelectedRows({});
 
-    const fetchProducts = async (pageNumber = 1, append = false) => {
+    const fetchProducts = async (pageNumber = 1, append = false, currentLimit = fetchLimit) => {
         try {
-            pageNumber === 1 ? setLoading(true) : setLoadingMore(true);
-            const res = await api.get("/api/digi/product", { params: { page: pageNumber, limit: FETCH_LIMIT } });
+            pageNumber === 1 && !append ? setLoading(true) : setLoadingMore(true);
+            const res = await api.get("/api/digi/product", { params: { page: pageNumber, limit: currentLimit } });
             if (res.data.success) {
-                setData(prev => append ? [...prev, ...(res.data.products || [])] : (res.data.products || []));
-                setHasMore(res.data.hasMore);
+                const fetchedProducts = res.data.products || [];
+                setData(prev => append ? [...prev, ...fetchedProducts] : fetchedProducts);
+                setHasMore(res.data.hasMore ?? (pageNumber < (res.data.totalPages || 1)));
+                setTotalPages(res.data.totalPages || 1);
+                setTotalProducts(res.data.totalProducts || (res.data.products?.length || 0));
+                setPage(pageNumber);
             }
         } catch (err) { console.error(err); }
         finally { setLoading(false); setLoadingMore(false); }
     };
 
-    // const fetchAllVendors = async () => {
-    //     try {
-    //         const res = await api.get("/vendor");
-    //         if (res.data.success) setVendors(res.data.vendors);
-    //     } catch (err) { console.error(err); }
-    // };
+    const handlePageChange = (newPage) => {
+        if (newPage < 1 || newPage > totalPages || newPage === page || loading || loadingMore) return;
+        fetchProducts(newPage, false, fetchLimit);
+    };
 
-    useEffect(() => { fetchProducts(1, false); /* fetchAllVendors(); */ }, []);
+    const handleLimitChange = (newLimit) => {
+        setFetchLimit(newLimit);
+        fetchProducts(1, false, newLimit);
+    };
+
+    useEffect(() => { fetchProducts(1, false); }, []);
 
     const handleLoadMore = () => {
         if (!hasMore || loadingMore) return;
         const nextPage = page + 1;
-        setPage(nextPage);
-        fetchProducts(nextPage, true);
+        fetchProducts(nextPage, true, fetchLimit);
     };
 
     const handleDeleteProduct = async (product) => {
@@ -1660,18 +1669,9 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
         columns,
         state: { globalFilter },
         onGlobalFilterChange: setGlobalFilter,
-        initialState: { pagination: { pageIndex: 0, pageSize: PAGE_SIZE } },
         getCoreRowModel: getCoreRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel: getPaginationRowModel(),
     });
-
-    const currentPage = table.getState().pagination.pageIndex;
-    const totalPages = table.getPageCount();
-    const MAX_PAGES = 5;
-    let startPage = Math.max(0, currentPage - Math.floor(MAX_PAGES / 2));
-    let endPage = Math.min(totalPages, startPage + MAX_PAGES);
-    const pages = Array.from({ length: endPage - startPage }, (_, i) => startPage + i);
 
     if (loading) {
         return (
@@ -1776,32 +1776,96 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
             </div>
 
             {/* Pagination */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-4 border-t border-gray-100">
-                <button
-                    onClick={isSearching ? handleResetSearch : handleLoadMore}
-                    disabled={loadingMore || (!isSearching && !hasMore)}
-                    className={`px-4 py-2 rounded-xl text-xs font-semibold transition
-                        ${loadingMore || (!isSearching && !hasMore)
-                            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                            : isSearching ? "bg-gray-200 hover:bg-gray-300 text-gray-700"
-                                : "bg-[#2980b9] hover:bg-[#2980b9]/90 text-white"}`}>
-                    {loadingMore ? "Loading..." : isSearching ? "Reset Search" : "Load More"}
-                </button>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-4 border-t border-gray-100 bg-gray-50/50">
+                <div className="flex items-center gap-3 flex-wrap">
+                    <span className="text-xs text-gray-500 font-medium">
+                        Showing <span className="font-bold text-gray-800">{data.length > 0 ? (page - 1) * fetchLimit + 1 : 0}</span> to <span className="font-bold text-gray-800">{Math.min(page * fetchLimit, totalProducts)}</span> of <span className="font-bold text-gray-800">{totalProducts}</span> products
+                    </span>
+                    <div className="flex items-center gap-1.5 ml-2">
+                        <span className="text-xs text-gray-400">Per page:</span>
+                        <select
+                            value={fetchLimit}
+                            onChange={(e) => handleLimitChange(Number(e.target.value))}
+                            className="text-xs font-semibold bg-white border border-gray-200 rounded-lg px-2 py-1 outline-none text-gray-700 cursor-pointer"
+                        >
+                            <option value={25}>25</option>
+                            <option value={50}>50</option>
+                            <option value={100}>100</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div className="flex items-center gap-1">
-                    <button onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}
-                        className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition">
+                    {/* Previous Page */}
+                    <button
+                        onClick={() => handlePageChange(page - 1)}
+                        disabled={page <= 1 || loading || loadingMore}
+                        className="p-1.5 rounded-lg border border-gray-200 text-gray-600 bg-white hover:bg-gray-50 disabled:opacity-30 transition font-medium"
+                        title="Previous Page"
+                    >
                         <FiChevronLeft size={14} />
                     </button>
-                    {startPage > 0 && (<><button onClick={() => table.setPageIndex(0)} className="w-8 h-8 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold">1</button><span className="text-gray-300 text-xs">…</span></>)}
-                    {pages.map(p => (
-                        <button key={p} onClick={() => table.setPageIndex(p)}
-                            className={`w-8 h-8 text-xs rounded-lg font-semibold transition ${p === currentPage ? "bg-[#2980b9] text-white shadow-sm" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
-                            {p + 1}
-                        </button>
-                    ))}
-                    {endPage < totalPages && (<><span className="text-gray-300 text-xs">…</span><button onClick={() => table.setPageIndex(totalPages - 1)} className="w-8 h-8 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold">{totalPages}</button></>)}
-                    <button onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}
-                        className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition">
+
+                    {/* Page Buttons */}
+                    {(() => {
+                        const MAX_VISIBLE = 5;
+                        let start = Math.max(1, page - Math.floor(MAX_VISIBLE / 2));
+                        let end = Math.min(totalPages, start + MAX_VISIBLE - 1);
+                        if (end - start + 1 < MAX_VISIBLE) {
+                            start = Math.max(1, end - MAX_VISIBLE + 1);
+                        }
+                        const pNums = Array.from({ length: end - start + 1 }, (_, i) => start + i);
+
+                        return (
+                            <>
+                                {start > 1 && (
+                                    <>
+                                        <button
+                                            onClick={() => handlePageChange(1)}
+                                            className="w-8 h-8 text-xs rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 font-semibold"
+                                        >
+                                            1
+                                        </button>
+                                        {start > 2 && <span className="text-gray-300 text-xs px-0.5">…</span>}
+                                    </>
+                                )}
+
+                                {pNums.map(p => (
+                                    <button
+                                        key={p}
+                                        onClick={() => handlePageChange(p)}
+                                        className={`w-8 h-8 text-xs rounded-lg font-semibold transition ${
+                                            p === page
+                                                ? "bg-[#2980b9] text-white shadow-sm"
+                                                : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                                        }`}
+                                    >
+                                        {p}
+                                    </button>
+                                ))}
+
+                                {end < totalPages && (
+                                    <>
+                                        {end < totalPages - 1 && <span className="text-gray-300 text-xs px-0.5">…</span>}
+                                        <button
+                                            onClick={() => handlePageChange(totalPages)}
+                                            className="w-8 h-8 text-xs rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 font-semibold"
+                                        >
+                                            {totalPages}
+                                        </button>
+                                    </>
+                                )}
+                            </>
+                        );
+                    })()}
+
+                    {/* Next Page */}
+                    <button
+                        onClick={() => handlePageChange(page + 1)}
+                        disabled={page >= totalPages || loading || loadingMore}
+                        className="p-1.5 rounded-lg border border-gray-200 text-gray-600 bg-white hover:bg-gray-50 disabled:opacity-30 transition font-medium"
+                        title="Next Page"
+                    >
                         <FiChevronRight size={14} />
                     </button>
                 </div>

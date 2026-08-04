@@ -1300,8 +1300,10 @@ export default function ReturnRefund() {
                 )) || (
                     <>
                       <option value="Pending">Pending</option>
-                      <option value="Approved">Approved</option>
+                      <option value="Return_Approved">Return Approved</option>
+                      <option value="Refund_Approved">Refund Approved</option>
                       <option value="Rejected">Rejected</option>
+                      <option value="Completed">Completed</option>
                     </>
                   )}
               </select>
@@ -1399,12 +1401,15 @@ export default function ReturnRefund() {
                           </td>
                           <td className="p-4">
                             <span
-                              className={`px-3 py-1 rounded-full text-[10px] font-bold ${row.status === "Approved"
-                                ? "bg-emerald-50 text-emerald-600"
-                                : row.status === "Rejected"
+                              className={`px-3 py-1 rounded-full text-[10px] font-bold ${
+                                row.status === "Return_Approved" || row.status === "Refund_Approved" || row.status === "Approved"
+                                  ? "bg-emerald-50 text-emerald-600"
+                                  : row.status === "Completed"
+                                  ? "bg-blue-50 text-blue-600"
+                                  : row.status === "Rejected"
                                   ? "bg-rose-50 text-rose-600"
                                   : "bg-amber-50 text-amber-600"
-                                }`}
+                              }`}
                             >
                               {row.status}
                             </span>
@@ -1417,7 +1422,7 @@ export default function ReturnRefund() {
                                     onClick={() =>
                                       handleUpdateStatus(
                                         row._id,
-                                        "Approved",
+                                        row.returnType === "REFUND" ? "Refund_Approved" : "Return_Approved",
                                         "Verified"
                                       )
                                     }

@@ -289,7 +289,7 @@ const OrderWizard = () => {
         products: Yup.array().of(
             Yup.object().shape({
                 orderType: Yup.string(),
-                productName: Yup.string().required('Product selection is required'),
+                productName: Yup.string().notRequired(),
                 brandId: Yup.string().when('orderType', {
                     is: 'rx',
                     then: (schema) => isEditMode ? schema.notRequired() : schema.required('Brand is required'),
@@ -401,9 +401,9 @@ const OrderWizard = () => {
                                     treatmentId: prod.treatment?.id || '',
                                     indexId: (prod.index !== undefined && prod.index !== null) ? prod.index.toString() : '',
                                     index: (prod.index !== undefined && prod.index !== null) ? prod.index.toString() : '',
-                                    productId: prod.productId || prod.productName?.id || '',
-                                    productName: prod.itemName || prod.productName?.name || prod.productName?.id || '',
-                                    itemName: prod.itemName || prod.productName?.name || '',
+                                    productId: prod.productId || (typeof prod.productName === 'object' ? prod.productName?.id : '') || '',
+                                    productName: prod.itemName || (typeof prod.productName === 'object' ? prod.productName?.name : prod.productName) || '',
+                                    itemName: prod.itemName || (typeof prod.productName === 'object' ? prod.productName?.name : prod.productName) || '',
                                     lensTypeId: prod.productType?.id || '',
                                     coatingId: prod.coating?.id || '',
                                     coating: prod.coating?.name || prod.coating || '',
@@ -487,9 +487,9 @@ const OrderWizard = () => {
                                 categoryId: order.category?.id || '',
                                 treatmentId: order.treatment?.id || '',
                                 indexId: (order.index !== undefined && order.index !== null) ? order.index.toString() : '',
-                                productId: order.productName?.id || '',
-                                productName: order.productName?.name || order.productName?.id || '',
-                                itemName: order.productName?.name || '',
+                                productId: order.productId || (typeof order.productName === 'object' ? order.productName?.id : '') || '',
+                                productName: order.itemName || (typeof order.productName === 'object' ? order.productName?.name : order.productName) || '',
+                                itemName: order.itemName || (typeof order.productName === 'object' ? order.productName?.name : order.productName) || '',
                                 lensTypeId: order.productType?.id || '',
                                 coatingId: order.coating?.id || '',
                                 tintId: order.tint?.id || '',
@@ -674,10 +674,10 @@ const OrderWizard = () => {
             const discountPercent = totalBeforeDiscount > 0 ? parseFloat(((discountAmount / totalBeforeDiscount) * 100).toFixed(2)) : 0;
 
             const baseItem = {
-                productId: prod.productId || prod.productName || undefined,
+                productId: prod.productId || undefined,
                 unit: (prod.unit || 'piece').toUpperCase(),
                 orderType: isRx ? 'RX' : 'STOCK',
-                itemName: productData?.name || prod.productName || '',
+                itemName: prod.itemName || prod.productName || productData?.name || '',
                 qty: qty,
                 category: cat,
                 discountPercent: discountPercent,
@@ -1700,21 +1700,6 @@ const OrderWizard = () => {
                             }
                         })}
 
-                        <div className="md:col-span-1">
-                            <SearchableSelect
-                                label="Product name"
-                                name={`${prefix}productName`}
-                                value={{ value: product.productId || product.productName, label: product.productName }}
-                                onChange={(e) => handleProductSelection(index, e.target.value)}
-                                onSearch={(q) => searchProductsForIndex(q, index)}
-                                options={productNames}
-                                loading={loadingProductNames}
-                                placeholder="Search product…"
-                                disabled={isReadOnly}
-                                renderOption={renderProductOption}
-                            />
-                        </div>
-
                         {/* Lens Specific Fields - Only enabled for Lens categories */}
                         {wrapInput(Select, {
                             label: "Treatment",
@@ -2155,7 +2140,7 @@ const OrderWizard = () => {
                                                     <td className="px-3 py-2.5 min-w-[280px]">
                                                         <SearchableSelect
                                                             name={`products.${index}.productName`}
-                                                            value={{ value: product.productId || product.productName, label: product.productName }}
+                                                            value={{ value: product.productId || product.productName, label: product.productName || product.itemName || '' }}
                                                             onChange={(e) => handleProductSelection(index, e.target.value)}
                                                             onSearch={(q) => searchProductsForIndex(q, index)}
                                                             options={productNames}
