@@ -87,14 +87,14 @@ const navItems = [
             { label: 'Main Report', path: PATHS.REPORTS.MAIN, page: 'MAIN_REPORT' },
         ],
     },
-    {
-        label: 'Repair',
-        icon: 'lucide:tool-case',
-        subItems: [
-            { label: 'Add Repair', path: PATHS.REPAIR.ADD, page: 'ADD_REPAIR' },
-            { label: 'Repair List', path: PATHS.REPAIR.LIST, page: 'REPAIR_LIST' },
-        ],
-    },
+    // {
+    //     label: 'Repair',
+    //     icon: 'lucide:tool-case',
+    //     subItems: [
+    //         { label: 'Add Repair', path: PATHS.REPAIR.ADD, page: 'ADD_REPAIR' },
+    //         { label: 'Repair List', path: PATHS.REPAIR.LIST, page: 'REPAIR_LIST' },
+    //     ],
+    // },
     {
         label: 'Vendor',
         icon: 'lucide:truck',
@@ -103,14 +103,16 @@ const navItems = [
             { label: 'Vendor List', path: PATHS.VENDOR.LIST, page: 'VENDOR_LIST' },
             // { label: 'Vendor Order', path: PATHS.VENDOR.ORDER, page: 'VENDOR_ORDER' },
             { label: 'Purchase Orders', path: PATHS.VENDOR.PURCHASE_ITEMS, page: 'VENDOR_LIST' },
+
             { label: 'Pending Inward', path: PATHS.VENDOR.PENDING_INWARD, page: 'VENDOR_LIST' },
-            { label: 'Purchase Inwarded', path: PATHS.VENDOR.INWARD_LIST, page: 'VENDOR_LIST' },
-            { label: 'All Inwarded Items', path: PATHS.VENDOR.ALL_INWARDED_ITEMS, page: 'VENDOR_LIST' },
             { label: 'QC Pending', path: PATHS.VENDOR.QC_PENDING, page: 'VENDOR_LIST' },
-            { label: 'Purchase QC done', path: PATHS.VENDOR.QC_LIST, page: 'VENDOR_LIST' },
+            // { label: 'Purchase QC done', path: PATHS.VENDOR.QC_LIST, page: 'VENDOR_LIST' },
             { label: 'QC Passed', path: PATHS.VENDOR.QC_PASSED, page: 'VENDOR_LIST' },
-            // { label: 'QC Failed Report', path: PATHS.VENDOR.QC_FAILED_REPORT, page: 'VENDOR_LIST' },
             { label: 'QC Failed (Awaiting Replacement)', path: PATHS.VENDOR.PURCHASE_RETURNS, page: 'VENDOR_LIST' },
+            // { label: 'Purchase Inwarded', path: PATHS.VENDOR.INWARD_LIST, page: 'VENDOR_LIST' },
+            { label: 'All Inwarded Items', path: PATHS.VENDOR.ALL_INWARDED_ITEMS, page: 'VENDOR_LIST' },
+            // { label: 'QC Failed Report', path: PATHS.VENDOR.QC_FAILED_REPORT, page: 'VENDOR_LIST' },
+
             { label: 'Replacement Orders', path: PATHS.VENDOR.REPLACEMENT_ORDERS, page: 'VENDOR_LIST' },
         ],
     },

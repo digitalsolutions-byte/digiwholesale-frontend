@@ -183,16 +183,17 @@ const Dashboard = () => {
                     <Icon icon="lucide:clipboard-list" className="text-[#2980B9]" />
                     Order Summary
                 </h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
                     {[
                         { label: 'Total Orders', value: ord.totalOrders, icon: 'lucide:shopping-bag', bg: 'bg-[#2980B9]', text: 'text-white' },
                         { label: 'Active', value: ord.active, icon: 'lucide:activity', bg: 'bg-blue-50', text: 'text-blue-700' },
                         { label: 'In Progress', value: (ord.submitted || 0) + (ord.processing || 0) + (ord.qc || 0), icon: 'lucide:loader-2', bg: 'bg-amber-50', text: 'text-amber-700' },
-                        { label: 'Ready / Dispatched', value: (ord.readyToDispatch || 0) + (ord.dispatched || 0), icon: 'lucide:truck', bg: 'bg-emerald-50', text: 'text-emerald-700' },
+                        { label: 'Ready to Dispatch', value: ord.readyToDispatch, icon: 'lucide:package-check', bg: 'bg-cyan-50', text: 'text-cyan-700' },
+                        { label: 'Dispatched', value: ord.dispatched, icon: 'lucide:truck', bg: 'bg-emerald-50', text: 'text-emerald-700' },
                         { label: 'Completed', value: (ord.delivered || 0) + (ord.completed || 0), icon: 'lucide:check-circle-2', bg: 'bg-green-50', text: 'text-green-700' },
                         { label: 'Cancelled', value: ord.cancelled, icon: 'lucide:x-circle', bg: 'bg-red-50', text: 'text-red-600' },
                     ].map((item, idx) => (
-                        <div key={idx} className={`${item.bg} rounded-2xl p-4 flex flex-col gap-2 hover:shadow-md transition-shadow`}>
+                        <div key={idx} className={`${item.bg} rounded-2xl p-3.5 flex flex-col gap-2 hover:shadow-md transition-shadow`}>
                             <div className="flex items-center justify-between">
                                 <Icon icon={item.icon} className={`${item.text} text-lg`} />
                             </div>

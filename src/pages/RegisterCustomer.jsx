@@ -118,7 +118,7 @@ export default function RegisterCustomer() {
         ownerName: Yup.string().required('Proprietor/Partner Name is required'),
         mobileNo1: Yup.string().matches(/^\d{10}$/, 'Mobile No. must be 10 digits').required('Mobile No. 1 is required'),
         mobileNo2: Yup.string().matches(/^\d{10}$/, 'Mobile No. must be 10 digits').nullable(),
-        businessEmail: Yup.string().email('Invalid email').nullable(),
+        businessEmail: Yup.string().email('Invalid email').required('Official Email is required'),
         zoneRefId: Yup.string().required('Zone is required'),
         salesPersonRefId: Yup.string().required('Sales Person is required'),
     }), []);
@@ -367,7 +367,11 @@ export default function RegisterCustomer() {
                         registerCustomer(finalPayload),
                         {
                             pending: 'Registering customer...',
-                            success: 'Customer registered successfully! 👌',
+                            success: {
+                                render({ data }) {
+                                    return data?.data?.message || data?.message || "Customer registered and Pending sales head approval.";
+                                }
+                            },
                         }
                     );
                 }

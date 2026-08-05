@@ -175,6 +175,10 @@ const OrderWizard = () => {
 
     const handleItemImageUpload = async (index, file) => {
         if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error("File size must not exceed 5 MB");
+            return;
+        }
         setUploadingItemImages(prev => ({ ...prev, [index]: true }));
         try {
             const response = await uploadImage(file);
@@ -1920,7 +1924,7 @@ const OrderWizard = () => {
                 {/* ── PHOTOS (inline strip) ── */}
                 <div className="bg-white rounded-xl border border-gray-100 shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] overflow-hidden">
                     <div className="flex items-center gap-3 px-4 py-2.5">
-                        <span className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-500 whitespace-nowrap">Photos</span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-500 whitespace-nowrap">Photos <span className="text-[9px] text-gray-400 font-normal lowercase">(max 5 MB)</span></span>
                         <div className="flex flex-wrap gap-2 items-center">
                             {(product.photos || []).map((photoUrl, photoIdx) => (
                                 <div key={photoIdx} className="w-9 h-9 rounded-lg border border-gray-200 overflow-hidden shadow-sm relative group">

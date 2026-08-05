@@ -74,6 +74,10 @@ const EMPTY_ITEM = {
   discount: "",
   gst: 18,
   gstType: "EXCLUDED",
+  itemType: "",
+  condition: "GOOD",
+  reasonForReturn: "Product defect",
+  images: [],
 };
 
 export default function ReturnRefund() {
@@ -105,17 +109,10 @@ export default function ReturnRefund() {
   const [orderSearchLoading, setOrderSearchLoading] = useState(false);
   const searchTimeoutRef = useRef(null);
 
-  /* ═══════ ITEMS STATE ═══════ */
+  /* Items State */
   const [items, setItems] = useState([]);
-  const [showAddItem, setShowAddItem] = useState(false);
-  const [newItem, setNewItem] = useState({ ...EMPTY_ITEM });
 
-  /* ═══════ PHOTOS STATE ═══════ */
-  const [photos, setPhotos] = useState([]); // { file, preview, url }
-  const cameraRef = useRef(null);
-  const galleryRef = useRef(null);
-
-  /* ═══════ LIST STATE ═══════ */
+  /* List State */
   const [listData, setListData] = useState([]);
   const [settings, setSettings] = useState(null);
   const [statusFilter, setStatusFilter] = useState("All");
@@ -129,10 +126,6 @@ export default function ReturnRefund() {
   const toggleRow = (id) => {
     setExpandedRows((prev) => ({ ...prev, [id]: !prev[id] }));
   };
-
-  /* ═══════════════════════════════════════════
-     EFFECTS
-  ═══════════════════════════════════════════ */
 
   // Fetch Settings & Initial Order Suggestions
   useEffect(() => {
@@ -156,7 +149,7 @@ export default function ReturnRefund() {
       dispatch(showLoader());
       const res = await returnRefundService.getAllReturnRefunds();
       if (res?.success) {
-        setListData(res.data?.returnRefunds || res.data || []);
+        setListData(res.data?.returnRefunds || res.data?.docs || res.data || []);
       }
     } catch (err) {
       toast.error(err.message || "Failed to load list");
@@ -169,24 +162,17 @@ export default function ReturnRefund() {
     if (activeTab === "list") fetchList();
   }, [activeTab, fetchList]);
 
-  // Clean up previews
-  useEffect(() => {
-    return () => photos.forEach((img) => URL.revokeObjectURL(img.preview));
-  }, [photos]);
-
-  /* ═══════════════════════════════════════════
-     ORDER SEARCH HANDLERS
-  ═══════════════════════════════════════════ */
+  /* Order Search Handlers */
   async function fetchOrderSuggestions(searchTerm = '') {
     setOrderSearchLoading(true);
     try {
       const res = await getOrderSuggestions(searchTerm);
       if (res?.success && res?.data?.orders) {
-        const options = res.data.orders.map((o) => {
+        const options = res.data.orders.map((o, idx) => {
           const firstOrder = o.orders?.[0];
           return {
-            value: o._id,
-            label: `${firstOrder?.orderNumber || o._id} - ${o.customer?.customerName || 'Unknown'}`,
+            value: o._id || `order-${idx}`,
+            label: `${firstOrder?.orderNumber || o._id || 'Order'} - ${o.customer?.customerName || 'Unknown'}`,
             orderData: o
           };
         });
@@ -213,6 +199,70 @@ export default function ReturnRefund() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (["itemType", "condition", "reasonForReturn"].includes(name)) {
+      setItems((prev) =>
+        prev.map((it) => ({
+          ...it,
+          [name]: value,
+        }))
+      );
+    }
+  };
+
+  const handleItemChange = (index, field, value) => {
+    setItems((prev) =>
+      prev.map((it, i) => (i === index ? { ...it, [field]: value } : it))
+    );
+  };
+
+  const handleItemPhotoUpload = async (itemIndex, files) => {
+    if (!files || files.length === 0) return;
+    const incoming = Array.from(files);
+    if (incoming.some((f) => f.size > 5 * 1024 * 1024)) {
+      toast.error("File size must not exceed 5 MB");
+      return;
+    }
+    dispatch(showLoader());
+    try {
+      const urls = [];
+      for (const file of incoming) {
+        const normalized = await normalizeToJpeg(file);
+        try {
+          const uploadRes = await uploadImage(normalized);
+          const url = uploadRes.data?.url || uploadRes.url || uploadRes;
+          if (url) urls.push(url);
+        } catch (err) {
+          console.error("Upload failed for item photo", err);
+        }
+      }
+      if (urls.length > 0) {
+        setItems((prev) =>
+          prev.map((it, i) =>
+            i === itemIndex
+              ? { ...it, images: [...(it.images || []), ...urls] }
+              : it
+          )
+        );
+        toast.success("Product image(s) uploaded successfully");
+      }
+    } catch (err) {
+      toast.error("Image upload failed");
+    } finally {
+      dispatch(hideLoader());
+    }
+  };
+
+  const removeItemPhoto = (itemIndex, photoIndex) => {
+    setItems((prev) =>
+      prev.map((it, i) =>
+        i === itemIndex
+          ? {
+            ...it,
+            images: (it.images || []).filter((_, pI) => pI !== photoIndex),
+          }
+          : it
+      )
+    );
   };
 
   const handleOrderSelect = (e) => {
@@ -247,6 +297,9 @@ export default function ReturnRefund() {
                 discount: it.discountPercent || 0,
                 gst: it.gst || 0,
                 gstType: "EXCLUDED",
+                itemType: it.category || formData.itemType || "",
+                condition: formData.condition || "",
+                reasonForReturn: formData.reasonForReturn || "",
               });
             });
           }
@@ -262,76 +315,11 @@ export default function ReturnRefund() {
     );
   };
 
-  const handleNewItemChange = (field, value) => {
-    setNewItem((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const addItemToTable = () => {
-    if (!newItem.item) return toast.error("Product name is required");
-    if (!newItem.category) return toast.error("Category is required");
-    setItems((prev) => [
-      ...prev,
-      {
-        ...newItem,
-        qty: Number(newItem.qty) || 1,
-        amount: Number(newItem.amount) || 0,
-        discount: Number(newItem.discount) || 0,
-        gst: Number(newItem.gst) || 0,
-      },
-    ]);
-    setNewItem({ ...EMPTY_ITEM });
-    setShowAddItem(false);
-  };
-
   const removeItem = (index) => {
     setItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  /* ── Photo Handlers ── */
-  const addImages = useCallback(
-    async (files) => {
-      if (!files || files.length === 0) return;
-      const incoming = Array.from(files);
-      if (incoming.length + photos.length > 10) {
-        toast.error("Maximum 10 photos allowed");
-        return;
-      }
-      dispatch(showLoader());
-      try {
-        const results = [];
-        for (const file of incoming) {
-          const normalized = await normalizeToJpeg(file);
-          const preview = URL.createObjectURL(normalized);
-          let url = "";
-          try {
-            const uploadRes = await uploadImage(normalized);
-            url = uploadRes.data?.url || uploadRes.url || uploadRes;
-          } catch (err) {
-            console.error("Upload failed for image, storing locally", err);
-          }
-          results.push({ file: normalized, preview, url });
-        }
-        setPhotos((prev) => [...prev, ...results]);
-        if (results.some((r) => r.url)) {
-          toast.success("Photo(s) uploaded successfully");
-        }
-      } catch (err) {
-        toast.error("Image processing failed");
-      } finally {
-        dispatch(hideLoader());
-      }
-    },
-    [photos, dispatch]
-  );
-
-  const removeImage = (index) => {
-    setPhotos((prev) => {
-      URL.revokeObjectURL(prev[index].preview);
-      return prev.filter((_, i) => i !== index);
-    });
-  };
-
-  /* ── Submit ── */
+  /* Submit */
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name) return toast.error("Name is required");
@@ -343,25 +331,19 @@ export default function ReturnRefund() {
     try {
       dispatch(showLoader());
 
-      // Collect all uploaded image URLs
-      const allImageUrls = photos.filter((p) => p.url).map((p) => p.url);
-
-      // Build JSON payload matching API schema
+      const firstItem = selectedItems[0];
       const payload = {
         name: formData.name,
         phone: formData.phone,
         email: formData.email || undefined,
         dateOfPurchase: formData.dateOfPurchase,
-        itemType: formData.itemType,
-        condition: formData.condition,
-        reasonForReturn: formData.reasonForReturn,
+        itemType: firstItem?.category || firstItem?.itemType || formData.itemType || "LENS",
         refundAmount: Number(formData.refundAmount) || 0,
-        refundMethod: formData.refundMethod,
+        refundMethod: formData.refundMethod || "CASH",
         loyaltyPoints: Number(formData.loyaltyPoints) || 0,
         remark: formData.remark || undefined,
         OrderId: formData.OrderId || undefined,
-        returnType: formData.returnType,
-        images: allImageUrls,
+        returnType: formData.returnType || "RETURN",
         items: selectedItems.map((it) => ({
           productId: it.productId || undefined,
           item: it.item,
@@ -371,7 +353,9 @@ export default function ReturnRefund() {
           discount: Number(it.discount) || 0,
           gst: Number(it.gst) || 0,
           gstType: it.gstType || "EXCLUDED",
-
+          condition: it.condition || "GOOD",
+          reasonForReturn: it.reasonForReturn || "Product defect",
+          images: it.images || [],
         })),
       };
 
@@ -399,7 +383,7 @@ export default function ReturnRefund() {
 
       const res = await returnRefundService.searchReturnRefunds(payload);
       if (res?.success) {
-        setListData(res.data?.docs || res.data || []);
+        setListData(res.data?.returnRefunds || res.data?.docs || res.data || []);
       }
     } catch (err) {
       toast.error("Search failed");
@@ -461,7 +445,6 @@ export default function ReturnRefund() {
       creditNote: "",
     });
     setItems([]);
-    setPhotos([]);
     setActiveTab("list");
   };
 
@@ -673,80 +656,6 @@ export default function ReturnRefund() {
                     className={inputCls}
                   />
                 </div>
-                <div>
-                  <label className={labelCls}>Item Type</label>
-                  <div className="relative">
-                    <select
-                      name="itemType"
-                      value={formData.itemType}
-                      onChange={handleChange}
-                      className={selectCls}
-                    >
-                      <option value="">Select</option>
-                      {settings?.allCategories?.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      )) || (
-                          <>
-                            <option value="SUNGLASS">Sunglass</option>
-                            <option value="FRAME">Frame</option>
-                            <option value="LENS">Lens</option>
-                            <option value="FLUXAR">Fluxar</option>
-                            <option value="CONTACT_LENS">Contact Lens</option>
-                          </>
-                        )}
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className={labelCls}>Condition</label>
-                  <div className="relative">
-                    <select
-                      name="condition"
-                      value={formData.condition}
-                      onChange={handleChange}
-                      className={selectCls}
-                    >
-                      <option value="">Select</option>
-                      <option value="GOOD">Good</option>
-                      <option value="DAMAGED">Damaged</option>
-                      <option value="DEFECTIVE">Defective</option>
-                      <option value="FAIR">Fair</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Reason for Return — full width */}
-              <div>
-                <label className={labelCls}>Reason for Return</label>
-                <div className="relative">
-                  <select
-                    name="reasonForReturn"
-                    value={formData.reasonForReturn}
-                    onChange={handleChange}
-                    className={selectCls}
-                  >
-                    <option value="">Select Reason</option>
-                    <option value="Product defect">Product Defect</option>
-                    <option value="Manufacturing Defect">
-                      Manufacturing Defect
-                    </option>
-                    <option value="Wrong Item Delivered">
-                      Wrong Item Delivered
-                    </option>
-                    <option value="Customer Dissatisfied">
-                      Customer Dissatisfied
-                    </option>
-                    <option value="Size Issue">Size Issue</option>
-                    <option value="Other">Other</option>
-                  </select>
-                  <Icon
-                    icon="mdi:chevron-down"
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-                  />
-                </div>
               </div>
             </div>
 
@@ -829,114 +738,8 @@ export default function ReturnRefund() {
             </div>
           </div>
 
-          {/* ─────────────────────────────────
-              RIGHT COLUMN: Photos + Items Table + Submit
-          ───────────────────────────────── */}
+          {/* Right Column: Items Table + Submit */}
           <div className="space-y-6">
-            {/* ── Photos Section ── */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="bg-erp-primary/10 p-2 rounded-full">
-                    <Icon
-                      icon="mdi:camera-outline"
-                      className="text-erp-primary text-lg"
-                    />
-                  </span>
-                  <span className="text-sm font-bold text-gray-700">
-                    Photos
-                  </span>
-                </div>
-                <span className="text-xs font-bold bg-erp-primary text-white px-3 py-1 rounded-full shadow-lg shadow-erp-primary/20">
-                  {photos.length}/10
-                </span>
-              </div>
-
-              {/* Hidden file inputs */}
-              <input
-                ref={cameraRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={(e) => {
-                  addImages(e.target.files);
-                  e.target.value = "";
-                }}
-              />
-              <input
-                ref={galleryRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  addImages(e.target.files);
-                  e.target.value = "";
-                }}
-              />
-
-              {/* Action Buttons */}
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => cameraRef.current?.click()}
-                  className="flex items-center justify-center gap-2 border-2 border-dashed border-erp-primary/20 bg-erp-primary/[0.02] hover:bg-erp-primary/5 hover:border-erp-primary/40 rounded-2xl py-4 transition-all group"
-                >
-                  <Icon
-                    icon="mdi:camera"
-                    className="text-xl text-erp-primary/50 group-hover:text-erp-primary transition-all"
-                  />
-                  <span className="text-xs font-bold text-erp-primary/50 group-hover:text-erp-primary">
-                    Take Photo
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => galleryRef.current?.click()}
-                  className="flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 bg-gray-50/50 hover:bg-gray-100 hover:border-gray-300 rounded-2xl py-4 transition-all group"
-                >
-                  <Icon
-                    icon="mdi:image-multiple-outline"
-                    className="text-xl text-gray-300 group-hover:text-gray-500 transition-all"
-                  />
-                  <span className="text-xs font-bold text-gray-400 group-hover:text-gray-600">
-                    From Gallery
-                  </span>
-                </button>
-              </div>
-
-              {/* Gallery Thumbnails */}
-              {photos.length > 0 && (
-                <div className="grid grid-cols-4 gap-2">
-                  {photos.map((ph, idx) => (
-                    <div
-                      key={idx}
-                      className="relative aspect-square rounded-xl overflow-hidden border border-gray-100 shadow-sm bg-gray-50 group"
-                    >
-                      <img
-                        src={ph.preview}
-                        alt="upload"
-                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(idx)}
-                        className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center text-white"
-                      >
-                        <Icon icon="mdi:trash-can-outline" className="text-lg" />
-                      </button>
-                      {ph.url && (
-                        <div
-                          className="absolute top-1 right-1 bg-green-500 rounded-full w-3 h-3 border-2 border-white"
-                          title="Uploaded"
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
 
             {/* ── Items Table ── */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -981,64 +784,144 @@ export default function ReturnRefund() {
                             (Number(it.discount) || 0)) /
                           100;
                         return (
-                          <tr
-                            key={idx}
-                            className={`transition-colors ${it.isSelected === false ? "bg-white opacity-60" : "bg-blue-50/30 hover:bg-blue-50/60"
-                              }`}
-                          >
-                            <td className="px-4 py-3 text-center">
-                              <input
-                                type="checkbox"
-                                checked={it.isSelected !== false}
-                                onChange={() => toggleItemSelection(idx)}
-                                className="w-4 h-4 rounded text-erp-primary focus:ring-erp-primary/30 border-gray-300 cursor-pointer"
-                              />
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className="w-3 h-3 rounded-sm shrink-0"
-                                  style={{
-                                    backgroundColor:
-                                      CATEGORY_COLORS[it.category] || "#9CA3AF",
-                                  }}
+                          <React.Fragment key={idx}>
+                            <tr
+                              className={`transition-colors ${it.isSelected === false ? "bg-white opacity-60" : "bg-blue-50/30 hover:bg-blue-50/60"
+                                }`}
+                            >
+                              <td className="px-4 py-3 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={it.isSelected !== false}
+                                  onChange={() => toggleItemSelection(idx)}
+                                  className="w-4 h-4 rounded text-erp-primary focus:ring-erp-primary/30 border-gray-300 cursor-pointer"
                                 />
-                                <span className="text-gray-700 font-medium truncate max-w-[80px]">
-                                  {it.category}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-gray-700 truncate max-w-[120px]">
-                              {it.item}
-                            </td>
-                            <td className="px-4 py-3 text-gray-700">
-                              {it.qty}
-                            </td>
-                            <td className="px-4 py-3 text-gray-700">
-                              ₹{it.amount}
-                            </td>
-                            <td className="px-4 py-3 text-gray-700">
-                              {it.discount}%
-                            </td>
-                            <td className="px-4 py-3 text-gray-700">
-                              ₹{discAmt.toFixed(0)}
-                            </td>
-                            <td className="px-4 py-3 text-gray-700 truncate max-w-[80px]">
-                              {it.gstType}
-                            </td>
-                            <td className="px-2 py-3 text-center">
-                              <button
-                                type="button"
-                                onClick={() => removeItem(idx)}
-                                className="text-rose-400 hover:text-rose-600 transition-colors"
-                              >
-                                <Icon
-                                  icon="mdi:close-circle"
-                                  className="text-lg"
-                                />
-                              </button>
-                            </td>
-                          </tr>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className="w-3 h-3 rounded-sm shrink-0"
+                                    style={{
+                                      backgroundColor:
+                                        CATEGORY_COLORS[it.category] || "#9CA3AF",
+                                    }}
+                                  />
+                                  <span className="text-gray-700 font-medium truncate max-w-[80px]">
+                                    {it.category}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-gray-700 truncate max-w-[120px]">
+                                {it.item}
+                              </td>
+                              <td className="px-4 py-3 text-gray-700">
+                                {it.qty}
+                              </td>
+                              <td className="px-4 py-3 text-gray-700">
+                                ₹{it.amount}
+                              </td>
+                              <td className="px-4 py-3 text-gray-700">
+                                {it.discount}%
+                              </td>
+                              <td className="px-4 py-3 text-gray-700">
+                                ₹{discAmt.toFixed(0)}
+                              </td>
+                              <td className="px-4 py-3 text-gray-700 truncate max-w-[80px]">
+                                {it.gstType}
+                              </td>
+                              <td className="px-2 py-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => removeItem(idx)}
+                                  className="text-rose-400 hover:text-rose-600 transition-colors"
+                                >
+                                  <Icon
+                                    icon="mdi:close-circle"
+                                    className="text-lg"
+                                  />
+                                </button>
+                              </td>
+                            </tr>
+
+                            {/* Per-item Return Specifications (Condition, Reason for Return, Item Images) */}
+                            {it.isSelected !== false && (
+                              <tr className="bg-blue-50/40 border-b border-blue-100/60">
+                                <td colSpan={9} className="px-4 py-3">
+                                  <div className="flex flex-col gap-2.5 bg-white p-3 rounded-xl border border-blue-100/80 text-xs shadow-2xs">
+                                    <div className="flex flex-wrap items-center gap-3">
+                                      <span className="font-bold text-[#1F618D] text-[10px] uppercase tracking-wider flex items-center gap-1">
+                                        <Icon icon="mdi:pencil-box-outline" className="text-sm" /> Return Specs:
+                                      </span>
+
+                                      {/* Condition */}
+                                      <div className="flex items-center gap-1.5">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Condition:</label>
+                                        <select
+                                          value={it.condition || "GOOD"}
+                                          onChange={(e) => handleItemChange(idx, "condition", e.target.value)}
+                                          className="bg-gray-50 border border-gray-200 rounded-md px-2.5 py-1 text-xs text-gray-700 outline-none focus:border-erp-primary font-medium"
+                                        >
+                                          <option value="GOOD">GOOD</option>
+                                          <option value="DAMAGED">DAMAGED</option>
+                                          <option value="DEFECTIVE">DEFECTIVE</option>
+                                          <option value="FAIR">FAIR</option>
+                                        </select>
+                                      </div>
+
+                                      {/* Reason for Return */}
+                                      <div className="flex items-center gap-1.5 flex-1 min-w-[200px]">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase whitespace-nowrap">Reason:</label>
+                                        <select
+                                          value={it.reasonForReturn || "Product defect"}
+                                          onChange={(e) => handleItemChange(idx, "reasonForReturn", e.target.value)}
+                                          className="w-full bg-gray-50 border border-gray-200 rounded-md px-2.5 py-1 text-xs text-gray-700 outline-none focus:border-erp-primary font-medium"
+                                        >
+                                          <option value="Product defect">Product defect</option>
+                                          <option value="Manufacturing Defect">Manufacturing Defect</option>
+                                          <option value="Wrong Item Delivered">Wrong Item Delivered</option>
+                                          <option value="Customer Dissatisfied">Customer Dissatisfied</option>
+                                          <option value="Size Issue">Size Issue</option>
+                                          <option value="Other">Other</option>
+                                        </select>
+                                      </div>
+                                    </div>
+
+                                    {/* Product Images Strip */}
+                                    <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-gray-100">
+                                      <span className="text-[10px] font-bold text-gray-500 uppercase flex items-center gap-1">
+                                        <Icon icon="mdi:camera" className="text-xs text-gray-400" /> Product Images:
+                                      </span>
+                                      {(it.images || []).map((imgUrl, pIdx) => (
+                                        <div key={pIdx} className="relative w-8 h-8 rounded-lg overflow-hidden border border-gray-200 shadow-2xs group">
+                                          <img src={imgUrl} alt={`Item image ${pIdx}`} className="w-full h-full object-cover" />
+                                          <button
+                                            type="button"
+                                            onClick={() => removeItemPhoto(idx, pIdx)}
+                                            className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                          >
+                                            <Icon icon="mdi:close-circle" className="text-xs" />
+                                          </button>
+                                        </div>
+                                      ))}
+                                      <label className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-600 text-[10px] font-bold cursor-pointer transition-colors border border-gray-200">
+                                        <Icon icon="mdi:cloud-upload-outline" className="text-xs text-erp-primary" /> Add Photo
+                                        <input
+                                          type="file"
+                                          accept="image/*"
+                                          multiple
+                                          className="hidden"
+                                          onChange={(e) => {
+                                            handleItemPhotoUpload(idx, e.target.files);
+                                            e.target.value = "";
+                                          }}
+                                        />
+                                      </label>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
                         );
                       })
                     ) : (
@@ -1055,171 +938,6 @@ export default function ReturnRefund() {
                 </table>
               </div>
 
-              {/* ── Add Item Expandable Section ── */}
-              {showAddItem ? (
-                <div className="border-t border-gray-100 p-4 bg-gray-50/50 space-y-3">
-                  <p className="text-xs font-bold text-gray-600 mb-2">
-                    Add New Item
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div>
-                      <label className={labelCls}>Product ID</label>
-                      <input
-                        value={newItem.productId}
-                        onChange={(e) =>
-                          handleNewItemChange("productId", e.target.value)
-                        }
-                        className={inputCls}
-                        placeholder="ID"
-                      />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Category *</label>
-                      <select
-                        value={newItem.category}
-                        onChange={(e) =>
-                          handleNewItemChange("category", e.target.value)
-                        }
-                        className={selectCls}
-                      >
-                        <option value="">Select</option>
-                        {settings?.allCategories?.map((cat) => (
-                          <option key={cat} value={cat}>
-                            {cat}
-                          </option>
-                        )) || (
-                            <>
-                              <option value="SUNGLASS">Sunglass</option>
-                              <option value="FRAME">Frame</option>
-                              <option value="LENS">Lens</option>
-                              <option value="FLUXAR">Fluxar</option>
-                              <option value="CONTACT_LENS">Contact Lens</option>
-                            </>
-                          )}
-                      </select>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className={labelCls}>Product Name *</label>
-                      <input
-                        value={newItem.item}
-                        onChange={(e) =>
-                          handleNewItemChange("item", e.target.value)
-                        }
-                        className={inputCls}
-                        placeholder="Product name"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                    <div>
-                      <label className={labelCls}>Qty</label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={newItem.qty}
-                        onChange={(e) =>
-                          handleNewItemChange("qty", e.target.value)
-                        }
-                        className={inputCls}
-                      />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Price</label>
-                      <input
-                        type="number"
-                        value={newItem.amount}
-                        onChange={(e) =>
-                          handleNewItemChange("amount", e.target.value)
-                        }
-                        className={inputCls}
-                        placeholder="₹ 0"
-                      />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Discount (%)</label>
-                      <input
-                        type="number"
-                        value={newItem.discount}
-                        onChange={(e) =>
-                          handleNewItemChange("discount", e.target.value)
-                        }
-                        className={inputCls}
-                        placeholder="0"
-                      />
-                    </div>
-                    <div>
-                      <label className={labelCls}>GST (%)</label>
-                      <select
-                        value={newItem.gst}
-                        onChange={(e) =>
-                          handleNewItemChange("gst", e.target.value)
-                        }
-                        className={selectCls}
-                      >
-                        {settings?.gst?.map((g) => (
-                          <option key={g} value={g}>
-                            {g}%
-                          </option>
-                        )) || (
-                            <>
-                              <option value="0">0%</option>
-                              <option value="5">5%</option>
-                              <option value="12">12%</option>
-                              <option value="18">18%</option>
-                              <option value="28">28%</option>
-                            </>
-                          )}
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelCls}>GST Type</label>
-                      <select
-                        value={newItem.gstType}
-                        onChange={(e) =>
-                          handleNewItemChange("gstType", e.target.value)
-                        }
-                        className={selectCls}
-                      >
-                        <option value="INCLUDED">Included</option>
-                        <option value="EXCLUDED">Excluded</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={addItemToTable}
-                      className="bg-erp-primary text-white text-xs font-bold px-5 py-2 rounded-full hover:shadow-md transition-all flex items-center gap-1"
-                    >
-                      <Icon icon="mdi:plus" /> Add
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAddItem(false);
-                        setNewItem({ ...EMPTY_ITEM });
-                      }}
-                      className="text-gray-500 text-xs font-bold px-4 py-2 rounded-full hover:bg-gray-100 transition-all"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="border-t border-gray-100 p-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddItem(true)}
-                    className="text-xs font-bold text-erp-primary flex items-center gap-1 hover:underline"
-                  >
-                    <Icon
-                      icon="mdi:plus-circle-outline"
-                      className="text-base"
-                    />{" "}
-                    Add Item
-                  </button>
-                </div>
-              )}
             </div>
 
             {/* ── Submit Button ── */}
@@ -1401,15 +1119,14 @@ export default function ReturnRefund() {
                           </td>
                           <td className="p-4">
                             <span
-                              className={`px-3 py-1 rounded-full text-[10px] font-bold ${
-                                row.status === "Return_Approved" || row.status === "Refund_Approved" || row.status === "Approved"
+                              className={`px-3 py-1 rounded-full text-[10px] font-bold ${row.status === "Return_Approved" || row.status === "Refund_Approved" || row.status === "Approved"
                                   ? "bg-emerald-50 text-emerald-600"
                                   : row.status === "Completed"
-                                  ? "bg-blue-50 text-blue-600"
-                                  : row.status === "Rejected"
-                                  ? "bg-rose-50 text-rose-600"
-                                  : "bg-amber-50 text-amber-600"
-                              }`}
+                                    ? "bg-blue-50 text-blue-600"
+                                    : row.status === "Rejected"
+                                      ? "bg-rose-50 text-rose-600"
+                                      : "bg-amber-50 text-amber-600"
+                                }`}
                             >
                               {row.status}
                             </span>
@@ -1481,37 +1198,56 @@ export default function ReturnRefund() {
                                       <tr>
                                         <th className="px-4 py-2.5 font-bold">Item Name</th>
                                         <th className="px-4 py-2.5 font-bold">Category</th>
+                                        <th className="px-4 py-2.5 font-bold">Condition</th>
+                                        <th className="px-4 py-2.5 font-bold">Reason</th>
                                         <th className="px-4 py-2.5 font-bold">Qty</th>
                                         <th className="px-4 py-2.5 font-bold">Amount</th>
                                         <th className="px-4 py-2.5 font-bold">Discount</th>
-                                        <th className="px-4 py-2.5 font-bold">Order No.</th>
+                                        <th className="px-4 py-2.5 font-bold">Images</th>
                                         <th className="px-4 py-2.5 font-bold">Return Status</th>
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-50">
-                                      {row.items.map((it, i) => (
-                                        <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                                          <td className="px-4 py-2.5 font-medium text-gray-700">{it.item || "-"}</td>
-                                          <td className="px-4 py-2.5 text-gray-500">
-                                            <div className="flex items-center gap-1.5">
-                                              <span
-                                                className="w-2 h-2 rounded-full"
-                                                style={{ backgroundColor: CATEGORY_COLORS[it.category] || "#9CA3AF" }}
-                                              />
-                                              {it.category || "-"}
-                                            </div>
-                                          </td>
-                                          <td className="px-4 py-2.5 text-gray-500">{it.qty || "-"}</td>
-                                          <td className="px-4 py-2.5 text-gray-500">₹ {it.amount || 0}</td>
-                                          <td className="px-4 py-2.5 text-gray-500">{it.discount || 0}%</td>
-                                          <td className="px-4 py-2.5 text-gray-500">{it.orderNumber || "-"}</td>
-                                          <td className="px-4 py-2.5">
-                                            <span className="bg-orange-50 text-orange-600 px-2 py-0.5 rounded text-[10px] font-bold">
-                                              {it.returnType || "RETURN_REQUESTED"}
-                                            </span>
-                                          </td>
-                                        </tr>
-                                      ))}
+                                      {row.items.map((it, i) => {
+                                        const itemImages = (it.images && it.images.length > 0) ? it.images : (row.photos || row.images || []);
+                                        return (
+                                          <tr key={i} className="hover:bg-gray-50/50 transition-colors">
+                                            <td className="px-4 py-2.5 font-medium text-gray-700">{it.item || "-"}</td>
+                                            <td className="px-4 py-2.5 text-gray-500">
+                                              <div className="flex items-center gap-1.5">
+                                                <span
+                                                  className="w-2 h-2 rounded-full"
+                                                  style={{ backgroundColor: CATEGORY_COLORS[it.category] || "#9CA3AF" }}
+                                                />
+                                                {it.category || "-"}
+                                              </div>
+                                            </td>
+                                            <td className="px-4 py-2.5 text-gray-700 font-semibold">{it.condition || row.condition || "-"}</td>
+                                            <td className="px-4 py-2.5 text-gray-700">{it.reasonForReturn || row.reasonForReturn || "-"}</td>
+                                            <td className="px-4 py-2.5 text-gray-500">{it.qty || "-"}</td>
+                                            <td className="px-4 py-2.5 text-gray-500">₹ {it.amount || 0}</td>
+                                            <td className="px-4 py-2.5 text-gray-500">{it.discount || 0}%</td>
+                                            <td className="px-4 py-2.5">
+                                              <div className="flex items-center gap-1">
+                                                {itemImages.length > 0 ? (
+                                                  itemImages.map((img, imgI) => (
+                                                    <a key={imgI} href={img} target="_blank" rel="noopener noreferrer">
+                                                      <img src={img} alt="Product image" className="w-6 h-6 rounded-md object-cover border border-gray-200 hover:scale-110 transition-transform shadow-2xs" />
+                                                    </a>
+                                                  ))
+                                                ) : (
+                                                  <span className="text-gray-400 text-[10px]">-</span>
+                                                )}
+                                              </div>
+                                            </td>
+                                            <td className="px-4 py-2.5">
+                                              <span className="bg-orange-50 text-orange-600 px-2 py-0.5 rounded text-[10px] font-bold">
+                                                {it.returnType || "RETURN_REQUESTED"}
+                                              </span>
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
                                     </tbody>
                                   </table>
                                 </div>

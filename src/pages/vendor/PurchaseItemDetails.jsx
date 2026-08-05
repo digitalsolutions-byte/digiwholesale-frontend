@@ -908,7 +908,7 @@ const PurchaseItemDetails = () => {
                     </div>
                 </div>,
                 document.body
-            )}\n\n            {/* ── Edit Order Modal ─────────────────────────────────────────────── */}
+            )}          {/* ── Edit Order Modal ─────────────────────────────────────────────── */}
             {showEditModal && createPortal(
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center">
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowEditModal(false)} />
