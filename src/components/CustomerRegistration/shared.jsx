@@ -1,5 +1,6 @@
 import React from 'react';
 import { Icon } from '@iconify/react';
+import { toast } from 'react-toastify';
 import Input from '../ui/Input';
 
 const isPDF = (url) => {
@@ -12,21 +13,31 @@ export const FileUploadField = ({ label, name, placeholder, fileRef: externalFil
     const cameraRef = React.useRef(null);
     const ref = externalFileRef || internalRef;
 
+    const handleValidatedFileChange = (e) => {
+        const file = e.target.files?.[0];
+        if (file && file.size > 5 * 1024 * 1024) {
+            toast.error("File size must not exceed 5 MB");
+            e.target.value = "";
+            return;
+        }
+        if (onFileChange) onFileChange(e);
+    };
+
     return (
         <div className="flex flex-col gap-3">
             {(!hideInput || label) && (
                 <div className="flex flex-col gap-1.5">
-                    <span className="text-gray-400 text-[10px] uppercase font-bold tracking-wider">{label}</span>
+                    <span className="text-gray-400 text-[10px] uppercase font-bold tracking-wider">{label} <span className="text-gray-400 font-normal lowercase">(max 5 MB)</span></span>
                     {!hideInput && wrapInput(Input, { label: '', name, placeholder, className: "bg-white", maxLength, onChange })}
                 </div>
             )}
 
             <div className="flex flex-col gap-3">
-                <input type="file" accept="image/*,application/pdf" hidden ref={ref} onChange={onFileChange} />
+                <input type="file" accept="image/*,application/pdf" hidden ref={ref} onChange={handleValidatedFileChange} />
 
                 {enableCamera ? (
                     <>
-                        <input type="file" accept="image/*" capture="environment" hidden ref={cameraRef} onChange={onFileChange} />
+                        <input type="file" accept="image/*" capture="environment" hidden ref={cameraRef} onChange={handleValidatedFileChange} />
                         <div className="grid grid-cols-2 gap-2">
                             <button
                                 onClick={() => ref.current?.click()}

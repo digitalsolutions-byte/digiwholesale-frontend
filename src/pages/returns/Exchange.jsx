@@ -212,6 +212,10 @@ export default function Exchange() {
   const addImages = useCallback(async (files) => {
     if (!files || files.length === 0) return;
     const incoming = Array.from(files);
+    if (incoming.some(f => f.size > 5 * 1024 * 1024)) {
+      toast.error("File size must not exceed 5 MB");
+      return;
+    }
     if (incoming.length + photos.length > 10) {
       toast.error("Maximum 10 photos allowed");
       return;
@@ -562,7 +566,7 @@ export default function Exchange() {
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 sticky top-6 space-y-6">
 
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-gray-700">Attach Photos</span>
+                <span className="text-sm font-bold text-gray-700">Attach Photos <span className="text-xs font-normal text-gray-400">(Max 5 MB per image)</span></span>
                 <span className="text-xs font-bold bg-erp-primary text-white px-4 py-1 rounded-full shadow-lg shadow-erp-primary/20">{photos.length}/10</span>
               </div>
 

@@ -75,6 +75,10 @@ const QcPending = () => {
 
     const handleQcPhotoUpload = async (file) => {
         if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('File size must not exceed 5 MB');
+            return;
+        }
         setUploadingPhoto(true);
         try {
             const res = await uploadImage(file);
@@ -413,7 +417,7 @@ const QcPending = () => {
 
                                     {/* QC Failure Photos Upload */}
                                     <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">Failure Evidence Photos</label>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">Failure Evidence Photos <span className="text-[10px] text-gray-400 font-normal">(Max 5 MB per image)</span></label>
                                         <div className="flex flex-wrap gap-2 items-center">
                                             {qcPhotos.map((url, idx) => (
                                                 <div key={idx} className="w-16 h-16 rounded-xl border border-gray-200 overflow-hidden relative group shadow-sm">

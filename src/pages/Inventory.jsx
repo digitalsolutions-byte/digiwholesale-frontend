@@ -413,8 +413,16 @@ export default function Inventory() {
                                             <input type="text" className={inputCls} placeholder="Dimensions" onChange={e => handleChange(i, "dimensions", e.target.value)} />
                                         </FieldInput>
 
-                                        <FieldInput label="Image">
-                                            <input type="file" accept="image/*" className={inputCls} onChange={e => handleChange(i, "image", e.target.files[0])} />
+                                        <FieldInput label="Image (Max 5 MB)">
+                                            <input type="file" accept="image/*" className={inputCls} onChange={e => {
+                                                const file = e.target.files[0];
+                                                if (file && file.size > 5 * 1024 * 1024) {
+                                                    toast.error("File size must not exceed 5 MB");
+                                                    e.target.value = "";
+                                                    return;
+                                                }
+                                                handleChange(i, "image", file);
+                                            }} />
                                         </FieldInput>
 
                                         {["LENS", "GLASS", "CONTACT"].some(k => row.category?.toUpperCase().includes(k)) && (<>
@@ -2007,7 +2015,7 @@ function EditProductModal({ product, settings, onClose }) {
                                 {settings?.gst?.map((p, idx) => <option key={idx} value={p}>{p}%</option>)}
                             </select>
                         </FieldInput>
-                        <FieldInput label="Product Image">
+                        <FieldInput label="Product Image (Max 5 MB)">
                             <div className="flex items-center gap-2">
                                 {product?.image && (
                                     <button type="button" onClick={() => window.open(product.image, "_blank")}
@@ -2015,7 +2023,15 @@ function EditProductModal({ product, settings, onClose }) {
                                         <FiImage size={14} />
                                     </button>
                                 )}
-                                <input type="file" accept="image/*" onChange={e => setSelectedImage(e.target.files[0])}
+                                <input type="file" accept="image/*" onChange={e => {
+                                    const file = e.target.files[0];
+                                    if (file && file.size > 5 * 1024 * 1024) {
+                                        toast.error("File size must not exceed 5 MB");
+                                        e.target.value = "";
+                                        return;
+                                    }
+                                    setSelectedImage(file);
+                                }}
                                     className={inputCls} />
                             </div>
                         </FieldInput>

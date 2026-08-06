@@ -68,6 +68,10 @@ export default function AddRepair() {
   const addImages = useCallback(async (files) => {
     if (!files || files.length === 0) return;
     const incoming = Array.from(files);
+    if (incoming.some(f => f.size > 5 * 1024 * 1024)) {
+      toast.error("File size must not exceed 5 MB");
+      return;
+    }
     if (incoming.length + images.length > 10) {
       toast.error("Maximum 10 images allowed"); return;
     }
@@ -200,7 +204,7 @@ export default function AddRepair() {
                 <div className="w-10 h-10 rounded-2xl bg-erp-accent/5 border border-erp-accent/10 text-erp-accent flex items-center justify-center">
                   <Icon icon="mdi:camera-outline" className="text-xl" />
                 </div>
-                <span className="text-sm font-bold text-gray-700">Photos</span>
+                <span className="text-sm font-bold text-gray-700">Photos <span className="text-xs font-normal text-gray-400">(Max 5 MB per image)</span></span>
               </div>
               <span className="text-xs font-bold bg-erp-accent text-white px-4 py-1 rounded-full shadow-lg shadow-erp-accent/20">{images.length} / 10 Photos</span>
             </div>

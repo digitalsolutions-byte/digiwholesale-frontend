@@ -591,6 +591,11 @@ const Registration = () => {
     const handleFileSelect = (e, type) => {
         const file = e.target.files[0];
         if (file) {
+            if (file.size > 5 * 1024 * 1024) {
+                toast.error("File size must not exceed 5 MB");
+                e.target.value = "";
+                return;
+            }
             const previewUrl = URL.createObjectURL(file);
             setImages(prev => ({
                 ...prev,
@@ -907,7 +912,7 @@ const Registration = () => {
                             <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {/* Aadhar Upload */}
                                 <div className="flex flex-col gap-3">
-                                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Aadhar Card *</span>
+                                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Aadhar Card * <span className="text-[10px] text-gray-400 font-normal lowercase">(max 5 MB)</span></span>
                                     <input type="file" hidden ref={aadharInputRef} onChange={(e) => handleFileSelect(e, 'aadhar')} accept="image/*" />
                                     <div
                                         onClick={() => aadharInputRef.current.click()}
@@ -946,7 +951,7 @@ const Registration = () => {
 
                                 {/* PAN Upload */}
                                 <div className="flex flex-col gap-3">
-                                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">PAN Card *</span>
+                                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">PAN Card * <span className="text-[10px] text-gray-400 font-normal lowercase">(max 5 MB)</span></span>
                                     <input type="file" hidden ref={panInputRef} onChange={(e) => handleFileSelect(e, 'pan')} accept="image/*" />
                                     <div
                                         onClick={() => panInputRef.current.click()}
