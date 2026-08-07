@@ -5,6 +5,7 @@ import { getAllCustomers, getCustomerById, getCustomerConfigs, deactivateCustome
 import { getAllZones } from '../services/locationService';
 import ConfirmationModal from '../components/ui/ConfirmationModal';
 import CorrectionRequestModal from '../components/ui/CorrectionRequestModal';
+import UpdateCustomerContactModal from '../components/ui/UpdateCustomerContactModal';
 import { useSelector } from 'react-redux';
 import { selectCurrentUser } from '../store/slices/authSlice';
 import { toast } from 'react-toastify';
@@ -58,6 +59,7 @@ const CustomerList = () => {
     const [activeActionMenu, setActiveActionMenu] = useState(null);
     const [selectedCustomerForDeactivate, setSelectedCustomerForDeactivate] = useState(null);
     const [selectedCustomerForCorrection, setSelectedCustomerForCorrection] = useState(null);
+    const [selectedCustomerForContactEdit, setSelectedCustomerForContactEdit] = useState(null);
     const [deactivateLoading, setDeactivateLoading] = useState(false);
     const [correctionLoading, setCorrectionLoading] = useState(false);
 
@@ -738,6 +740,15 @@ const CustomerList = () => {
                                 Deactivate
                             </button>
                         </PermissionWrapper>
+                        <PermissionWrapper permission="UPDATE_CUSTOMER">
+                            <button
+                                onClick={() => { setSelectedCustomerForContactEdit(activeActionMenu.cust); setActiveActionMenu(null); }}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-indigo-600 hover:bg-indigo-50 border-t border-gray-50 transition-colors"
+                            >
+                                <Icon icon="mdi:phone-edit" className="text-lg" />
+                                Update Contact (Demo)
+                            </button>
+                        </PermissionWrapper>
                         <PermissionWrapper permission="APPROVE_ORDER">
                             {(activeActionMenu.cust?.approvalStatus === 'PENDING_FINANCE' || !activeActionMenu.cust?.approvalStatus) && (
                                 <button
@@ -753,6 +764,14 @@ const CustomerList = () => {
                 </>,
                 document.body
             )}
+
+            {/* Standalone Demo Contact Edit Modal */}
+            <UpdateCustomerContactModal
+                isOpen={!!selectedCustomerForContactEdit}
+                onClose={() => setSelectedCustomerForContactEdit(null)}
+                customer={selectedCustomerForContactEdit}
+                onSuccess={() => fetchCustomers(pagination.currentPage)}
+            />
 
             {/* Customer Detail Modal */}
             {selectedCustomer && createPortal(

@@ -326,3 +326,12 @@ export const updateShipToDetails = async (customerId, shipToData) => {
         throw handleServiceError(error, 'Failed to update ship-to details');
     }
 };
+
+export const updateCustomerContact = async (customerId, contactData) => {
+    try {
+        const response = await api.patch(`/api/customer/management/update-contact/${customerId}`, contactData);
+        return response.data;
+    } catch (error) {
+        throw handleServiceError(error, 'Failed to update customer contact');
+    }
+};

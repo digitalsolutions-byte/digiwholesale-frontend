@@ -4,11 +4,14 @@ import { Icon } from '@iconify/react';
 import { getAllEmployees, deleteEmployee } from '../services/employeeService';
 import ConfirmationModal from '../components/ui/ConfirmationModal';
 import EditEmployeeModal from '../components/EditEmployeeModal';
+import UpdateEmployeeContactModal from '../components/ui/UpdateEmployeeContactModal';
 import { getAllDepartments } from '../services/departmentService';
 import { getSystemConfigs } from '../services/configService';
 import { toast } from 'react-toastify';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
+import { useSelector } from 'react-redux';
+import { selectCurrentUser } from '../store/slices/authSlice';
 
 const datePickerStyles = {
     '& .MuiOutlinedInput-root': {
@@ -41,6 +44,9 @@ const datePickerStyles = {
 };
 
 const EmployeeList = () => {
+    const currentUser = useSelector(selectCurrentUser);
+    const isSuperAdmin = currentUser?.EmployeeType === 'SUPERADMIN' || currentUser?.employeeType === 'SUPERADMIN';
+
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(true);
     const [configs, setConfigs] = useState({ departments: [], employeeTypes: [] });
@@ -51,6 +57,13 @@ const EmployeeList = () => {
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [viewLoading, setViewLoading] = useState(false);
     const [editEmployeeId, setEditEmployeeId] = useState(null);
+    const [selectedEmployeeForContactEdit, setSelectedEmployeeForContactEdit] = useState(null);
+    const [visiblePasswords, setVisiblePasswords] = useState({});
+
+    const togglePasswordVisibility = (id, e) => {
+        if (e) e.stopPropagation();
+        setVisiblePasswords(prev => ({ ...prev, [id]: !prev[id] }));
+    };
 
     // Filter States
     const [filters, setFilters] = useState({
@@ -343,9 +356,9 @@ const EmployeeList = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-2 text-center border-r border-gray-50">
-                                                <div className="flex flex-col">
+                                                <div className="flex flex-col items-center">
                                                     <span className="text-sm font-black text-gray-800 tracking-tight">{emp?.employeeName || '---'}</span>
-                                                    <span className="text-[10px] text-gray-400 font-bold uppercase  ">{emp?.username || '---'}</span>
+                                                    <span className="text-[10px] text-gray-400 font-bold uppercase">{emp?.username || '---'}</span>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-2 text-center border-r border-gray-50">
@@ -402,6 +415,24 @@ const EmployeeList = () => {
                                                             <div className="space-y-6">
                                                                 <h4 className="text-[11px] font-black text-erp-accent/80 uppercase tracking-widest border-b border-erp-accent/20 pb-2">Contact</h4>
                                                                 <DetailItem label="Email ID" value={emp.email} />
+                                                                {emp?.password && (
+                                                                    <div className="space-y-1">
+                                                                        <p className="text-[10px] uppercase text-gray-400 font-bold">Password</p>
+                                                                        <div className="flex items-center gap-1.5 font-mono text-xs">
+                                                                            <span className="font-semibold text-gray-700">
+                                                                                {visiblePasswords[emp._id] ? emp.password : '••••••••'}
+                                                                            </span>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={(e) => togglePasswordVisibility(emp._id, e)}
+                                                                                className="p-1 rounded-md text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                                                                title={visiblePasswords[emp._id] ? "Hide password" : "Show password"}
+                                                                            >
+                                                                                <Icon icon={visiblePasswords[emp._id] ? "mdi:eye-off" : "mdi:eye"} className="text-base" />
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
                                                                 <DetailItem label="Phone Number" value={emp.phone} />
                                                                 <DetailItem label="Account Created" value={new Date(emp.createdAt).toLocaleDateString()} />
                                                             </div>
@@ -521,6 +552,13 @@ const EmployeeList = () => {
                             Edit
                         </button>
                         <button
+                            onClick={() => { setSelectedEmployeeForContactEdit(activeActionMenu.emp); setActiveActionMenu(null); }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-indigo-600 hover:bg-indigo-50 border-t border-gray-50 transition-colors"
+                        >
+                            <Icon icon="mdi:phone-edit" className="text-lg" />
+                            Update Contact (Demo)
+                        </button>
+                        <button
                             onClick={() => { handleDeleteClick(activeActionMenu.emp); setActiveActionMenu(null); }}
                             className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors"
                         >
@@ -531,6 +569,14 @@ const EmployeeList = () => {
                 </>,
                 document.body
             )}
+
+            {/* Standalone Demo Employee Contact Edit Modal */}
+            <UpdateEmployeeContactModal
+                isOpen={!!selectedEmployeeForContactEdit}
+                onClose={() => setSelectedEmployeeForContactEdit(null)}
+                employee={selectedEmployeeForContactEdit}
+                onSuccess={() => fetchEmployees(pagination.currentPage)}
+            />
 
             <ConfirmationModal
                 isOpen={!!selectedEmployeeForDelete}
