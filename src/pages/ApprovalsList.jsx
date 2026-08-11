@@ -66,28 +66,28 @@ const ApprovalsList = () => {
     return (
         <div className="p-2 w-full h-full flex flex-col gap-4">
             {/* Header Area */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-1">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-1">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                    <h1 className="text-lg sm:text-2xl font-bold text-gray-800 flex items-center gap-2">
                         <Icon
                             icon={isSalesStage ? "mdi:account-tie" : "mdi:finance"}
                             className={isSalesStage ? "text-[#2980B9]" : "text-emerald-600"}
                         />
                         {isSalesStage ? 'Sales Head Pending Approvals' : 'Finance Pending Approvals'}
                     </h1>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
                         {isSalesStage
-                            ? 'Review and verify sales registration requests submitted by sales executive'
-                            : 'Review and set credit limits, payment terms & financial approvals'}
+                            ? 'Review and verify sales registration requests'
+                            : 'Review and set credit limits & approvals'}
                         <span className={`ml-2 font-bold ${isSalesStage ? 'text-[#1F618D]' : 'text-emerald-700'}`}>
-                            ({pagination.totalRecords || approvals.length} total pending)
+                            ({pagination.totalRecords || approvals.length} pending)
                         </span>
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => fetchApprovals(activeStage, pagination.currentPage)}
-                        className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-[#2980B9] bg-[#eaf4fb] hover:bg-[#d4eaf6] rounded-xl transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 text-xs font-bold text-[#2980B9] bg-[#eaf4fb] hover:bg-[#d4eaf6] rounded-xl transition-colors"
                     >
                         <Icon icon="mdi:refresh" className={loading ? 'animate-spin' : ''} />
                         Refresh
@@ -97,35 +97,95 @@ const ApprovalsList = () => {
 
             {/* Department / Stage Tabs (For Admins or Multi-stage users) */}
             {!isRestrictedDept && (
-                <div className="flex items-center gap-2 p-1.5 bg-gray-100/80 rounded-2xl w-fit border border-gray-200/60">
+                <div className="flex items-center gap-1.5 p-1 bg-gray-100/80 rounded-2xl w-full sm:w-fit border border-gray-200/60 overflow-x-auto">
                     <button
                         onClick={() => handleStageTabChange('salesHead')}
-                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                        className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 sm:px-5 sm:py-2.5 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${
                             activeStage === 'salesHead'
                                 ? 'bg-white text-[#1F618D] shadow-sm border border-gray-200/60'
                                 : 'text-gray-500 hover:text-gray-800'
                         }`}
                     >
-                        <Icon icon="mdi:account-tie" className="text-base" />
+                        <Icon icon="mdi:account-tie" className="text-sm sm:text-base" />
                         Sales Head Stage
                     </button>
                     <button
                         onClick={() => handleStageTabChange('finance')}
-                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                        className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 sm:px-5 sm:py-2.5 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${
                             activeStage === 'finance'
                                 ? 'bg-white text-emerald-700 shadow-sm border border-gray-200/60'
                                 : 'text-gray-500 hover:text-gray-800'
                         }`}
                     >
-                        <Icon icon="mdi:finance" className="text-base" />
+                        <Icon icon="mdi:finance" className="text-sm sm:text-base" />
                         Finance Stage
                     </button>
                 </div>
             )}
 
-            {/* Table Area */}
+            {/* Content Area */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex-1 overflow-hidden flex flex-col">
-                <div className="overflow-x-auto flex-1">
+                {/* ── Mobile Card View (block md:hidden) ── */}
+                <div className="block md:hidden space-y-3 p-3 bg-gray-50/50 flex-1 overflow-y-auto">
+                    {loading ? (
+                        Array(3).fill(0).map((_, i) => (
+                            <div key={i} className="bg-white rounded-xl p-4 animate-pulse h-28 border border-gray-100" />
+                        ))
+                    ) : approvals.length === 0 ? (
+                        <div className="p-10 text-center flex flex-col items-center gap-3">
+                            <Icon icon="mdi:clipboard-text-off-outline" className="text-4xl text-gray-300" />
+                            <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">
+                                No pending {isSalesStage ? 'Sales Head' : 'Finance'} approvals found
+                            </p>
+                        </div>
+                    ) : (
+                        approvals.map((approval) => (
+                            <div
+                                key={approval._id}
+                                onClick={() => handleRowClick(approval._id)}
+                                className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm space-y-3 cursor-pointer hover:border-erp-accent/40 active:scale-[0.99] transition-all"
+                            >
+                                <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${isSalesStage ? 'from-amber-400 to-[#1F618D]' : 'from-emerald-400 to-teal-700'} flex items-center justify-center text-white font-bold text-xs flex-shrink-0`}>
+                                            {approval.shopName?.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <h3 className="font-bold text-xs text-gray-800 uppercase tracking-tight truncate">{approval.shopName}</h3>
+                                            <p className="text-gray-400 text-[10px] uppercase truncate">{approval.ownerName || approval.proprietorName}</p>
+                                        </div>
+                                    </div>
+                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase flex-shrink-0 ${
+                                        isSalesStage
+                                            ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                            : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                    }`}>
+                                        {isSalesStage ? 'Sales Review' : 'Finance Review'}
+                                    </span>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100 text-[11px]">
+                                    <div>
+                                        <span className="text-[9px] uppercase font-bold text-gray-400 block">Customer Type</span>
+                                        <span className="font-semibold text-gray-700">{approval.businessType?.name || approval.businessType || 'N/A'}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-[9px] uppercase font-bold text-gray-400 block">Created By</span>
+                                        <span className="font-semibold text-gray-700">{approval.createdBy?.employeeName || 'Self'}</span>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-1 text-[11px]">
+                                    <span className="text-gray-400 font-medium">Submitted: {approval.createdAt ? new Date(approval.createdAt).toLocaleDateString('en-IN') : 'N/A'}</span>
+                                    <span className="text-erp-accent font-bold flex items-center gap-1">Review <Icon icon="mdi:arrow-right" className="text-xs" /></span>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+
+                {/* ── Desktop Table View (hidden md:block) ── */}
+                <div className="hidden md:block overflow-x-auto flex-1">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className={`${isSalesStage ? 'bg-[#eaf4fb]/50 border-[#2980B9]/15' : 'bg-emerald-50/40 border-emerald-200/40'} border-b`}>

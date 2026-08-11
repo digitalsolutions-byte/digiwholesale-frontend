@@ -72,29 +72,77 @@ const CorrectionsList = () => {
     return (
         <div className="p-2 w-full h-full flex flex-col gap-4">
             {/* Header Area */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-2">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                    <h1 className="text-lg sm:text-2xl font-bold text-gray-800 flex items-center gap-2">
                         <Icon icon="mdi:alert-circle-outline" className="text-red-600" />
                         Corrections Required
                     </h1>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
                         Review and resubmit customers with rejected details
-                        <span className="ml-2 font-semibold text-red-650">({pagination.totalCustomers || corrections.length} total pending)</span>
+                        <span className="ml-2 font-semibold text-red-650">({pagination.totalCustomers || corrections.length} pending)</span>
                     </p>
                 </div>
                 <button
                     onClick={() => fetchCorrections(pagination.currentPage)}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors"
                 >
                     <Icon icon="mdi:refresh" className={loading ? 'animate-spin' : ''} />
                     Refresh
                 </button>
             </div>
 
-            {/* Table Area */}
+            {/* Content Area */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex-1 overflow-hidden flex flex-col">
-                <div className="overflow-x-auto flex-1">
+                {/* ── Mobile Card View (block md:hidden) ── */}
+                <div className="block md:hidden space-y-3 p-3 bg-gray-50/50 flex-1 overflow-y-auto">
+                    {loading ? (
+                        Array(3).fill(0).map((_, i) => (
+                            <div key={i} className="bg-white rounded-xl p-4 animate-pulse h-28 border border-gray-100" />
+                        ))
+                    ) : corrections.length === 0 ? (
+                        <div className="p-10 text-center flex flex-col items-center gap-3">
+                            <Icon icon="mdi:clipboard-check-outline" className="text-4xl text-gray-300" />
+                            <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">No corrections required at the moment</p>
+                        </div>
+                    ) : (
+                        corrections.map((item) => (
+                            <div
+                                key={item._id}
+                                onClick={() => handleRowClick(item._id)}
+                                className="bg-white rounded-xl border border-red-100 p-4 shadow-sm space-y-3 cursor-pointer hover:border-red-300 active:scale-[0.99] transition-all"
+                            >
+                                <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-400 to-red-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                                            {item.shopName?.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <h3 className="font-bold text-xs text-gray-800 uppercase tracking-tight truncate">{item.shopName}</h3>
+                                            <p className="text-gray-400 text-[10px] uppercase truncate">{item.ownerName}</p>
+                                        </div>
+                                    </div>
+                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-red-50 text-red-700 border border-red-200 flex-shrink-0">
+                                        Fix Needed
+                                    </span>
+                                </div>
+
+                                <div className="p-2.5 bg-red-50/50 rounded-lg border border-red-100/60 text-xs">
+                                    <span className="text-[9px] uppercase font-bold text-red-500 block">Remark</span>
+                                    <p className="text-red-700 font-medium text-[11px] mt-0.5 line-clamp-2">{item.correctionRequest?.remark || 'No remark provided'}</p>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-1 text-[11px]">
+                                    <span className="text-gray-400">By: {item.correctionRequest?.requestedBy?.employeeName || 'Finance'}</span>
+                                    <span className="text-red-600 font-bold flex items-center gap-1">Edit Form <Icon icon="mdi:pencil-outline" className="text-xs" /></span>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+
+                {/* ── Desktop Table View (hidden md:block) ── */}
+                <div className="hidden md:block overflow-x-auto flex-1">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-red-50/50 border-b border-red-200/30">

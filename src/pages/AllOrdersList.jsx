@@ -678,22 +678,159 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-erp-accent"></div>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto overflow-y-auto max-h-[1000px] custom-scrollbar">
-                        <table className="w-full border-collapse min-w-[1240px]">
-                            <thead>
-                                <tr className="bg-erp-accent text-white">
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Order Code</th>
-                                    <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Customer / Shop</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Date / Time</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Est. Delivery</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Sub Orders</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Total Qty</th>
-                                    <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Order Total</th>
-                                    <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase whitespace-nowrap min-w-[200px]">Status</th>
-                                    <th className="py-4 px-4 font-semibold text-xs text-center uppercase ">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="text-gray-600">
+                    <>
+                        {/* ── Mobile Card View (block md:hidden) ── */}
+                        <div className="block md:hidden space-y-3 p-3 bg-gray-50/50">
+                            {orders.map((order) => {
+                                const isExpanded = expandedRows.has(order._id);
+                                const totalOrders = order.orders?.length || 0;
+                                let totalItemsQty = 0;
+                                let grandTotal = 0;
+                                let orderStatus = 'PENDING';
+
+                                if (totalOrders > 0) {
+                                    orderStatus = order.orders[0]?.status || 'PENDING';
+                                    order.orders.forEach(bo => {
+                                        grandTotal += (Number(bo.orderTotal) || Number(bo.totalAmount) || 0);
+                                        if (bo.items) {
+                                            bo.items.forEach(item => {
+                                                totalItemsQty += (Number(item.qty) || 0);
+                                            });
+                                        }
+                                    });
+                                }
+
+                                const statusCfg = STATUS_CONFIG[orderStatus] || STATUS_CONFIG[Object.keys(STATUS_CONFIG).find(k => k.toLowerCase() === orderStatus?.toLowerCase())] || { label: orderStatus, badge: 'bg-gray-100 text-gray-700 border-gray-200', icon: 'mdi:clock-outline' };
+
+                                return (
+                                    <div key={order._id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm space-y-3">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-black text-erp-accent font-mono bg-blue-50 px-2 py-0.5 rounded border border-blue-100 uppercase">
+                                                        #{order.orders?.[0]?.orderNumber || order?._id?.slice(-6) || '---'}
+                                                    </span>
+                                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex items-center gap-1 ${statusCfg.badge}`}>
+                                                        <Icon icon={statusCfg.icon || 'mdi:circle'} className="text-xs" />
+                                                        {statusCfg.label || orderStatus}
+                                                    </span>
+                                                </div>
+                                                <h3 className="text-sm font-black text-gray-800 tracking-tight mt-1 truncate">{order?.customer?.customerName || '---'}</h3>
+                                                <p className="text-[10px] text-gray-400 font-bold uppercase truncate">{order?.customer?.customerShipToBranchName || '---'}</p>
+                                            </div>
+                                            <button
+                                                onClick={(e) => {
+                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                    if (activeActionMenu?.id === order._id) {
+                                                        setActiveActionMenu(null);
+                                                    } else {
+                                                        setActiveActionMenu({
+                                                            id: order._id,
+                                                            top: rect.top + window.scrollY,
+                                                            left: rect.left + window.scrollX,
+                                                            order
+                                                        });
+                                                    }
+                                                }}
+                                                className="p-1.5 rounded-lg text-gray-400 hover:text-erp-accent hover:bg-erp-accent/10 transition-colors"
+                                            >
+                                                <Icon icon="mdi:dots-vertical" className="w-5 h-5" />
+                                            </button>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2 py-2 border-y border-gray-100 text-[11px]">
+                                            <div>
+                                                <span className="text-[9px] uppercase font-bold text-gray-400 block">Date & Time</span>
+                                                <span className="font-semibold text-gray-700">{dayjs(order?.createdAt).format('DD MMM YYYY, hh:mm A')}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-[9px] uppercase font-bold text-gray-400 block">Total Qty</span>
+                                                <span className="font-semibold text-gray-700">{totalItemsQty} Pcs</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-[9px] uppercase font-bold text-gray-400 block">Sub Orders</span>
+                                                <span className="font-semibold text-gray-700">{totalOrders}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-[9px] uppercase font-bold text-gray-400 block">Order Total</span>
+                                                <span className="font-bold text-erp-accent">₹{grandTotal.toFixed(2)}</span>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={() => toggleRow(order._id)}
+                                            className="w-full flex items-center justify-center gap-1.5 pt-1 text-xs font-bold text-erp-accent hover:text-blue-700"
+                                        >
+                                            <span>{isExpanded ? 'Hide Details' : 'View Sub-Orders & Details'}</span>
+                                            <Icon icon="lucide:chevron-down" className={`text-xs transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                                        </button>
+
+                                        {isExpanded && (
+                                            <div className="pt-3 border-t border-gray-100 space-y-4 animate-in fade-in duration-200 text-xs">
+                                                {order.orders?.map((subOrder, soIdx) => (
+                                                    <div key={soIdx} className="bg-gray-50/70 p-3 rounded-xl border border-gray-200/80 space-y-3">
+                                                        <div className="flex items-center justify-between border-b border-gray-200/60 pb-2">
+                                                            <span className="font-mono font-bold text-erp-accent text-xs">
+                                                                Sub-Order: #{subOrder.orderNumber || 'N/A'}
+                                                            </span>
+                                                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-blue-50 text-blue-700 border border-blue-100">
+                                                                {subOrder.status || 'PENDING'}
+                                                            </span>
+                                                        </div>
+
+                                                        <div className="space-y-2">
+                                                            {subOrder.items?.map((item, itemIdx) => (
+                                                                <div key={itemIdx} className="bg-white p-2.5 rounded-lg border border-gray-100 space-y-1.5 shadow-2xs">
+                                                                    <div className="flex items-start justify-between gap-2">
+                                                                        <div>
+                                                                            <span className="font-bold text-gray-800 text-xs block">{item.itemName || 'Unnamed Item'}</span>
+                                                                            <span className="text-[9px] font-bold text-gray-400 uppercase">{item.category} • {item.orderType}</span>
+                                                                        </div>
+                                                                        <div className="text-right flex-shrink-0">
+                                                                            <span className="font-black text-erp-accent text-xs block">₹{item.price}</span>
+                                                                            <span className="text-[10px] text-gray-500 font-semibold">Qty: {item.qty} {item.unit}</span>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {item.rx && (
+                                                                        <div className="pt-1.5 border-t border-gray-50 text-[10px] text-gray-500 space-y-1">
+                                                                            {item.rx.consumerCardName && (
+                                                                                <div><span className="font-bold text-gray-400">Patient:</span> {item.rx.consumerCardName}</div>
+                                                                            )}
+                                                                            {item.rx.opticianName && (
+                                                                                <div><span className="font-bold text-gray-400">Optician:</span> {item.rx.opticianName}</div>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* ── Desktop Table View (hidden md:block) ── */}
+                        <div className="hidden md:block overflow-x-auto overflow-y-auto max-h-[1000px] custom-scrollbar">
+                            <table className="w-full border-collapse min-w-[1240px]">
+                                <thead>
+                                    <tr className="bg-erp-accent text-white">
+                                        <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Order Code</th>
+                                        <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Customer / Shop</th>
+                                        <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Date / Time</th>
+                                        <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Est. Delivery</th>
+                                        <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Sub Orders</th>
+                                        <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Total Qty</th>
+                                        <th className="py-4 px-6 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase ">Order Total</th>
+                                        <th className="py-4 px-4 font-semibold text-xs border-r border-erp-accent/80/20 last:border-r-0 text-center uppercase whitespace-nowrap min-w-[200px]">Status</th>
+                                        <th className="py-4 px-4 font-semibold text-xs text-center uppercase ">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-gray-600">
                                 {orders.map((order) => {
                                     const totalOrders = order.orders?.length || 0;
                                     let totalItemsQty = 0;
@@ -1092,7 +1229,8 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
                             </tbody>
                         </table>
                     </div>
-                )}
+                </>
+            )}
 
                 {!loading && pagination.totalPages > 1 && (
                     <div className="flex justify-center items-center gap-4 py-6 border-t border-gray-100 bg-gray-50/30">

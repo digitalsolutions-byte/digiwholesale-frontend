@@ -360,9 +360,9 @@ const ShipTo = () => {
                                                 billingMode: 'Credit',
                                                 zipCode: '',
                                             })}
-                                            className="bg-erp-accent cursor-pointer text-white rounded-full px-12 py-4 font-bold flex items-center gap-2  transition-all shadow-lg hover:shadow-yellow-200"
+                                            className="bg-erp-accent cursor-pointer text-white rounded-xl sm:rounded-full px-4 py-2.5 sm:px-8 sm:py-3.5 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-md active:scale-95"
                                         >
-                                            <Icon icon="mdi:plus-circle-outline" className="text-2xl" />
+                                            <Icon icon="mdi:plus-circle-outline" className="text-lg sm:text-xl" />
                                             Add Another Ship To
                                         </button>
                                     </div>
@@ -370,14 +370,14 @@ const ShipTo = () => {
                             )}
                         </FieldArray>
 
-                        <div className="flex justify-center gap-6 pt-12 border-t border-gray-100">
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6 pt-6 sm:pt-12 border-t border-gray-100">
                             <Button
                                 type="submit"
-                                className="rounded-full px-20 py-4 font-bold text-lg shadow-xl min-w-[250px] cursor-pointer"
+                                className="w-full sm:w-auto rounded-xl sm:rounded-full px-6 py-3 sm:px-10 sm:py-3.5 font-bold text-xs sm:text-sm shadow-lg cursor-pointer"
                                 disabled={formik.isSubmitting}
                             >
                                 {formik.isSubmitting ? (
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center justify-center gap-2">
                                         <Icon icon="mdi:loading" className="animate-spin" />
                                         Updating...
                                     </div>
@@ -386,7 +386,7 @@ const ShipTo = () => {
                             <button
                                 type="button"
                                 onClick={() => handleCustomerChange(formik.values.customerId)}
-                                className="px-12 py-4 rounded-full border-2  cursor-pointer border-gray-200 text-gray-500 font-bold hover:bg-gray-50 transition-colors"
+                                className="w-full sm:w-auto px-6 py-3 sm:px-8 sm:py-3.5 rounded-xl sm:rounded-full border-2 cursor-pointer border-gray-200 text-gray-500 font-bold text-xs sm:text-sm hover:bg-gray-50 transition-colors"
                             >
                                 Reset Form
                             </button>
