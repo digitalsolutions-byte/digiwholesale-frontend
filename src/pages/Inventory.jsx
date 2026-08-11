@@ -232,19 +232,24 @@ export default function Inventory() {
         }).then((result) => { if (result.isConfirmed) window.location.reload(); });
     };
 
+    const [productCodeSuffix, setProductCodeSuffix] = useState("DO");
+
     const emptyRow = {
         id: uuidv4(), date: "", productCode: "", productName: "", category: "",
         brand: "", color: "", size: "", type: "", shape: "", sph: "", cyl: "",
-        index: "", axis: "", addition: "", coating: "", expiry: "", price: "", gst: "0",
-        hsnSac: "", mrp: "", qty: "", image: null, material: "", dimensions: ""
+        index: "", axis: "", addition: "", coating: "", expiry: "", pairOrSingle: "Single",
+        price: "", gst: "0", hsnSac: "", mrp: "", discount: "0", qty: "", vendor: "",
+        image: null, material: "", dimensions: "",
+        colors: [{ color: "", qty: "" }]
     };
 
     const [rows, setRows] = useState([emptyRow]);
     const addRow = () => setRows([...rows, { ...emptyRow, id: uuidv4() }]);
     const removeRow = (id) => { if (rows.length === 1) return; setRows(prev => prev.filter(r => r.id !== id)); };
 
-    const LENS_FIELDS = ["sph", "cyl", "index", "axis", "coating", "expiry"];
-    const isLensCategory = (v) => v.toLowerCase().includes("lens") || v.toLowerCase().includes("glass") || v.toLowerCase().includes("contact lens");
+    const LENS_FIELDS = ["sph", "cyl", "index", "axis", "coating", "expiry", "pairOrSingle"];
+    const isLensCategory = (v) => Boolean(v && (v.toLowerCase().includes("lens") || v.toLowerCase().includes("glass") || v.toLowerCase().includes("contact lens")));
+    const isFrameCategory = (v) => Boolean(v && v.toLowerCase().includes("frame"));
 
     const handleChange = (i, key, value) => {
         const copy = [...rows];
@@ -257,6 +262,35 @@ export default function Inventory() {
             copy[i][key] = value;
         }
         setRows(copy);
+    };
+
+    const handleColorChange = (rowIndex, colorIndex, field, value) => {
+        const copy = [...rows];
+        const colorsCopy = [...(copy[rowIndex].colors || [])];
+        colorsCopy[colorIndex] = { ...colorsCopy[colorIndex], [field]: value };
+        copy[rowIndex].colors = colorsCopy;
+        
+        const totalQty = colorsCopy.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
+        if (totalQty > 0) {
+            copy[rowIndex].qty = totalQty;
+        }
+        setRows(copy);
+    };
+
+    const addColorRow = (rowIndex) => {
+        const copy = [...rows];
+        copy[rowIndex].colors = [...(copy[rowIndex].colors || []), { color: "", qty: "" }];
+        setRows(copy);
+    };
+
+    const removeColorRow = (rowIndex, colorIndex) => {
+        const copy = [...rows];
+        if (copy[rowIndex].colors?.length > 1) {
+            copy[rowIndex].colors = copy[rowIndex].colors.filter((_, idx) => idx !== colorIndex);
+            const totalQty = copy[rowIndex].colors.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
+            if (totalQty > 0) copy[rowIndex].qty = totalQty;
+            setRows(copy);
+        }
     };
 
     const validateProductsRows = (rows) => {
@@ -279,7 +313,11 @@ export default function Inventory() {
         if (errorMessage) { toast.error(errorMessage); return; }
         try {
             const formData = new FormData();
-            formData.append("products", JSON.stringify(rows));
+            const formattedRows = rows.map(r => ({
+                ...r,
+                productCodeSuffix: isLensCategory(r.category) ? productCodeSuffix : undefined
+            }));
+            formData.append("products", JSON.stringify(formattedRows));
             rows.forEach((row, index) => { if (row.image instanceof File) formData.append(`productImage_${index}`, row.image); });
             const res = await api.post("/api/digi/product", formData, { headers: { "Content-Type": "multipart/form-data" } });
             if (res.data.success) {
@@ -362,101 +400,179 @@ export default function Inventory() {
                     <ModalHeader title="Add Product" subtitle="Fill in product details below" icon={FiPlus} onClose={() => setShowAddProductModal(false)} />
                     <form onSubmit={submitAddProductForm} className="flex-1 min-h-0 flex flex-col">
                         <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
-                            {rows.map((row, i) => (
-                                <div key={row.id} className="bg-gray-50 rounded-2xl border border-gray-100 p-4">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <span className="text-[10px] font-bold text-[#2980b9] uppercase tracking-widest">Product #{i + 1}</span>
-                                        {rows.length > 1 && (
-                                            <button type="button" onClick={() => removeRow(row.id)}
-                                                className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 transition">
-                                                <FiTrash2 size={13} />
-                                            </button>
-                                        )}
-                                    </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                                        <FieldInput label="Date">
-                                            <input type="date" className={inputCls} onChange={e => handleChange(i, "date", e.target.value)} />
-                                        </FieldInput>
-                                        <FieldInput label="Code *">
-                                            <input type="text" className={inputCls} placeholder="e.g. PRD001" onChange={e => handleChange(i, "productCode", e.target.value)} />
-                                        </FieldInput>
-                                        <FieldInput label="Name *">
-                                            <input type="text" className={inputCls} placeholder="Product name" onChange={e => handleChange(i, "productName", e.target.value)} />
-                                        </FieldInput>
-                                        <FieldInput label="Category *">
-                                            <select className={selectCls} onChange={e => handleChange(i, "category", e.target.value)}>
-                                                <option value="">Select</option>
-                                                {settings?.allCategories?.map((cat, idx) => <option key={idx} value={cat}>{cat}</option>)}
-                                            </select>
-                                        </FieldInput>
-                                        <FieldInput label="Brand *">
-                                            <input type="text" className={inputCls} placeholder="Brand" onChange={e => handleChange(i, "brand", e.target.value)} />
-                                        </FieldInput>
-                                        <FieldInput label="Color">
-                                            <input type="text" className={inputCls} placeholder="Color" onChange={e => handleChange(i, "color", e.target.value)} />
-                                        </FieldInput>
-                                        <FieldInput label="Size">
-                                            <input type="text" className={inputCls} placeholder="Size" onChange={e => handleChange(i, "size", e.target.value)} />
-                                        </FieldInput>
-                                        <FieldInput label="Type">
-                                            <input type="text" className={inputCls} placeholder="Type" onChange={e => handleChange(i, "type", e.target.value)} />
-                                        </FieldInput>
-                                        <FieldInput label="Shape">
-                                            <input type="text" className={inputCls} placeholder="Shape" onChange={e => handleChange(i, "shape", e.target.value)} />
-                                        </FieldInput>
-
-                                        <FieldInput label="Material">
-                                            <input type="text" className={inputCls} placeholder="Material" onChange={e => handleChange(i, "material", e.target.value)} />
-                                        </FieldInput>
-
-                                        <FieldInput label="Dimensions">
-                                            <input type="text" className={inputCls} placeholder="Dimensions" onChange={e => handleChange(i, "dimensions", e.target.value)} />
-                                        </FieldInput>
-
-                                        <FieldInput label="Image (Max 5 MB)">
-                                            <input type="file" accept="image/*" className={inputCls} onChange={e => {
-                                                const file = e.target.files[0];
-                                                if (file && file.size > 5 * 1024 * 1024) {
-                                                    toast.error("File size must not exceed 5 MB");
-                                                    e.target.value = "";
-                                                    return;
-                                                }
-                                                handleChange(i, "image", file);
-                                            }} />
-                                        </FieldInput>
-
-                                        {["LENS", "GLASS", "CONTACT"].some(k => row.category?.toUpperCase().includes(k)) && (<>
-                                            <FieldInput label="SPH"><input type="text" className={inputCls} onChange={e => handleChange(i, "sph", e.target.value)} /></FieldInput>
-                                            <FieldInput label="CYL"><input type="text" className={inputCls} onChange={e => handleChange(i, "cyl", e.target.value)} /></FieldInput>
-                                            <FieldInput label="Index"><input type="text" className={inputCls} onChange={e => handleChange(i, "index", e.target.value)} /></FieldInput>
-                                            <FieldInput label="Axis"><input type="text" className={inputCls} onChange={e => handleChange(i, "axis", e.target.value)} /></FieldInput>
-
-                                            <FieldInput label="Addition"><input type="text" className={inputCls} onChange={e => handleChange(i, "addition", e.target.value)} /></FieldInput>
-
-                                            <FieldInput label="Coating"><input type="text" className={inputCls} onChange={e => handleChange(i, "coating", e.target.value)} /></FieldInput>
-                                            <FieldInput label="Expiry"><input type="date" className={inputCls} onChange={e => handleChange(i, "expiry", e.target.value)} /></FieldInput>
-                                        </>)}
-
-                                        <FieldInput label="Price *">
-                                            <input type="number" className={inputCls} placeholder="0" onChange={e => handleChange(i, "price", e.target.value)} />
-                                        </FieldInput>
-                                        <FieldInput label="GST %">
-                                            <select className={selectCls} onChange={e => handleChange(i, "gst", e.target.value)}>
-                                                {settings?.gst?.map((p, idx) => <option key={idx} value={p}>{p}%</option>)}
-                                            </select>
-                                        </FieldInput>
-                                        <FieldInput label="HSN/SAC">
-                                            <input type="text" className={inputCls} placeholder="HSN code" onChange={e => handleChange(i, "hsnSac", e.target.value)} />
-                                        </FieldInput>
-                                        <FieldInput label="MRP *">
-                                            <input type="number" className={inputCls} placeholder="0" onChange={e => handleChange(i, "mrp", e.target.value)} />
-                                        </FieldInput>
-                                        <FieldInput label="Qty *">
-                                            <input type="number" className={inputCls} placeholder="0" onChange={e => handleChange(i, "qty", e.target.value)} />
-                                        </FieldInput>
-                                    </div>
+                            {rows.some(r => isLensCategory(r.category)) && (
+                                <div className="bg-[#FFFDF5] border border-amber-200/80 rounded-2xl p-4 mb-3">
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">
+                                        Product Code Suffix
+                                    </label>
+                                    <input
+                                        type="text"
+                                        className={`${inputCls} max-w-xs`}
+                                        placeholder="DO"
+                                        value={productCodeSuffix}
+                                        onChange={e => setProductCodeSuffix(e.target.value)}
+                                    />
                                 </div>
-                            ))}
+                            )}
+
+                            {rows.map((row, i) => {
+                                const isLens = isLensCategory(row.category);
+                                const isFrame = isFrameCategory(row.category);
+
+                                return (
+                                    <div key={row.id} className="bg-gray-50 rounded-2xl border border-gray-100 p-4">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <span className="text-[10px] font-bold text-[#2980b9] uppercase tracking-widest">Product #{i + 1}</span>
+                                            {rows.length > 1 && (
+                                                <button type="button" onClick={() => removeRow(row.id)}
+                                                    className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 transition">
+                                                    <FiTrash2 size={13} />
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                                            <FieldInput label="Date">
+                                                <input type="date" value={row.date} className={inputCls} onChange={e => handleChange(i, "date", e.target.value)} />
+                                            </FieldInput>
+                                            <FieldInput label="Code *">
+                                                <input type="text" value={row.productCode} className={inputCls} placeholder="e.g. PRD001" onChange={e => handleChange(i, "productCode", e.target.value)} />
+                                            </FieldInput>
+                                            <FieldInput label="Name *">
+                                                <input type="text" value={row.productName} className={inputCls} placeholder="Product name" onChange={e => handleChange(i, "productName", e.target.value)} />
+                                            </FieldInput>
+                                            <FieldInput label="Category *">
+                                                <select value={row.category} className={selectCls} onChange={e => handleChange(i, "category", e.target.value)}>
+                                                    <option value="">Select</option>
+                                                    {settings?.allCategories?.map((cat, idx) => <option key={idx} value={cat}>{cat}</option>)}
+                                                </select>
+                                            </FieldInput>
+                                            <FieldInput label="Brand *">
+                                                <input type="text" value={row.brand} className={inputCls} placeholder="Brand" onChange={e => handleChange(i, "brand", e.target.value)} />
+                                            </FieldInput>
+                                            <FieldInput label="Size">
+                                                <input type="text" value={row.size} className={inputCls} placeholder="Size" onChange={e => handleChange(i, "size", e.target.value)} />
+                                            </FieldInput>
+                                            <FieldInput label="Type">
+                                                <input type="text" value={row.type} className={inputCls} placeholder="Type" onChange={e => handleChange(i, "type", e.target.value)} />
+                                            </FieldInput>
+                                            <FieldInput label="Shape">
+                                                <input type="text" value={row.shape} className={inputCls} placeholder="Shape" onChange={e => handleChange(i, "shape", e.target.value)} />
+                                            </FieldInput>
+                                            <FieldInput label="Material">
+                                                <input type="text" value={row.material} className={inputCls} placeholder="Material" onChange={e => handleChange(i, "material", e.target.value)} />
+                                            </FieldInput>
+                                            <FieldInput label="Dimensions">
+                                                <input type="text" value={row.dimensions} className={inputCls} placeholder="Dimensions" onChange={e => handleChange(i, "dimensions", e.target.value)} />
+                                            </FieldInput>
+
+                                            <FieldInput label="Image (Max 5 MB)">
+                                                <input type="file" accept="image/*" className={inputCls} onChange={e => {
+                                                    const file = e.target.files[0];
+                                                    if (file && file.size > 5 * 1024 * 1024) {
+                                                        toast.error("File size must not exceed 5 MB");
+                                                        e.target.value = "";
+                                                        return;
+                                                    }
+                                                    handleChange(i, "image", file);
+                                                }} />
+                                            </FieldInput>
+
+                                            {isLens && (<>
+                                                <FieldInput label="SPH"><input type="text" value={row.sph} className={inputCls} onChange={e => handleChange(i, "sph", e.target.value)} /></FieldInput>
+                                                <FieldInput label="CYL"><input type="text" value={row.cyl} className={inputCls} onChange={e => handleChange(i, "cyl", e.target.value)} /></FieldInput>
+                                                <FieldInput label="Index"><input type="text" value={row.index} className={inputCls} onChange={e => handleChange(i, "index", e.target.value)} /></FieldInput>
+                                                <FieldInput label="Axis"><input type="text" value={row.axis} className={inputCls} onChange={e => handleChange(i, "axis", e.target.value)} /></FieldInput>
+
+                                                <FieldInput label="Addition"><input type="text" value={row.addition} className={inputCls} onChange={e => handleChange(i, "addition", e.target.value)} /></FieldInput>
+
+                                                <FieldInput label="Coating"><input type="text" value={row.coating} className={inputCls} onChange={e => handleChange(i, "coating", e.target.value)} /></FieldInput>
+                                                <FieldInput label="Expiry"><input type="date" value={row.expiry} className={inputCls} onChange={e => handleChange(i, "expiry", e.target.value)} /></FieldInput>
+                                                <FieldInput label="Pair / Single">
+                                                    <select value={row.pairOrSingle || "Single"} className={selectCls} onChange={e => handleChange(i, "pairOrSingle", e.target.value)}>
+                                                        <option value="Single">Single</option>
+                                                        <option value="Pair">Pair</option>
+                                                    </select>
+                                                </FieldInput>
+                                            </>)}
+
+                                            <FieldInput label="Price *">
+                                                <input type="number" value={row.price} className={inputCls} placeholder="0" onChange={e => handleChange(i, "price", e.target.value)} />
+                                            </FieldInput>
+                                            <FieldInput label="GST %">
+                                                <select value={row.gst} className={selectCls} onChange={e => handleChange(i, "gst", e.target.value)}>
+                                                    {settings?.gst?.map((p, idx) => <option key={idx} value={p}>{p}%</option>)}
+                                                </select>
+                                            </FieldInput>
+                                            <FieldInput label="HSN/SAC">
+                                                <input type="text" value={row.hsnSac} className={inputCls} placeholder="HSN code" onChange={e => handleChange(i, "hsnSac", e.target.value)} />
+                                            </FieldInput>
+                                            <FieldInput label="MRP *">
+                                                <input type="number" value={row.mrp} className={inputCls} placeholder="0" onChange={e => handleChange(i, "mrp", e.target.value)} />
+                                            </FieldInput>
+                                            <FieldInput label="Discount (₹)">
+                                                <input type="number" value={row.discount} className={inputCls} placeholder="0" onChange={e => handleChange(i, "discount", e.target.value)} />
+                                            </FieldInput>
+                                            <FieldInput label="Qty *">
+                                                <input type="number" value={row.qty} className={inputCls} placeholder="0" onChange={e => handleChange(i, "qty", e.target.value)} />
+                                            </FieldInput>
+                                            <FieldInput label="Vendor">
+                                                <select value={row.vendor} className={selectCls} onChange={e => handleChange(i, "vendor", e.target.value)}>
+                                                    <option value="">Select</option>
+                                                    {vendors.map((v) => (
+                                                        <option key={v._id || v.id} value={v._id || v.id || v.vendorName}>
+                                                            {v.vendorName || v.name || v.companyName}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </FieldInput>
+
+                                            {isFrame && (
+                                                <div className="col-span-full mt-2">
+                                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">
+                                                        Colors & Quantity
+                                                    </label>
+                                                    <div className="space-y-2">
+                                                        {row.colors?.map((cItem, cIdx) => (
+                                                            <div key={cIdx} className="flex items-center gap-2">
+                                                                <input
+                                                                    type="text"
+                                                                    className={`${inputCls} max-w-[140px]`}
+                                                                    placeholder="Color"
+                                                                    value={cItem.color}
+                                                                    onChange={e => handleColorChange(i, cIdx, "color", e.target.value)}
+                                                                />
+                                                                <input
+                                                                    type="number"
+                                                                    className={`${inputCls} max-w-[100px]`}
+                                                                    placeholder="Qty"
+                                                                    value={cItem.qty}
+                                                                    onChange={e => handleColorChange(i, cIdx, "qty", e.target.value)}
+                                                                />
+                                                                {row.colors.length > 1 && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => removeColorRow(i, cIdx)}
+                                                                        className="p-1 text-red-400 hover:text-red-600 transition"
+                                                                    >
+                                                                        <FiTrash2 size={13} />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => addColorRow(i)}
+                                                            className="mt-1 px-3 py-1.5 border border-dashed border-orange-400 text-orange-500 hover:bg-orange-50 text-xs font-semibold rounded-xl transition flex items-center gap-1.5"
+                                                        >
+                                                            + Color
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                             <button type="button" onClick={addRow}
                                 className="w-full py-3 border-2 border-dashed border-[#2980b9]/40 hover:border-[#2980b9]/60 text-[#2980b9] hover:text-[#2980b9]/90 text-xs font-semibold rounded-2xl transition flex items-center justify-center gap-2">
                                 <FiPlus size={14} /> Add Another Product

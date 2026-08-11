@@ -90,55 +90,55 @@ export default function PlatformOwnerDashboard() {
             </div>
 
             {/* Clean Minimal Metric Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-2">
-                    <div className="flex items-center justify-between text-slate-400">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Wholesalers</span>
-                        <div className="p-2 bg-slate-100 text-slate-600 rounded-xl">
-                            <Icon icon="lucide:building-2" className="text-lg" />
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-100 shadow-xs space-y-1.5 sm:space-y-2 overflow-hidden">
+                    <div className="flex items-center justify-between gap-1 text-slate-400">
+                        <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500 truncate">Total Wholesalers</span>
+                        <div className="p-1.5 sm:p-2 bg-slate-100 text-slate-600 rounded-xl flex-shrink-0">
+                            <Icon icon="lucide:building-2" className="text-base sm:text-lg" />
                         </div>
                     </div>
-                    <div className="text-2xl font-bold text-slate-800">{stats.total}</div>
-                    <span className="text-[11px] text-slate-400 font-medium">Registered workspaces</span>
+                    <div className="text-xl sm:text-2xl font-bold text-slate-800">{stats.total}</div>
+                    <span className="text-[10px] sm:text-[11px] text-slate-400 font-medium block truncate">Registered workspaces</span>
                 </div>
 
-                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-2">
-                    <div className="flex items-center justify-between text-slate-400">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Active</span>
-                        <div className="p-2 bg-slate-100 text-emerald-600 rounded-xl">
-                            <Icon icon="lucide:check-circle" className="text-lg" />
+                <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-100 shadow-xs space-y-1.5 sm:space-y-2 overflow-hidden">
+                    <div className="flex items-center justify-between gap-1 text-slate-400">
+                        <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500 truncate">Active</span>
+                        <div className="p-1.5 sm:p-2 bg-slate-100 text-emerald-600 rounded-xl flex-shrink-0">
+                            <Icon icon="lucide:check-circle" className="text-base sm:text-lg" />
                         </div>
                     </div>
-                    <div className="text-2xl font-bold text-emerald-600">{stats.active}</div>
-                    <span className="text-[11px] text-slate-400 font-medium">Operational workspaces</span>
+                    <div className="text-xl sm:text-2xl font-bold text-emerald-600">{stats.active}</div>
+                    <span className="text-[10px] sm:text-[11px] text-slate-400 font-medium block truncate">Operational workspaces</span>
                 </div>
 
-                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-2">
-                    <div className="flex items-center justify-between text-slate-400">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Suspended</span>
-                        <div className="p-2 bg-slate-100 text-slate-500 rounded-xl">
-                            <Icon icon="lucide:ban" className="text-lg" />
+                <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-100 shadow-xs space-y-1.5 sm:space-y-2 overflow-hidden">
+                    <div className="flex items-center justify-between gap-1 text-slate-400">
+                        <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500 truncate">Suspended</span>
+                        <div className="p-1.5 sm:p-2 bg-slate-100 text-slate-500 rounded-xl flex-shrink-0">
+                            <Icon icon="lucide:ban" className="text-base sm:text-lg" />
                         </div>
                     </div>
-                    <div className="text-2xl font-bold text-rose-600">{stats.suspended}</div>
-                    <span className="text-[11px] text-slate-400 font-medium">Blocked from access</span>
+                    <div className="text-xl sm:text-2xl font-bold text-rose-600">{stats.suspended}</div>
+                    <span className="text-[10px] sm:text-[11px] text-slate-400 font-medium block truncate">Blocked from access</span>
                 </div>
 
-                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-2">
-                    <div className="flex items-center justify-between text-slate-400">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Avg Commission</span>
-                        <div className="p-2 bg-slate-100 text-[#2980B9] rounded-xl">
-                            <Icon icon="lucide:percent" className="text-lg" />
+                <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-100 shadow-xs space-y-1.5 sm:space-y-2 overflow-hidden">
+                    <div className="flex items-center justify-between gap-1 text-slate-400">
+                        <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500 truncate">Avg Commission</span>
+                        <div className="p-1.5 sm:p-2 bg-slate-100 text-[#2980B9] rounded-xl flex-shrink-0">
+                            <Icon icon="lucide:percent" className="text-base sm:text-lg" />
                         </div>
                     </div>
-                    <div className="text-2xl font-bold text-slate-800">{stats.avgCommission}%</div>
-                    <span className="text-[11px] text-slate-400 font-medium">Platform revenue share</span>
+                    <div className="text-xl sm:text-2xl font-bold text-slate-800">{stats.avgCommission}%</div>
+                    <span className="text-[10px] sm:text-[11px] text-slate-400 font-medium block truncate">Platform revenue share</span>
                 </div>
             </div>
 
-            {/* Wholesaler List Table */}
+            {/* Wholesaler List Section */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
-                <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+                <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
                         <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                             Recent Wholesalers
@@ -147,14 +147,92 @@ export default function PlatformOwnerDashboard() {
                     </div>
                     <button
                         onClick={() => navigate(PATHS.TENANTS.LIST)}
-                        className="text-xs font-semibold text-[#2980B9] hover:underline flex items-center gap-1"
+                        className="text-xs font-semibold text-[#2980B9] hover:underline flex items-center gap-1 self-end sm:self-auto"
                     >
                         <span>View All Wholesalers</span>
                         <Icon icon="lucide:arrow-right" />
                     </button>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* Mobile Cards View (md:hidden) */}
+                <div className="block md:hidden divide-y divide-slate-100">
+                    {loading ? (
+                        <div className="p-6 text-center text-slate-400 text-xs font-medium">
+                            Loading platform data...
+                        </div>
+                    ) : tenants.length === 0 ? (
+                        <div className="p-6 text-center text-slate-400 text-xs font-medium">
+                            No wholesalers registered yet. Click "+ Create Wholesaler" to register your first tenant!
+                        </div>
+                    ) : (
+                        tenants.slice(0, 8).map((t) => {
+                            const store = t.storeInformation || {};
+                            const owner = t.owner || {};
+                            const isSuspended = t.status === 'SUSPENDED';
+
+                            return (
+                                <div key={t._id} className="p-4 space-y-3 bg-white hover:bg-slate-50/50 transition-colors">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div>
+                                            <h3 className="font-bold text-slate-800 text-sm leading-snug">{store.storeName || 'N/A'}</h3>
+                                            <span className="font-mono text-[11px] text-[#2980B9] font-medium block mt-0.5">{t.tenantId}</span>
+                                        </div>
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0 ${
+                                            isSuspended ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                                        }`}>
+                                            {t.status || 'ACTIVE'}
+                                        </span>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-50">
+                                        <div className="space-y-0.5">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Owner Info</span>
+                                            <span className="font-semibold text-slate-700 block truncate">{owner.ownerName || 'N/A'}</span>
+                                            <span className="text-[11px] text-slate-400 block truncate">{owner.email || ''}</span>
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Plan & Comm.</span>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                                    {t.subscription?.planType || 'PRO'}
+                                                </span>
+                                                <span className="font-semibold text-slate-700 text-xs">{store.commissionPercentage || 0}%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 gap-2">
+                                        <div className="text-[11px] text-slate-500">
+                                            <span className="text-slate-400">Expires: </span>
+                                            <span className="font-medium text-slate-700">{store.expiryDate ? new Date(store.expiryDate).toLocaleDateString('en-IN') : 'N/A'}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => navigate(`/tenants/view/${t._id}`)}
+                                                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-xs transition-colors"
+                                            >
+                                                Manage
+                                            </button>
+                                            <button
+                                                onClick={() => handleToggleStatus(t)}
+                                                className={`px-3 py-1.5 rounded-xl font-semibold text-xs transition-colors ${
+                                                    isSuspended
+                                                        ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100'
+                                                        : 'bg-slate-100 text-slate-600 hover:bg-rose-50 hover:text-rose-600'
+                                                }`}
+                                            >
+                                                {isSuspended ? 'Activate' : 'Suspend'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+
+                {/* Desktop Table View (hidden md:block) */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-left border-collapse text-xs">
                         <thead>
                             <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase tracking-wider">

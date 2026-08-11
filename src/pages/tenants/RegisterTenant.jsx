@@ -580,7 +580,7 @@ export default function RegisterTenant() {
                     </div>
 
                     {/* 4. Pages & Subscription Variant */}
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs space-y-4">
+                    <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-100 shadow-xs space-y-4">
                         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                             <div className="flex items-center gap-2.5">
                                 <Icon icon="lucide:shield-check" className="text-[#2980B9] text-xl" />
@@ -592,50 +592,62 @@ export default function RegisterTenant() {
                         </div>
 
                         {/* Variant Selection Cards */}
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             {/* PRO */}
                             <div
                                 onClick={() => handlePlanSelect('PRO')}
-                                className={`p-3 rounded-xl cursor-pointer transition-all border text-center ${
+                                className={`p-3.5 sm:p-4 rounded-xl cursor-pointer transition-all border flex sm:flex-col items-center justify-between sm:justify-center text-left sm:text-center gap-2 ${
                                     formData.planType === 'PRO'
                                         ? 'bg-[#2980B9] text-white border-[#2980B9] shadow-xs'
                                         : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                                 }`}
                             >
-                                <Icon icon="lucide:sparkles" className="text-lg mx-auto mb-1" />
-                                <div className="text-xs font-bold uppercase">PRO</div>
-                                <div className="text-[9px] opacity-80 font-medium">All features</div>
-                                <div className="text-[10px] font-semibold mt-1">30 pages</div>
+                                <div className="flex items-center sm:flex-col gap-2 sm:gap-1">
+                                    <Icon icon="lucide:sparkles" className="text-xl sm:text-lg sm:mx-auto" />
+                                    <div>
+                                        <div className="text-xs font-bold uppercase tracking-wider">PRO</div>
+                                        <div className="text-[10px] sm:text-[9px] opacity-80 font-medium">All features</div>
+                                    </div>
+                                </div>
+                                <div className="text-xs sm:text-[10px] font-bold px-2 py-0.5 rounded bg-white/20 sm:bg-transparent">30 pages</div>
                             </div>
 
                             {/* PREMIUM */}
                             <div
                                 onClick={() => handlePlanSelect('PREMIUM')}
-                                className={`p-3 rounded-xl cursor-pointer transition-all border text-center ${
+                                className={`p-3.5 sm:p-4 rounded-xl cursor-pointer transition-all border flex sm:flex-col items-center justify-between sm:justify-center text-left sm:text-center gap-2 ${
                                     formData.planType === 'PREMIUM'
                                         ? 'bg-[#2980B9] text-white border-[#2980B9] shadow-xs'
                                         : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                                 }`}
                             >
-                                <Icon icon="lucide:settings" className="text-lg mx-auto mb-1" />
-                                <div className="text-xs font-bold uppercase">PREMIUM</div>
-                                <div className="text-[9px] opacity-80 font-medium">Core features</div>
-                                <div className="text-[10px] font-semibold mt-1">11 pages</div>
+                                <div className="flex items-center sm:flex-col gap-2 sm:gap-1">
+                                    <Icon icon="lucide:settings" className="text-xl sm:text-lg sm:mx-auto" />
+                                    <div>
+                                        <div className="text-xs font-bold uppercase tracking-wider">PREMIUM</div>
+                                        <div className="text-[10px] sm:text-[9px] opacity-80 font-medium">Core features</div>
+                                    </div>
+                                </div>
+                                <div className="text-xs sm:text-[10px] font-bold px-2 py-0.5 rounded bg-white/20 sm:bg-transparent">11 pages</div>
                             </div>
 
                             {/* CUSTOM */}
                             <div
                                 onClick={() => handlePlanSelect('CUSTOM')}
-                                className={`p-3 rounded-xl cursor-pointer transition-all border text-center ${
+                                className={`p-3.5 sm:p-4 rounded-xl cursor-pointer transition-all border flex sm:flex-col items-center justify-between sm:justify-center text-left sm:text-center gap-2 ${
                                     formData.planType === 'CUSTOM'
                                         ? 'bg-[#2980B9] text-white border-[#2980B9] shadow-xs'
                                         : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                                 }`}
                             >
-                                <Icon icon="lucide:sliders" className="text-lg mx-auto mb-1" />
-                                <div className="text-xs font-bold uppercase">CUSTOM</div>
-                                <div className="text-[9px] opacity-80 font-medium">Hand-pick</div>
-                                <div className="text-[10px] font-semibold mt-1">Custom</div>
+                                <div className="flex items-center sm:flex-col gap-2 sm:gap-1">
+                                    <Icon icon="lucide:sliders" className="text-xl sm:text-lg sm:mx-auto" />
+                                    <div>
+                                        <div className="text-xs font-bold uppercase tracking-wider">CUSTOM</div>
+                                        <div className="text-[10px] sm:text-[9px] opacity-80 font-medium">Hand-pick</div>
+                                    </div>
+                                </div>
+                                <div className="text-xs sm:text-[10px] font-bold px-2 py-0.5 rounded bg-white/20 sm:bg-transparent">Custom</div>
                             </div>
                         </div>
 
@@ -646,7 +658,7 @@ export default function RegisterTenant() {
                                     <span>SELECT PAGES</span>
                                     <span className="text-[#2980B9] font-bold">{formData.selectedPages.length} selected</span>
                                 </div>
-                                <div className="max-h-52 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                                <div className="max-h-64 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                                     {ALL_PAGES_LIST.map(p => {
                                         const checked = formData.selectedPages.includes(p.key);
                                         return (
@@ -678,10 +690,10 @@ export default function RegisterTenant() {
                         ) : (
                             <div className="space-y-3 pt-2">
                                 <div>
-                                    <span className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">INCLUDED PAGES</span>
-                                    <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto">
+                                    <span className="text-[10px] font-semibold text-slate-400 uppercase block mb-1.5">INCLUDED PAGES</span>
+                                    <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto custom-scrollbar p-1">
                                         {(formData.planType === 'PRO' ? ALL_PAGES_LIST.map(p => p.key) : PREMIUM_PAGES).map(p => (
-                                            <span key={p} className="text-[9px] font-medium px-2 py-0.5 bg-slate-100 text-slate-700 rounded">
+                                            <span key={p} className="text-[10px] font-semibold px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg border border-slate-200/60 inline-flex items-center">
                                                 {p}
                                             </span>
                                         ))}
@@ -689,10 +701,10 @@ export default function RegisterTenant() {
                                 </div>
 
                                 <div>
-                                    <span className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">AUTO PERMISSIONS</span>
-                                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                                    <span className="text-[10px] font-semibold text-slate-400 uppercase block mb-1.5">AUTO PERMISSIONS</span>
+                                    <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto custom-scrollbar p-1">
                                         {(formData.planType === 'PRO' ? ['ADD_ORDER', 'UPDATE_ORDER', 'DELETE_ORDER', 'APPROVE_ORDER', 'ADD_CUSTOMER', 'UPDATE_CUSTOMER', 'DELETE_CUSTOMER', 'VIEW_REPORTS', 'EXPORT_REPORTS'] : ['ADD_ORDER', 'UPDATE_ORDER', 'VIEW_REPORTS']).map(pm => (
-                                            <span key={pm} className="text-[9px] font-medium px-2 py-0.5 bg-slate-100 text-slate-700 rounded">
+                                            <span key={pm} className="text-[10px] font-semibold px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg border border-slate-200/60 inline-flex items-center">
                                                 {pm}
                                             </span>
                                         ))}
@@ -703,7 +715,7 @@ export default function RegisterTenant() {
                     </div>
 
                     {/* 5. WhatsApp Config */}
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs space-y-5">
+                    <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-100 shadow-xs space-y-5">
                         <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
                             <Icon icon="lucide:message-square" className="text-[#2980B9] text-xl" />
                             <h2 className="text-sm font-bold text-slate-800">WhatsApp Integration</h2>
@@ -716,26 +728,26 @@ export default function RegisterTenant() {
                                 <button
                                     type="button"
                                     onClick={() => setFormData(p => ({ ...p, utilityProvider: 'META' }))}
-                                    className={`py-2.5 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${
+                                    className={`py-3 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${
                                         formData.utilityProvider === 'META'
                                             ? 'bg-[#2980B9] text-white shadow-xs'
-                                            : 'bg-slate-50 text-slate-600 border border-slate-200'
+                                            : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
                                     }`}
                                 >
-                                    <Icon icon="logos:whatsapp-icon" className="text-sm" />
+                                    <Icon icon="logos:whatsapp-icon" className="text-sm flex-shrink-0" />
                                     <span>META</span>
                                 </button>
 
                                 <button
                                     type="button"
                                     onClick={() => setFormData(p => ({ ...p, utilityProvider: 'NON_META' }))}
-                                    className={`py-2.5 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${
+                                    className={`py-3 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${
                                         formData.utilityProvider === 'NON_META'
                                             ? 'bg-[#2980B9] text-white shadow-xs'
-                                            : 'bg-slate-50 text-slate-600 border border-slate-200'
+                                            : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
                                     }`}
                                 >
-                                    <Icon icon="lucide:link" className="text-sm" />
+                                    <Icon icon="lucide:link" className="text-sm flex-shrink-0" />
                                     <span>NON_META</span>
                                 </button>
                             </div>
@@ -748,26 +760,26 @@ export default function RegisterTenant() {
                                 <button
                                     type="button"
                                     onClick={() => setFormData(p => ({ ...p, promotionProvider: 'META' }))}
-                                    className={`py-2.5 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${
+                                    className={`py-3 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${
                                         formData.promotionProvider === 'META'
                                             ? 'bg-[#2980B9] text-white shadow-xs'
-                                            : 'bg-slate-50 text-slate-600 border border-slate-200'
+                                            : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
                                     }`}
                                 >
-                                    <Icon icon="logos:whatsapp-icon" className="text-sm" />
+                                    <Icon icon="logos:whatsapp-icon" className="text-sm flex-shrink-0" />
                                     <span>META</span>
                                 </button>
 
                                 <button
                                     type="button"
                                     onClick={() => setFormData(p => ({ ...p, promotionProvider: 'NON_META' }))}
-                                    className={`py-2.5 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${
+                                    className={`py-3 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${
                                         formData.promotionProvider === 'NON_META'
                                             ? 'bg-[#2980B9] text-white shadow-xs'
-                                            : 'bg-slate-50 text-slate-600 border border-slate-200'
+                                            : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
                                     }`}
                                 >
-                                    <Icon icon="lucide:link" className="text-sm" />
+                                    <Icon icon="lucide:link" className="text-sm flex-shrink-0" />
                                     <span>NON_META</span>
                                 </button>
                             </div>

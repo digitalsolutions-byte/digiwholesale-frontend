@@ -1009,36 +1009,39 @@ export default function RegisterCustomer() {
     return (
         <div className="min-h-screen bg-gray-50 pb-12">
             {/* ── Top Header Banner ── */}
-            <div className="bg-white border-b border-gray-200 px-6 py-4 mb-6 flex items-center gap-4">
-                <button
-                    type="button"
-                    onClick={() => navigate(-1)}
-                    className="flex items-center gap-1.5 text-gray-500 hover:text-gray-800 text-sm font-semibold transition-colors"
-                >
-                    <Icon icon="mdi:arrow-left" className="text-lg" /> Go back
-                </button>
-                <div className="h-5 w-px bg-gray-200" />
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-[#2980B9] flex items-center justify-center">
-                        <Icon icon="mdi:account-group-outline" className="text-white text-lg" />
-                    </div>
-                    <div>
-                        <h1 className="text-sm font-black text-gray-800 uppercase tracking-widest">
-                            {isApprovalMode ? 'Review Customer Registration' : (correctionCustomerId ? 'Correct Customer Details' : 'Register Customer')}
-                        </h1>
-                        <p className="text-[11px] text-gray-400 font-medium">Complete all required steps to submit or update customer account</p>
+            <div className="bg-white border-b border-gray-200 px-3 sm:px-6 py-3 sm:py-4 mb-4 sm:mb-6 flex items-center justify-between gap-2 sm:gap-4">
+                <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+                    <button
+                        type="button"
+                        onClick={() => navigate(-1)}
+                        className="flex items-center gap-1 text-gray-500 hover:text-gray-800 text-xs sm:text-sm font-semibold transition-colors flex-shrink-0"
+                    >
+                        <Icon icon="mdi:arrow-left" className="text-base sm:text-lg" /> <span className="hidden xs:inline">Go back</span>
+                    </button>
+                    <div className="h-5 w-px bg-gray-200 flex-shrink-0" />
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#2980B9] flex items-center justify-center flex-shrink-0">
+                            <Icon icon="mdi:account-group-outline" className="text-white text-base sm:text-lg" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <h1 className="text-xs sm:text-sm font-black text-gray-800 uppercase tracking-widest truncate">
+                                {isApprovalMode ? 'Review Customer Registration' : (correctionCustomerId ? 'Correct Customer Details' : 'Register Customer')}
+                            </h1>
+                            <p className="text-[10px] sm:text-[11px] text-gray-400 font-medium truncate hidden sm:block">Complete all required steps to submit or update customer account</p>
+                        </div>
                     </div>
                 </div>
                 {!isReadOnlyMode && !isApprovalMode && (
-                    <div className="ml-auto flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                         <button
                             type="button"
                             onClick={handleSaveDraft}
                             disabled={savingDraft || loadingDraftData}
-                            className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[#2980B9] text-[#2980B9] text-[12px] font-bold hover:bg-blue-50 transition-all disabled:opacity-50"
+                            className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg border border-[#2980B9] text-[#2980B9] text-[11px] sm:text-[12px] font-bold hover:bg-blue-50 transition-all disabled:opacity-50"
                         >
-                            <Icon icon={savingDraft ? "mdi:loading" : "mdi:content-save-outline"} className={savingDraft ? "animate-spin text-sm" : "text-sm"} />
-                            {savingDraft ? 'Saving...' : draftCustomerId ? 'Update Draft' : 'Save Draft'}
+                            <Icon icon={savingDraft ? "mdi:loading" : "mdi:content-save-outline"} className={savingDraft ? "animate-spin text-xs sm:text-sm" : "text-xs sm:text-sm"} />
+                            <span className="hidden xs:inline">{savingDraft ? 'Saving...' : draftCustomerId ? 'Update Draft' : 'Save Draft'}</span>
+                            <span className="xs:hidden">{savingDraft ? '...' : 'Draft'}</span>
                         </button>
                     </div>
                 )}

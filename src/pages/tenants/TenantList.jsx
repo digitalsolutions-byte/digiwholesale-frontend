@@ -143,9 +143,103 @@ export default function TenantList() {
                 </div>
             </div>
 
-            {/* Wholesalers Table */}
+            {/* Wholesalers Container */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
-                <div className="overflow-x-auto">
+                {/* Mobile View (md:hidden) */}
+                <div className="block md:hidden divide-y divide-slate-100">
+                    {loading ? (
+                        <div className="p-8 text-center text-slate-400 font-medium text-xs flex items-center justify-center gap-2">
+                            <Icon icon="lucide:loader-2" className="animate-spin text-lg text-[#2980B9]" />
+                            <span>Loading wholesalers...</span>
+                        </div>
+                    ) : tenants.length === 0 ? (
+                        <div className="p-8 text-center text-slate-400 text-xs">
+                            <Icon icon="lucide:building-2" className="text-3xl mx-auto mb-2 text-slate-300" />
+                            <p className="font-semibold text-slate-600">No wholesalers found.</p>
+                            <p className="text-[11px] mt-1">Register a new wholesaler using the button above.</p>
+                        </div>
+                    ) : (
+                        tenants.map((t) => {
+                            const isSuspended = t.status === 'SUSPENDED';
+                            const store = t.storeInformation || {};
+                            const owner = t.owner || {};
+
+                            return (
+                                <div key={t._id} className="p-4 space-y-3 bg-white hover:bg-slate-50/50 transition-colors">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div>
+                                            <h3 className="font-bold text-slate-800 text-sm leading-snug">{store.storeName || 'N/A'}</h3>
+                                            <span className="font-mono text-[11px] text-[#2980B9] font-semibold block mt-0.5">{t.tenantId || 'N/A'}</span>
+                                        </div>
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold border flex-shrink-0 ${
+                                            isSuspended ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                        }`}>
+                                            {t.status || 'ACTIVE'}
+                                        </span>
+                                    </div>
+
+                                    {store.address && (
+                                        <div className="text-[11px] text-slate-500 font-medium truncate">
+                                            {store.address}
+                                        </div>
+                                    )}
+
+                                    <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-50">
+                                        <div className="space-y-0.5">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Owner Info</span>
+                                            <span className="font-semibold text-slate-700 block truncate">{owner.ownerName || 'N/A'}</span>
+                                            <span className="text-[11px] text-slate-400 block truncate">{owner.email || ''}</span>
+                                            {owner.mobile && <span className="text-[11px] text-slate-400 block truncate">{owner.mobile}</span>}
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Plan & Expiry</span>
+                                            <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 mt-0.5">
+                                                {t.subscription?.planType || 'PRO'}
+                                            </span>
+                                            <span className="text-[11px] text-slate-500 block mt-1">
+                                                Exp: {store.expiryDate ? new Date(store.expiryDate).toLocaleDateString('en-IN') : 'N/A'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                                        <button
+                                            onClick={() => navigate(`/tenants/view/${t._id}`)}
+                                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-xs transition-colors"
+                                        >
+                                            Manage
+                                        </button>
+                                        {isSuspended ? (
+                                            <button
+                                                onClick={() => handleActivate(t)}
+                                                className="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100 rounded-xl text-xs font-semibold transition-colors"
+                                            >
+                                                Activate
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => setSuspendModal({ isOpen: true, tenant: t, reason: '' })}
+                                                className="px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-rose-50 hover:text-rose-600 rounded-xl text-xs font-semibold transition-colors"
+                                            >
+                                                Suspend
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => handleDelete(t)}
+                                            className="p-2 text-slate-400 hover:text-rose-600 rounded-xl transition-colors"
+                                            title="Delete Wholesaler"
+                                        >
+                                            <Icon icon="lucide:trash-2" className="text-base" />
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+
+                {/* Desktop View (hidden md:block) */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-left border-collapse min-w-[900px]">
                         <thead>
                             <tr className="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">

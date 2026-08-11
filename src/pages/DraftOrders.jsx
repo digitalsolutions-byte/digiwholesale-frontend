@@ -138,15 +138,14 @@ const DraftOrders = () => {
 
                                     return (
                                         <React.Fragment key={order._id}>
-                                            <tr 
-                                                className={`border-b border-gray-100 hover:bg-gray-50/50 cursor-pointer transition-colors ${
-                                                    expandedRows.has(order._id) ? 'bg-gray-50' : ''
-                                                }`}
+                                            <tr
+                                                className={`border-b border-gray-100 hover:bg-gray-50/50 cursor-pointer transition-colors ${expandedRows.has(order._id) ? 'bg-gray-50' : ''
+                                                    }`}
                                                 onClick={() => toggleRow(order._id)}
                                             >
                                                 <td className="p-4 text-center">
-                                                    <Icon 
-                                                        icon={expandedRows.has(order._id) ? "mdi:chevron-up" : "mdi:chevron-down"} 
+                                                    <Icon
+                                                        icon={expandedRows.has(order._id) ? "mdi:chevron-up" : "mdi:chevron-down"}
                                                         className="text-lg text-gray-400"
                                                     />
                                                 </td>

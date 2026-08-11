@@ -143,8 +143,8 @@ function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loadi
                                     <div key={step} className="flex items-start gap-3">
                                         <div className="flex flex-col items-center flex-shrink-0">
                                             <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 flex-shrink-0 ${isDone ? 'bg-emerald-500 border-emerald-500' :
-                                                    isCurrent ? 'bg-white border-blue-500 ring-2 ring-blue-100' :
-                                                        'bg-white border-gray-200'
+                                                isCurrent ? 'bg-white border-blue-500 ring-2 ring-blue-100' :
+                                                    'bg-white border-gray-200'
                                                 }`}>
                                                 {isDone
                                                     ? <Icon icon="mdi:check" className="text-white text-[10px]" />
@@ -159,8 +159,8 @@ function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loadi
                                         </div>
                                         <div className="pb-4">
                                             <span className={`text-[10px] font-black uppercase tracking-wider leading-tight ${isDone ? 'text-emerald-600' :
-                                                    isCurrent ? 'text-blue-600' :
-                                                        'text-gray-300'
+                                                isCurrent ? 'text-blue-600' :
+                                                    'text-gray-300'
                                                 }`}>
                                                 {cfg.label}
                                             </span>
@@ -203,8 +203,8 @@ function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loadi
                                                 onClick={() => onTransition(order._id, next, order?.orders?.[0]?.orderNumber, remarks)}
                                                 disabled={!!loading}
                                                 className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl border-2 transition-all disabled:opacity-50 ${isCancel
-                                                        ? 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100 hover:border-red-200'
-                                                        : TRANSITION_BTN[next] || 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                                                    ? 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100 hover:border-red-200'
+                                                    : TRANSITION_BTN[next] || 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
                                                     }`}
                                             >
                                                 <div className="flex items-center gap-3">

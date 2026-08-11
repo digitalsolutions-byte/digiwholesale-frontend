@@ -70,20 +70,23 @@ const Login = () => {
     });
 
     return (
-        <Box sx={{ minHeight: '100vh', display: 'flex', backgroundImage: "radial-gradient(circle, #e8e4dc 1px, transparent 1px)", backgroundSize: " 28px 28px" }}>
-            <Box sx={{ mb: 6, textAlign: 'center' }}>
-                <img src={logo} className='ml-auto' alt="Logo" style={{ height: '170px', marginBottom: '4px', position: 'fixed', top: '20px', right: '20px' }} />
-
-            </Box>
-            <Container maxWidth="lg" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 4 }}>
+        <Box sx={{
+            minHeight: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundImage: "radial-gradient(circle, #e8e4dc 1px, transparent 1px)",
+            backgroundSize: "28px 28px"
+        }}>
+            <Container maxWidth="lg" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: { xs: 3, sm: 6 }, px: { xs: 2, sm: 3 } }}>
                 <Paper
                     elevation={0}
                     sx={{
                         display: 'flex',
                         width: '100%',
                         maxWidth: 1000,
-                        minHeight: 600,
-                        borderRadius: '32px',
+                        minHeight: { xs: 'auto', md: 600 },
+                        borderRadius: { xs: '24px', sm: '32px' },
                         overflow: 'hidden',
                         boxShadow: '0 20px 80px rgba(0,0,0,0.06)',
                         border: '1px solid rgba(0,0,0,0.05)'
@@ -106,7 +109,7 @@ const Login = () => {
                             backgroundPosition: 'top'
                         }}
                     >
-                        <Box sx={{ position: 'absolute', inset: 0, }} />
+                        <Box sx={{ position: 'absolute', inset: 0 }} />
 
                         {/* Speech Bubble */}
                         <Box
@@ -125,9 +128,6 @@ const Login = () => {
                             <Typography variant="h6" fontWeight={500} color="primary.main">
                                 {greeting}!
                             </Typography>
-                            {/* <Typography variant="body2" fontWeight={600} color="text.secondary">
-                                We've been expecting you.
-                            </Typography> */}
                         </Box>
 
                         <Box
@@ -146,15 +146,24 @@ const Login = () => {
                     <Box
                         sx={{
                             width: { xs: '100%', md: '50%' },
-                            p: { xs: 4, md: 8 },
+                            p: { xs: 3, sm: 5, md: 8 },
                             display: 'flex',
                             flexDirection: 'column',
                             justifyContent: 'center'
                         }}
                     >
-                        <Box sx={{ mb: 6, textAlign: 'center' }}>
-                            <img src={logo} className='mx-auto' alt="Logo" style={{ height: '170px', marginBottom: '4px' }} />
-
+                        <Box sx={{ mb: { xs: 3, sm: 5 }, textAlign: 'center' }}>
+                            <Box
+                                component="img"
+                                src={logo}
+                                alt="Logo"
+                                sx={{
+                                    height: { xs: '100px', sm: '130px', md: '150px' },
+                                    width: 'auto',
+                                    mx: 'auto',
+                                    display: 'block'
+                                }}
+                            />
                         </Box>
 
                         <Stack component="form" onSubmit={formik.handleSubmit} spacing={3}>
@@ -196,18 +205,17 @@ const Login = () => {
                                 variant="primary"
                                 className="w-full"
                                 disabled={formik.isSubmitting}
-                                sx={{ py: 2 }}
+                                sx={{ py: 1.8 }}
                             >
                                 {formik.isSubmitting ? 'Loading...' : 'Login'}
                             </Button>
                         </Stack>
                     </Box>
                 </Paper>
-                <Typography variant="h6" sx={{ mt: 1, color: '#666', fontWeight: 400, fontSize: '1.2rem', zIndex: 1 }}>
-                    India's <Box component="span" sx={{ color: '#3498db', fontWeight: 600 }}>Premier Ai - Enabled</Box> Optical Software
+                <Typography variant="h6" sx={{ mt: 3, textAlign: 'center', color: '#666', fontWeight: 400, fontSize: { xs: '0.9rem', sm: '1.15rem' }, zIndex: 1 }}>
+                    India's <Box component="span" sx={{ color: '#3498db', fontWeight: 600 }}>Premier AI - Enabled</Box> Optical Software
                 </Typography>
             </Container>
-
         </Box>
     );
 };
