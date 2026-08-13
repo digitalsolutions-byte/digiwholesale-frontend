@@ -693,14 +693,12 @@ const OrderWizard = () => {
             const vendorObj = rxVendor ? { id: rxVendor._id || rxVendor.id || rxVendor.vendorNumber, name: rxVendor.name } : (prod.vendorId ? { id: prod.vendorId, name: prod.vendorName || prod.vendorId } : { id: "", name: "" });
 
             const availVal = (prod.availability === 'order-to-whom' || prod.availability === 'order') ? 'order' : (prod.availability || 'in-house');
+            const orderSourceVal = availVal === 'order' ? 'ORDER' : 'INHOUSE';
 
             const baseItem = {
                 productId: prod.productId || undefined,
                 unit: (prod.unit || 'piece').toUpperCase(),
                 orderType: isRx ? 'RX' : 'STOCK',
-                availability: availVal,
-                orderTo: availVal,
-                orderToWhom: availVal,
                 itemName: prod.itemName || prod.productName || productData?.name || '',
                 qty: qty,
                 category: cat,
@@ -715,13 +713,16 @@ const OrderWizard = () => {
                 color: prod.color || '',
                 size: prod.size || prod.Size || '',
                 shape: prod.shape || prod.Shape || '',
-                dimensions: prod.dimensions || prod.Dimensions || '',
-                photos: prod.photos || []
+                dimensions: prod.dimensions || prod.Dimensions || prod.size || prod.Size || '',
+                photos: prod.photos || [],
+                orderSource: orderSourceVal
             };
 
-            if (prod.vendorId) {
-                baseItem.vendorId = prod.vendorId;
-                baseItem.vendorName = vendorObj.name;
+            if (prod.vendorId || (rxVendor && rxVendor._id)) {
+                baseItem.vendor = {
+                    id: vendorObj.id,
+                    name: vendorObj.name
+                };
             }
 
             // Add fields only for LENS & CONTACT_LENS
@@ -753,8 +754,8 @@ const OrderWizard = () => {
                 baseItem.disposability = prod.disposability || '';
             }
 
-            // If it is RX or Order-to-Whom or Vendor is selected, populate nested rx object
-            if (isRx) {
+            // If it is RX, populate nested rx object
+            if (prod.orderType === 'rx' || isRx) {
                 const powers = [];
                 const mapPower = (side) => {
                     const pSide = prod.powerTable?.[side] || {};
@@ -812,11 +813,14 @@ const OrderWizard = () => {
                 }
 
                 baseItem.rx = {
-                    vendor: vendorObj,
-                    availability: availVal,
-                    orderTo: availVal,
-                    orderToWhom: availVal,
-                    lab: prod.labName ? { id: "", name: prod.labName } : { id: "", name: "" },
+                    vendor: {
+                        id: vendorObj.id,
+                        name: vendorObj.name
+                    },
+                    lab: {
+                        id: "",
+                        name: prod.labName || ""
+                    },
                     orderReference: values.orderReference || '',
                     consumerCardName: values.consumerCardName || '',
                     opticianName: values.opticianName || '',
@@ -826,9 +830,18 @@ const OrderWizard = () => {
                     powers,
                     prisms,
                     centration,
-                    coating: coatingData ? { id: coatingData.id, name: coatingData.name } : { id: "", name: "" },
-                    treatment: treatmentData ? { id: treatmentData.id, name: treatmentData.name } : { id: "", name: "" },
-                    tint: tintData ? { id: tintData.id, name: tintData.name } : { id: "", name: "" },
+                    coating: {
+                        id: coatingData?.id || "",
+                        name: coatingData?.name || prod.coating || ""
+                    },
+                    treatment: {
+                        id: treatmentData?.id || "",
+                        name: treatmentData?.name || prod.treatment || ""
+                    },
+                    tint: {
+                        id: tintData?.id || "",
+                        name: tintData?.name || prod.tint || ""
+                    },
                     tintDetails: prod.tintDetails || '',
                     remarks: prod.remarks || '',
                     mirror: prod.hasMirror === 'yes',
@@ -846,7 +859,8 @@ const OrderWizard = () => {
                     },
                     directCustomer: values.directCustomer || '',
                     shippingCharges: parseFloat(values.shippingCharges) || 0,
-                    otherCharges: parseFloat(values.otherCharges) || 0
+                    otherCharges: parseFloat(values.otherCharges) || 0,
+                    advanceAmount: parseFloat(prod.gstDetails?.advance) || 0
                 };
             }
 
@@ -882,7 +896,7 @@ const OrderWizard = () => {
         // Also add total metrics to rx objects inside items if present
         items.forEach(it => {
             if (it.rx) {
-                it.rx.advancePayment = totalAdvance;
+                it.rx.advanceAmount = totalAdvance;
                 it.rx.subtotal = subtotal;
                 it.rx.totalGst = totalGst;
                 it.rx.netPayableTotal = netPayableTotal;
@@ -894,9 +908,9 @@ const OrderWizard = () => {
             customerId: values.customerId,
             customerShipToId: values.shipToId,
             isDraft: status === 'Draft',
-            advancePayment: totalAdvance,
             shippingCharges: shipping,
             otherCharges: other,
+            advanceAmount: totalAdvance,
             subtotal: parseFloat(subtotal.toFixed(2)),
             grossTotal: parseFloat(grossTotal.toFixed(2)),
             totalGst: parseFloat(totalGst.toFixed(2)),
@@ -915,7 +929,6 @@ const OrderWizard = () => {
                     grossTotal: parseFloat(grossTotal.toFixed(2)),
                     shippingCharges: shipping,
                     otherCharges: other,
-                    advancePayment: totalAdvance,
                     netPayableTotal: parseFloat(netPayableTotal.toFixed(2)),
                     grossTotalWithCharges: parseFloat(grossTotalWithCharges.toFixed(2)),
                 }
@@ -1967,21 +1980,28 @@ const OrderWizard = () => {
                             label: "Color",
                             name: `${prefix}color`,
                             placeholder: "e.g., Black / Gold",
-                            disabled: isStockInhouse || isReadOnly
+                            disabled: isReadOnly
                         })}
 
                         {wrapInput(Input, {
                             label: "Size",
                             name: `${prefix}size`,
                             placeholder: "e.g., 52-18-140",
-                            disabled: isStockInhouse || isReadOnly
+                            disabled: isReadOnly
+                        })}
+
+                        {wrapInput(Input, {
+                            label: "Dimensions",
+                            name: `${prefix}dimensions`,
+                            placeholder: "e.g., 52-18-140",
+                            disabled: isReadOnly
                         })}
 
                         {wrapInput(Input, {
                             label: "Shape / Type",
                             name: `${prefix}shape`,
                             placeholder: "e.g., Rectangle / Full Rim",
-                            disabled: isStockInhouse || isReadOnly
+                            disabled: isReadOnly
                         })}
 
                         {wrapInput(Input, {
@@ -2751,6 +2771,46 @@ const OrderWizard = () => {
                                                     {isLensItem && <option value="rx">Rx Order</option>}
                                                 </select>
                                             </div>
+
+                                         {/* Frame / Sunglass Size & Dimensions inputs for Mobile */}
+                                         {(product.category === 'FRAME' || product.category === 'SUNGLASS' || (configs.category?.find(c => c._id === product.categoryId)?.name?.toUpperCase() === 'FRAME') || (configs.category?.find(c => c._id === product.categoryId)?.name?.toUpperCase() === 'SUNGLASS')) && (
+                                             <div className="grid grid-cols-2 gap-3">
+                                                 <div>
+                                                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                                         Frame Size *
+                                                     </label>
+                                                     <input
+                                                         type="text"
+                                                         className="w-full text-xs font-semibold bg-white border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-[#2980B9]"
+                                                         name={`products.${index}.size`}
+                                                         value={product.size || ''}
+                                                         onChange={(e) => {
+                                                             const val = e.target.value;
+                                                             formik.setFieldValue(`products.${index}.size`, val);
+                                                             if (!product.dimensions) {
+                                                                 formik.setFieldValue(`products.${index}.dimensions`, val);
+                                                             }
+                                                         }}
+                                                         placeholder="e.g. 52-18-140"
+                                                         disabled={isReadOnly}
+                                                     />
+                                                 </div>
+                                                 <div>
+                                                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                                         Dimensions *
+                                                     </label>
+                                                     <input
+                                                         type="text"
+                                                         className="w-full text-xs font-semibold bg-white border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-[#2980B9]"
+                                                         name={`products.${index}.dimensions`}
+                                                         value={product.dimensions || product.size || ''}
+                                                         onChange={formik.handleChange}
+                                                         placeholder="e.g. 52-18-140"
+                                                         disabled={isReadOnly}
+                                                     />
+                                                 </div>
+                                             </div>
+                                         )}
                                         </div>
 
                                         {/* Qty, Unit & Price */}

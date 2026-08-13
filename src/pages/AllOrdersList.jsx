@@ -491,9 +491,12 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
                     currentPage: Number(paginationData.currentPage || paginationData.page || 1),
                     totalPages: Number(paginationData.totalPages || paginationData.pages || 1)
                 });
+            } else {
+                toast.error(response.message || response.error?.message || 'Failed to fetch orders');
             }
         } catch (error) {
             console.error('Fetch error:', error);
+            toast.error(error?.response?.data?.message || error?.message || 'Error fetching orders');
         } finally {
             setLoading(false);
         }
@@ -727,7 +730,20 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
                                 if (totalOrders > 0) {
                                     orderStatus = order.orders[0]?.status || 'PENDING';
                                     order.orders.forEach(bo => {
-                                        grandTotal += (Number(bo.orderTotal) || Number(bo.totalAmount) || 0);
+                                        let boTotal = Number(bo.totalOrderPrice) || Number(bo.orderTotal) || Number(bo.totalAmount) || Number(bo.netPayableTotal) || 0;
+                                        if (!boTotal && bo.items) {
+                                            bo.items.forEach(item => {
+                                                const price = Number(item.price) || 0;
+                                                const qty = Number(item.qty) || 1;
+                                                const gst = Number(item.gst) || 0;
+                                                const disc = Number(item.discountAmount) || 0;
+                                                const taxable = (price * qty) - disc;
+                                                const gstAmt = taxable > 0 ? taxable * (gst / 100) : 0;
+                                                boTotal += taxable > 0 ? taxable + gstAmt : 0;
+                                            });
+                                        }
+                                        grandTotal += boTotal;
+
                                         if (bo.items) {
                                             bo.items.forEach(item => {
                                                 totalItemsQty += (Number(item.qty) || 0);
@@ -777,24 +793,53 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
                                             </button>
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-2 py-2 border-y border-gray-100 text-[11px]">
-                                            <div>
-                                                <span className="text-[9px] uppercase font-bold text-gray-400 block">Date & Time</span>
-                                                <span className="font-semibold text-gray-700">{dayjs(order?.createdAt).format('DD MMM YYYY, hh:mm A')}</span>
-                                            </div>
-                                            <div>
-                                                <span className="text-[9px] uppercase font-bold text-gray-400 block">Total Qty</span>
-                                                <span className="font-semibold text-gray-700">{totalItemsQty} Pcs</span>
-                                            </div>
-                                            <div>
-                                                <span className="text-[9px] uppercase font-bold text-gray-400 block">Sub Orders</span>
-                                                <span className="font-semibold text-gray-700">{totalOrders}</span>
-                                            </div>
-                                            <div>
-                                                <span className="text-[9px] uppercase font-bold text-gray-400 block">Order Total</span>
-                                                <span className="font-bold text-erp-accent">₹{grandTotal.toFixed(2)}</span>
-                                            </div>
-                                        </div>
+                                        {(() => {
+                                            const summary = order.summary || {};
+                                            const advanceVal = Number(summary.advanceAmount ?? order.advanceAmount ?? 0);
+                                            const shippingVal = Number(summary.shippingCharges ?? order.shippingCharges ?? 0);
+                                            const otherVal = Number(summary.otherCharges ?? order.otherCharges ?? 0);
+                                            const nowPayableVal = summary.nowPayable !== undefined ? Number(summary.nowPayable) : Math.max(0, grandTotal + shippingVal + otherVal - advanceVal);
+
+                                            return (
+                                                <div className="space-y-2 py-2 border-y border-gray-100 text-[11px]">
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <div>
+                                                            <span className="text-[9px] uppercase font-bold text-gray-400 block">Date & Time</span>
+                                                            <span className="font-semibold text-gray-700">{dayjs(order?.createdAt).format('DD MMM YYYY, hh:mm A')}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-[9px] uppercase font-bold text-gray-400 block">Total Qty</span>
+                                                            <span className="font-semibold text-gray-700">{totalItemsQty} Pcs</span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-[9px] uppercase font-bold text-gray-400 block">Sub Orders</span>
+                                                            <span className="font-semibold text-gray-700">{totalOrders}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-[9px] uppercase font-bold text-gray-400 block">Grand Total</span>
+                                                            <span className="font-bold text-gray-800">₹{(summary.grandTotal ?? grandTotal).toFixed(2)}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    {(advanceVal > 0 || shippingVal > 0 || otherVal > 0 || nowPayableVal !== undefined) && (
+                                                        <div className="pt-2 border-t border-dashed border-gray-200 grid grid-cols-2 gap-2 bg-slate-50/70 p-2 rounded-lg text-[10px]">
+                                                            <div>
+                                                                <span className="text-[9px] uppercase font-bold text-gray-400 block">Advance</span>
+                                                                <span className="font-bold text-emerald-600">₹{advanceVal.toFixed(2)}</span>
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-[9px] uppercase font-bold text-gray-400 block">Shipping / Other</span>
+                                                                <span className="font-semibold text-gray-700">₹{shippingVal} / ₹{otherVal}</span>
+                                                            </div>
+                                                            <div className="col-span-2 flex justify-between items-center pt-1 border-t border-gray-200/60 font-bold">
+                                                                <span className="text-gray-500 uppercase text-[9px]">Now Payable</span>
+                                                                <span className="text-xs text-[#2980B9] font-black">₹{nowPayableVal.toFixed(2)}</span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
 
                                         <button
                                             onClick={() => toggleRow(order._id)}
@@ -935,9 +980,25 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-2 text-center border-r border-gray-50">
-                                                    <span className="text-sm font-black text-gray-800 tracking-tight ">
-                                                        ₹{order?.orders[0].totalOrderPrice || '0.00'}
-                                                    </span>
+                                                    {(() => {
+                                                        const summary = order.summary || {};
+                                                        const grand = Number(summary.grandTotal ?? order?.orders?.[0]?.totalOrderPrice ?? 0);
+                                                        const advanceVal = Number(summary.advanceAmount ?? order.advanceAmount ?? 0);
+                                                        const nowPayableVal = summary.nowPayable !== undefined ? Number(summary.nowPayable) : (grand - advanceVal);
+
+                                                        return (
+                                                            <div className="flex flex-col items-center">
+                                                                <span className="text-sm font-black text-gray-800 tracking-tight">
+                                                                    ₹{grand.toFixed(2)}
+                                                                </span>
+                                                                {advanceVal > 0 && (
+                                                                    <span className="text-[10px] font-bold text-emerald-600">
+                                                                        Adv: ₹{advanceVal} | Due: ₹{nowPayableVal.toFixed(2)}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </td>
                                                 <td className="px-4 py-2 text-center border-r border-gray-50">
                                                     {(() => {

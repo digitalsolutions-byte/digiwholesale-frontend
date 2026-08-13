@@ -291,19 +291,19 @@ export default function Settings() {
     return (
         <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto font-sans animate-in fade-in duration-200">
             {/* Header */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-100 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-4">
                 <div>
-                    <h1 className="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2.5">
-                        <Icon icon="lucide:settings" className="text-[#2980B9] text-2xl" />
+                    <h1 className="text-lg sm:text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
+                        <Icon icon="lucide:settings" className="text-[#2980B9] text-xl sm:text-2xl" />
                         Wholesaler Master Settings
                     </h1>
-                    <p className="text-xs text-slate-500 font-medium mt-1">
+                    <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-1">
                         Isolated dropdown configurations — manage plants, labs, fitting locations, courier partners, and inventory taxonomy
                     </p>
                 </div>
                 <button
                     onClick={handleAddClick}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-[#2980B9] hover:bg-[#2471A3] text-white text-xs font-semibold rounded-xl transition-all shadow-xs active:scale-95"
+                    className="w-full md:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-[#2980B9] hover:bg-[#2471A3] text-white text-xs font-semibold rounded-xl transition-all shadow-xs active:scale-95 flex-shrink-0"
                 >
                     <Icon icon="lucide:plus" className="text-base" />
                     Add New {currentTabConfig?.entityName}
@@ -311,33 +311,37 @@ export default function Settings() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-                {/* Left Side Tab Navigation */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden p-3 space-y-1 lg:col-span-1">
-                    <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100/80 mb-2">
+                {/* Left Side Tab Navigation / Mobile Icon Menu */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-2 sm:p-3 lg:col-span-1">
+                    <div className="hidden sm:block px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100/80 mb-2">
                         Settings Categories
                     </div>
-                    {TABS.map((tab) => {
-                        const isActive = activeTab === tab.id;
-                        return (
-                            <button
-                                key={tab.id}
-                                onClick={() => {
-                                    setActiveTab(tab.id);
-                                    setSearchTerm('');
-                                    setSelectedBrandFilter('');
-                                }}
-                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-xs font-bold transition-all ${
-                                    isActive
-                                        ? 'bg-[#eaf4fb] text-[#1F618D]'
-                                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                                }`}
-                            >
-                                <Icon icon={tab.icon} className={`text-base ${isActive ? 'text-[#1F618D]' : 'text-slate-400'}`} />
-                                <span className="flex-1">{tab.label}</span>
-                                {isActive && <div className="w-1.5 h-1.5 rounded-full bg-[#1F618D]" />}
-                            </button>
-                        );
-                    })}
+                    
+                    {/* Responsive horizontal scrollable icon bar on mobile, vertical stack on desktop */}
+                    <div className="flex flex-row overflow-x-auto custom-scrollbar sm:flex-col gap-1.5 pb-1 sm:pb-0">
+                        {TABS.map((tab) => {
+                            const isActive = activeTab === tab.id;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => {
+                                        setActiveTab(tab.id);
+                                        setSearchTerm('');
+                                        setSelectedBrandFilter('');
+                                    }}
+                                    className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-xs font-bold transition-all flex-shrink-0 sm:flex-shrink ${
+                                        isActive
+                                            ? 'bg-[#eaf4fb] text-[#1F618D] shadow-xs'
+                                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-slate-100 sm:border-0'
+                                    }`}
+                                >
+                                    <Icon icon={tab.icon} className={`text-base sm:text-lg ${isActive ? 'text-[#1F618D]' : 'text-slate-400'}`} />
+                                    <span className="whitespace-nowrap sm:flex-1">{tab.label}</span>
+                                    {isActive && <div className="hidden sm:block w-1.5 h-1.5 rounded-full bg-[#1F618D]" />}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
 
                 {/* Right Side Content Pane */}

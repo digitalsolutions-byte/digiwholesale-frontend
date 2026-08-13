@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/apiInstance';
 import { Icon } from '@iconify/react';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+    BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
     PieChart, Pie, Legend
 } from 'recharts';
 
@@ -204,49 +204,91 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            {/* Charts */}
+            {/* Charts Section */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                {/* Bar Chart — takes up 3/5 */}
-                <div className="lg:col-span-3 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                    <h2 className="text-sm font-bold text-gray-800 mb-5 flex items-center gap-2">
-                        <Icon icon="lucide:bar-chart-3" className="text-[#2980B9]" />
-                        Order Volume by Status
-                    </h2>
-                    <div className="h-56">
+                {/* Smooth Line / Area Chart — takes up 3/5 with bigger height */}
+                <div className="lg:col-span-3 bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                            <Icon icon="lucide:trending-up" className="text-[#2980B9] text-base" />
+                            Order Volume Trend & Status Breakdown
+                        </h2>
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-[#2980B9] px-2.5 py-1 rounded-full border border-blue-100">
+                            Live Trend
+                        </span>
+                    </div>
+
+                    <div className="w-full h-80 sm:h-96">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={barData} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 10, fontWeight: 600 }} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 10 }} />
-                                <Tooltip
-                                    cursor={{ fill: '#eaf4fb', opacity: 0.5, radius: 6 }}
-                                    contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}
+                            <AreaChart data={barData} margin={{ top: 15, right: 20, left: -20, bottom: 10 }}>
+                                <defs>
+                                    <linearGradient id="dashboardAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#2980B9" stopOpacity={0.4} />
+                                        <stop offset="95%" stopColor="#2980B9" stopOpacity={0.0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis
+                                    dataKey="name"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fill: '#64748B', fontSize: 11, fontWeight: 700 }}
+                                    dy={8}
                                 />
-                                <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={40}>
-                                    {barData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
+                                <YAxis
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fill: '#94A3B8', fontSize: 11, fontWeight: 600 }}
+                                />
+                                <Tooltip
+                                    cursor={{ stroke: '#2980B9', strokeWidth: 1.5, strokeDasharray: '4 4' }}
+                                    content={({ active, payload, label }) => {
+                                        if (active && payload && payload.length) {
+                                            const item = payload[0].payload;
+                                            return (
+                                                <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-xl space-y-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                                                        <span className="text-xs font-bold text-gray-800">{label}</span>
+                                                    </div>
+                                                    <p className="text-lg font-black text-gray-900">{item.value} <span className="text-[10px] text-gray-400 font-semibold uppercase">Orders</span></p>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    }}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="value"
+                                    stroke="#2980B9"
+                                    strokeWidth={3}
+                                    fillOpacity={1}
+                                    fill="url(#dashboardAreaGrad)"
+                                    activeDot={{ r: 7, stroke: '#FFFFFF', strokeWidth: 2.5, fill: '#2980B9' }}
+                                />
+                            </AreaChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
 
                 {/* Status breakdown — takes up 2/5 */}
-                <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                    <h2 className="text-sm font-bold text-gray-800 mb-5 flex items-center gap-2">
-                        <Icon icon="lucide:list-checks" className="text-[#2980B9]" />
-                        Status Breakdown
-                    </h2>
-                    <div className="divide-y divide-gray-50">
-                        {barData.map((s, i) => (
-                            <OrderStatusRow key={i} label={s.name} value={s.value} color={s.color} />
-                        ))}
+                <div className="lg:col-span-2 bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <h2 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <Icon icon="lucide:list-checks" className="text-[#2980B9] text-base" />
+                            Status Breakdown
+                        </h2>
+                        <div className="divide-y divide-gray-50">
+                            {barData.map((s, i) => (
+                                <OrderStatusRow key={i} label={s.name} value={s.value} color={s.color} />
+                            ))}
+                        </div>
                     </div>
                     {/* Total pill */}
-                    <div className="mt-4 bg-[#eaf4fb] rounded-xl px-4 py-2.5 flex justify-between items-center">
+                    <div className="mt-4 bg-[#eaf4fb] rounded-xl px-4 py-3 flex justify-between items-center border border-blue-100/60">
                         <span className="text-xs font-bold text-[#1F618D]">Total Orders</span>
-                        <span className="text-lg font-black text-[#1F618D]">{ord.totalOrders ?? 0}</span>
+                        <span className="text-xl font-black text-[#1F618D]">{ord.totalOrders ?? 0}</span>
                     </div>
                 </div>
             </div>

@@ -331,54 +331,55 @@ export default function Inventory() {
     };
 
     return (
-        <div className="p-6 bg-gray-50 min-h-screen">
+        <div className="p-3 sm:p-6 bg-gray-50 min-h-screen">
 
             {/* ── Filter bar ── */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-5">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-5 mb-5">
                 <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto">
                         <button onClick={() => setShowAddProductModal(true)}
-                            className="flex items-center gap-1.5 px-4 py-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white text-xs font-semibold rounded-xl transition shadow-sm">
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white text-xs font-semibold rounded-xl transition shadow-sm">
                             <FiPlus size={13} /> Add Product
                         </button>
                         <button onClick={() => setShowBulkUploadModal(true)}
-                            className="flex items-center gap-1.5 px-4 py-2 bg-white border border-[#2980b9]/40 hover:bg-[#2980b9]/10 text-[#2980b9]/90 text-xs font-semibold rounded-xl transition shadow-sm">
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white border border-[#2980b9]/40 hover:bg-[#2980b9]/10 text-[#2980b9]/90 text-xs font-semibold rounded-xl transition shadow-sm">
                             <FiUpload size={13} /> Bulk Upload
                         </button>
                         <button onClick={handleRefresh}
-                            className="flex items-center gap-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white px-4 py-2 text-xs font-semibold rounded-lg transition shadow-sm w-fit">
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white px-3.5 py-2 text-xs font-semibold rounded-xl transition shadow-sm">
                             <FiRefreshCw size={13} /> Refresh
                         </button>
                         <button onClick={() => setShowLensRangeModal(true)}
-                            className="flex items-center gap-1.5 px-4 py-2 bg-white border border-blue-300 hover:bg-blue-50 text-blue-600 text-xs font-semibold rounded-xl transition shadow-sm">
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white border border-blue-300 hover:bg-blue-50 text-blue-600 text-xs font-semibold rounded-xl transition shadow-sm">
                             <FiPlus size={13} /> Lens Range
                         </button>
                     </div>
 
-
                     <div className="flex flex-col sm:flex-row items-end gap-3 w-full lg:w-auto">
-                        <div className="flex gap-3 w-full sm:w-auto">
-                            <div className="flex flex-col flex-1 sm:w-40">
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase   mb-1">From Date</label>
+                        <div className="flex gap-2.5 w-full sm:w-auto">
+                            <div className="flex flex-col flex-1 sm:w-36">
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase mb-1">From Date</label>
                                 <div className="relative">
                                     <FiCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={12} />
                                     <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
-                                        className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-[#2980b9]/40 focus:ring-2 focus:ring-[#2980b9]/20 bg-gray-50 text-gray-700 transition" />
+                                        className="w-full pl-8 pr-2 py-2 text-xs border border-gray-200 rounded-xl outline-none focus:border-[#2980b9]/40 focus:ring-2 focus:ring-[#2980b9]/20 bg-gray-50 text-gray-700 transition" />
                                 </div>
                             </div>
-                            <div className="flex flex-col flex-1 sm:w-40">
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase   mb-1">To Date</label>
+                            <div className="flex flex-col flex-1 sm:w-36">
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase mb-1">To Date</label>
                                 <div className="relative">
                                     <FiCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={12} />
                                     <input type="date" value={toDate} onChange={e => setToDate(e.target.value)}
-                                        className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-[#2980b9]/40 focus:ring-2 focus:ring-[#2980b9]/20 bg-gray-50 text-gray-700 transition" />
+                                        className="w-full pl-8 pr-2 py-2 text-xs border border-gray-200 rounded-xl outline-none focus:border-[#2980b9]/40 focus:ring-2 focus:ring-[#2980b9]/20 bg-gray-50 text-gray-700 transition" />
                                 </div>
                             </div>
                         </div>
-                        <ProductKeywordInput value={keyword} onChange={setKeyword} />
-                        <div className="flex gap-2 flex-shrink-0">
+                        <div className="w-full sm:w-auto flex-1">
+                            <ProductKeywordInput value={keyword} onChange={setKeyword} />
+                        </div>
+                        <div className="flex gap-2 w-full sm:w-auto flex-shrink-0">
                             <button onClick={() => setTriggerSearch(prev => prev + 1)}
-                                className="px-4 py-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white text-xs font-semibold rounded-xl transition shadow-sm">
+                                className="w-full sm:w-auto px-5 py-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white text-xs font-semibold rounded-xl transition shadow-sm">
                                 Search
                             </button>
                         </div>

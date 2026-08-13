@@ -84,17 +84,17 @@ const PurchaseItems = () => {
     }, [fetchPurchaseOrders]);
 
     return (
-        <div className="p-4 w-full h-full flex flex-col">
-            <div className="flex justify-between items-center mb-6">
+        <div className="p-3 sm:p-4 w-full h-full flex flex-col">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                    <h1 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-2">
                         <Icon icon="lucide:shopping-bag" className="text-[#2980B9]" />
                         Purchase Items
                     </h1>
-                    <p className="text-sm text-gray-500 mt-1">View and manage all purchase orders</p>
+                    <p className="text-xs sm:text-sm text-gray-500 mt-0.5">View and manage all purchase orders</p>
                 </div>
-                <div className="flex gap-3">
-                    <div className="relative">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="relative flex-1 sm:w-64">
                         <Icon icon="lucide:search" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input
                             type="text"
@@ -102,12 +102,12 @@ const PurchaseItems = () => {
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && fetchPurchaseOrders()}
-                            className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9] text-sm w-64"
+                            className="pl-9 pr-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9] text-xs sm:text-sm w-full"
                         />
                     </div>
                     <button
                         onClick={fetchPurchaseOrders}
-                        className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 transition-colors"
+                        className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 transition-colors flex-shrink-0"
                         title="Refresh"
                     >
                         <Icon icon="lucide:refresh-cw" className={loading ? 'animate-spin' : ''} />
@@ -116,7 +116,68 @@ const PurchaseItems = () => {
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex-grow overflow-hidden flex flex-col">
-                <div className="overflow-x-auto">
+                {/* ── Mobile Card View (block md:hidden) ── */}
+                <div className="block md:hidden p-3 space-y-3 bg-gray-50/50 flex-1 overflow-y-auto">
+                    {loading ? (
+                        <div className="p-8 text-center text-gray-500 flex items-center justify-center gap-2">
+                            <Icon icon="lucide:loader-2" className="animate-spin text-xl text-[#2980B9]" />
+                            <span className="text-xs font-semibold">Loading purchase orders...</span>
+                        </div>
+                    ) : purchaseOrders.length === 0 ? (
+                        <div className="p-8 text-center text-gray-500 text-xs font-semibold">No purchase orders found.</div>
+                    ) : (
+                        purchaseOrders.map((order) => {
+                            const vendorName = order.vendor?.vendorName || order.vendor?.vendorId || order.vendorId?.name || order.vendorId || 'N/A';
+                            const purchaseId = order._id.substring(order._id.length - 8).toUpperCase();
+                            const totalAmount = order.orders?.reduce((acc, subOrder) => acc + (subOrder.items?.reduce((sum, item) => sum + ((item.mrp || item.price || 0) * (item.qty || 1)), 0) || 0), 0) || order.totalAmount || 0;
+
+                            return (
+                                <div
+                                    key={order._id}
+                                    className="bg-white rounded-xl border border-gray-200 p-4 space-y-3 shadow-2xs cursor-pointer hover:border-blue-300 transition-colors"
+                                    onClick={() => navigate(`/vendor/purchase-items/${order._id}`)}
+                                >
+                                    <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+                                        <div>
+                                            <span className="font-mono text-xs font-bold text-[#2980B9] bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                                                #{purchaseId}
+                                            </span>
+                                            <h3 className="text-sm font-bold text-gray-800 mt-1">{vendorName}</h3>
+                                        </div>
+                                        <span className={`inline-flex items-center justify-center px-2.5 py-0.5 text-[10px] font-bold rounded-full border ${
+                                            order.overallStatus === 'QC Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                            order.overallStatus === 'Partially Received' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                            order.overallStatus === 'Fully Received' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                            'bg-gray-50 text-gray-700 border-gray-200'
+                                        }`}>
+                                            {order.overallStatus || order.status || 'Pending'}
+                                        </span>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                        <div>
+                                            <span className="text-[9px] font-bold text-gray-400 uppercase block">Total Amount</span>
+                                            <span className="font-bold text-gray-900">₹{totalAmount.toFixed(2)}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-[9px] font-bold text-gray-400 uppercase block">Created At</span>
+                                            <span className="font-semibold text-gray-700">{new Date(order.createdAt).toLocaleDateString()}</span>
+                                        </div>
+                                        <div className="col-span-2">
+                                            <span className="text-[9px] font-bold text-gray-400 uppercase block">Items Summary</span>
+                                            <span className="font-medium text-gray-600 truncate block">
+                                                {order.orders?.map(o => o.items?.map(i => i.itemName || i.category).join(', ')).join('; ') || 'No items'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+
+                {/* ── Desktop Table View (hidden md:block) ── */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-[#eaf4fb]/50 border-b border-[#2980B9]/15">

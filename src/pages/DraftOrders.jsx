@@ -118,7 +118,18 @@ const DraftOrders = () => {
                         orders.map((order) => {
                             const subOrder = order.orders?.[0] || {};
                             const totalQty = subOrder.items?.reduce((acc, item) => acc + (Number(item.qty) || 0), 0) || 0;
-                            const orderTotal = subOrder.totalOrderPrice || 0;
+                            let orderTotal = Number(subOrder.totalOrderPrice) || Number(subOrder.orderTotal) || Number(subOrder.totalAmount) || Number(subOrder.netPayableTotal) || 0;
+                            if (!orderTotal && subOrder.items) {
+                                subOrder.items.forEach(item => {
+                                    const price = Number(item.price) || 0;
+                                    const qty = Number(item.qty) || 1;
+                                    const gst = Number(item.gst) || 0;
+                                    const disc = Number(item.discountAmount) || 0;
+                                    const taxable = (price * qty) - disc;
+                                    const gstAmt = taxable > 0 ? taxable * (gst / 100) : 0;
+                                    orderTotal += taxable > 0 ? taxable + gstAmt : 0;
+                                });
+                            }
                             const isExpanded = expandedRows.has(order._id);
 
                             return (
@@ -228,7 +239,18 @@ const DraftOrders = () => {
                                 orders.map((order) => {
                                     const subOrder = order.orders?.[0] || {};
                                     const totalQty = subOrder.items?.reduce((acc, item) => acc + (Number(item.qty) || 0), 0) || 0;
-                                    const orderTotal = subOrder.totalOrderPrice || 0;
+                                    let orderTotal = Number(subOrder.totalOrderPrice) || Number(subOrder.orderTotal) || Number(subOrder.totalAmount) || Number(subOrder.netPayableTotal) || 0;
+                                    if (!orderTotal && subOrder.items) {
+                                        subOrder.items.forEach(item => {
+                                            const price = Number(item.price) || 0;
+                                            const qty = Number(item.qty) || 1;
+                                            const gst = Number(item.gst) || 0;
+                                            const disc = Number(item.discountAmount) || 0;
+                                            const taxable = (price * qty) - disc;
+                                            const gstAmt = taxable > 0 ? taxable * (gst / 100) : 0;
+                                            orderTotal += taxable > 0 ? taxable + gstAmt : 0;
+                                        });
+                                    }
 
                                     return (
                                         <React.Fragment key={order._id}>
