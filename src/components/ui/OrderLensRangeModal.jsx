@@ -342,39 +342,39 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
         }
     };
 
-    const inputCls = "w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none transition bg-gray-50 text-gray-700 focus:border-[#2980B9] focus:bg-white hover:border-gray-300";
-    const selectCls = "w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none transition bg-gray-50 text-gray-700 focus:border-[#2980B9] focus:bg-white hover:border-gray-300";
+    const inputCls = "w-full px-3 py-2.5 sm:py-2 text-xs border border-gray-200 rounded-xl sm:rounded-lg outline-none transition bg-gray-50 text-gray-700 focus:border-[#2980B9] focus:bg-white hover:border-gray-300";
+    const selectCls = "w-full px-3 py-2.5 sm:py-2 text-xs border border-gray-200 rounded-xl sm:rounded-lg outline-none transition bg-gray-50 text-gray-700 focus:border-[#2980B9] focus:bg-white hover:border-gray-300";
 
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100">
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-5xl flex flex-col max-h-[95vh] sm:max-h-[90vh] overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200 border border-gray-100">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-[#2980B9]/5 to-transparent">
-                    <div>
-                        <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
-                            <Icon icon="mdi:playlist-plus" className="text-[#2980B9] text-xl" />
-                            Bulk Lens Generator
+                <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 bg-gradient-to-r from-[#2980B9]/5 to-transparent flex-shrink-0">
+                    <div className="min-w-0">
+                        <h2 className="text-sm sm:text-base font-bold text-gray-800 flex items-center gap-2">
+                            <Icon icon="mdi:playlist-plus" className="text-[#2980B9] text-lg sm:text-xl flex-shrink-0" />
+                            <span className="truncate">Bulk Lens Generator</span>
                         </h2>
-                        <p className="text-[11px] text-gray-400 mt-0.5">
-                            Define ranges to generate catalog items and add directly to your order sheet
+                        <p className="text-[10px] sm:text-[11px] text-gray-400 mt-0.5 truncate">
+                            Define ranges to generate catalog items
                         </p>
                     </div>
                     <button
                         onClick={onClose}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition flex-shrink-0 ml-2"
                     >
                         <Icon icon="mdi:close" className="text-xl" />
                     </button>
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
+                <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
                     {/* Basic Info */}
-                    <div className="bg-gray-50/50 p-4 rounded-xl border border-gray-100 space-y-4">
+                    <div className="bg-gray-50/50 p-3 sm:p-4 rounded-xl border border-gray-100 space-y-3 sm:space-y-4">
                         <h3 className="text-[11px] font-black text-[#1F618D] uppercase tracking-wider">Product Info</h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                             <div>
                                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Product Name *</label>
                                 <input name="productName" type="text" className={inputCls} placeholder="e.g. CR39 SINGLE VISION" value={form.productName} onChange={handleFormChange} />
@@ -402,14 +402,14 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
                             <div>
                                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Index</label>
                                 <input
                                     name="indexId"
                                     type="text"
                                     className={inputCls}
-                                    placeholder="Type or select Index"
+                                    placeholder="Type Index"
                                     value={form.indexId}
                                     onChange={handleFormChange}
                                     list="index-range-modal-options"
@@ -447,9 +447,9 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                     </div>
 
                     {/* Defaults */}
-                    <div className="bg-gray-50/50 p-4 rounded-xl border border-gray-100 space-y-4">
+                    <div className="bg-gray-50/50 p-3 sm:p-4 rounded-xl border border-gray-100 space-y-3 sm:space-y-4">
                         <h3 className="text-[11px] font-black text-[#1F618D] uppercase tracking-wider">Default Pricing & Qty</h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-6 gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
                             <div>
                                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Price *</label>
                                 <input name="price" type="number" className={inputCls} placeholder="0" value={form.price} onChange={handleFormChange} />
@@ -463,7 +463,7 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                                 <input name="hsnSac" type="text" className={inputCls} placeholder="9001" value={form.hsnSac} onChange={handleFormChange} />
                             </div>
                             <div>
-                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Qty per Product *</label>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Qty/Product *</label>
                                 <input name="qty" type="number" className={inputCls} placeholder="1" value={form.qty} onChange={handleFormChange} />
                             </div>
                             <div>
@@ -479,26 +479,52 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                     </div>
 
                     {/* Ranges */}
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
+                    <div className="space-y-3 sm:space-y-4">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                             <div>
                                 <h3 className="text-[11px] font-black text-[#1F618D] uppercase tracking-wider">Range Rows</h3>
                                 <p className="text-[10px] text-gray-400 mt-0.5">Configure power ranges with step values</p>
                             </div>
                             {totalComboCount > 0 && (
-                                <div className="px-3 py-1 bg-[#eaf4fb] text-[#1F618D] text-xs font-bold rounded-lg border border-[#2980B9]/20">
-                                    Total Generated Items: {totalComboCount}
+                                <div className="px-3 py-1 bg-[#eaf4fb] text-[#1F618D] text-[10px] sm:text-xs font-bold rounded-lg border border-[#2980B9]/20 flex-shrink-0">
+                                    Total: {totalComboCount} items
                                 </div>
                             )}
                         </div>
 
                         <div className="space-y-3">
                             {rangeRows.map((row, ri) => (
-                                <div key={row.id} className="p-4 bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row items-center gap-3">
-                                    <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-black text-gray-500 shrink-0">
-                                        {ri + 1}
+                                <div key={row.id} className="p-3 sm:p-4 bg-white rounded-xl border border-gray-200 shadow-sm space-y-3">
+                                    {/* Row Header */}
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-black text-gray-500 shrink-0">
+                                                {ri + 1}
+                                            </div>
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Range Row</span>
+                                        </div>
+                                        <div className="flex gap-1.5">
+                                            <button
+                                                type="button"
+                                                onClick={() => setRangeRows(prev => [...prev, makeEmptyRangeRow()])}
+                                                className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg transition"
+                                            >
+                                                <Icon icon="mdi:plus" className="text-sm" />
+                                            </button>
+                                            {rangeRows.length > 1 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setRangeRows(prev => prev.filter(r => r.id !== row.id))}
+                                                    className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition"
+                                                >
+                                                    <Icon icon="mdi:delete-outline" className="text-sm" />
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="grid grid-cols-2 md:grid-cols-6 gap-3 flex-1">
+
+                                    {/* Range Inputs - responsive grid */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
                                         <div>
                                             <label className="text-[9px] font-bold text-gray-400 block mb-0.5">SPH FROM</label>
                                             <input type="text" className={inputCls} placeholder="-2.00" value={row.sphFrom} onChange={e => handleRangeRowChange(row.id, "sphFrom", e.target.value)} />
@@ -528,44 +554,27 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                                             <input type="text" className={inputCls} placeholder="3.00" value={row.additionTo} onChange={e => handleRangeRowChange(row.id, "additionTo", e.target.value)} />
                                         </div>
                                     </div>
-                                    <div className="flex gap-2 shrink-0 self-end md:self-center mt-3 md:mt-0">
-                                        <button
-                                            type="button"
-                                            onClick={() => setRangeRows(prev => [...prev, makeEmptyRangeRow()])}
-                                            className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg"
-                                        >
-                                            <Icon icon="mdi:plus" />
-                                        </button>
-                                        {rangeRows.length > 1 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setRangeRows(prev => prev.filter(r => r.id !== row.id))}
-                                                className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg"
-                                            >
-                                                <Icon icon="mdi:delete-outline" />
-                                            </button>
-                                        )}
-                                    </div>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    {/* Previews */}
+                    {/* Preview */}
                     {showPreview && (
-                        <div className="space-y-3 bg-white p-4 rounded-xl border border-gray-200 shadow-sm animate-in fade-in duration-200">
-                            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                                <h3 className="text-xs font-black text-gray-700 uppercase tracking-wider">Preview Sheet ({filteredPreviewRows.length} combinations)</h3>
+                        <div className="space-y-3 bg-white p-3 sm:p-4 rounded-xl border border-gray-200 shadow-sm animate-in fade-in duration-200">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3">
+                                <h3 className="text-[10px] sm:text-xs font-black text-gray-700 uppercase tracking-wider">Preview ({filteredPreviewRows.length} items)</h3>
                                 <input
                                     type="text"
-                                    className="w-48 px-3 py-1.5 text-[11px] border border-gray-200 rounded-lg outline-none"
+                                    className="w-full sm:w-48 px-3 py-2 sm:py-1.5 text-[11px] border border-gray-200 rounded-xl sm:rounded-lg outline-none"
                                     placeholder="Search preview..."
                                     value={previewSearch}
                                     onChange={e => setPreviewSearch(e.target.value)}
                                 />
                             </div>
 
-                            <div className="overflow-x-auto border rounded-xl max-h-60 custom-scrollbar">
+                            {/* Desktop Preview Table */}
+                            <div className="hidden sm:block overflow-x-auto border rounded-xl max-h-60 custom-scrollbar">
                                 <table className="w-full text-left text-xs border-collapse">
                                     <thead>
                                         <tr className="bg-gray-50 border-b">
@@ -589,13 +598,13 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                                                 <td className="p-2 font-mono font-bold text-gray-800">{r.cyl}</td>
                                                 <td className="p-2 font-mono font-bold text-gray-800">{r.addition || "—"}</td>
                                                 <td className="p-2">
-                                                    <input type="number" className="w-16 px-1 py-0.5 border rounded" value={r.price} onChange={e => handlePreviewEdit(r._origIdx, "price", e.target.value)} />
+                                                    <input type="number" className="w-16 px-1 py-0.5 border rounded text-xs" value={r.price} onChange={e => handlePreviewEdit(r._origIdx, "price", e.target.value)} />
                                                 </td>
                                                 <td className="p-2">
-                                                    <input type="number" className="w-16 px-1 py-0.5 border rounded" value={r.mrp} onChange={e => handlePreviewEdit(r._origIdx, "mrp", e.target.value)} />
+                                                    <input type="number" className="w-16 px-1 py-0.5 border rounded text-xs" value={r.mrp} onChange={e => handlePreviewEdit(r._origIdx, "mrp", e.target.value)} />
                                                 </td>
                                                 <td className="p-2">
-                                                    <input type="number" className="w-14 px-1 py-0.5 border rounded" value={r.qty} onChange={e => handlePreviewEdit(r._origIdx, "qty", e.target.value)} />
+                                                    <input type="number" className="w-14 px-1 py-0.5 border rounded text-xs" value={r.qty} onChange={e => handlePreviewEdit(r._origIdx, "qty", e.target.value)} />
                                                 </td>
                                                 <td className="p-2 text-right">
                                                     <button type="button" onClick={() => handlePreviewDeleteRow(r._origIdx)} className="text-red-500 hover:text-red-700">
@@ -607,16 +616,60 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                                     </tbody>
                                 </table>
                             </div>
+
+                            {/* Mobile Preview Cards */}
+                            <div className="sm:hidden max-h-72 overflow-y-auto space-y-2 custom-scrollbar">
+                                {filteredPreviewRows.map((r) => (
+                                    <div key={r._origIdx} className="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <p className="text-[10px] font-bold text-gray-700 leading-tight flex-1">
+                                                {form.productName.toUpperCase()} SPH {r.sph} CYL {r.cyl}{r.addition ? ` ADD ${r.addition}` : ""}
+                                            </p>
+                                            <button type="button" onClick={() => handlePreviewDeleteRow(r._origIdx)} className="text-red-400 hover:text-red-600 flex-shrink-0">
+                                                <Icon icon="mdi:close-circle" className="text-lg" />
+                                            </button>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <div className="flex items-center gap-1.5 bg-white rounded-lg px-2 py-1.5 border border-gray-100">
+                                                <span className="text-[9px] text-gray-400 font-bold">SPH</span>
+                                                <span className="text-[10px] font-bold text-gray-800 font-mono">{r.sph}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 bg-white rounded-lg px-2 py-1.5 border border-gray-100">
+                                                <span className="text-[9px] text-gray-400 font-bold">CYL</span>
+                                                <span className="text-[10px] font-bold text-gray-800 font-mono">{r.cyl}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 bg-white rounded-lg px-2 py-1.5 border border-gray-100">
+                                                <span className="text-[9px] text-gray-400 font-bold">ADD</span>
+                                                <span className="text-[10px] font-bold text-gray-800 font-mono">{r.addition || "—"}</span>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <div>
+                                                <label className="text-[8px] font-bold text-gray-400 block mb-0.5">Price</label>
+                                                <input type="number" className="w-full px-2 py-1.5 text-[11px] border border-gray-200 rounded-lg bg-white" value={r.price} onChange={e => handlePreviewEdit(r._origIdx, "price", e.target.value)} />
+                                            </div>
+                                            <div>
+                                                <label className="text-[8px] font-bold text-gray-400 block mb-0.5">MRP</label>
+                                                <input type="number" className="w-full px-2 py-1.5 text-[11px] border border-gray-200 rounded-lg bg-white" value={r.mrp} onChange={e => handlePreviewEdit(r._origIdx, "mrp", e.target.value)} />
+                                            </div>
+                                            <div>
+                                                <label className="text-[8px] font-bold text-gray-400 block mb-0.5">Qty</label>
+                                                <input type="number" className="w-full px-2 py-1.5 text-[11px] border border-gray-200 rounded-lg bg-white" value={r.qty} onChange={e => handlePreviewEdit(r._origIdx, "qty", e.target.value)} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex justify-between items-center gap-3">
+                <div className="px-3 sm:px-6 py-3 sm:py-4 border-t border-gray-100 bg-gray-50/50 flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-2 sm:gap-3 flex-shrink-0">
                     <button
                         onClick={onClose}
                         disabled={submitting}
-                        className="px-5 py-2 rounded-lg border border-gray-200 hover:bg-white text-xs font-bold uppercase tracking-wider text-gray-500 transition disabled:opacity-50"
+                        className="px-4 py-2.5 sm:py-2 rounded-xl sm:rounded-lg border border-gray-200 hover:bg-white text-[10px] sm:text-xs font-bold uppercase tracking-wider text-gray-500 transition disabled:opacity-50 text-center"
                     >
                         Cancel
                     </button>
@@ -624,17 +677,18 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                         <button
                             onClick={handlePreview}
                             disabled={submitting || hasAnyRangeErrors}
-                            className="px-5 py-2 rounded-lg border border-[#2980B9] text-[#2980B9] hover:bg-blue-50 text-xs font-bold uppercase tracking-wider transition disabled:opacity-50"
+                            className="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-xl sm:rounded-lg border border-[#2980B9] text-[#2980B9] hover:bg-blue-50 text-[10px] sm:text-xs font-bold uppercase tracking-wider transition disabled:opacity-50 text-center"
                         >
-                            Preview combinations
+                            Preview
                         </button>
                         <button
                             onClick={handleSubmit}
                             disabled={submitting || previewRows.length === 0}
-                            className="px-5 py-2 rounded-lg bg-[#2980B9] hover:bg-[#1F618D] text-white text-xs font-bold uppercase tracking-wider transition flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-xl sm:rounded-lg bg-[#2980B9] hover:bg-[#1F618D] text-white text-[10px] sm:text-xs font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {submitting && <Icon icon="mdi:loading" className="animate-spin text-base" />}
-                            Generate & Add to Order
+                            {submitting && <Icon icon="mdi:loading" className="animate-spin text-sm" />}
+                            <span className="hidden sm:inline">Generate & Add to Order</span>
+                            <span className="sm:hidden">Generate</span>
                         </button>
                     </div>
                 </div>

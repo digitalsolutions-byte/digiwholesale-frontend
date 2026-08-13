@@ -92,49 +92,84 @@ function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loadi
     const statusHistory = order?.statusHistory || order?.orders?.[0]?.statusHistory || [];
 
     return createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200 font-sans">
             <div
-                className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 border border-gray-100"
+                className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 border border-slate-100"
                 onClick={e => e.stopPropagation()}
             >
-                <div className="p-8 pb-5 flex items-center gap-4 border-b border-gray-50 flex-shrink-0">
-                    <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center flex-shrink-0">
-                        <Icon icon="mdi:swap-horizontal" className="text-3xl text-blue-500" />
+                {/* Modal Header */}
+                <div className="p-4 sm:p-6 pb-4 flex items-center gap-3 sm:gap-4 border-b border-slate-100 flex-shrink-0 bg-white">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-50 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0 text-blue-600">
+                        <Icon icon="mdi:swap-horizontal" className="text-xl sm:text-2xl" />
                     </div>
                     <div className="flex-1 min-w-0">
-                        <h2 className="text-xl font-black text-gray-800 uppercase tracking-tight">Change Status</h2>
-                        <p className="text-xs font-bold text-gray-400 mt-0.5 truncate">
-                            {order?.customer?.customerName} &bull; #{order?.orders?.[0]?.orderNumber}
+                        <h2 className="text-base sm:text-xl font-bold text-slate-800 tracking-tight">Change Status</h2>
+                        <p className="text-xs font-semibold text-slate-500 mt-0.5 truncate">
+                            {order?.customer?.customerName || 'Customer'} &bull; #{order?.orders?.[0]?.orderNumber || order?._id}
                         </p>
                         {(() => {
                             const est = order?.estimatedDeliveryDate || order?.orders?.[0]?.estimatedDeliveryDate;
                             return est ? (
-                                <p className="text-[11px] font-bold text-[#2980B9] mt-0.5">
+                                <p className="text-[11px] font-semibold text-[#2980B9] mt-0.5">
                                     Est. Delivery: {dayjs(est).format('DD MMM YYYY, hh:mm A')}
                                 </p>
                             ) : null;
                         })()}
                     </div>
-                    <button
-                        onClick={() => {
-                            const shareUrl = `${window.location.origin}/orders/status?orderId=${order._id || order.orders?.[0]?.orderNumber}`;
-                            navigator.clipboard.writeText(shareUrl);
-                            toast.success("Public status link copied to clipboard!");
-                        }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-[#2980B9] border border-blue-100 hover:bg-blue-100 rounded-xl text-xs font-bold transition-all"
-                        title="Copy Public Tracking Link"
-                    >
-                        <Icon icon="mdi:share-variant-outline" className="text-base" /> Share Link
-                    </button>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors flex-shrink-0">
-                        <Icon icon="mdi:close" className="text-xl text-gray-400" />
-                    </button>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                            onClick={() => {
+                                const shareUrl = `${window.location.origin}/orders/status?orderId=${order._id || order.orders?.[0]?.orderNumber}`;
+                                navigator.clipboard.writeText(shareUrl);
+                                toast.success("Public status link copied to clipboard!");
+                            }}
+                            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-[#2980B9] border border-blue-100 hover:bg-blue-100 rounded-xl text-xs font-semibold transition-all"
+                            title="Copy Public Tracking Link"
+                        >
+                            <Icon icon="mdi:share-variant-outline" className="text-base" /> Share Link
+                        </button>
+                        <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-400 hover:text-slate-600">
+                            <Icon icon="mdi:close" className="text-xl" />
+                        </button>
+                    </div>
                 </div>
 
-                <div className="flex overflow-hidden flex-1">
-                    <div className="w-48 flex-shrink-0 border-r border-gray-50 p-6 overflow-y-auto">
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4">Order Journey</p>
-                        <div className="flex flex-col gap-0">
+                {/* Body Content */}
+                <div className="flex flex-col md:flex-row overflow-hidden flex-1">
+                    {/* Order Journey - Horizontal Stepper on Mobile, Vertical Sidebar on Desktop */}
+                    <div className="w-full md:w-48 flex-shrink-0 border-b md:border-b-0 md:border-r border-slate-100 p-3 sm:p-4 md:p-6 overflow-x-auto md:overflow-y-auto bg-slate-50/50 md:bg-transparent">
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 md:mb-4">Order Journey</p>
+                        
+                        {/* Mobile Stepper (Horizontal) */}
+                        <div className="flex md:hidden items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
+                            {ALL_STEPS.map((step, idx) => {
+                                const cfg = STATUS_CONFIG[step];
+                                const isDone = idx < currentIdx;
+                                const isCurrent = idx === currentIdx;
+                                return (
+                                    <div
+                                        key={step}
+                                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap border flex-shrink-0 ${
+                                            isDone
+                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                : isCurrent
+                                                ? 'bg-blue-50 text-blue-700 border-blue-300 ring-2 ring-blue-100'
+                                                : 'bg-white text-slate-400 border-slate-200'
+                                        }`}
+                                    >
+                                        <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${
+                                            isDone ? 'bg-emerald-500 text-white' : isCurrent ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-500'
+                                        }`}>
+                                            {isDone ? '✓' : idx + 1}
+                                        </span>
+                                        <span>{cfg.label}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Desktop Vertical Stepper */}
+                        <div className="hidden md:flex flex-col gap-0">
                             {ALL_STEPS.map((step, idx) => {
                                 const cfg = STATUS_CONFIG[step];
                                 const isDone = idx < currentIdx;
@@ -144,23 +179,23 @@ function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loadi
                                         <div className="flex flex-col items-center flex-shrink-0">
                                             <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 flex-shrink-0 ${isDone ? 'bg-emerald-500 border-emerald-500' :
                                                 isCurrent ? 'bg-white border-blue-500 ring-2 ring-blue-100' :
-                                                    'bg-white border-gray-200'
+                                                    'bg-white border-slate-200'
                                                 }`}>
                                                 {isDone
                                                     ? <Icon icon="mdi:check" className="text-white text-[10px]" />
                                                     : isCurrent
                                                         ? <div className="w-2 h-2 rounded-full bg-blue-500" />
-                                                        : <div className="w-1.5 h-1.5 rounded-full bg-gray-200" />
+                                                        : <div className="w-1.5 h-1.5 rounded-full bg-slate-200" />
                                                 }
                                             </div>
                                             {idx < ALL_STEPS.length - 1 && (
-                                                <div className={`w-0.5 h-6 ${idx < currentIdx ? 'bg-emerald-300' : 'bg-gray-100'}`} />
+                                                <div className={`w-0.5 h-6 ${idx < currentIdx ? 'bg-emerald-300' : 'bg-slate-100'}`} />
                                             )}
                                         </div>
                                         <div className="pb-4">
-                                            <span className={`text-[10px] font-black uppercase tracking-wider leading-tight ${isDone ? 'text-emerald-600' :
-                                                isCurrent ? 'text-blue-600' :
-                                                    'text-gray-300'
+                                            <span className={`text-[11px] font-semibold tracking-tight leading-tight ${isDone ? 'text-emerald-700' :
+                                                isCurrent ? 'text-blue-600 font-bold' :
+                                                    'text-slate-400'
                                                 }`}>
                                                 {cfg.label}
                                             </span>
@@ -171,11 +206,12 @@ function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loadi
                         </div>
                     </div>
 
-                    <div className="flex-1 p-6 overflow-y-auto space-y-6">
+                    {/* Actions & Remarks */}
+                    <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6 w-full min-w-0">
                         {/* Status Change Remarks Input */}
                         {transitions.length > 0 && (
                             <div>
-                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">
+                                <label className="block text-xs font-semibold text-slate-600 mb-1.5">
                                     Status Change Remarks / Notes (Optional)
                                 </label>
                                 <input
@@ -183,16 +219,16 @@ function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loadi
                                     value={remarks}
                                     onChange={e => setRemarks(e.target.value)}
                                     placeholder="e.g. Order ReadyToDispatch by production team..."
-                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition-all bg-gray-50/50"
+                                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9] transition-all bg-slate-50/50"
                                 />
                             </div>
                         )}
 
                         <div>
-                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 sm:mb-3">
                                 {transitions.length > 0 ? 'Available Actions' : 'No Actions Available'}
                             </p>
-                            <div className="flex flex-col gap-3">
+                            <div className="flex flex-col gap-2.5 sm:gap-3">
                                 {transitions.length > 0 ? (
                                     transitions.map(next => {
                                         const cfg = STATUS_CONFIG[next];
@@ -202,25 +238,25 @@ function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loadi
                                                 key={next}
                                                 onClick={() => onTransition(order._id, next, order?.orders?.[0]?.orderNumber, remarks)}
                                                 disabled={!!loading}
-                                                className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl border-2 transition-all disabled:opacity-50 ${isCancel
-                                                    ? 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100 hover:border-red-200'
-                                                    : TRANSITION_BTN[next] || 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                                                className={`w-full flex items-center justify-between p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border transition-all disabled:opacity-50 text-left ${isCancel
+                                                    ? 'bg-red-50/70 text-red-700 border-red-200 hover:bg-red-100'
+                                                    : TRANSITION_BTN[next] || 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                                                     }`}
                                             >
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.badge}`}>
-                                                        <Icon icon={isCancel ? 'mdi:close-circle-outline' : 'mdi:arrow-right-circle-outline'} className="text-lg" />
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.badge}`}>
+                                                        <Icon icon={isCancel ? 'mdi:close-circle-outline' : 'mdi:arrow-right-circle-outline'} className="text-base sm:text-lg" />
                                                     </div>
-                                                    <div className="text-left">
-                                                        <p className="text-xs font-black uppercase tracking-wider">{cfg.label}</p>
-                                                        <p className="text-[10px] font-medium opacity-60 mt-0.5">
+                                                    <div className="min-w-0">
+                                                        <p className="text-xs sm:text-sm font-bold tracking-tight">{cfg.label}</p>
+                                                        <p className="text-[10px] sm:text-xs font-medium opacity-70 truncate mt-0.5">
                                                             {isCancel ? 'Stop and cancel this order' : 'Move order to this stage'}
                                                         </p>
                                                     </div>
                                                 </div>
                                                 {loading === next
-                                                    ? <Icon icon="mdi:loading" className="animate-spin text-xl flex-shrink-0" />
-                                                    : <Icon icon="mdi:chevron-right" className="text-xl opacity-40 flex-shrink-0" />
+                                                    ? <Icon icon="mdi:loading" className="animate-spin text-lg sm:text-xl flex-shrink-0 ml-2" />
+                                                    : <Icon icon="mdi:chevron-right" className="text-lg sm:text-xl opacity-40 flex-shrink-0 ml-2" />
                                                 }
                                             </button>
                                         );
@@ -229,12 +265,12 @@ function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loadi
                                     <div className="flex flex-col items-center justify-center py-6 text-center">
                                         <Icon
                                             icon={normalised === 'Cancelled' ? 'mdi:close-circle' : 'mdi:check-circle'}
-                                            className={`text-5xl mb-3 ${normalised === 'Cancelled' ? 'text-red-300' : 'text-emerald-300'}`}
+                                            className={`text-4xl sm:text-5xl mb-2 ${normalised === 'Cancelled' ? 'text-red-400' : 'text-emerald-400'}`}
                                         />
-                                        <p className="text-sm font-black text-gray-400 uppercase tracking-widest">
+                                        <p className="text-xs sm:text-sm font-bold text-slate-700">
                                             {normalised === 'Cancelled' ? 'Order Cancelled' : 'Order Completed'}
                                         </p>
-                                        <p className="text-xs text-gray-300 font-medium mt-1">No further actions available</p>
+                                        <p className="text-xs text-slate-400 font-medium mt-0.5">No further actions available</p>
                                     </div>
                                 )}
                             </div>
@@ -242,27 +278,27 @@ function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loadi
 
                         {/* Status History Audit Trail inside Modal */}
                         {statusHistory && statusHistory.length > 0 && (
-                            <div className="border-t border-gray-100 pt-4 mt-4">
-                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                                    <Icon icon="mdi:history" className="text-blue-500 text-sm" />
+                            <div className="border-t border-slate-100 pt-4 mt-2">
+                                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                                    <Icon icon="mdi:history" className="text-[#2980B9] text-sm" />
                                     Status Change Audit Logs
                                 </p>
-                                <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
+                                <div className="space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
                                     {statusHistory.map((h, hIdx) => (
-                                        <div key={hIdx} className="bg-gray-50 p-3 rounded-xl border border-gray-100 text-xs flex flex-col gap-1">
-                                            <div className="flex justify-between items-center">
+                                        <div key={hIdx} className="bg-slate-50 p-2.5 sm:p-3 rounded-xl border border-slate-100 text-xs flex flex-col gap-1">
+                                            <div className="flex justify-between items-center flex-wrap gap-1">
                                                 <div className="flex items-center gap-1.5">
-                                                    <span className="font-bold text-gray-800">{h.changedByName || h.changedBy || 'System User'}</span>
+                                                    <span className="font-semibold text-slate-800">{h.changedByName || h.changedBy || 'System User'}</span>
                                                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold">
                                                         {h.from || 'Started'} &rarr; {h.to}
                                                     </span>
                                                 </div>
-                                                <span className="text-[10px] text-gray-400 font-mono">
-                                                    {h.changedAt ? dayjs(h.changedAt).format('DD MMM YYYY, hh:mm A') : ''}
+                                                <span className="text-[10px] text-slate-400 font-mono">
+                                                    {h.changedAt ? dayjs(h.changedAt).format('DD MMM, hh:mm A') : ''}
                                                 </span>
                                             </div>
                                             {h.remarks && (
-                                                <p className="text-[11px] text-gray-500 italic bg-white p-2 rounded-lg border border-gray-100 mt-1">
+                                                <p className="text-[11px] text-slate-600 italic bg-white p-2 rounded-lg border border-slate-100 mt-0.5">
                                                     &ldquo;{h.remarks}&rdquo;
                                                 </p>
                                             )}
@@ -274,10 +310,10 @@ function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loadi
                     </div>
                 </div>
 
-                <div className="flex justify-end px-8 py-5 border-t border-gray-50 flex-shrink-0 bg-gray-50/30">
+                <div className="flex justify-end px-4 sm:px-6 py-3.5 border-t border-slate-100 flex-shrink-0 bg-slate-50/50">
                     <button
                         onClick={onClose}
-                        className="px-6 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider text-gray-500 border-2 border-gray-200 hover:bg-gray-100 transition-all"
+                        className="px-5 py-2 rounded-xl text-xs font-semibold text-slate-600 border border-slate-200 hover:bg-slate-100 transition-all"
                     >
                         Close
                     </button>
@@ -720,19 +756,22 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
                                             </div>
                                             <button
                                                 onClick={(e) => {
+                                                    e.stopPropagation();
                                                     const rect = e.currentTarget.getBoundingClientRect();
                                                     if (activeActionMenu?.id === order._id) {
                                                         setActiveActionMenu(null);
                                                     } else {
                                                         setActiveActionMenu({
                                                             id: order._id,
-                                                            top: rect.top + window.scrollY,
-                                                            left: rect.left + window.scrollX,
-                                                            order
+                                                            top: rect.bottom + window.scrollY,
+                                                            left: rect.right,
+                                                            order,
+                                                            orderStatus,
+                                                            canUpdateStatus
                                                         });
                                                     }
                                                 }}
-                                                className="p-1.5 rounded-lg text-gray-400 hover:text-erp-accent hover:bg-erp-accent/10 transition-colors"
+                                                className={`p-1.5 rounded-lg transition-colors ${activeActionMenu?.id === order._id ? 'bg-erp-accent text-white' : 'text-gray-400 hover:text-erp-accent hover:bg-erp-accent/10'}`}
                                             >
                                                 <Icon icon="mdi:dots-vertical" className="w-5 h-5" />
                                             </button>
@@ -912,170 +951,26 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
                                                 </td>
                                                 <td className="px-4 py-2 text-center relative" onClick={(e) => e.stopPropagation()}>
                                                     <button
-                                                        onClick={() => setActiveActionMenu(activeActionMenu === order._id ? null : order._id)}
-                                                        className={`p-2 rounded-xl transition-all ${activeActionMenu === order._id ? 'bg-erp-accent text-white shadow-lg' : 'text-gray-400 hover:text-erp-accent hover:bg-erp-accent/5'}`}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const rect = e.currentTarget.getBoundingClientRect();
+                                                            if (activeActionMenu?.id === order._id) {
+                                                                setActiveActionMenu(null);
+                                                            } else {
+                                                                setActiveActionMenu({
+                                                                    id: order._id,
+                                                                    top: rect.bottom + window.scrollY,
+                                                                    left: rect.right,
+                                                                    order,
+                                                                    orderStatus,
+                                                                    canUpdateStatus
+                                                                });
+                                                            }
+                                                        }}
+                                                        className={`p-2 rounded-xl transition-all ${activeActionMenu?.id === order._id ? 'bg-erp-accent text-white shadow-lg' : 'text-gray-400 hover:text-erp-accent hover:bg-erp-accent/5'}`}
                                                     >
                                                         <Icon icon="mdi:dots-vertical" className="w-6 h-6" />
                                                     </button>
-
-                                                    {activeActionMenu === order._id && (
-                                                        <>
-                                                            <div
-                                                                className="fixed inset-0 z-[60]"
-                                                                onClick={() => setActiveActionMenu(null)}
-                                                            />
-                                                            <div className="absolute right-full mr-2 top-0 w-48 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 z-[100] animate-in fade-in slide-in-from-right-2 duration-200">
-                                                                <button
-                                                                    onClick={() => {
-                                                                        toggleRow(order._id);
-                                                                        setActiveActionMenu(null);
-                                                                    }}
-                                                                    className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-gray-600 hover:bg-erp-accent/5 hover:text-erp-accent/80 transition-colors"
-                                                                >
-                                                                    <Icon icon="mdi:eye-outline" className="text-base" />
-                                                                    {expandedRows.has(order._id) ? 'Hide Items' : 'View Items'}
-                                                                </button>
-
-                                                                <button
-                                                                    onClick={() => {
-                                                                        navigate(PATHS.CUSTOMER_CARE.ORDER_DETAILS.replace(':id', order._id));
-                                                                        setActiveActionMenu(null);
-                                                                    }}
-                                                                    className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-gray-600 hover:bg-erp-accent/5 hover:text-erp-accent/80 transition-colors"
-                                                                >
-                                                                    <Icon icon="mdi:file-document" className="text-base" />
-                                                                    Full Details
-                                                                </button>
-
-                                                                <button
-                                                                    onClick={() => {
-                                                                        const shareUrl = `${window.location.origin}/orders/status?orderId=${order._id || order.orders?.[0]?.orderNumber}`;
-                                                                        navigator.clipboard.writeText(shareUrl);
-                                                                        toast.success("Public status tracking link copied!");
-                                                                        setActiveActionMenu(null);
-                                                                    }}
-                                                                    className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-[#2980B9] hover:bg-blue-50 transition-colors"
-                                                                >
-                                                                    <Icon icon="mdi:share-variant-outline" className="text-base" />
-                                                                    Share Status Link
-                                                                </button>
-
-                                                                {canUpdateStatus && (
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setStatusPopup({ isOpen: true, order, currentStatus: orderStatus });
-                                                                            setActiveActionMenu(null);
-                                                                        }}
-                                                                        className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-blue-600 hover:bg-blue-50 transition-colors"
-                                                                    >
-                                                                        <Icon icon="mdi:swap-horizontal" className="text-base" />
-                                                                        Change Status
-                                                                    </button>
-                                                                )}
-
-                                                                {/* Download Challan or Download Invoice depending on billingMode */}
-                                                                {order.customer?.billingMode?.toUpperCase() === 'DC' ? (
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            downloadChallan(order._id);
-                                                                        }}
-                                                                        disabled={challanLoading[order._id]}
-                                                                        className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                                    >
-                                                                        {challanLoading[order._id] ? (
-                                                                            <>
-                                                                                <span className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                                                                                Downloading...
-                                                                            </>
-                                                                        ) : (
-                                                                            <>
-                                                                                <Icon icon="mdi:file-download-outline" className="text-base" />
-                                                                                Download  Challan
-                                                                            </>
-                                                                        )}
-                                                                    </button>
-                                                                ) : (
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            downloadInvoice(order._id, order.orderNumber);
-                                                                        }}
-                                                                        disabled={invoiceLoading[order._id]}
-                                                                        className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                                    >
-                                                                        {invoiceLoading[order._id] ? (
-                                                                            <>
-                                                                                <span className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                                                                                Downloading...
-                                                                            </>
-                                                                        ) : (
-                                                                            <>
-                                                                                <Icon icon="mdi:file-download-outline" className="text-base" />
-                                                                                Download Invoice
-                                                                            </>
-                                                                        )}
-                                                                    </button>
-                                                                )}
-                                                                <button
-                                                                    onClick={() => {
-                                                                        navigate(PATHS.CUSTOMER_CARE.EDIT_ORDER.replace(':id', order._id));
-                                                                        setActiveActionMenu(null);
-                                                                    }}
-                                                                    className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-erp-accent/80 hover:bg-erp-accent/5 transition-colors"
-                                                                >
-                                                                    <Icon icon="mdi:pencil-outline" className="text-base" />
-                                                                    Upgrade Order
-                                                                </button>
-                                                                {order.status?.toUpperCase() === 'DRAFT' && (
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            navigate(PATHS.CUSTOMER_CARE.EDIT_ORDER.replace(':id', order._id));
-                                                                            setActiveActionMenu(null);
-                                                                        }}
-                                                                        className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-erp-accent/80 hover:bg-erp-accent/5 transition-colors"
-                                                                    >
-                                                                        <Icon icon="mdi:pencil-outline" className="text-base" />
-                                                                        Edit Order
-                                                                    </button>
-                                                                )}
-
-                                                                {orderStatus !== 'CANCELLED' && (
-                                                                    <>
-                                                                        <button
-                                                                            onClick={() => {
-                                                                                setActionModal({ isOpen: true, type: 'cancel', id: order._id, loading: false });
-                                                                                setActiveActionMenu(null);
-                                                                            }}
-                                                                            className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-red-600 hover:bg-red-50 transition-colors"
-                                                                        >
-                                                                            <Icon icon="mdi:close-circle-outline" className="text-base" />
-                                                                            Cancel Order
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => {
-                                                                                setActionModal({ isOpen: true, type: 'delete', id: order._id, loading: false });
-                                                                                setActiveActionMenu(null);
-                                                                            }}
-                                                                            className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-red-700 hover:bg-red-100 transition-colors border-t border-red-50"
-                                                                        >
-                                                                            <Icon icon="mdi:delete-outline" className="text-base" />
-                                                                            Delete Order
-                                                                        </button>
-                                                                    </>
-                                                                )}
-
-                                                                {/* <button
-                                                                onClick={() => {
-                                                                    window.print();
-                                                                    setActiveActionMenu(null);
-                                                                }}
-                                                                className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-black uppercase text-gray-600 hover:bg-gray-50 transition-colors border-t border-gray-50 mt-1 pt-2"
-                                                            >
-                                                                <Icon icon="mdi:printer-outline" className="text-base" />
-                                                                Print Invoice
-                                                            </button> */}
-                                                            </div>
-                                                        </>
-                                                    )}
                                                 </td>
                                             </tr>
 
@@ -1298,7 +1193,167 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
                 confirmText="Confirm Cancel"
                 cancelText="Go Back"
                 type="danger"
-            />        </div>
+            />
+
+            {/* Portal Action Menu Popup */}
+            {activeActionMenu && createPortal(
+                <>
+                    <div
+                        className="fixed inset-0 z-[9998] bg-black/10 backdrop-blur-[1px]"
+                        onClick={() => setActiveActionMenu(null)}
+                    />
+                    <div
+                        style={{
+                            position: 'fixed',
+                            top: `${Math.min(activeActionMenu.top - window.scrollY, window.innerHeight - 320)}px`,
+                            left: `${Math.max(10, Math.min(activeActionMenu.left - 210, window.innerWidth - 220))}px`,
+                            zIndex: 9999
+                        }}
+                        className="w-52 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-[9999] animate-in fade-in zoom-in-95 duration-150"
+                    >
+                        <button
+                            onClick={() => {
+                                toggleRow(activeActionMenu.id);
+                                setActiveActionMenu(null);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-[11px] font-black uppercase text-gray-700 hover:bg-erp-accent/5 hover:text-erp-accent transition-colors"
+                        >
+                            <Icon icon="mdi:eye-outline" className="text-base text-erp-accent" />
+                            {expandedRows.has(activeActionMenu.id) ? 'Hide Items' : 'View Items'}
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                navigate(PATHS.CUSTOMER_CARE.ORDER_DETAILS.replace(':id', activeActionMenu.id));
+                                setActiveActionMenu(null);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-[11px] font-black uppercase text-gray-700 hover:bg-erp-accent/5 hover:text-erp-accent transition-colors"
+                        >
+                            <Icon icon="mdi:file-document-outline" className="text-base text-blue-600" />
+                            Full Details
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                const shareUrl = `${window.location.origin}/orders/status?orderId=${activeActionMenu.id || activeActionMenu.order?.orders?.[0]?.orderNumber}`;
+                                navigator.clipboard.writeText(shareUrl);
+                                toast.success("Public status tracking link copied!");
+                                setActiveActionMenu(null);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-[11px] font-black uppercase text-[#2980B9] hover:bg-blue-50 transition-colors"
+                        >
+                            <Icon icon="mdi:share-variant-outline" className="text-base text-blue-500" />
+                            Share Status Link
+                        </button>
+
+                        {activeActionMenu.canUpdateStatus && (
+                            <button
+                                onClick={() => {
+                                    setStatusPopup({ isOpen: true, order: activeActionMenu.order, currentStatus: activeActionMenu.orderStatus });
+                                    setActiveActionMenu(null);
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-[11px] font-black uppercase text-blue-600 hover:bg-blue-50 transition-colors"
+                            >
+                                <Icon icon="mdi:swap-horizontal" className="text-base text-amber-500" />
+                                Change Status
+                            </button>
+                        )}
+
+                        {activeActionMenu.order?.customer?.billingMode?.toUpperCase() === 'DC' ? (
+                            <button
+                                onClick={() => {
+                                    downloadChallan(activeActionMenu.id);
+                                }}
+                                disabled={challanLoading[activeActionMenu.id]}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-[11px] font-black uppercase text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {challanLoading[activeActionMenu.id] ? (
+                                    <>
+                                        <span className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                                        Downloading...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Icon icon="mdi:file-download-outline" className="text-base text-emerald-600" />
+                                        Download Challan
+                                    </>
+                                )}
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => {
+                                    downloadInvoice(activeActionMenu.id, activeActionMenu.order?.orderNumber);
+                                }}
+                                disabled={invoiceLoading[activeActionMenu.id]}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-[11px] font-black uppercase text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {invoiceLoading[activeActionMenu.id] ? (
+                                    <>
+                                        <span className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                                        Downloading...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Icon icon="mdi:file-download-outline" className="text-base text-emerald-600" />
+                                        Download Invoice
+                                    </>
+                                )}
+                            </button>
+                        )}
+
+                        <button
+                            onClick={() => {
+                                navigate(PATHS.CUSTOMER_CARE.EDIT_ORDER.replace(':id', activeActionMenu.id));
+                                setActiveActionMenu(null);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-[11px] font-black uppercase text-erp-accent/80 hover:bg-erp-accent/5 transition-colors"
+                        >
+                            <Icon icon="mdi:pencil-outline" className="text-base text-indigo-500" />
+                            Upgrade Order
+                        </button>
+
+                        {activeActionMenu.order?.status?.toUpperCase() === 'DRAFT' && (
+                            <button
+                                onClick={() => {
+                                    navigate(PATHS.CUSTOMER_CARE.EDIT_ORDER.replace(':id', activeActionMenu.id));
+                                    setActiveActionMenu(null);
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-[11px] font-black uppercase text-erp-accent/80 hover:bg-erp-accent/5 transition-colors"
+                            >
+                                <Icon icon="mdi:pencil-outline" className="text-base text-purple-500" />
+                                Edit Order
+                            </button>
+                        )}
+
+                        {activeActionMenu.orderStatus !== 'CANCELLED' && (
+                            <>
+                                <button
+                                    onClick={() => {
+                                        setActionModal({ isOpen: true, type: 'cancel', id: activeActionMenu.id, loading: false });
+                                        setActiveActionMenu(null);
+                                    }}
+                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-[11px] font-black uppercase text-red-600 hover:bg-red-50 transition-colors border-t border-gray-100"
+                                >
+                                    <Icon icon="mdi:close-circle-outline" className="text-base text-red-500" />
+                                    Cancel Order
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setActionModal({ isOpen: true, type: 'delete', id: activeActionMenu.id, loading: false });
+                                        setActiveActionMenu(null);
+                                    }}
+                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-[11px] font-black uppercase text-red-700 hover:bg-red-100 transition-colors border-t border-red-50"
+                                >
+                                    <Icon icon="mdi:delete-outline" className="text-base text-red-600" />
+                                    Delete Order
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </>,
+                document.body
+            )}
+        </div>
     );
 };
 
