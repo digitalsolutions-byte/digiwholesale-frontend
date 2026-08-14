@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
-import { getAllOrders, getOrderProductConfigs, cancelOrder, draftOrder, deleteOrder, updateBulkOrderStatus } from '../services/orderService';
+import { getAllOrders, getOrderProductConfigs, cancelOrder, draftOrder, deleteOrder, updateBulkOrderStatus, updateOrderTracking } from '../services/orderService';
 import { getAllCustomers } from '../services/customerService';
 import { useSelector } from 'react-redux';
 import { selectCurrentUser } from '../store/slices/authSlice';
@@ -87,6 +87,8 @@ function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loadi
     const transitions = ALLOWED_TRANSITIONS[normalised] || [];
     const currentIdx = ALL_STEPS.indexOf(normalised);
     const [remarks, setRemarks] = useState('');
+    const [trackingId, setTrackingId] = useState(order?.trackingId || order?.orders?.[0]?.trackingId || '');
+    const [trackingLink, setTrackingLink] = useState(order?.trackingLink || order?.orders?.[0]?.trackingLink || '');
 
     // Extract statusHistory from order or first subOrder
     const statusHistory = order?.statusHistory || order?.orders?.[0]?.statusHistory || [];
@@ -208,6 +210,30 @@ function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loadi
 
                     {/* Actions & Remarks */}
                     <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6 w-full min-w-0">
+                        {/* Courier Tracking Details */}
+                        <div className="bg-purple-50/60 border border-purple-100 rounded-2xl p-3.5 space-y-2.5">
+                            <p className="text-[10px] font-bold text-purple-700 uppercase tracking-wider flex items-center gap-1.5">
+                                <Icon icon="mdi:truck-fast-outline" className="text-sm text-purple-600" />
+                                Courier & Tracking Details
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                <input
+                                    type="text"
+                                    value={trackingId}
+                                    onChange={e => setTrackingId(e.target.value)}
+                                    placeholder="Tracking ID / AWB Number..."
+                                    className="w-full px-3 py-2 rounded-xl border border-purple-200 text-xs font-mono font-bold text-purple-900 bg-white focus:outline-none focus:ring-2 focus:ring-purple-200"
+                                />
+                                <input
+                                    type="url"
+                                    value={trackingLink}
+                                    onChange={e => setTrackingLink(e.target.value)}
+                                    placeholder="Tracking URL / Link..."
+                                    className="w-full px-3 py-2 rounded-xl border border-purple-200 text-xs font-medium text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-purple-200"
+                                />
+                            </div>
+                        </div>
+
                         {/* Status Change Remarks Input */}
                         {transitions.length > 0 && (
                             <div>
@@ -236,7 +262,7 @@ function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loadi
                                         return (
                                             <button
                                                 key={next}
-                                                onClick={() => onTransition(order._id, next, order?.orders?.[0]?.orderNumber, remarks)}
+                                                onClick={() => onTransition(order._id, next, order?.orders?.[0]?.orderNumber, remarks, { trackingId, trackingLink })}
                                                 disabled={!!loading}
                                                 className={`w-full flex items-center justify-between p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border transition-all disabled:opacity-50 text-left ${isCancel
                                                     ? 'bg-red-50/70 text-red-700 border-red-200 hover:bg-red-100'
@@ -405,13 +431,21 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
     const { hasPermission } = usePermissions();
     const canUpdateStatus = hasPermission('UPDATE_ORDER');
 
-    const handleStatusTransition = async (orderId, newStatus, orderNumber = null, remarks = '') => {
+    const handleStatusTransition = async (orderId, newStatus, orderNumber = null, remarks = '', trackingData = null) => {
         if (newStatus === 'Cancelled') {
             setCancelConfirm({ isOpen: true, orderId, orderNumber, remarks, loading: false });
             return;
         }
         setStatusUpdate(prev => ({ loading: { ...prev.loading, [orderId]: newStatus } }));
         try {
+            // Save tracking info if supplied
+            if (trackingData && (trackingData.trackingId || trackingData.trackingLink)) {
+                await updateOrderTracking(orderId, {
+                    trackingId: trackingData.trackingId,
+                    trackingLink: trackingData.trackingLink
+                }).catch(err => console.warn('Failed to patch tracking details:', err));
+            }
+
             const res = await updateBulkOrderStatus(orderId, newStatus, orderNumber, remarks);
             if (res.success) {
                 toast.success(`Status updated to ${STATUS_CONFIG[newStatus]?.label || newStatus}`);
@@ -639,11 +673,14 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
                                 >
                                     <option value="">All Statuses</option>
                                     <option value="Draft">Draft</option>
-                                    <option value="PENDING">Pending</option>
-                                    <option value="CONFIRMED">Confirmed</option>
-                                    <option value="PROCESSING">Processing</option>
-                                    <option value="COMPLETED">Completed</option>
-                                    <option value="CANCELLED">Cancelled</option>
+                                    <option value="Submitted">Submitted</option>
+                                    <option value="Processing">Processing</option>
+                                    <option value="QC">QC</option>
+                                    <option value="ReadyToDispatch">Ready to Dispatch</option>
+                                    <option value="Dispatched">Dispatched</option>
+                                    <option value="Delivered">Delivered</option>
+                                    <option value="Completed">Completed</option>
+                                    <option value="Cancelled">Cancelled</option>
                                 </select>
                             </div>
                         </div>
@@ -811,6 +848,25 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
                                                             <span className="text-[9px] uppercase font-bold text-gray-400 block">Total Qty</span>
                                                             <span className="font-semibold text-gray-700">{totalItemsQty} Pcs</span>
                                                         </div>
+                                                        {(order.trackingId || order.orders?.[0]?.trackingId) && (
+                                                            <div className="col-span-2 pt-1 border-t border-gray-50 flex items-center justify-between text-[10px]">
+                                                                <span className="font-bold text-purple-700 uppercase tracking-wider flex items-center gap-1">
+                                                                    <Icon icon="mdi:truck-fast-outline" className="text-xs" />
+                                                                    AWB: {order.trackingId || order.orders?.[0]?.trackingId}
+                                                                </span>
+                                                                {(order.trackingLink || order.orders?.[0]?.trackingLink) && (
+                                                                    <a
+                                                                        href={order.trackingLink || order.orders?.[0]?.trackingLink}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        onClick={e => e.stopPropagation()}
+                                                                        className="text-[#2980B9] font-bold underline flex items-center gap-0.5"
+                                                                    >
+                                                                        Track <Icon icon="mdi:open-in-new" className="text-[10px]" />
+                                                                    </a>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                         <div>
                                                             <span className="text-[9px] uppercase font-bold text-gray-400 block">Sub Orders</span>
                                                             <span className="font-semibold text-gray-700">{totalOrders}</span>

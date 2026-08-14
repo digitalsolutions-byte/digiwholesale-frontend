@@ -44,6 +44,11 @@ import QcPending from '../pages/vendor/QcPending';
 import QcPassed from '../pages/vendor/QcPassed';
 import ReplacementOrderList from '../pages/vendor/ReplacementOrderList';
 import ReplacementOrderDetail from '../pages/vendor/ReplacementOrderDetail';
+import BuyProduct from '../pages/vendor/BuyProduct';
+import ProposalList from '../pages/vendor/ProposalList';
+import ProposalDetails from '../pages/vendor/ProposalDetails';
+import DamagedItems from '../pages/vendor/DamagedItems';
+import ShrinkageItems from '../pages/vendor/ShrinkageItems';
 import SalesList from '../pages/sales/SalesList';
 import RegisterTenant from '../pages/tenants/RegisterTenant';
 import TenantList from '../pages/tenants/TenantList';
@@ -154,6 +159,11 @@ const VENDOR_MODULE = [
     { path: PATHS.VENDOR.QC_PASSED, element: QcPassed, page: 'VENDOR_LIST' },
     { path: PATHS.VENDOR.REPLACEMENT_ORDERS, element: ReplacementOrderList, page: 'VENDOR_LIST' },
     { path: PATHS.VENDOR.REPLACEMENT_ORDER_DETAILS, element: ReplacementOrderDetail, page: 'VENDOR_LIST' },
+    { path: PATHS.VENDOR.PROPOSAL_CREATE, element: BuyProduct, page: 'VENDOR_LIST' },
+    { path: PATHS.VENDOR.PROPOSAL_LIST, element: ProposalList, page: 'VENDOR_LIST' },
+    { path: PATHS.VENDOR.PROPOSAL_DETAILS, element: ProposalDetails, page: 'VENDOR_LIST' },
+    { path: PATHS.VENDOR.DAMAGED_ITEMS, element: DamagedItems, page: 'VENDOR_LIST' },
+    { path: PATHS.VENDOR.SHRINKAGE_ITEMS, element: ShrinkageItems, page: 'VENDOR_LIST' },
 ];
 
 // ── Sales ─────────────────────────────────────────────────────────────────────

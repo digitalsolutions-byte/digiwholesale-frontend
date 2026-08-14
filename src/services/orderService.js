@@ -270,3 +270,12 @@ export const updateBulkOrderStatus = async (orderId, status, orderNumber = null,
         throw handleServiceError(error, 'Failed to update order status');
     }
 };
+
+export const updateOrderTracking = async (orderId, payload) => {
+    try {
+        const response = await api.patch(`/api/order/bulk-orders/${orderId}/tracking`, payload);
+        return response.data;
+    } catch (error) {
+        throw handleServiceError(error, 'Failed to update order tracking details');
+    }
+};

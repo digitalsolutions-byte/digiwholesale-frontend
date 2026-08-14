@@ -96,6 +96,14 @@ const navItems = [
     //     ],
     // },
     {
+        label: 'Buy Products',
+        icon: 'lucide:shopping-cart',
+        subItems: [
+            { label: 'Create RFQ', path: PATHS.VENDOR.PROPOSAL_CREATE, page: 'VENDOR_LIST' },
+            { label: 'Proposals / RFQs', path: PATHS.VENDOR.PROPOSAL_LIST, page: 'VENDOR_LIST' },
+        ],
+    },
+    {
         label: 'Vendor',
         icon: 'lucide:truck',
         subItems: [
@@ -114,6 +122,8 @@ const navItems = [
             // { label: 'QC Failed Report', path: PATHS.VENDOR.QC_FAILED_REPORT, page: 'VENDOR_LIST' },
 
             { label: 'Replacement Orders', path: PATHS.VENDOR.REPLACEMENT_ORDERS, page: 'VENDOR_LIST' },
+            { label: 'Damaged Items', path: PATHS.VENDOR.DAMAGED_ITEMS, page: 'VENDOR_LIST' },
+            { label: 'Shrinkage Items', path: PATHS.VENDOR.SHRINKAGE_ITEMS, page: 'VENDOR_LIST' },
         ],
     },
     // { label: 'Quality', icon: 'lucide:badge-check', path: PATHS.OPERATIONS.QC, page: 'QUALITY' },

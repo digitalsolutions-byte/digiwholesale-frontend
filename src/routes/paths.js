@@ -96,6 +96,11 @@ export const PATHS = {
         QC_PASSED: '/vendor/qc-passed',
         REPLACEMENT_ORDERS: '/vendor/replacement-orders',
         REPLACEMENT_ORDER_DETAILS: '/vendor/replacement-orders/:id',
+        PROPOSAL_CREATE: '/vendor/proposal/create',
+        PROPOSAL_LIST: '/vendor/proposal/list',
+        PROPOSAL_DETAILS: '/vendor/proposal/view/:id',
+        DAMAGED_ITEMS: '/vendor/damaged-items',
+        SHRINKAGE_ITEMS: '/vendor/shrinkage-items',
     },
 
     // SALES MODULE

@@ -85,6 +85,8 @@ export default function PublicOrderStatus() {
     const normalizedStatus = Object.keys(STATUS_CONFIG).find(k => k.toLowerCase() === currentStatus?.toLowerCase()) || currentStatus;
     const currentStepIdx = STATUS_STEPS.indexOf(normalizedStatus);
     const estDate = orderData?.estimatedDeliveryDate || orderData?.orders?.[0]?.estimatedDeliveryDate;
+    const trackingId = orderData?.trackingId || orderData?.orders?.[0]?.trackingId;
+    const trackingLink = orderData?.trackingLink || orderData?.orders?.[0]?.trackingLink;
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100 flex flex-col justify-between p-4 md:p-8">
@@ -150,7 +152,7 @@ export default function PublicOrderStatus() {
                     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 md:p-8 space-y-8 animate-in fade-in duration-300">
 
                         {/* Order Header Summary */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pb-6 border-b border-gray-100">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pb-6 border-b border-gray-100">
                             <div>
                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Order Code</span>
                                 <p className="text-lg font-black text-gray-800 font-mono">#{orderData.orders?.[0]?.orderNumber || orderData._id?.slice(-8) || '---'}</p>
@@ -162,6 +164,33 @@ export default function PublicOrderStatus() {
                                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${STATUS_CONFIG[normalizedStatus]?.badge || 'bg-gray-100 text-gray-700'}`}>
                                     {STATUS_CONFIG[normalizedStatus]?.label || normalizedStatus}
                                 </span>
+                            </div>
+
+                            <div>
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Courier & Tracking</span>
+                                {trackingId || trackingLink ? (
+                                    <div className="space-y-1">
+                                        {trackingId && (
+                                            <span className="text-xs font-mono font-bold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-100 inline-block">
+                                                AWB: {trackingId}
+                                            </span>
+                                        )}
+                                        {trackingLink && (
+                                            <a
+                                                href={trackingLink}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-xs font-bold text-[#2980B9] hover:underline flex items-center gap-1 mt-1"
+                                            >
+                                                <Icon icon="mdi:truck-fast-outline" className="text-sm" />
+                                                <span>Track Package Online</span>
+                                                <Icon icon="mdi:open-in-new" className="text-xs" />
+                                            </a>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <span className="text-xs text-gray-400 italic">Tracking details not assigned</span>
+                                )}
                             </div>
 
                             <div>

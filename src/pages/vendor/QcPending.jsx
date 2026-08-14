@@ -24,6 +24,7 @@ const QcPending = () => {
     const [selectedItem, setSelectedItem] = useState(null);
     const [passedQty, setPassedQty] = useState(0);
     const [failedQty, setFailedQty] = useState(0);
+    const [condition, setCondition] = useState('DAMAGED');
     const [failureReason, setFailureReason] = useState('');
     const [remarks, setRemarks] = useState('');
     const [notifyVendor, setNotifyVendor] = useState(false);
@@ -55,6 +56,7 @@ const QcPending = () => {
         setSelectedItem(item);
         setPassedQty(item.receivedQty || item.qty || 0);
         setFailedQty(0);
+        setCondition('DAMAGED');
         setFailureReason('');
         setRemarks('');
         setNotifyVendor(false);
@@ -113,6 +115,7 @@ const QcPending = () => {
                 itemId: selectedItem.itemId || selectedItem._id,
                 passedQty: Number(passedQty),
                 failedQty: Number(failedQty),
+                condition: condition,
                 failureReason: failureReason,
                 remarks: remarks,
             };
@@ -404,6 +407,18 @@ const QcPending = () => {
 
                             {failedQty > 0 && (
                                 <>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">Condition *</label>
+                                        <select
+                                            value={condition}
+                                            onChange={e => setCondition(e.target.value)}
+                                            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9] bg-white font-medium text-gray-800"
+                                        >
+                                            <option value="DAMAGED">Damaged</option>
+                                            <option value="SHRINKAGE">Shrinkage</option>
+                                        </select>
+                                    </div>
+
                                     <div>
                                         <label className="block text-xs font-semibold text-[#E74C3C] mb-1.5">Failure Reason *</label>
                                         <input
