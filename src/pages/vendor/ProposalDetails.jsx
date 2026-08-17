@@ -35,6 +35,7 @@ const ProposalDetails = () => {
 
     // Modal state for finalize
     const [finalizeQuotation, setFinalizeQuotation] = useState(null);
+    console.log(finalizeQuotation, "finalizeQuotation");
     const [finalizeForm, setFinalizeForm] = useState({
         cgst: '6',
         sgst: '6'
@@ -132,6 +133,7 @@ const ProposalDetails = () => {
             if (data.success) {
                 toast.success('Proposal finalized and PO placed successfully!');
                 setFinalizeResult(data.data || data.purchaseOrder || { poNumber: data.poNumber || 'PO Created' });
+                setFinalizeQuotation(null);
                 loadProposalDetails();
             } else {
                 toast.error(data.message || 'Failed to finalize proposal');
@@ -223,11 +225,10 @@ const ProposalDetails = () => {
                             <h1 className="text-lg sm:text-xl font-bold text-gray-900 uppercase font-mono">
                                 #{proposal.proposalNumber || proposal._id}
                             </h1>
-                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
-                                proposal.status === 'ORDERED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${proposal.status === 'ORDERED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                                 proposal.status === 'CANCELLED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                                'bg-blue-50 text-blue-700 border-blue-200'
-                            }`}>
+                                    'bg-blue-50 text-blue-700 border-blue-200'
+                                }`}>
                                 {proposal.status}
                             </span>
                         </div>
@@ -540,7 +541,7 @@ const ProposalDetails = () => {
                             <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-100 space-y-1">
                                 <span className="text-[10px] font-bold uppercase text-emerald-700 block">Selected Vendor</span>
                                 <p className="font-bold text-gray-900 text-sm">{finalizeQuotation.vendorName}</p>
-                                <p className="text-xs text-gray-600 font-semibold">Quote: ₹{finalizeQuotation.price} • {finalizeQuotation.availableQty} Pcs available</p>
+                                <p className="text-xs text-gray-600 font-semibold">Quote: ₹{finalizeQuotation?.quotation?.price} • {finalizeQuotation?.quotation?.availableQty} Pcs available</p>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
