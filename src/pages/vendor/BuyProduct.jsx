@@ -207,7 +207,7 @@ const BuyProduct = () => {
 
             {/* Main Form Card */}
             <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-7 space-y-6">
-                
+
                 {/* 1. Product Selection */}
                 <div className="space-y-3">
                     <h2 className="text-xs font-bold uppercase tracking-wider text-[#2980B9] flex items-center gap-2 border-b border-gray-100 pb-2">
@@ -215,7 +215,7 @@ const BuyProduct = () => {
                         1. Product Information
                     </h2>
 
-                    <div>
+                    {/* <div>
                         <SearchableSelect
                             label="Search Existing Inventory Product (Optional)"
                             name="inventorySearch"
@@ -251,7 +251,7 @@ const BuyProduct = () => {
                                 }
                             }}
                         />
-                    </div>
+                    </div> */}
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
                         {/* Searchable Product Name Input */}
@@ -312,7 +312,10 @@ const BuyProduct = () => {
                                         return (
                                             <div
                                                 key={prod._id || idx}
-                                                onClick={() => handleSelectProduct(prod)}
+                                                onMouseDown={(e) => {
+                                                    e.preventDefault();
+                                                    handleSelectProduct(prod);
+                                                }}
                                                 className="p-3 hover:bg-blue-50 cursor-pointer transition-colors flex items-center justify-between text-xs"
                                             >
                                                 <div>
@@ -471,19 +474,17 @@ const BuyProduct = () => {
                                     <div
                                         key={vendor._id}
                                         onClick={() => toggleVendorSelection(vendor._id)}
-                                        className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between gap-2 ${
-                                            isSelected
+                                        className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between gap-2 ${isSelected
                                                 ? 'bg-blue-50/80 border-[#2980B9] shadow-2xs'
                                                 : 'bg-white border-gray-200 hover:border-blue-200'
-                                        }`}
+                                            }`}
                                     >
                                         <div className="min-w-0">
                                             <h4 className="text-xs font-bold text-gray-900 truncate">{vendor.name}</h4>
                                             <span className="text-[10px] text-gray-500 font-semibold truncate block">{vendor.firm || 'No firm name'}</span>
                                         </div>
-                                        <div className={`w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 transition-colors ${
-                                            isSelected ? 'bg-[#2980B9] text-white' : 'border border-gray-300 bg-white'
-                                        }`}>
+                                        <div className={`w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 transition-colors ${isSelected ? 'bg-[#2980B9] text-white' : 'border border-gray-300 bg-white'
+                                            }`}>
                                             {isSelected && <Icon icon="mdi:check" className="text-xs" />}
                                         </div>
                                     </div>

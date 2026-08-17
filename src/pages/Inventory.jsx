@@ -214,7 +214,7 @@ export default function Inventory() {
     const [fromDate, setFromDate] = useState("");
     const [toDate, setToDate] = useState("");
     const [keyword, setKeyword] = useState("");
-    const [triggerSearch, setTriggerSearch] = useState(false);
+    const [triggerSearch, setTriggerSearch] = useState(0);
 
     const fetchAllVendors = async () => {
         try {
@@ -1650,8 +1650,9 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
     };
 
     useEffect(() => {
-        if (isFirstRender.current) { isFirstRender.current = false; return; }
-        searchProducts();
+        if (triggerSearch > 0) {
+            searchProducts();
+        }
     }, [triggerSearch]);
 
     // ── Open bulk Add Stock — pre-fill rows from selected products ────────────

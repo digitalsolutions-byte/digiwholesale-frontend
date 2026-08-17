@@ -187,10 +187,10 @@ const Dashboard = () => {
                     {[
                         { label: 'Total Orders', value: ord.totalOrders, icon: 'lucide:shopping-bag', bg: 'bg-[#2980B9]', text: 'text-white' },
                         { label: 'Active', value: ord.active, icon: 'lucide:activity', bg: 'bg-blue-50', text: 'text-blue-700' },
-                        { label: 'In Progress', value: (ord.submitted || 0) + (ord.processing || 0) + (ord.qc || 0), icon: 'lucide:loader-2', bg: 'bg-amber-50', text: 'text-amber-700' },
+                        { label: 'Processing', value: ord.inProgress ?? ord.processing ?? 0, icon: 'lucide:loader-2', bg: 'bg-amber-50', text: 'text-amber-700' },
                         { label: 'Ready to Dispatch', value: ord.readyToDispatch, icon: 'lucide:package-check', bg: 'bg-cyan-50', text: 'text-cyan-700' },
                         { label: 'Dispatched', value: ord.dispatched, icon: 'lucide:truck', bg: 'bg-emerald-50', text: 'text-emerald-700' },
-                        { label: 'Completed', value: (ord.delivered || 0) + (ord.completed || 0), icon: 'lucide:check-circle-2', bg: 'bg-green-50', text: 'text-green-700' },
+                        { label: 'Completed', value: ord.completed, icon: 'lucide:check-circle-2', bg: 'bg-green-50', text: 'text-green-700' },
                         { label: 'Cancelled', value: ord.cancelled, icon: 'lucide:x-circle', bg: 'bg-red-50', text: 'text-red-600' },
                     ].map((item, idx) => (
                         <div key={idx} className={`${item.bg} rounded-2xl p-3.5 flex flex-col gap-2 hover:shadow-md transition-shadow`}>
