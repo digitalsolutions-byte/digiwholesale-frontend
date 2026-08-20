@@ -46,7 +46,7 @@ const EcommerceCatalog = ({ defaultCategory }) => {
     // Pagination state
     const [pagination, setPagination] = useState({
         page: 1,
-        limit: 20,
+        limit: 10,
         totalPages: 1,
         totalProducts: 0,
         hasMore: false,
@@ -61,11 +61,11 @@ const EcommerceCatalog = ({ defaultCategory }) => {
         }
     }, [location.pathname]);
 
-    // Fetch products from API: GET /api/digi/product/frames-sunglasses?page=1&limit=20
+    // Fetch products from API: GET /api/digi/product/frames-sunglasses?page=1&limit=10
     const fetchProducts = async (page = 1, categoryFilter = activeTab, searchQuery = search) => {
         setLoading(true);
         try {
-            const params = { page, limit: 20 };
+            const params = { page, limit: 10 };
             if (searchQuery && searchQuery.trim()) params.search = searchQuery.trim();
             if (categoryFilter && categoryFilter !== 'ALL') params.category = categoryFilter;
 
@@ -78,16 +78,16 @@ const EcommerceCatalog = ({ defaultCategory }) => {
             else if (Array.isArray(data.items)) prods = data.items;
 
             setProducts(prods);
-            if (prods.length > 0 && !selectedProduct) {
-                setSelectedProduct(prods[0]);
-            }
+
+            const totalItems = data.totalProducts ?? data.total ?? prods.length;
+            const computedPages = data.totalPages || Math.ceil(totalItems / 10) || 1;
 
             setPagination({
                 page: data.page || page,
-                limit: data.limit || 20,
-                totalPages: data.totalPages || 1,
-                totalProducts: data.totalProducts ?? prods.length,
-                hasMore: data.hasMore ?? false,
+                limit: data.limit || 10,
+                totalPages: computedPages,
+                totalProducts: totalItems,
+                hasMore: data.hasMore ?? ((data.page || page) < computedPages),
             });
         } catch (err) {
             console.error('Failed to fetch frames-sunglasses products:', err);
@@ -273,8 +273,8 @@ const EcommerceCatalog = ({ defaultCategory }) => {
 
             {/* ── Main E-Commerce Responsive Grid Layout ── */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-                {/* ── Left Column: Product Catalog Grid ── */}
-                <div className={`${gridCols === 3 ? 'lg:col-span-7 xl:col-span-8' : 'lg:col-span-6'} space-y-4`}>
+                {/* ── Left Column: Product Catalog Grid (Expands to 5 columns full width when no product is selected) ── */}
+                <div className={`${selectedProduct ? (gridCols === 3 ? 'lg:col-span-7 xl:col-span-8' : 'lg:col-span-6') : 'lg:col-span-12'} space-y-4 transition-all duration-300`}>
                     {/* Search & Filter Toolbar */}
                     <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm space-y-3">
                         <form onSubmit={handleSearchSubmit} className="relative">
@@ -319,29 +319,31 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                             <span className="font-extrabold text-gray-700">{filteredProducts.length} Frames Found</span>
 
                             <div className="flex items-center gap-3">
-                                {/* Layout Switcher (2 Cards vs 3 Cards View Toggle) */}
-                                <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
-                                    <button
-                                        type="button"
-                                        onClick={() => setGridCols(2)}
-                                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${gridCols === 2 ? 'bg-white text-[#2980B9] shadow-2xs' : 'text-gray-500 hover:text-gray-800'
-                                            }`}
-                                        title="Show 2 cards per row"
-                                    >
-                                        <Icon icon="lucide:grid-2x2" className="text-sm" />
-                                        <span className="hidden sm:inline">2 Cards</span>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setGridCols(3)}
-                                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${gridCols === 3 ? 'bg-white text-[#2980B9] shadow-2xs' : 'text-gray-500 hover:text-gray-800'
-                                            }`}
-                                        title="Show 3 cards per row"
-                                    >
-                                        <Icon icon="lucide:grid-3x3" className="text-sm" />
-                                        <span className="hidden sm:inline">3 Cards</span>
-                                    </button>
-                                </div>
+                                {/* Layout Switcher (2 Cards vs 3 Cards View Toggle when panel is open) */}
+                                {selectedProduct && (
+                                    <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+                                        <button
+                                            type="button"
+                                            onClick={() => setGridCols(2)}
+                                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${gridCols === 2 ? 'bg-white text-[#2980B9] shadow-2xs' : 'text-gray-500 hover:text-gray-800'
+                                                }`}
+                                            title="Show 2 cards per row"
+                                        >
+                                            <Icon icon="lucide:grid-2x2" className="text-sm" />
+                                            <span className="hidden sm:inline">2 Cards</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setGridCols(3)}
+                                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${gridCols === 3 ? 'bg-white text-[#2980B9] shadow-2xs' : 'text-gray-500 hover:text-gray-800'
+                                                }`}
+                                            title="Show 3 cards per row"
+                                        >
+                                            <Icon icon="lucide:grid-3x3" className="text-sm" />
+                                            <span className="hidden sm:inline">3 Cards</span>
+                                        </button>
+                                    </div>
+                                )}
 
                                 <div className="flex items-center gap-1.5">
                                     <span className="text-[10px] font-bold text-gray-400 uppercase">Sort by:</span>
@@ -357,8 +359,8 @@ const EcommerceCatalog = ({ defaultCategory }) => {
 
                     {/* Products Grid */}
                     {loading ? (
-                        <div className={`grid ${gridCols === 3 ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5' : 'grid-cols-1 sm:grid-cols-2 gap-4'}`}>
-                            {[...Array(6)].map((_, i) => (
+                        <div className={`grid ${selectedProduct ? (gridCols === 3 ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5' : 'grid-cols-1 sm:grid-cols-2 gap-4') : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4'}`}>
+                            {[...Array(10)].map((_, i) => (
                                 <div key={i} className="bg-white rounded-2xl p-4 border border-gray-100 space-y-3 animate-pulse">
                                     <div className="w-full h-36 bg-gray-100 rounded-xl" />
                                     <div className="h-4 bg-gray-100 rounded w-2/3" />
@@ -372,7 +374,7 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                             <p className="text-xs font-bold text-gray-500">No matching eyewear products found</p>
                         </div>
                     ) : (
-                        <div className={`grid ${gridCols === 3 ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5' : 'grid-cols-1 sm:grid-cols-2 gap-4'}`}>
+                        <div className={`grid ${selectedProduct ? (gridCols === 3 ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5' : 'grid-cols-1 sm:grid-cols-2 gap-4') : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4'}`}>
                             {filteredProducts.map(product => {
                                 const isSelected = selectedProduct?._id === product._id;
                                 const hasColors = Array.isArray(product.colors) && product.colors.length > 0;
@@ -464,11 +466,41 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                             })}
                         </div>
                     )}
+
+                    {/* Pagination Bar (10 products per page) */}
+                    {pagination.totalPages > 1 && (
+                        <div className="flex flex-wrap items-center justify-between bg-white rounded-2xl border border-gray-100 p-3 px-4 shadow-xs text-xs mt-4 gap-2">
+                            <span className="font-extrabold text-gray-500">
+                                Page {pagination.page} of {pagination.totalPages} ({pagination.totalProducts} Total Frames)
+                            </span>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    disabled={pagination.page <= 1}
+                                    onClick={() => fetchProducts(pagination.page - 1, activeTab, search)}
+                                    className="px-3.5 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 font-extrabold rounded-xl border border-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 active:scale-95"
+                                >
+                                    <Icon icon="lucide:chevron-left" className="text-sm" />
+                                    <span>Previous</span>
+                                </button>
+                                <span className="px-3 py-1 bg-blue-50 text-[#2980B9] font-black rounded-lg text-xs border border-blue-100">
+                                    {pagination.page}
+                                </span>
+                                <button
+                                    disabled={pagination.page >= pagination.totalPages}
+                                    onClick={() => fetchProducts(pagination.page + 1, activeTab, search)}
+                                    className="px-3.5 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 font-extrabold rounded-xl border border-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 active:scale-95"
+                                >
+                                    <span>Next</span>
+                                    <Icon icon="lucide:chevron-right" className="text-sm" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                {/* ── Right Column: Model Details Panel (Still / Sticky) ── */}
-                <div className={`${gridCols === 3 ? 'lg:col-span-5 xl:col-span-4' : 'lg:col-span-6'} space-y-4 sticky top-4 self-start`}>
-                    {selectedProduct ? (
+                {/* ── Right Column: Model Details Panel (Visible on Desktop ONLY when a product is selected) ── */}
+                {selectedProduct && (
+                    <div className={`hidden lg:block ${gridCols === 3 ? 'lg:col-span-5 xl:col-span-4' : 'lg:col-span-6'} space-y-4 sticky top-4 self-start animate-in fade-in duration-200`}>
                         <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-5">
                             {/* Model Details Header */}
                             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
@@ -478,9 +510,18 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                                     </button>
                                     <h2 className="text-base font-black text-gray-900 uppercase">MODEL DETAILS</h2>
                                 </div>
-                                <span className="text-xs font-mono font-bold text-gray-400">
-                                    Code: {selectedProduct.productCode}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-mono font-bold text-gray-400">
+                                        Code: {selectedProduct.productCode}
+                                    </span>
+                                    <button
+                                        onClick={() => setSelectedProduct(null)}
+                                        className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition"
+                                        title="Close details"
+                                    >
+                                        <Icon icon="mdi:close" className="text-base" />
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Main Preview Box & Title */}
@@ -656,24 +697,12 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                                             <span className="text-[10px] text-gray-500 font-bold block">TOTAL VALUE</span>
                                             <span className="text-lg font-black text-gray-900">₹{cartTotals.totalPrice}</span>
                                         </div>
-                                        {/* <button
-                                            onClick={handleCheckout}
-                                            className="px-5 py-2.5 bg-[#2980B9] hover:bg-[#2471A3] text-white text-xs font-black rounded-xl transition shadow-md active:scale-95 flex items-center gap-2"
-                                        >
-                                            <Icon icon="lucide:check-circle" className="text-sm" />
-                                            <span>Proceed to Checkout</span>
-                                        </button> */}
                                     </div>
                                 </div>
                             )}
                         </div>
-                    ) : (
-                        <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center text-gray-400 space-y-2">
-                            <Icon icon="lucide:mouse-pointer-click" className="text-4xl mx-auto text-gray-300" />
-                            <p className="text-xs font-bold">Select a frame from the catalog to view details and add shades</p>
-                        </div>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
 
             {/* ── Floating Bottom Quick-Cart Bar (Visible on smaller screens when cart has items) ── */}
