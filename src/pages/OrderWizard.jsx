@@ -144,6 +144,32 @@ const resolveIndex = (idxVal, configIndexes = []) => {
     return valStr;
 };
 
+const parseColorToHex = (str) => {
+    if (!str || typeof str !== 'string') return '#3B82F6';
+    const trimmed = str.trim().toLowerCase();
+
+    if (/^#?([0-9a-fA-F]{3}){1,2}$/.test(trimmed)) {
+        let hex = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+        if (hex.length === 4) {
+            hex = `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`;
+        }
+        return hex;
+    }
+
+    try {
+        const ctx = document.createElement('canvas').getContext('2d');
+        if (ctx) {
+            ctx.fillStyle = trimmed;
+            const computed = ctx.fillStyle;
+            if (computed && computed.startsWith('#')) return computed;
+        }
+    } catch (e) {
+        // ignore
+    }
+
+    return '#3B82F6';
+};
+
 const OrderWizard = () => {
     const user = useSelector((state) => state.auth.user);
     const [activeStep, setActiveStep] = useState(0);
@@ -155,14 +181,26 @@ const OrderWizard = () => {
     const [loadingConfigs, setLoadingConfigs] = useState(true);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
     const [shipToAddresses, setShipToAddresses] = useState([]);
-    const [productNames, setProductNames] = useState([]);
+    const location = useLocation();
+    const { pathname, state } = location;
+
+    const [productNames, setProductNames] = useState(() => {
+        if (state?.prefillProduct) {
+            const prod = state.prefillProduct;
+            const pName = prod.productName || prod.name || prod.itemName || '';
+            const pId = prod._id || prod.productId || pName;
+            if (pName) {
+                return [{ value: pId, label: pName, raw: prod }];
+            }
+        }
+        return [];
+    });
     const [loadingProductNames, setLoadingProductNames] = useState(false);
     const [resolutionResult, setResolutionResult] = useState(null);
     const [resolvingBase, setResolvingBase] = useState(false);
     const navigate = useNavigate();
     const isMappingData = useRef(false);
     const { id } = useParams();
-    const { pathname } = useLocation();
 
     const isEditMode = pathname.includes('/edit/');
     const isViewMode = pathname.includes('/view/');
@@ -269,25 +307,96 @@ const OrderWizard = () => {
     };
 
     // Initial Form Values
-    const initialValues = {
-        // Customer Details
-        customerId: '',
-        shipToId: '',
-        orderReference: '',
-        consumerCardName: '',
-        opticianName: '',
-        estimatedDeliveryDate: '',
-        customerBalance: '0.00',
+    const initialValues = useMemo(() => {
+        const base = {
+            // Customer Details
+            customerId: '',
+            shipToId: '',
+            orderReference: '',
+            consumerCardName: '',
+            opticianName: '',
+            estimatedDeliveryDate: '',
+            customerBalance: '0.00',
 
-        // Product Details Array
-        products: Array(5).fill(null).map(() => ({ ...productTemplate })),
+            // Product Details Array
+            products: Array(5).fill(null).map(() => ({ ...productTemplate })),
 
-        // Step 3: Shipping & Payment
-        directCustomer: '',
-        shippingCharges: '',
-        otherCharges: '',
-        advancePayment: ''
-    };
+            // Step 3: Shipping & Payment
+            directCustomer: '',
+            shippingCharges: '',
+            otherCharges: '',
+            advancePayment: ''
+        };
+
+        if (Array.isArray(state?.cartItems) && state.cartItems.length > 0) {
+            const mappedCartProducts = state.cartItems.map(item => {
+                const pName = item.productName || item.name || item.itemName || '';
+                const pId = item.productId || item._id || pName;
+                return {
+                    ...productTemplate,
+                    productId: pId,
+                    productName: pName,
+                    itemName: pName,
+                    productCode: item.productCode || item.code || '',
+                    brand: item.brand || '',
+                    Brand: item.brand || '',
+                    brandId: item.brand || '',
+                    category: item.category || '',
+                    categoryId: item.category || '',
+                    price: Number(item.price) || 0,
+                    MRP: Number(item.mrp) || 0,
+                    qty: Number(item.qty) || 1,
+                    color: item.color || '',
+                    size: item.size || '',
+                    shape: item.shape || '',
+                    material: item.material || '',
+                    dimensions: item.dimensions || '',
+                    photos: item.image ? [item.image] : [],
+                    availability: 'in-house',
+                    orderType: 'stock',
+                    productMode: 'stock'
+                };
+            });
+
+            const minSlots = Math.max(5, mappedCartProducts.length);
+            base.products = Array(minSlots).fill(null).map((_, idx) => {
+                return mappedCartProducts[idx] || { ...productTemplate };
+            });
+        } else if (state?.prefillProduct) {
+            const prod = state.prefillProduct;
+            const colorVal = state.selectedColor || prod.color || (prod.colors?.[0]?.color) || '';
+            const qtyVal = state.selectedQty || 1;
+            const pName = prod.productName || prod.name || prod.itemName || '';
+            const pId = prod._id || prod.productId || pName;
+
+            base.products[0] = {
+                ...productTemplate,
+                productId: pId,
+                productName: pName,
+                itemName: pName,
+                productCode: prod.productCode || prod.code || '',
+                brand: prod.brand || '',
+                Brand: prod.brand || '',
+                brandId: prod.brand || '',
+                category: prod.category || '',
+                categoryId: prod.category || '',
+                price: Number(prod.price) || 0,
+                MRP: Number(prod.mrp) || 0,
+                qty: Number(qtyVal) || 1,
+                color: colorVal,
+                size: prod.size || '',
+                shape: prod.shape || '',
+                material: prod.material || '',
+                dimensions: prod.dimensions || '',
+                photos: prod.image ? [prod.image] : [],
+                availability: 'in-house',
+                orderType: 'stock',
+                productMode: 'stock'
+            };
+        }
+
+        return base;
+    }, [state]);
 
     const validationSchema = Yup.object().shape({
         // Step 1: Customer Details
@@ -362,6 +471,61 @@ const OrderWizard = () => {
     });
 
     // Map Backend Data to Formik Values
+    useEffect(() => {
+        if (!id && location.state?.prefillProduct) {
+            const prod = location.state.prefillProduct;
+            const colorVal = location.state.selectedColor || prod.color || (prod.colors?.[0]?.color) || '';
+            const qtyVal = location.state.selectedQty || 1;
+
+            const matchedCategoryObj = (configs.category || []).find(c =>
+                c.name?.toUpperCase() === (prod.category || '').toUpperCase() ||
+                c._id === prod.category
+            );
+            const categoryIdVal = matchedCategoryObj ? matchedCategoryObj._id : prod.category;
+            const categoryNameVal = matchedCategoryObj ? matchedCategoryObj.name : prod.category;
+
+            const matchedBrandObj = (configs.brand || []).find(b =>
+                b.name?.toUpperCase() === (prod.brand || '').toUpperCase() ||
+                b._id === prod.brand
+            );
+            const brandIdVal = matchedBrandObj ? matchedBrandObj._id : prod.brand;
+            const brandNameVal = matchedBrandObj ? matchedBrandObj.name : prod.brand;
+
+            const pName = prod.productName || prod.name || prod.itemName || '';
+            const pId = prod._id || prod.productId || pName;
+
+            formik.setFieldValue('products.0.productId', pId);
+            formik.setFieldValue('products.0.productName', pName);
+            formik.setFieldValue('products.0.itemName', pName);
+            formik.setFieldValue('products.0.productCode', prod.productCode || prod.code || '');
+            formik.setFieldValue('products.0.brand', brandNameVal || '');
+            formik.setFieldValue('products.0.Brand', brandNameVal || '');
+            formik.setFieldValue('products.0.brandId', brandIdVal || '');
+            formik.setFieldValue('products.0.category', categoryNameVal || '');
+            formik.setFieldValue('products.0.categoryId', categoryIdVal || '');
+            formik.setFieldValue('products.0.price', Number(prod.price) || 0);
+            formik.setFieldValue('products.0.MRP', Number(prod.mrp) || 0);
+            formik.setFieldValue('products.0.qty', Number(qtyVal) || 1);
+            formik.setFieldValue('products.0.color', colorVal);
+            formik.setFieldValue('products.0.size', prod.size || '');
+            formik.setFieldValue('products.0.shape', prod.shape || '');
+            formik.setFieldValue('products.0.material', prod.material || '');
+            formik.setFieldValue('products.0.dimensions', prod.dimensions || '');
+            formik.setFieldValue('products.0.availability', 'in-house');
+            formik.setFieldValue('products.0.orderType', 'stock');
+            if (prod.image) {
+                formik.setFieldValue('products.0.photos', [prod.image]);
+            }
+
+            if (pName) {
+                setProductNames(prev => {
+                    if (prev.some(opt => (opt.value || opt) === pId || (opt.label || opt) === pName)) return prev;
+                    return [{ value: pId, label: pName, raw: prod }, ...prev];
+                });
+            }
+        }
+    }, [id, location.state, configs]);
+
     useEffect(() => {
         if (id) {
             const fetchOrderData = async () => {
@@ -1976,12 +2140,45 @@ const OrderWizard = () => {
                             disabled: isStockInhouse || !isLensCategory || isReadOnly
                         })}
 
-                        {wrapInput(Input, {
-                            label: "Color",
-                            name: `${prefix}color`,
-                            placeholder: "e.g., Black / Gold",
-                            disabled: isReadOnly
-                        })}
+                        {wrapInput(
+                            ({ label, name, placeholder, disabled }) => {
+                                const val = formik.values.products[index]?.color || '';
+                                const hexVal = parseColorToHex(val);
+
+                                return (
+                                    <div>
+                                        <label className="text-[10px] font-semibold text-gray-700 uppercase block mb-1">
+                                            {label}
+                                        </label>
+                                        <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg p-1 pr-2 focus-within:border-erp-accent focus-within:ring-2 focus-within:ring-erp-accent/20 transition shadow-2xs">
+                                            <input
+                                                type="color"
+                                                value={hexVal}
+                                                disabled={disabled}
+                                                onChange={(e) => formik.setFieldValue(name, e.target.value)}
+                                                className="w-6 h-6 rounded cursor-pointer border-0 bg-transparent p-0 flex-shrink-0"
+                                                title="Pick a color"
+                                            />
+                                            <input
+                                                type="text"
+                                                name={name}
+                                                value={val}
+                                                placeholder={placeholder}
+                                                disabled={disabled}
+                                                onChange={(e) => formik.setFieldValue(name, e.target.value)}
+                                                className="w-full text-xs font-semibold bg-transparent text-gray-800 outline-none placeholder:text-gray-400"
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            },
+                            {
+                                label: "Color",
+                                name: `${prefix}color`,
+                                placeholder: "e.g., Black / #28e2df",
+                                disabled: isReadOnly
+                            }
+                        )}
 
                         {wrapInput(Input, {
                             label: "Size",

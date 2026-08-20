@@ -121,5 +121,10 @@ export const PATHS = {
         DETAILS: '/tenants/view/:id',
         EDIT: '/tenants/edit/:id',
     },
+    // E-COMMERCE MODULE
+    ECOMMERCE: {
+        SUNGLASSES: '/ecommerce/sunglasses',
+        FRAMES: '/ecommerce/frames',
+    },
     SETTINGS: '/settings'
 };

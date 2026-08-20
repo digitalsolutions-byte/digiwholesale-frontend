@@ -63,6 +63,7 @@ import Inventory from '../pages/Inventory';
 import Dashboard from '../components/Dashboard';
 import Settings from '../pages/Settings';
 import OtherSales from '../pages/OtherSales';
+import EcommerceCatalog from '../pages/ecommerce/EcommerceCatalog';
 
 export { PATHS };
 
@@ -231,6 +232,8 @@ export const routesConfig = [
                     ...SALES_MODULE,
                     ...REPORTS_MODULE,
                     ...TENANTS_MODULE,
+                    { path: PATHS.ECOMMERCE.SUNGLASSES, element: EcommerceCatalog, props: { defaultCategory: 'SUNGLASS' } },
+                    { path: PATHS.ECOMMERCE.FRAMES, element: EcommerceCatalog, props: { defaultCategory: 'FRAME' } },
                     { path: PATHS.SETTINGS, element: Settings },
                 ],
             },

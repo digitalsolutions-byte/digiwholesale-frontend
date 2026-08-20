@@ -250,6 +250,7 @@ export default function Inventory() {
     const LENS_FIELDS = ["sph", "cyl", "index", "axis", "coating", "expiry", "pairOrSingle"];
     const isLensCategory = (v) => Boolean(v && (v.toLowerCase().includes("lens") || v.toLowerCase().includes("glass") || v.toLowerCase().includes("contact lens")));
     const isFrameCategory = (v) => Boolean(v && v.toLowerCase().includes("frame"));
+    const isRequireImageCategory = (v) => Boolean(v && (v.toLowerCase().includes("frame") || v.toLowerCase().includes("sunglass")));
 
     const handleChange = (i, key, value) => {
         const copy = [...rows];
@@ -264,6 +265,34 @@ export default function Inventory() {
         setRows(copy);
     };
 
+    const colorDebounceRef = useRef(null);
+
+    const parseColorToHex = (str) => {
+        if (!str || typeof str !== 'string') return '#3B82F6';
+        const trimmed = str.trim().toLowerCase();
+
+        if (/^#?([0-9a-fA-F]{3}){1,2}$/.test(trimmed)) {
+            let hex = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+            if (hex.length === 4) {
+                hex = `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`;
+            }
+            return hex;
+        }
+
+        try {
+            const ctx = document.createElement('canvas').getContext('2d');
+            if (ctx) {
+                ctx.fillStyle = trimmed;
+                const computed = ctx.fillStyle;
+                if (computed && computed.startsWith('#')) return computed;
+            }
+        } catch (e) {
+            // ignore
+        }
+
+        return '#3B82F6';
+    };
+
     const handleColorChange = (rowIndex, colorIndex, field, value) => {
         const copy = [...rows];
         const colorsCopy = [...(copy[rowIndex].colors || [])];
@@ -275,6 +304,13 @@ export default function Inventory() {
             copy[rowIndex].qty = totalQty;
         }
         setRows(copy);
+    };
+
+    const handleDebouncedColorChange = (rowIndex, colorIndex, field, value) => {
+        if (colorDebounceRef.current) clearTimeout(colorDebounceRef.current);
+        colorDebounceRef.current = setTimeout(() => {
+            handleColorChange(rowIndex, colorIndex, field, value);
+        }, 50);
     };
 
     const addColorRow = (rowIndex) => {
@@ -300,6 +336,7 @@ export default function Inventory() {
             if (!row.productName?.trim()) return `Product Name is required (Row ${i + 1})`;
             if (!row.category) return `Category is required (Row ${i + 1})`;
             if (!row.brand) return `Brand is required (Row ${i + 1})`;
+            if (isRequireImageCategory(row.category) && !row.image) return `Product Image is required for Frame and Sunglass products (Row ${i + 1})`;
             if (row.price === "" || Number(row.price) <= 0) return `Price must be > 0 (Row ${i + 1})`;
             if (row.mrp === "" || Number(row.mrp) <= 0) return `MRP must be > 0 (Row ${i + 1})`;
             if (row.qty === "" || Number(row.qty) <= 0) return `Quantity must be > 0 (Row ${i + 1})`;
@@ -459,6 +496,7 @@ export default function Inventory() {
                                             <FieldInput label="Shape">
                                                 <input type="text" value={row.shape} className={inputCls} placeholder="Shape" onChange={e => handleChange(i, "shape", e.target.value)} />
                                             </FieldInput>
+
                                             <FieldInput label="Material">
                                                 <input type="text" value={row.material} className={inputCls} placeholder="Material" onChange={e => handleChange(i, "material", e.target.value)} />
                                             </FieldInput>
@@ -466,17 +504,6 @@ export default function Inventory() {
                                                 <input type="text" value={row.dimensions} className={inputCls} placeholder="Dimensions" onChange={e => handleChange(i, "dimensions", e.target.value)} />
                                             </FieldInput>
 
-                                            <FieldInput label="Image (Max 5 MB)">
-                                                <input type="file" accept="image/*" className={inputCls} onChange={e => {
-                                                    const file = e.target.files[0];
-                                                    if (file && file.size > 5 * 1024 * 1024) {
-                                                        toast.error("File size must not exceed 5 MB");
-                                                        e.target.value = "";
-                                                        return;
-                                                    }
-                                                    handleChange(i, "image", file);
-                                                }} />
-                                            </FieldInput>
 
                                             {isLens && (<>
                                                 <FieldInput label="SPH"><input type="text" value={row.sph} className={inputCls} onChange={e => handleChange(i, "sph", e.target.value)} /></FieldInput>
@@ -527,46 +554,136 @@ export default function Inventory() {
                                                 </select>
                                             </FieldInput>
 
-                                            {isFrame && (
-                                                <div className="col-span-full mt-2">
-                                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">
-                                                        Colors & Quantity
-                                                    </label>
-                                                    <div className="space-y-2">
-                                                        {row.colors?.map((cItem, cIdx) => (
-                                                            <div key={cIdx} className="flex items-center gap-2">
-                                                                <input
-                                                                    type="text"
-                                                                    className={`${inputCls} max-w-[140px]`}
-                                                                    placeholder="Color"
-                                                                    value={cItem.color}
-                                                                    onChange={e => handleColorChange(i, cIdx, "color", e.target.value)}
+                                            {isRequireImageCategory(row.category) && (
+                                                <div className="col-span-full mt-3 pt-3 border-t border-gray-200/80 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    {/* Colors & Quantity */}
+                                                    <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-2xs space-y-2.5">
+                                                        <div className="flex items-center justify-between">
+                                                            <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+                                                                <span className="w-2 h-2 rounded-full bg-[#2980b9]"></span>
+                                                                Colors & Quantity
+                                                            </label>
+                                                            <span className="text-[10px] text-gray-400 font-medium">
+                                                                Total: {row.colors?.reduce((sum, item) => sum + (Number(item.qty) || 0), 0) || 0} Pcs
+                                                            </span>
+                                                        </div>
+
+                                                        <div className="space-y-2">
+                                                            {row.colors?.map((cItem, cIdx) => (
+                                                                <div key={cIdx} className="flex items-center gap-2">
+                                                                    <div className="flex items-center gap-2 bg-gray-50 border border-gray-300 rounded-xl p-1.5 pr-3 flex-1 focus-within:border-[#2980b9] focus-within:ring-2 focus-within:ring-[#2980b9]/20 transition">
+                                                                        <input
+                                                                            type="color"
+                                                                            value={parseColorToHex(cItem.color)}
+                                                                            onChange={e => handleDebouncedColorChange(i, cIdx, "color", e.target.value)}
+                                                                            className="w-7 h-7 rounded-lg cursor-pointer border-0 bg-transparent p-0 flex-shrink-0"
+                                                                            title="Pick a color"
+                                                                        />
+                                                                        <input
+                                                                            type="text"
+                                                                            className="w-full text-xs font-semibold bg-transparent text-gray-800 outline-none placeholder:text-gray-400"
+                                                                            placeholder="Color name or Hex (e.g. red, #464D59)"
+                                                                            value={cItem.color}
+                                                                            onChange={e => handleColorChange(i, cIdx, "color", e.target.value)}
+                                                                        />
+                                                                    </div>
+                                                                    <input
+                                                                        type="number"
+                                                                        min="0"
+                                                                        className={`${inputCls} max-w-[100px] font-bold`}
+                                                                        placeholder="Qty"
+                                                                        value={cItem.qty}
+                                                                        onChange={e => handleColorChange(i, cIdx, "qty", e.target.value)}
+                                                                    />
+                                                                    {row.colors.length > 1 && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => removeColorRow(i, cIdx)}
+                                                                            className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition"
+                                                                            title="Remove color"
+                                                                        >
+                                                                            <FiTrash2 size={14} />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => addColorRow(i)}
+                                                                className="mt-1 px-3.5 py-1.5 border border-dashed border-[#2980b9] text-[#2980b9] hover:bg-blue-50 text-xs font-bold rounded-xl transition flex items-center gap-1.5"
+                                                            >
+                                                                <FiPlus size={13} /> + Color
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Product Image Upload & Preview */}
+                                                    <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-2xs space-y-2.5 flex flex-col justify-between">
+                                                        <div className="flex items-center justify-between">
+                                                            <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+                                                                <FiImage className="text-[#2980b9]" size={14} />
+                                                                Product Image <span className="text-red-500">*</span>
+                                                            </label>
+                                                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                                                Required
+                                                            </span>
+                                                        </div>
+
+                                                        {row.image ? (
+                                                            <div className="relative group rounded-xl overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center min-h-[120px] p-2 flex-1">
+                                                                <img
+                                                                    src={row.image instanceof File ? URL.createObjectURL(row.image) : row.image}
+                                                                    alt="Product Preview"
+                                                                    className="max-h-36 max-w-full object-contain rounded-lg shadow-sm"
                                                                 />
-                                                                <input
-                                                                    type="number"
-                                                                    className={`${inputCls} max-w-[100px]`}
-                                                                    placeholder="Qty"
-                                                                    value={cItem.qty}
-                                                                    onChange={e => handleColorChange(i, cIdx, "qty", e.target.value)}
-                                                                />
-                                                                {row.colors.length > 1 && (
+                                                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                                                    <label className="p-2 bg-white text-gray-700 hover:text-[#2980b9] rounded-xl cursor-pointer shadow-md transition text-xs font-semibold flex items-center gap-1">
+                                                                        <FiUpload size={14} />
+                                                                        <span>Change</span>
+                                                                        <input
+                                                                            type="file"
+                                                                            accept="image/*"
+                                                                            className="hidden"
+                                                                            onChange={e => {
+                                                                                if (e.target.files && e.target.files[0]) {
+                                                                                    handleChange(i, "image", e.target.files[0]);
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                    </label>
                                                                     <button
                                                                         type="button"
-                                                                        onClick={() => removeColorRow(i, cIdx)}
-                                                                        className="p-1 text-red-400 hover:text-red-600 transition"
+                                                                        onClick={() => handleChange(i, "image", null)}
+                                                                        className="p-2 bg-red-600 text-white rounded-xl shadow-md hover:bg-red-700 transition text-xs font-semibold flex items-center gap-1"
                                                                     >
-                                                                        <FiTrash2 size={13} />
+                                                                        <FiTrash2 size={14} />
+                                                                        <span>Remove</span>
                                                                     </button>
-                                                                )}
+                                                                </div>
                                                             </div>
-                                                        ))}
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => addColorRow(i)}
-                                                            className="mt-1 px-3 py-1.5 border border-dashed border-orange-400 text-orange-500 hover:bg-orange-50 text-xs font-semibold rounded-xl transition flex items-center gap-1.5"
-                                                        >
-                                                            + Color
-                                                        </button>
+                                                        ) : (
+                                                            <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 hover:border-[#2980b9] bg-gray-50/50 hover:bg-blue-50/30 rounded-xl cursor-pointer transition text-center group flex-1 min-h-[120px]">
+                                                                <div className="w-10 h-10 rounded-full bg-blue-50 text-[#2980b9] flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                                                                    <FiUpload size={18} />
+                                                                </div>
+                                                                <span className="text-xs font-bold text-gray-700 group-hover:text-[#2980b9] transition">
+                                                                    Click to upload product image
+                                                                </span>
+                                                                <span className="text-[10px] text-gray-400 mt-0.5">
+                                                                    PNG, JPG, WEBP (Required)
+                                                                </span>
+                                                                <input
+                                                                    type="file"
+                                                                    accept="image/*"
+                                                                    className="hidden"
+                                                                    onChange={e => {
+                                                                        if (e.target.files && e.target.files[0]) {
+                                                                            handleChange(i, "image", e.target.files[0]);
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </label>
+                                                        )}
                                                     </div>
                                                 </div>
                                             )}

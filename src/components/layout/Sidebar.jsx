@@ -128,7 +128,14 @@ const navItems = [
     },
     // { label: 'Quality', icon: 'lucide:badge-check', path: PATHS.OPERATIONS.QC, page: 'QUALITY' },
     // { label: 'Fitting', icon: 'lucide:ruler', path: PATHS.OPERATIONS.FITTING, page: 'FITTING' },
-    // { label: 'Shipping', icon: 'lucide:send', path: PATHS.OPERATIONS.DISPATCH, page: 'SHIPPING' },
+    {
+        label: 'Ecommerce',
+        icon: 'lucide:store',
+        subItems: [
+            { label: 'Sunglasses', path: PATHS.ECOMMERCE.SUNGLASSES, page: 'INVENTORY' },
+            { label: 'Frames', path: PATHS.ECOMMERCE.FRAMES, page: 'INVENTORY' },
+        ],
+    },
     { label: 'Inventory', icon: 'lucide:package-search', path: PATHS.INVENTORY, page: 'INVENTORY' },
     { label: 'Settings', icon: 'lucide:settings', path: PATHS.SETTINGS },
 ];
