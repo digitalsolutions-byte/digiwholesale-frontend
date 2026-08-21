@@ -204,6 +204,7 @@ const EcommerceCatalog = ({ defaultCategory }) => {
             }
         });
 
+
         toast.success(`Added ${pName} (${colorName}) to cart`, { toastId: cartId });
     };
 
@@ -376,128 +377,128 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                            {filteredProducts.map(product => {
-                                const isSelected = selectedProduct?._id === product._id;
-                                const hasColors = Array.isArray(product.colors) && product.colors.length > 0;
+                        {filteredProducts.map(product => {
+                            const isSelected = selectedProduct?._id === product._id;
+                            const hasColors = Array.isArray(product.colors) && product.colors.length > 0;
 
-                                return (
-                                    <div
-                                        key={product._id}
-                                        onClick={() => {
-                                            setSelectedProduct(product);
-                                            setIsMobileDetailsOpen(true);
-                                        }}
-                                        className={`group bg-white rounded-2xl border p-3.5 transition-all duration-200 cursor-pointer flex flex-col justify-between relative ${isSelected
-                                            ? 'border-[#2980B9] ring-2 ring-[#2980B9]/20 shadow-md bg-blue-50/20'
-                                            : 'border-gray-100 hover:border-blue-200 shadow-sm hover:shadow-md'
-                                            }`}
-                                    >
-                                        <div>
-                                            {/* Header Badges */}
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-emerald-100 text-emerald-800">
-                                                    NEW
-                                                </span>
-                                                <span className="text-[10px] font-mono text-gray-400 truncate">
-                                                    {product.category}
-                                                </span>
-                                            </div>
-
-                                            {/* Frame Image Display */}
-                                            <div className="h-32 bg-gray-50 rounded-xl p-2 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform duration-300">
-                                                {product.image ? (
-                                                    <img src={product.image} alt={product.productName} className="max-h-full max-w-full object-contain" />
-                                                ) : (
-                                                    <Icon icon="lucide:glasses" className="text-4xl text-gray-300" />
-                                                )}
-                                            </div>
-
-                                            {/* Details */}
-                                            <div className="space-y-1">
-                                                <h4 className="text-xs font-black text-gray-900 truncate">{product.brand || 'RAY-BAN'}</h4>
-                                                <p className="text-[11px] font-extrabold text-gray-700 truncate">{product.productName || product.productCode}</p>
-                                                <p className="text-[10px] text-gray-400 font-semibold">{product.shape || 'Rectangular'} • {product.type || 'Full Rim'}</p>
-
-                                                {/* Available Colors Swatches */}
-                                                {hasColors && (
-                                                    <div className="pt-1 flex items-center gap-1.5">
-                                                        <span className="text-[9px] text-gray-400 font-bold uppercase">Colors:</span>
-                                                        <div className="flex items-center gap-1">
-                                                            {product.colors.slice(0, 4).map((c, idx) => (
-                                                                <span
-                                                                    key={idx}
-                                                                    style={{ backgroundColor: getValidColorHex(c.color) }}
-                                                                    className="w-3 h-3 rounded-full border border-gray-300 inline-block"
-                                                                />
-                                                            ))}
-                                                            {product.colors.length > 4 && (
-                                                                <span className="text-[9px] font-bold text-gray-500">+{product.colors.length - 4}</span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
+                            return (
+                                <div
+                                    key={product._id}
+                                    onClick={() => {
+                                        setSelectedProduct(product);
+                                        setIsMobileDetailsOpen(true);
+                                    }}
+                                    className={`group bg-white rounded-2xl border p-3.5 transition-all duration-200 cursor-pointer flex flex-col justify-between relative ${isSelected
+                                        ? 'border-[#2980B9] ring-2 ring-[#2980B9]/20 shadow-md bg-blue-50/20'
+                                        : 'border-gray-100 hover:border-blue-200 shadow-sm hover:shadow-md'
+                                        }`}
+                                >
+                                    <div>
+                                        {/* Header Badges */}
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-emerald-100 text-emerald-800">
+                                                NEW
+                                            </span>
+                                            <span className="text-[10px] font-mono text-gray-400 truncate">
+                                                {product.category}
+                                            </span>
                                         </div>
 
-                                        {/* Price & Stock Footer with Prominent Add/Select Button */}
-                                        <div className="pt-3 mt-3 border-t border-gray-100 flex items-center justify-between gap-2">
-                                            <div>
-                                                <span className="text-[10px] font-extrabold text-emerald-600 block">
-                                                    {product.qty || 0} Pcs Available
-                                                </span>
-                                                <span className="text-sm font-black text-gray-900">
-                                                    ₹{product.price || 0}
-                                                </span>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setSelectedProduct(product);
-                                                    setIsMobileDetailsOpen(true);
-                                                }}
-                                                className="px-3 py-1.5 bg-[#2980B9] hover:bg-[#2471A3] text-white text-xs font-bold rounded-xl transition shadow-2xs active:scale-95 flex items-center gap-1 flex-shrink-0"
-                                            >
-                                                <Icon icon="lucide:plus" className="text-xs" />
-                                                <span>Add</span>
-                                            </button>
+                                        {/* Frame Image Display */}
+                                        <div className="h-32 bg-gray-50 rounded-xl p-2 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform duration-300">
+                                            {product.image ? (
+                                                <img src={product.image} alt={product.productName} className="max-h-full max-w-full object-contain" />
+                                            ) : (
+                                                <Icon icon="lucide:glasses" className="text-4xl text-gray-300" />
+                                            )}
+                                        </div>
+
+                                        {/* Details */}
+                                        <div className="space-y-1">
+                                            <h4 className="text-xs font-black text-gray-900 truncate">{product.brand || 'RAY-BAN'}</h4>
+                                            <p className="text-[11px] font-extrabold text-gray-700 truncate">{product.productName || product.productCode}</p>
+                                            <p className="text-[10px] text-gray-400 font-semibold">{product.shape || 'Rectangular'} • {product.type || 'Full Rim'}</p>
+
+                                            {/* Available Colors Swatches */}
+                                            {hasColors && (
+                                                <div className="pt-1 flex items-center gap-1.5">
+                                                    <span className="text-[9px] text-gray-400 font-bold uppercase">Colors:</span>
+                                                    <div className="flex items-center gap-1">
+                                                        {product.colors.slice(0, 4).map((c, idx) => (
+                                                            <span
+                                                                key={idx}
+                                                                style={{ backgroundColor: getValidColorHex(c.color) }}
+                                                                className="w-3 h-3 rounded-full border border-gray-300 inline-block"
+                                                            />
+                                                        ))}
+                                                        {product.colors.length > 4 && (
+                                                            <span className="text-[9px] font-bold text-gray-500">+{product.colors.length - 4}</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-                                );
-                            })}
-                        </div>
-                    )}
 
-                    {/* Pagination Bar (10 products per page) */}
-                    {pagination.totalPages > 1 && (
-                        <div className="flex flex-wrap items-center justify-between bg-white rounded-2xl border border-gray-100 p-3 px-4 shadow-xs text-xs mt-4 gap-2">
-                            <span className="font-extrabold text-gray-500">
-                                Page {pagination.page} of {pagination.totalPages} ({pagination.totalProducts} Total Frames)
+                                    {/* Price & Stock Footer with Prominent Add/Select Button */}
+                                    <div className="pt-3 mt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+                                        <div>
+                                            <span className="text-[10px] font-extrabold text-emerald-600 block">
+                                                {product.qty || 0} Pcs Available
+                                            </span>
+                                            <span className="text-sm font-black text-gray-900">
+                                                ₹{product.price || 0}
+                                            </span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedProduct(product);
+                                                setIsMobileDetailsOpen(true);
+                                            }}
+                                            className="px-3 py-1.5 bg-[#2980B9] hover:bg-[#2471A3] text-white text-xs font-bold rounded-xl transition shadow-2xs active:scale-95 flex items-center gap-1 flex-shrink-0"
+                                        >
+                                            <Icon icon="lucide:plus" className="text-xs" />
+                                            <span>Add</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {/* Pagination Bar (10 products per page) */}
+                {pagination.totalPages > 1 && (
+                    <div className="flex flex-wrap items-center justify-between bg-white rounded-2xl border border-gray-100 p-3 px-4 shadow-xs text-xs mt-4 gap-2">
+                        <span className="font-extrabold text-gray-500">
+                            Page {pagination.page} of {pagination.totalPages} ({pagination.totalProducts} Total Frames)
+                        </span>
+                        <div className="flex items-center gap-2">
+                            <button
+                                disabled={pagination.page <= 1}
+                                onClick={() => fetchProducts(pagination.page - 1, activeTab, search)}
+                                className="px-3.5 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 font-extrabold rounded-xl border border-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 active:scale-95"
+                            >
+                                <Icon icon="lucide:chevron-left" className="text-sm" />
+                                <span>Previous</span>
+                            </button>
+                            <span className="px-3 py-1 bg-blue-50 text-[#2980B9] font-black rounded-lg text-xs border border-blue-100">
+                                {pagination.page}
                             </span>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    disabled={pagination.page <= 1}
-                                    onClick={() => fetchProducts(pagination.page - 1, activeTab, search)}
-                                    className="px-3.5 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 font-extrabold rounded-xl border border-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 active:scale-95"
-                                >
-                                    <Icon icon="lucide:chevron-left" className="text-sm" />
-                                    <span>Previous</span>
-                                </button>
-                                <span className="px-3 py-1 bg-blue-50 text-[#2980B9] font-black rounded-lg text-xs border border-blue-100">
-                                    {pagination.page}
-                                </span>
-                                <button
-                                    disabled={pagination.page >= pagination.totalPages}
-                                    onClick={() => fetchProducts(pagination.page + 1, activeTab, search)}
-                                    className="px-3.5 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 font-extrabold rounded-xl border border-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 active:scale-95"
-                                >
-                                    <span>Next</span>
-                                    <Icon icon="lucide:chevron-right" className="text-sm" />
-                                </button>
-                            </div>
+                            <button
+                                disabled={pagination.page >= pagination.totalPages}
+                                onClick={() => fetchProducts(pagination.page + 1, activeTab, search)}
+                                className="px-3.5 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 font-extrabold rounded-xl border border-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 active:scale-95"
+                            >
+                                <span>Next</span>
+                                <Icon icon="lucide:chevron-right" className="text-sm" />
+                            </button>
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
+            </div>
 
             {/* ── Floating Bottom Quick-Cart Bar (Visible on smaller screens when cart has items) ── */}
             {cartTotals.totalItems > 0 && (
