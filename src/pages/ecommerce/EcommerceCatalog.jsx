@@ -205,6 +205,8 @@ const EcommerceCatalog = ({ defaultCategory }) => {
         });
 
 
+
+
         toast.success(`Added ${pName} (${colorName}) to cart`, { toastId: cartId });
     };
 
