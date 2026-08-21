@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import ReactDOM from 'react-dom';
+import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-toastify';
@@ -137,11 +137,24 @@ const EcommerceCatalog = ({ defaultCategory }) => {
     };
 
     // Add specific color variant of a product to cart
+    const extractColorString = (c) => {
+        if (!c) return '';
+        if (typeof c === 'string') return c;
+        if (typeof c === 'object') return c.color || c.name || c.colorName || c.label || c.hex || '';
+        return String(c);
+    };
+
     const handleAddToCart = (product, colorObj = null, qtyOverride = 1) => {
-        const colorName = colorObj ? colorObj.color : (product.color || (product.colors?.[0]?.color) || 'Standard');
-        const colorHex = colorObj ? getValidColorHex(colorObj.color) : getValidColorHex(product.color);
+        const extracted = extractColorString(colorObj) || extractColorString(product.color) || extractColorString(product.colors?.[0]) || '';
+        const colorName = extracted || 'Standard';
+        const colorHex = getValidColorHex(colorName) || getValidColorHex(product.color);
         const itemQty = qtyOverride || 1;
         const cartId = `${product._id}_${colorName}`;
+
+        const pCode = product.productCode || product.code || '';
+        const pName = product.productName || product.itemName || product.name || pCode || 'Eyewear Item';
+        const pGst = Number(product.gst || product.gstPercent || product.gstPercentage || product.gstDetails?.gstPercent) || 12;
+        const pHsn = product.hsnSac || product.HSNSAC || product.hsn || '';
 
         setCart(prevCart => {
             const existingIndex = prevCart.findIndex(item => item.cartId === cartId);
@@ -153,13 +166,18 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                 return [...prevCart, {
                     cartId,
                     productId: product._id,
-                    productCode: product.productCode || '',
-                    productName: product.productName || product.productCode || 'Eyewear Item',
+                    productCode: pCode,
+                    code: pCode,
+                    productName: pName,
+                    itemName: pName,
                     brand: product.brand || '',
-                    category: product.category || '',
-                    image: product.image || '',
+                    category: product.category || activeTab || 'FRAME',
+                    unit: product.unit || 'PIECE',
+                    image: product.image || (product.photos?.[0]) || '',
                     price: Number(product.price) || 0,
-                    mrp: Number(product.mrp) || 0,
+                    mrp: Number(product.mrp || product.price) || 0,
+                    gst: pGst,
+                    hsnSac: pHsn,
                     color: colorName,
                     colorHex: colorHex,
                     qty: itemQty,
@@ -167,12 +185,25 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                     material: product.material || '',
                     size: product.size || '',
                     dimensions: product.dimensions || '',
+                    sph: product.sph ?? 0,
+                    cyl: product.cyl ?? 0,
+                    axis: product.axis ?? 0,
+                    add: product.add ?? 0,
+                    index: product.index ?? 0,
+                    discountPercent: product.discountPercent ?? 0,
+                    discountAmount: product.discountAmount ?? 0,
+                    itemStatus: product.itemStatus || 'ACTIVE',
+                    coating: product.coating || '',
+                    photos: Array.isArray(product.photos) && product.photos.length > 0 ? product.photos : (product.image ? [product.image] : []),
+                    vendor: product.vendor || { id: null, name: null },
+                    orderSource: product.orderSource || 'INHOUSE',
+                    orderType: product.orderType || 'STOCK',
+                    rx: product.rx || { powers: [], prisms: [], centration: [], resolved: [] },
                     rawProduct: product
                 }];
             }
         });
 
-        const pName = product.productName || product.productCode || 'Eyewear Item';
         toast.success(`Added ${pName} (${colorName}) to cart`, { toastId: cartId });
     };
 
@@ -495,18 +526,18 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                 </div>
             )}
 
-            {/* ── Universal Cart Modal Portal (Spans 100vw x 100vh over document.body) ── */}
-            {isMobileCartOpen && ReactDOM.createPortal(
+            {/* ── Universal Cart Modal Portal (Visible on Mobile & Desktop when Cart button clicked) ── */}
+            {isMobileCartOpen && createPortal(
                 <div
                     onClick={() => setIsMobileCartOpen(false)}
-                    className="fixed inset-0 w-screen h-screen z-[9999] bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300 ease-out"
+                    className="fixed inset-0 w-screen h-screen z-[9999] bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-300 ease-out"
                 >
                     <div
                         onClick={(e) => e.stopPropagation()}
-                        className="bg-white rounded-3xl max-w-lg w-full max-h-[85vh] overflow-hidden shadow-2xl border border-gray-100 relative p-6 space-y-4 animate-in zoom-in-95 slide-in-from-bottom-6 duration-300 ease-out flex flex-col justify-between"
+                        className="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] shadow-2xl border border-gray-100 relative p-4 sm:p-6 animate-in zoom-in-95 slide-in-from-bottom-6 duration-300 ease-out flex flex-col"
                     >
                         {/* Modal Header */}
-                        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-3 shrink-0">
                             <div className="flex items-center gap-2.5">
                                 <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-[#2980B9]">
                                     <Icon icon="lucide:shopping-bag" className="text-xl" />
@@ -529,14 +560,14 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                         </div>
 
                         {/* Cart Items Scrollable Container */}
-                        {cart.length === 0 ? (
-                            <div className="py-12 text-center text-gray-400 space-y-2">
-                                <Icon icon="lucide:shopping-cart" className="text-5xl mx-auto text-gray-300" />
-                                <p className="text-xs font-bold text-gray-500">Your order cart is empty</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-                                {cart.map(item => (
+                        <div className="flex-1 overflow-y-auto py-3 space-y-3 min-h-0 pr-1 custom-scrollbar">
+                            {cart.length === 0 ? (
+                                <div className="py-12 text-center text-gray-400 space-y-2">
+                                    <Icon icon="lucide:shopping-cart" className="text-5xl mx-auto text-gray-300" />
+                                    <p className="text-xs font-bold text-gray-500">Your order cart is empty</p>
+                                </div>
+                            ) : (
+                                cart.map(item => (
                                     <div key={item.cartId} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 text-xs">
                                         <div className="flex items-center gap-3 min-w-0">
                                             {item.image ? (
@@ -566,30 +597,30 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                                             </button>
                                         </div>
                                     </div>
-                                ))}
-                            </div>
-                        )}
+                                ))
+                            )}
+                        </div>
 
                         {/* Sticky Modal Footer */}
                         {cart.length > 0 && (
-                            <div className="pt-3 border-t border-gray-100 space-y-3">
-                                <div className="flex items-center justify-between bg-blue-50/70 p-3.5 rounded-xl border border-blue-100">
+                            <div className="pt-3 border-t border-gray-100 space-y-3 shrink-0 bg-white">
+                                <div className="flex items-center justify-between bg-blue-50/80 p-3 rounded-xl border border-blue-100">
                                     <div>
                                         <span className="text-[10px] font-bold text-gray-500 uppercase block">Grand Total Value</span>
                                         <span className="text-xs text-gray-600 font-semibold">{cartTotals.totalPcs} total pieces</span>
                                     </div>
                                     <span className="text-2xl font-black text-gray-900">₹{cartTotals.totalPrice}</span>
                                 </div>
-                                {/* <button
+                                <button
                                     onClick={() => {
                                         setIsMobileCartOpen(false);
                                         handleCheckout();
                                     }}
-                                    className="w-full py-3.5 bg-[#2980B9] hover:bg-[#2471A3] text-white text-xs font-black rounded-xl transition shadow-md active:scale-95 flex items-center justify-center gap-2"
+                                    className="w-full py-3.5 bg-[#2980B9] hover:bg-[#2471A3] text-white text-xs font-black rounded-xl transition shadow-lg active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
                                 >
                                     <Icon icon="lucide:check-circle" className="text-base" />
                                     <span>Proceed to Order Checkout</span>
-                                </button> */}
+                                </button>
                             </div>
                         )}
                     </div>
@@ -598,7 +629,7 @@ const EcommerceCatalog = ({ defaultCategory }) => {
             )}
 
             {/* ── Mobile Model Details Bottom Sheet Modal Portal (Visible on mobile screens when a frame is selected) ── */}
-            {isMobileDetailsOpen && selectedProduct && ReactDOM.createPortal(
+            {isMobileDetailsOpen && selectedProduct && createPortal(
                 <div
                     onClick={() => setIsMobileDetailsOpen(false)}
                     className="lg:hidden fixed inset-0 w-screen h-screen z-[9998] bg-slate-950/65 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300 ease-out"
@@ -749,7 +780,7 @@ const EcommerceCatalog = ({ defaultCategory }) => {
             )}
 
             {/* ── Desktop Model Details Right Slide-Over Side Drawer Portal (Visible on desktop screens when a frame is selected) ── */}
-            {selectedProduct && ReactDOM.createPortal(
+            {selectedProduct && createPortal(
                 <div
                     onClick={() => setSelectedProduct(null)}
                     className="hidden lg:flex fixed inset-0 w-screen h-screen z-[9990] bg-slate-950/40 backdrop-blur-xs justify-end animate-in fade-in duration-300"
@@ -956,6 +987,34 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                             </div>
                         )}
                     </div>
+                </div>,
+                document.body
+            )}
+            {/* ── Sticky Mobile Floating Checkout Bar (Always visible at bottom on Mobile when cart > 0) ── */}
+            {cart.length > 0 && createPortal(
+                <div className="lg:hidden fixed bottom-4 left-4 right-4 z-[9990] bg-[#2980B9] text-white p-3.5 rounded-2xl shadow-2xl flex items-center justify-between border border-blue-400/30 animate-in slide-in-from-bottom duration-300">
+                    <div
+                        onClick={() => setIsMobileCartOpen(true)}
+                        className="flex items-center gap-3 cursor-pointer min-w-0"
+                    >
+                        <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white shrink-0 relative">
+                            <Icon icon="lucide:shopping-bag" className="text-xl" />
+                            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-rose-500 text-white font-black text-[10px] flex items-center justify-center border-2 border-[#2980B9]">
+                                {cartTotals.totalItems}
+                            </span>
+                        </div>
+                        <div className="min-w-0">
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-blue-100">{cartTotals.totalPcs} total pcs in cart</div>
+                            <div className="text-base font-black tracking-tight">₹{cartTotals.totalPrice}</div>
+                        </div>
+                    </div>
+                    <button
+                        onClick={handleCheckout}
+                        className="px-5 py-2.5 bg-white text-[#2980B9] hover:bg-blue-50 font-black text-xs rounded-xl shadow-md transition active:scale-95 flex items-center gap-1.5 shrink-0 cursor-pointer"
+                    >
+                        <span>Proceed to Checkout</span>
+                        <Icon icon="lucide:arrow-right" className="text-sm" />
+                    </button>
                 </div>,
                 document.body
             )}

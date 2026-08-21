@@ -328,33 +328,85 @@ const OrderWizard = () => {
             advancePayment: ''
         };
 
+        const extractColor = (item) => {
+            if (!item) return '';
+            const c = item.color || item.selectedColor || item.colorName || item.colorHex;
+            if (typeof c === 'string' && c.trim()) return c.trim();
+            if (typeof c === 'object' && c) {
+                return c.color || c.name || c.colorName || c.label || c.hex || '';
+            }
+            if (item.colors && Array.isArray(item.colors) && item.colors.length > 0) {
+                const c0 = item.colors[0];
+                if (typeof c0 === 'string') return c0;
+                if (typeof c0 === 'object' && c0) return c0.color || c0.name || c0.hex || '';
+            }
+            if (item.rawProduct) return extractColor(item.rawProduct);
+            return '';
+        };
+
         if (Array.isArray(state?.cartItems) && state.cartItems.length > 0) {
             const mappedCartProducts = state.cartItems.map(item => {
-                const pName = item.productName || item.name || item.itemName || '';
+                const pName = item.productName || item.itemName || item.name || '';
                 const pId = item.productId || item._id || pName;
+                const pCode = item.code || item.productCode || '';
+                const pGst = Number(item.gst || item.gstPercent || item.gstPercentage || item.gstDetails?.gstPercent) || 12;
+                const pHsn = item.hsnSac || item.HSNSAC || item.hsn || '';
+                const pMrp = Number(item.mrp || item.MRP || item.price) || 0;
+                const pColor = extractColor(item);
+
                 return {
                     ...productTemplate,
                     productId: pId,
                     productName: pName,
                     itemName: pName,
-                    productCode: item.productCode || item.code || '',
+                    productCode: pCode,
+                    code: pCode, // productcode is also known as code
                     brand: item.brand || '',
                     Brand: item.brand || '',
                     brandId: item.brand || '',
-                    category: item.category || '',
-                    categoryId: item.category || '',
+                    category: item.category || 'FRAME',
+                    categoryId: item.category || 'FRAME',
+                    unit: item.unit || 'piece',
                     price: Number(item.price) || 0,
-                    MRP: Number(item.mrp) || 0,
+                    mrp: pMrp,
+                    MRP: pMrp,
+                    gst: pGst,
+                    hsnSac: pHsn,
+                    HSNSAC: pHsn,
                     qty: Number(item.qty) || 1,
-                    color: item.color || '',
+                    color: pColor,
                     size: item.size || '',
                     shape: item.shape || '',
                     material: item.material || '',
                     dimensions: item.dimensions || '',
-                    photos: item.image ? [item.image] : [],
+                    sph: item.sph ?? '',
+                    cyl: item.cyl ?? '',
+                    axis: item.axis ?? '',
+                    add: item.add ?? '',
+                    index: item.index ?? '',
+                    discountPercent: item.discountPercent ?? 0,
+                    discountAmount: item.discountAmount ?? 0,
+                    itemStatus: item.itemStatus || 'ACTIVE',
+                    coating: item.coating || '',
+                    photos: Array.isArray(item.photos) && item.photos.length > 0 ? item.photos : (item.image ? [item.image] : []),
+                    image: item.image || (item.photos?.[0]) || '',
+                    vendor: item.vendor || { id: null, name: null },
+                    vendorId: item.vendor?.id || item.vendorId || '',
+                    orderSource: item.orderSource || 'INHOUSE',
+                    rx: item.rx || { powers: [], prisms: [], centration: [], resolved: [] },
                     availability: 'in-house',
-                    orderType: 'stock',
-                    productMode: 'stock'
+                    orderType: item.orderType?.toLowerCase() || 'stock',
+                    productMode: item.productMode || item.orderType?.toLowerCase() || 'stock',
+                    gstDetails: {
+                        gstPercent: pGst,
+                        gstType: 'INCLUSIVE',
+                        gstMode: 'PERCENTAGE',
+                        gstAmount: 0,
+                        loyaltyPoints: 0,
+                        advance: 0,
+                        transactionType: '',
+                        remarks: ''
+                    }
                 };
             });
 
@@ -364,34 +416,68 @@ const OrderWizard = () => {
             });
         } else if (state?.prefillProduct) {
             const prod = state.prefillProduct;
-            const colorVal = state.selectedColor || prod.color || (prod.colors?.[0]?.color) || '';
+            const pColor = extractColor(state) || extractColor(prod);
             const qtyVal = state.selectedQty || 1;
-            const pName = prod.productName || prod.name || prod.itemName || '';
+            const pName = prod.productName || prod.itemName || prod.name || '';
             const pId = prod._id || prod.productId || pName;
+            const pCode = prod.code || prod.productCode || '';
+            const pGst = Number(prod.gst || prod.gstPercent || prod.gstPercentage || prod.gstDetails?.gstPercent) || 12;
+            const pHsn = prod.hsnSac || prod.HSNSAC || prod.hsn || '';
+            const pMrp = Number(prod.mrp || prod.MRP || prod.price) || 0;
 
             base.products[0] = {
                 ...productTemplate,
                 productId: pId,
                 productName: pName,
                 itemName: pName,
-                productCode: prod.productCode || prod.code || '',
+                productCode: pCode,
+                code: pCode,
                 brand: prod.brand || '',
                 Brand: prod.brand || '',
                 brandId: prod.brand || '',
-                category: prod.category || '',
-                categoryId: prod.category || '',
+                category: prod.category || 'FRAME',
+                categoryId: prod.category || 'FRAME',
+                unit: prod.unit || 'piece',
                 price: Number(prod.price) || 0,
-                MRP: Number(prod.mrp) || 0,
+                mrp: pMrp,
+                MRP: pMrp,
+                gst: pGst,
+                hsnSac: pHsn,
+                HSNSAC: pHsn,
                 qty: Number(qtyVal) || 1,
-                color: colorVal,
+                color: pColor,
                 size: prod.size || '',
                 shape: prod.shape || '',
                 material: prod.material || '',
                 dimensions: prod.dimensions || '',
-                photos: prod.image ? [prod.image] : [],
+                sph: prod.sph ?? '',
+                cyl: prod.cyl ?? '',
+                axis: prod.axis ?? '',
+                add: prod.add ?? '',
+                index: prod.index ?? '',
+                discountPercent: prod.discountPercent ?? 0,
+                discountAmount: prod.discountAmount ?? 0,
+                itemStatus: prod.itemStatus || 'ACTIVE',
+                coating: prod.coating || '',
+                photos: Array.isArray(prod.photos) && prod.photos.length > 0 ? prod.photos : (prod.image ? [prod.image] : []),
+                image: prod.image || (prod.photos?.[0]) || '',
+                vendor: prod.vendor || { id: null, name: null },
+                vendorId: prod.vendor?.id || prod.vendorId || '',
+                orderSource: prod.orderSource || 'INHOUSE',
+                rx: prod.rx || { powers: [], prisms: [], centration: [], resolved: [] },
                 availability: 'in-house',
-                orderType: 'stock',
-                productMode: 'stock'
+                orderType: prod.orderType?.toLowerCase() || 'stock',
+                productMode: prod.productMode || prod.orderType?.toLowerCase() || 'stock',
+                gstDetails: {
+                    gstPercent: pGst,
+                    gstType: 'INCLUSIVE',
+                    gstMode: 'PERCENTAGE',
+                    gstAmount: 0,
+                    loyaltyPoints: 0,
+                    advance: 0,
+                    transactionType: '',
+                    remarks: ''
+                }
             };
         }
 
