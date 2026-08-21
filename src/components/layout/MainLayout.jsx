@@ -119,7 +119,7 @@ const MainLayout = () => {
                                     background: '#FFFFFF',
                                     boxShadow: '0 12px 48px rgba(0,0,0,0.04)',
                                     minHeight: 'calc(100vh - 280px)',
-                                    overflow: 'hidden'
+                                    overflow: 'visible'
                                 }}
                             >
                                 <Outlet />

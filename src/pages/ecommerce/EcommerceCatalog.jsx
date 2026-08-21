@@ -271,110 +271,80 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                 </button>
             </div>
 
-            {/* ── Main E-Commerce Responsive Grid Layout ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-                {/* ── Left Column: Product Catalog Grid (Expands to 5 columns full width when no product is selected) ── */}
-                <div className={`${selectedProduct ? (gridCols === 3 ? 'lg:col-span-7 xl:col-span-8' : 'lg:col-span-6') : 'lg:col-span-12'} space-y-4 transition-all duration-300`}>
-                    {/* Search & Filter Toolbar */}
-                    <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm space-y-3">
-                        <form onSubmit={handleSearchSubmit} className="relative">
-                            <Icon icon="lucide:search" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
-                            <input
-                                type="text"
-                                placeholder="Search frames by model, brand, name..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                className="w-full pl-9 pr-10 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold outline-none focus:border-[#2980B9] focus:bg-white"
-                            />
-                            {search && (
-                                <button type="button" onClick={() => { setSearch(''); fetchProducts(1, activeTab, ''); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                                    <Icon icon="mdi:close-circle" className="text-base" />
-                                </button>
-                            )}
-                        </form>
-
-                        <div className="flex flex-wrap items-center gap-2 text-xs">
-                            <select value={selectedBrand} onChange={e => setSelectedBrand(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-gray-700 outline-none">
-                                <option value="ALL">Brand (All)</option>
-                                {uniqueBrands.map(b => <option key={b} value={b}>{b}</option>)}
-                            </select>
-
-                            <select value={activeTab} onChange={e => setActiveTab(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-gray-700 outline-none">
-                                <option value="ALL">Category (All)</option>
-                                <option value="SUNGLASS">SUNGLASS</option>
-                                <option value="FRAME">FRAME</option>
-                            </select>
-
-                            <select value={selectedShape} onChange={e => setSelectedShape(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-gray-700 outline-none">
-                                <option value="ALL">Shape (All)</option>
-                                {uniqueShapes.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-
-                            <button onClick={() => { setSearch(''); setSelectedBrand('ALL'); setSelectedShape('ALL'); setInStockOnly(false); }} className="px-2.5 py-1.5 text-xs font-bold text-[#2980B9] hover:bg-blue-50 rounded-xl transition ml-auto flex items-center gap-1">
-                                <Icon icon="lucide:refresh-cw" className="text-xs" /> Reset
+            {/* ── Main E-Commerce Responsive Grid Layout (Full 100% Width) ── */}
+            <div className="w-full space-y-4">
+                {/* Search & Filter Toolbar */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm space-y-3">
+                    <form onSubmit={handleSearchSubmit} className="relative">
+                        <Icon icon="lucide:search" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+                        <input
+                            type="text"
+                            placeholder="Search frames by model, brand, name..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full pl-9 pr-10 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold outline-none focus:border-[#2980B9] focus:bg-white"
+                        />
+                        {search && (
+                            <button type="button" onClick={() => { setSearch(''); fetchProducts(1, activeTab, ''); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                <Icon icon="mdi:close-circle" className="text-base" />
                             </button>
-                        </div>
+                        )}
+                    </form>
 
-                        <div className="flex flex-wrap items-center justify-between text-xs pt-1 border-t border-gray-100 gap-2">
-                            <span className="font-extrabold text-gray-700">{filteredProducts.length} Frames Found</span>
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <select value={selectedBrand} onChange={e => setSelectedBrand(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-gray-700 outline-none">
+                            <option value="ALL">Brand (All)</option>
+                            {uniqueBrands.map(b => <option key={b} value={b}>{b}</option>)}
+                        </select>
 
-                            <div className="flex items-center gap-3">
-                                {/* Layout Switcher (2 Cards vs 3 Cards View Toggle when panel is open) */}
-                                {selectedProduct && (
-                                    <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
-                                        <button
-                                            type="button"
-                                            onClick={() => setGridCols(2)}
-                                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${gridCols === 2 ? 'bg-white text-[#2980B9] shadow-2xs' : 'text-gray-500 hover:text-gray-800'
-                                                }`}
-                                            title="Show 2 cards per row"
-                                        >
-                                            <Icon icon="lucide:grid-2x2" className="text-sm" />
-                                            <span className="hidden sm:inline">2 Cards</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setGridCols(3)}
-                                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${gridCols === 3 ? 'bg-white text-[#2980B9] shadow-2xs' : 'text-gray-500 hover:text-gray-800'
-                                                }`}
-                                            title="Show 3 cards per row"
-                                        >
-                                            <Icon icon="lucide:grid-3x3" className="text-sm" />
-                                            <span className="hidden sm:inline">3 Cards</span>
-                                        </button>
-                                    </div>
-                                )}
+                        <select value={activeTab} onChange={e => setActiveTab(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-gray-700 outline-none">
+                            <option value="ALL">Category (All)</option>
+                            <option value="SUNGLASS">SUNGLASS</option>
+                            <option value="FRAME">FRAME</option>
+                        </select>
 
-                                <div className="flex items-center gap-1.5">
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase">Sort by:</span>
-                                    <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="bg-transparent text-xs font-bold text-[#2980B9] outline-none cursor-pointer">
-                                        <option value="NEWEST">Newest</option>
-                                        <option value="PRICE_LOW_HIGH">Price: Low to High</option>
-                                        <option value="PRICE_HIGH_LOW">Price: High to Low</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
+                        <select value={selectedShape} onChange={e => setSelectedShape(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-gray-700 outline-none">
+                            <option value="ALL">Shape (All)</option>
+                            {uniqueShapes.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+
+                        <button onClick={() => { setSearch(''); setSelectedBrand('ALL'); setSelectedShape('ALL'); setInStockOnly(false); }} className="px-2.5 py-1.5 text-xs font-bold text-[#2980B9] hover:bg-blue-50 rounded-xl transition ml-auto flex items-center gap-1">
+                            <Icon icon="lucide:refresh-cw" className="text-xs" /> Reset
+                        </button>
                     </div>
 
-                    {/* Products Grid */}
-                    {loading ? (
-                        <div className={`grid ${selectedProduct ? (gridCols === 3 ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5' : 'grid-cols-1 sm:grid-cols-2 gap-4') : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4'}`}>
-                            {[...Array(10)].map((_, i) => (
-                                <div key={i} className="bg-white rounded-2xl p-4 border border-gray-100 space-y-3 animate-pulse">
-                                    <div className="w-full h-36 bg-gray-100 rounded-xl" />
-                                    <div className="h-4 bg-gray-100 rounded w-2/3" />
-                                    <div className="h-3 bg-gray-100 rounded w-1/2" />
-                                </div>
-                            ))}
+                    <div className="flex flex-wrap items-center justify-between text-xs pt-1 border-t border-gray-100 gap-2">
+                        <span className="font-extrabold text-gray-700">{filteredProducts.length} Frames Found</span>
+
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase">Sort by:</span>
+                            <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="bg-transparent text-xs font-bold text-[#2980B9] outline-none cursor-pointer">
+                                <option value="NEWEST">Newest</option>
+                                <option value="PRICE_LOW_HIGH">Price: Low to High</option>
+                                <option value="PRICE_HIGH_LOW">Price: High to Low</option>
+                            </select>
                         </div>
-                    ) : filteredProducts.length === 0 ? (
-                        <div className="bg-white rounded-2xl p-8 border border-gray-100 text-center space-y-2">
-                            <Icon icon="lucide:package-open" className="text-3xl text-gray-300 mx-auto" />
-                            <p className="text-xs font-bold text-gray-500">No matching eyewear products found</p>
-                        </div>
-                    ) : (
-                        <div className={`grid ${selectedProduct ? (gridCols === 3 ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5' : 'grid-cols-1 sm:grid-cols-2 gap-4') : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4'}`}>
+                    </div>
+                </div>
+
+                {/* Products Grid (Consistently 5 Columns Full Width) */}
+                {loading ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                        {[...Array(10)].map((_, i) => (
+                            <div key={i} className="bg-white rounded-2xl p-4 border border-gray-100 space-y-3 animate-pulse">
+                                <div className="w-full h-36 bg-gray-100 rounded-xl" />
+                                <div className="h-4 bg-gray-100 rounded w-2/3" />
+                                <div className="h-3 bg-gray-100 rounded w-1/2" />
+                            </div>
+                        ))}
+                    </div>
+                ) : filteredProducts.length === 0 ? (
+                    <div className="bg-white rounded-2xl p-8 border border-gray-100 text-center space-y-2">
+                        <Icon icon="lucide:package-open" className="text-3xl text-gray-300 mx-auto" />
+                        <p className="text-xs font-bold text-gray-500">No matching eyewear products found</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                             {filteredProducts.map(product => {
                                 const isSelected = selectedProduct?._id === product._id;
                                 const hasColors = Array.isArray(product.colors) && product.colors.length > 0;
@@ -498,216 +468,9 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                     )}
                 </div>
 
-                {/* ── Right Column: Model Details Panel (Visible on Desktop ONLY when a product is selected) ── */}
-                {selectedProduct && (
-                    <div className={`hidden lg:block ${gridCols === 3 ? 'lg:col-span-5 xl:col-span-4' : 'lg:col-span-6'} space-y-4 sticky top-4 self-start animate-in fade-in duration-200`}>
-                        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-5">
-                            {/* Model Details Header */}
-                            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                                <div className="flex items-center gap-2">
-                                    <button onClick={() => setSelectedProduct(null)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-500">
-                                        <Icon icon="lucide:arrow-left" className="text-base" />
-                                    </button>
-                                    <h2 className="text-base font-black text-gray-900 uppercase">MODEL DETAILS</h2>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-mono font-bold text-gray-400">
-                                        Code: {selectedProduct.productCode}
-                                    </span>
-                                    <button
-                                        onClick={() => setSelectedProduct(null)}
-                                        className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition"
-                                        title="Close details"
-                                    >
-                                        <Icon icon="mdi:close" className="text-base" />
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Main Preview Box & Title */}
-                            <div className="flex flex-col md:flex-row items-center gap-6">
-                                <div className="w-full md:w-1/2 h-44 bg-gray-50 rounded-2xl border border-gray-100 p-4 flex items-center justify-center">
-                                    {selectedProduct.image ? (
-                                        <img src={selectedProduct.image} alt={selectedProduct.productName} className="max-h-full max-w-full object-contain" />
-                                    ) : (
-                                        <Icon icon="lucide:glasses" className="text-5xl text-gray-300" />
-                                    )}
-                                </div>
-
-                                <div className="w-full md:w-1/2 space-y-2">
-                                    <h3 className="text-xl font-black text-gray-900">{selectedProduct.productName || selectedProduct.productCode}</h3>
-                                    <p className="text-xs text-gray-500 font-semibold">{selectedProduct.material || 'Acetate'} • {selectedProduct.type || 'Full Rim'} • {selectedProduct.category || 'Unisex'}</p>
-
-                                    <div className="pt-1 flex items-center gap-2">
-                                        <span className="px-2.5 py-0.5 text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 rounded">
-                                            {Number(selectedProduct.qty) > 0 ? 'IN STOCK' : 'OUT OF STOCK'}
-                                        </span>
-                                        <span className="text-xs font-mono font-bold text-gray-400">
-                                            {selectedProduct.dimensions || '55 - 18 - 145'}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Available Colors & Quantities Table (Multiple Shades Selection) */}
-                            <div className="space-y-2.5">
-                                <h4 className="text-xs font-black uppercase text-gray-900 tracking-wider">
-                                    AVAILABLE COLORS ({selectedProduct.colors?.length || 1})
-                                </h4>
-
-                                <div className="border border-gray-100 rounded-xl overflow-hidden divide-y divide-gray-100 text-xs">
-                                    {Array.isArray(selectedProduct.colors) && selectedProduct.colors.length > 0 ? (
-                                        selectedProduct.colors.map((c, idx) => {
-                                            const key = c._id || c.color;
-                                            const currentQty = colorQuantities[key] ?? 1;
-                                            const isAvailable = Number(c.qty) > 0;
-
-                                            return (
-                                                <div key={idx} className="p-3 bg-white hover:bg-gray-50 transition flex items-center justify-between gap-3">
-                                                    {/* Color Circle & Hex/Name */}
-                                                    <div className="flex items-center gap-2 min-w-[110px]">
-                                                        <span style={{ backgroundColor: getValidColorHex(c.color) }} className="w-5 h-5 rounded-full border border-gray-300 flex-shrink-0" />
-                                                        <span className="font-extrabold text-gray-800 uppercase">{c.color}</span>
-                                                    </div>
-
-                                                    {/* Available Stock */}
-                                                    <span className={`text-xs font-bold ${isAvailable ? 'text-emerald-600' : 'text-red-500'}`}>
-                                                        {isAvailable ? `${c.qty} pcs` : '0 pcs'}
-                                                    </span>
-
-                                                    {/* Unit Price */}
-                                                    <span className="font-black text-gray-900">₹{selectedProduct.price}</span>
-
-                                                    {/* Qty Counter */}
-                                                    {isAvailable ? (
-                                                        <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
-                                                            <button
-                                                                onClick={() => setColorQuantities(p => ({ ...p, [key]: Math.max(1, currentQty - 1) }))}
-                                                                className="px-2 py-1 text-gray-600 hover:bg-gray-200 font-bold"
-                                                            >
-                                                                -
-                                                            </button>
-                                                            <span className="px-3 py-1 font-bold text-gray-900 text-xs">{currentQty}</span>
-                                                            <button
-                                                                onClick={() => setColorQuantities(p => ({ ...p, [key]: Math.min(Number(c.qty) || 99, currentQty + 1) }))}
-                                                                className="px-2 py-1 text-gray-600 hover:bg-gray-200 font-bold"
-                                                            >
-                                                                +
-                                                            </button>
-                                                        </div>
-                                                    ) : (
-                                                        <span className="text-[10px] text-red-500 font-bold">Out of Stock</span>
-                                                    )}
-
-                                                    {/* Add to Cart Button */}
-                                                    {isAvailable ? (
-                                                        <button
-                                                            onClick={() => handleAddToCart(selectedProduct, c, currentQty)}
-                                                            className="px-3.5 py-1.5 bg-[#2980B9] hover:bg-[#2471A3] text-white text-xs font-bold rounded-lg transition shadow-2xs active:scale-95 flex items-center gap-1"
-                                                        >
-                                                            <Icon icon="lucide:plus" className="text-xs" />
-                                                            <span>Add</span>
-                                                        </button>
-                                                    ) : (
-                                                        <button disabled className="px-3 py-1 bg-gray-100 text-gray-400 text-xs font-bold rounded-lg cursor-not-allowed">
-                                                            Unavailable
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            );
-                                        })
-                                    ) : (
-                                        /* Fallback Single Color Row */
-                                        <div className="p-3 bg-white flex items-center justify-between gap-3">
-                                            <div className="flex items-center gap-2">
-                                                <span style={{ backgroundColor: getValidColorHex(selectedProduct.color || '#3B82F6') }} className="w-5 h-5 rounded-full border border-gray-300 flex-shrink-0" />
-                                                <span className="font-extrabold text-gray-800 uppercase">{selectedProduct.color || 'Standard'}</span>
-                                            </div>
-                                            <span className="text-xs font-bold text-emerald-600">{selectedProduct.qty || 0} pcs</span>
-                                            <span className="font-black text-gray-900">₹{selectedProduct.price}</span>
-                                            <button
-                                                onClick={() => handleAddToCart(selectedProduct)}
-                                                className="px-4 py-1.5 bg-[#2980B9] hover:bg-[#2471A3] text-white text-xs font-bold rounded-lg transition shadow-2xs flex items-center gap-1"
-                                            >
-                                                <Icon icon="lucide:plus" className="text-xs" />
-                                                <span>Add</span>
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Model Information Grid */}
-                            <div className="space-y-2 pt-2 border-t border-gray-100">
-                                <h4 className="text-xs font-black uppercase text-gray-900 tracking-wider">MODEL INFORMATION</h4>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-50 p-4 rounded-xl text-xs">
-                                    <div>
-                                        <span className="text-[10px] font-bold text-gray-400 uppercase block">BRAND</span>
-                                        <span className="font-extrabold text-gray-800">{selectedProduct.brand || 'Ray-Ban'}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-[10px] font-bold text-gray-400 uppercase block">GENDER</span>
-                                        <span className="font-extrabold text-gray-800">Unisex</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-[10px] font-bold text-gray-400 uppercase block">MODEL CODE</span>
-                                        <span className="font-extrabold text-gray-800">{selectedProduct.productCode || 'N/A'}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-[10px] font-bold text-gray-400 uppercase block">SIZE</span>
-                                        <span className="font-extrabold text-gray-800">{selectedProduct.size || '55-18-145'}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Desktop Cart Summary Panel */}
-                            {cart.length > 0 && (
-                                <div className="hidden lg:block bg-blue-50/60 rounded-2xl border border-blue-100 p-4 space-y-3">
-                                    <div className="flex items-center justify-between border-b border-blue-100 pb-2">
-                                        <div className="flex items-center gap-2">
-                                            <Icon icon="lucide:shopping-bag" className="text-base text-[#2980B9]" />
-                                            <h4 className="text-xs font-black uppercase text-gray-900">Order Cart ({cartTotals.totalItems} Items, {cartTotals.totalPcs} Pcs)</h4>
-                                        </div>
-                                        <button onClick={() => setCart([])} className="text-[10px] text-gray-400 hover:text-red-500 font-bold">Clear Cart</button>
-                                    </div>
-
-                                    <div className="max-h-48 overflow-y-auto divide-y divide-blue-100 text-xs pr-1 space-y-2">
-                                        {cart.map((item) => (
-                                            <div key={item.cartId} className="pt-2 flex items-center justify-between gap-2">
-                                                <div className="flex items-center gap-2 min-w-0">
-                                                    <span style={{ backgroundColor: item.colorHex }} className="w-3.5 h-3.5 rounded-full border border-gray-300 flex-shrink-0" />
-                                                    <div className="min-w-0">
-                                                        <p className="font-extrabold text-gray-900 truncate">{item.productName}</p>
-                                                        <span className="text-[10px] text-gray-500">{item.color} • ₹{item.price} x {item.qty}</span>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-black text-gray-900">₹{item.price * item.qty}</span>
-                                                    <button onClick={() => handleRemoveFromCart(item.cartId)} className="text-gray-400 hover:text-red-500">
-                                                        <Icon icon="lucide:trash-2" className="text-sm" />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    <div className="pt-2 border-t border-blue-200 flex items-center justify-between">
-                                        <div>
-                                            <span className="text-[10px] text-gray-500 font-bold block">TOTAL VALUE</span>
-                                            <span className="text-lg font-black text-gray-900">₹{cartTotals.totalPrice}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-            </div>
-
             {/* ── Floating Bottom Quick-Cart Bar (Visible on smaller screens when cart has items) ── */}
             {cartTotals.totalItems > 0 && (
-                <div className="lg:hidden fixed bottom-4 left-4 right-4 z-40 bg-[#2980B9] text-white p-3 px-4 rounded-2xl shadow-xl border border-white/20 flex items-center justify-between animate-in slide-in-from-bottom duration-300">
+                <div className="lg:hidden fixed bottom-4 left-4 right-4 z-40 bg-[#2980B9] text-white p-3 px-4 rounded-2xl shadow-xl border border-white/20 flex items-center justify-between animate-in slide-in-from-bottom-6 fade-in duration-300 ease-out">
                     <div className="flex items-center gap-2.5">
                         <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center font-black text-xs text-white shadow-xs">
                             <Icon icon="lucide:shopping-bag" className="text-base" />
@@ -736,11 +499,11 @@ const EcommerceCatalog = ({ defaultCategory }) => {
             {isMobileCartOpen && ReactDOM.createPortal(
                 <div
                     onClick={() => setIsMobileCartOpen(false)}
-                    className="fixed inset-0 w-screen h-screen z-[9999] bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+                    className="fixed inset-0 w-screen h-screen z-[9999] bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300 ease-out"
                 >
                     <div
                         onClick={(e) => e.stopPropagation()}
-                        className="bg-white rounded-3xl max-w-lg w-full max-h-[85vh] overflow-hidden shadow-2xl border border-gray-100 relative p-6 space-y-4 animate-in zoom-in-95 duration-200 flex flex-col justify-between"
+                        className="bg-white rounded-3xl max-w-lg w-full max-h-[85vh] overflow-hidden shadow-2xl border border-gray-100 relative p-6 space-y-4 animate-in zoom-in-95 slide-in-from-bottom-6 duration-300 ease-out flex flex-col justify-between"
                     >
                         {/* Modal Header */}
                         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
@@ -838,11 +601,11 @@ const EcommerceCatalog = ({ defaultCategory }) => {
             {isMobileDetailsOpen && selectedProduct && ReactDOM.createPortal(
                 <div
                     onClick={() => setIsMobileDetailsOpen(false)}
-                    className="lg:hidden fixed inset-0 w-screen h-screen z-[9998] bg-slate-950/75 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
+                    className="lg:hidden fixed inset-0 w-screen h-screen z-[9998] bg-slate-950/65 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300 ease-out"
                 >
                     <div
                         onClick={(e) => e.stopPropagation()}
-                        className="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl max-h-[88vh] overflow-y-auto p-5 space-y-4 shadow-2xl border border-gray-100 relative animate-in slide-in-from-bottom duration-200"
+                        className="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl max-h-[88vh] overflow-y-auto p-5 space-y-4 shadow-2xl border border-gray-100 relative animate-in slide-in-from-bottom-8 zoom-in-95 duration-300 ease-out"
                     >
                         {/* Modal Header */}
                         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
@@ -980,6 +743,218 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                                 </button>
                             )}
                         </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* ── Desktop Model Details Right Slide-Over Side Drawer Portal (Visible on desktop screens when a frame is selected) ── */}
+            {selectedProduct && ReactDOM.createPortal(
+                <div
+                    onClick={() => setSelectedProduct(null)}
+                    className="hidden lg:flex fixed inset-0 w-screen h-screen z-[9990] bg-slate-950/40 backdrop-blur-xs justify-end animate-in fade-in duration-300"
+                >
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-white w-full max-w-lg h-full overflow-y-auto p-6 space-y-5 shadow-2xl border-l border-gray-100 relative animate-in slide-in-from-right duration-300 ease-out custom-scrollbar flex flex-col justify-between"
+                    >
+                        <div className="space-y-5">
+                            {/* Drawer Header */}
+                            <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+                                <div className="flex items-center gap-2.5">
+                                    <button onClick={() => setSelectedProduct(null)} className="p-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition">
+                                        <Icon icon="lucide:arrow-left" className="text-lg" />
+                                    </button>
+                                    <h3 className="text-base font-black text-gray-900 uppercase tracking-tight">MODEL DETAILS</h3>
+                                </div>
+                                <button
+                                    onClick={() => setSelectedProduct(null)}
+                                    className="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition"
+                                    title="Close details"
+                                >
+                                    <Icon icon="mdi:close" className="text-xl" />
+                                </button>
+                            </div>
+
+                            {/* Main Preview Box & Title */}
+                            <div className="bg-gray-50 rounded-2xl border border-gray-100 p-4 space-y-3">
+                                <div className="w-full h-48 bg-white rounded-xl p-3 border border-gray-200 flex items-center justify-center">
+                                    {selectedProduct.image ? (
+                                        <img src={selectedProduct.image} alt={selectedProduct.productName} className="max-h-full max-w-full object-contain" />
+                                    ) : (
+                                        <Icon icon="lucide:glasses" className="text-5xl text-gray-300" />
+                                    )}
+                                </div>
+
+                                <div className="space-y-1">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-mono font-bold text-gray-400">Code: {selectedProduct.productCode}</span>
+                                        <span className="px-2.5 py-0.5 text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 rounded">
+                                            {Number(selectedProduct.qty) > 0 ? 'IN STOCK' : 'OUT OF STOCK'}
+                                        </span>
+                                    </div>
+                                    <h3 className="text-lg font-black text-gray-900">{selectedProduct.productName || selectedProduct.productCode}</h3>
+                                    <p className="text-xs text-gray-500 font-semibold">{selectedProduct.brand || 'Ray-Ban'} • {selectedProduct.material || 'Acetate'} • {selectedProduct.type || 'Full Rim'}</p>
+                                    <div className="pt-1 flex items-center gap-2">
+                                        <span className="text-lg font-black text-gray-900">₹{selectedProduct.price || 0}</span>
+                                        <span className="text-xs text-gray-400 font-semibold">• {selectedProduct.dimensions || '55 - 18 - 145'}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Available Colors & Quantity Stepper Table */}
+                            <div className="space-y-2.5">
+                                <h4 className="text-xs font-black uppercase text-gray-900 tracking-wider">
+                                    AVAILABLE COLORS ({selectedProduct.colors?.length || 1})
+                                </h4>
+
+                                <div className="border border-gray-100 rounded-xl overflow-hidden divide-y divide-gray-100 text-xs">
+                                    {Array.isArray(selectedProduct.colors) && selectedProduct.colors.length > 0 ? (
+                                        selectedProduct.colors.map((c, idx) => {
+                                            const key = c._id || c.color;
+                                            const currentQty = colorQuantities[key] ?? 1;
+                                            const isAvailable = Number(c.qty) > 0;
+
+                                            return (
+                                                <div key={idx} className="p-3 bg-white hover:bg-gray-50 transition flex items-center justify-between gap-3">
+                                                    <div className="flex items-center gap-2 min-w-[100px]">
+                                                        <span style={{ backgroundColor: getValidColorHex(c.color) }} className="w-5 h-5 rounded-full border border-gray-300 flex-shrink-0" />
+                                                        <span className="font-extrabold text-gray-800 uppercase">{c.color}</span>
+                                                    </div>
+
+                                                    <span className={`text-xs font-bold ${isAvailable ? 'text-emerald-600' : 'text-red-500'}`}>
+                                                        {isAvailable ? `${c.qty} pcs` : '0 pcs'}
+                                                    </span>
+
+                                                    <span className="font-black text-gray-900">₹{selectedProduct.price}</span>
+
+                                                    {isAvailable ? (
+                                                        <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+                                                            <button
+                                                                onClick={() => setColorQuantities(p => ({ ...p, [key]: Math.max(1, currentQty - 1) }))}
+                                                                className="px-2 py-1 text-gray-600 hover:bg-gray-200 font-bold"
+                                                            >
+                                                                -
+                                                            </button>
+                                                            <span className="px-3 py-1 font-bold text-gray-900 text-xs">{currentQty}</span>
+                                                            <button
+                                                                onClick={() => setColorQuantities(p => ({ ...p, [key]: Math.min(Number(c.qty) || 99, currentQty + 1) }))}
+                                                                className="px-2 py-1 text-gray-600 hover:bg-gray-200 font-bold"
+                                                            >
+                                                                +
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-[10px] text-red-500 font-bold">Out of Stock</span>
+                                                    )}
+
+                                                    {isAvailable ? (
+                                                        <button
+                                                            onClick={() => handleAddToCart(selectedProduct, c, currentQty)}
+                                                            className="px-3.5 py-1.5 bg-[#2980B9] hover:bg-[#2471A3] text-white text-xs font-bold rounded-lg transition shadow-2xs active:scale-95 flex items-center gap-1"
+                                                        >
+                                                            <Icon icon="lucide:plus" className="text-xs" />
+                                                            <span>Add</span>
+                                                        </button>
+                                                    ) : (
+                                                        <button disabled className="px-3 py-1 bg-gray-100 text-gray-400 text-xs font-bold rounded-lg cursor-not-allowed">
+                                                            Unavailable
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            );
+                                        })
+                                    ) : (
+                                        <div className="p-3 bg-white flex items-center justify-between gap-3">
+                                            <div className="flex items-center gap-2">
+                                                <span style={{ backgroundColor: getValidColorHex(selectedProduct.color || '#3B82F6') }} className="w-5 h-5 rounded-full border border-gray-300 flex-shrink-0" />
+                                                <span className="font-extrabold text-gray-800 uppercase">{selectedProduct.color || 'Standard'}</span>
+                                            </div>
+                                            <span className="text-xs font-bold text-emerald-600">{selectedProduct.qty || 0} pcs</span>
+                                            <span className="font-black text-gray-900">₹{selectedProduct.price}</span>
+                                            <button
+                                                onClick={() => handleAddToCart(selectedProduct)}
+                                                className="px-4 py-1.5 bg-[#2980B9] hover:bg-[#2471A3] text-white text-xs font-bold rounded-lg transition shadow-2xs flex items-center gap-1"
+                                            >
+                                                <Icon icon="lucide:plus" className="text-xs" />
+                                                <span>Add</span>
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Model Information Grid */}
+                            <div className="space-y-2 pt-2 border-t border-gray-100">
+                                <h4 className="text-xs font-black uppercase text-gray-900 tracking-wider">MODEL INFORMATION</h4>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-50 p-4 rounded-xl text-xs">
+                                    <div>
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase block">BRAND</span>
+                                        <span className="font-extrabold text-gray-800">{selectedProduct.brand || 'Ray-Ban'}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase block">GENDER</span>
+                                        <span className="font-extrabold text-gray-800">Unisex</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase block">MODEL CODE</span>
+                                        <span className="font-extrabold text-gray-800">{selectedProduct.productCode || 'N/A'}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase block">SIZE</span>
+                                        <span className="font-extrabold text-gray-800">{selectedProduct.size || '55-18-145'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Desktop Cart Summary Panel */}
+                        {cart.length > 0 && (
+                            <div className="bg-blue-50/60 rounded-2xl border border-blue-100 p-4 space-y-3 mt-4">
+                                <div className="flex items-center justify-between border-b border-blue-100 pb-2">
+                                    <div className="flex items-center gap-2">
+                                        <Icon icon="lucide:shopping-bag" className="text-base text-[#2980B9]" />
+                                        <h4 className="text-xs font-black uppercase text-gray-900">Order Cart ({cartTotals.totalItems} Items, {cartTotals.totalPcs} Pcs)</h4>
+                                    </div>
+                                    <button onClick={() => setCart([])} className="text-[10px] text-gray-400 hover:text-red-500 font-bold">Clear Cart</button>
+                                </div>
+
+                                <div className="max-h-36 overflow-y-auto divide-y divide-blue-100 text-xs pr-1 space-y-2 custom-scrollbar">
+                                    {cart.map((item) => (
+                                        <div key={item.cartId} className="pt-2 flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <span style={{ backgroundColor: item.colorHex }} className="w-3.5 h-3.5 rounded-full border border-gray-300 flex-shrink-0" />
+                                                <div className="min-w-0">
+                                                    <p className="font-extrabold text-gray-900 truncate">{item.productName}</p>
+                                                    <span className="text-[10px] text-gray-500">{item.color} • ₹{item.price} x {item.qty}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-black text-gray-900">₹{item.price * item.qty}</span>
+                                                <button onClick={() => handleRemoveFromCart(item.cartId)} className="text-gray-400 hover:text-red-500">
+                                                    <Icon icon="lucide:trash-2" className="text-sm" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="pt-2 border-t border-blue-200 flex items-center justify-between">
+                                    <div>
+                                        <span className="text-[10px] text-gray-500 font-bold block">TOTAL VALUE</span>
+                                        <span className="text-lg font-black text-gray-900">₹{cartTotals.totalPrice}</span>
+                                    </div>
+                                    <button
+                                        onClick={handleCheckout}
+                                        className="px-5 py-2.5 bg-[#2980B9] hover:bg-[#2471A3] text-white text-xs font-black rounded-xl transition shadow-md active:scale-95 flex items-center gap-2"
+                                    >
+                                        <Icon icon="lucide:check-circle" className="text-sm" />
+                                        <span>Proceed to Checkout</span>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>,
                 document.body
