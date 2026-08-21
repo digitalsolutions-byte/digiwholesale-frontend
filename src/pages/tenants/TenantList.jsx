@@ -204,6 +204,13 @@ export default function TenantList() {
 
                                     <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                                         <button
+                                            onClick={() => navigate(`/owner/wholesalers/${t._id}/settings`)}
+                                            className="p-2 text-slate-400 hover:text-[#2980B9] rounded-xl transition-colors"
+                                            title="Feature Settings"
+                                        >
+                                            <Icon icon="lucide:settings-2" className="text-base" />
+                                        </button>
+                                        <button
                                             onClick={() => navigate(`/tenants/view/${t._id}`)}
                                             className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-xs transition-colors"
                                         >
@@ -305,6 +312,13 @@ export default function TenantList() {
                                             </td>
                                             <td className="px-4 py-3.5 text-center">
                                                 <div className="flex items-center justify-center gap-2">
+                                                    <button
+                                                        onClick={() => navigate(`/owner/wholesalers/${t._id}/settings`)}
+                                                        className="p-1.5 text-slate-400 hover:text-[#2980B9] rounded-lg transition-colors"
+                                                        title="Feature Settings"
+                                                    >
+                                                        <Icon icon="lucide:settings-2" className="text-base" />
+                                                    </button>
                                                     <button
                                                         onClick={() => navigate(`/tenants/view/${t._id}`)}
                                                         className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold text-[11px] transition-colors"

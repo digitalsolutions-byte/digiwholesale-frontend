@@ -1,13 +1,6 @@
 import api from './apiInstance';
 
-/**
- * Register a new wholesaler as a tenant on the platform.
- * Automatically creates a SUPERADMIN employee account for the wholesaler.
- * Requires PLATFORM_OWNER JWT token.
- * 
- * @param {Object} tenantData 
- * @returns {Promise<Object>} API Response
- */
+
 export const registerTenant = async (tenantData) => {
     try {
         const response = await api.post('/api/tenants/register', tenantData);
@@ -17,13 +10,7 @@ export const registerTenant = async (tenantData) => {
     }
 };
 
-/**
- * Fetch a paginated list of all registered tenants.
- * Requires PLATFORM_OWNER JWT token.
- * 
- * @param {Object} params - { page, limit, status, search }
- * @returns {Promise<Object>} API Response
- */
+
 export const getAllTenants = async (params = {}) => {
     try {
         const queryParams = new URLSearchParams();
@@ -39,13 +26,7 @@ export const getAllTenants = async (params = {}) => {
     }
 };
 
-/**
- * Get complete details of a single tenant by MongoDB _id.
- * Requires PLATFORM_OWNER JWT token.
- * 
- * @param {string} id - MongoDB _id of the tenant
- * @returns {Promise<Object>} API Response
- */
+
 export const getTenantById = async (id) => {
     try {
         const response = await api.get(`/api/tenants/${id}`);
@@ -55,14 +36,7 @@ export const getTenantById = async (id) => {
     }
 };
 
-/**
- * Update tenant information.
- * Requires PLATFORM_OWNER JWT token.
- * 
- * @param {string} id - MongoDB _id of the tenant
- * @param {Object} updateData 
- * @returns {Promise<Object>} API Response
- */
+
 export const updateTenant = async (id, updateData) => {
     try {
         const response = await api.put(`/api/tenants/${id}`, updateData);
@@ -72,14 +46,7 @@ export const updateTenant = async (id, updateData) => {
     }
 };
 
-/**
- * Suspend a tenant's workspace.
- * Requires PLATFORM_OWNER JWT token.
- * 
- * @param {string} id - MongoDB _id of the tenant
- * @param {string} reason - Optional reason for suspension
- * @returns {Promise<Object>} API Response
- */
+
 export const suspendTenant = async (id, reason = '') => {
     try {
         const response = await api.patch(`/api/tenants/${id}/suspend`, { reason });
@@ -89,13 +56,7 @@ export const suspendTenant = async (id, reason = '') => {
     }
 };
 
-/**
- * Reactivate a previously suspended tenant.
- * Requires PLATFORM_OWNER JWT token.
- * 
- * @param {string} id - MongoDB _id of the tenant
- * @returns {Promise<Object>} API Response
- */
+
 export const activateTenant = async (id) => {
     try {
         const response = await api.patch(`/api/tenants/${id}/activate`);
@@ -105,16 +66,28 @@ export const activateTenant = async (id) => {
     }
 };
 
-/**
- * Permanently delete a tenant and all associated employee accounts.
- * Requires PLATFORM_OWNER JWT token.
- * 
- * @param {string} id - MongoDB _id of the tenant
- * @returns {Promise<Object>} API Response
- */
 export const deleteTenant = async (id) => {
     try {
         const response = await api.delete(`/api/tenants/${id}`);
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || error;
+    }
+};
+
+export const getTenantSettings = async (id) => {
+    try {
+        const response = await api.get(`/api/tenants/${id}/settings`);
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || error;
+    }
+};
+
+
+export const updateTenantSettings = async (id, featureFlags) => {
+    try {
+        const response = await api.patch(`/api/tenants/${id}/settings`, { featureFlags });
         return response.data;
     } catch (error) {
         throw error.response?.data || error;

@@ -26,6 +26,7 @@ import { logOut, selectCurrentUser, selectCurrentTenant } from '../../store/slic
 import usePermissions from '../../hooks/usePermissions';
 import { resetRegistration } from '../../store/slices/customerRegistrationSlice';
 import logo from '../../assets/logo.png';
+import { useFeatureFlags } from '../../context/FeatureFlagsContext';
 
 // ── Nav item definitions ─────────────────────────────────────────────────────
 // `page` must match a pageAccess[] key from the backend login response.
@@ -160,6 +161,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     const { hasPageAccess } = usePermissions();
     const theme = useTheme();
     const [openSubmenus, setOpenSubmenus] = useState({});
+    const { flags } = useFeatureFlags();
 
     // Filter nav items using user.pageAccess[] only.
     // Platform Owner gets dedicated store management menu items.
@@ -173,6 +175,10 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         }
         return navItems
             .map(item => {
+                // Hide the Ecommerce group when the feature flag is disabled
+                if (item.label === 'Ecommerce' && !flags?.ecomFramesSunglasses) {
+                    return null;
+                }
                 if (item.subItems) {
                     const filteredSubs = item.subItems
                         .filter(sub => (sub.page ? hasPageAccess(sub.page) : true))
@@ -192,7 +198,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             })
             .filter(Boolean);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user, isSalesDept, isFinanceDept]);  // re-filter whenever stored user or department changes
+    }, [user, isSalesDept, isFinanceDept, flags]);  // re-filter whenever stored user, department, or feature flags change
 
     useEffect(() => {
         const newOpenSubmenus = {};

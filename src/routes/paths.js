@@ -120,6 +120,7 @@ export const PATHS = {
         LIST: '/tenants/list',
         DETAILS: '/tenants/view/:id',
         EDIT: '/tenants/edit/:id',
+        SETTINGS: '/owner/wholesalers/:id/settings',
     },
     // E-COMMERCE MODULE
     ECOMMERCE: {

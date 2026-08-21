@@ -13,6 +13,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import theme from './theme';
 import { useTheme } from '@mui/material/styles';
 import { useEffect } from 'react';
+import { FeatureFlagsProvider } from './context/FeatureFlagsContext';
 
 // ── MUI → CSS variable sync ───────────────────────────────────────────────────
 const ThemeVariableSync = ({ children }) => {
@@ -140,13 +141,15 @@ function App() {
             <ThemeVariableSync>
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
                     <BrowserRouter>
-                        <div className="app-root min-h-screen bg-gray-50 text-gray-900 font-sans">
-                            <Routes>
-                                {renderRoutes(routesConfig)}
-                                <Route path={PATHS.UNAUTHORIZED} element={<UnauthorizedPage />} />
-                            </Routes>
-                        </div>
-                        <ToastContainer position="top-right" autoClose={3000} style={{ zIndex: 99999 }} />
+                        <FeatureFlagsProvider>
+                            <div className="app-root min-h-screen bg-gray-50 text-gray-900 font-sans">
+                                <Routes>
+                                    {renderRoutes(routesConfig)}
+                                    <Route path={PATHS.UNAUTHORIZED} element={<UnauthorizedPage />} />
+                                </Routes>
+                            </div>
+                            <ToastContainer position="top-right" autoClose={3000} style={{ zIndex: 99999 }} />
+                        </FeatureFlagsProvider>
                     </BrowserRouter>
                 </LocalizationProvider>
             </ThemeVariableSync>

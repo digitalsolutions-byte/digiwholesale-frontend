@@ -53,6 +53,7 @@ import SalesList from '../pages/sales/SalesList';
 import RegisterTenant from '../pages/tenants/RegisterTenant';
 import TenantList from '../pages/tenants/TenantList';
 import TenantDetails from '../pages/tenants/TenantDetails';
+import WholesalerSettings from '../pages/owner/WholesalerSettings';
 
 import CustomerLogin from '../pages/CustomerLogin';
 import CustomerLayout from '../components/layout/CustomerLayout';
@@ -64,6 +65,13 @@ import Dashboard from '../components/Dashboard';
 import Settings from '../pages/Settings';
 import OtherSales from '../pages/OtherSales';
 import EcommerceCatalog from '../pages/ecommerce/EcommerceCatalog';
+import { useFeatureFlags } from '../context/FeatureFlagsContext';
+import { Navigate } from 'react-router-dom';
+
+const FeatureFlagRoute = ({ flag, element }) => {
+    const { flags } = useFeatureFlags();
+    return flags[flag] ? element : <Navigate to="/" replace />;
+};
 
 export { PATHS };
 
@@ -184,6 +192,7 @@ const TENANTS_MODULE = [
     { path: PATHS.TENANTS.LIST, element: TenantList, page: 'TENANTS' },
     { path: PATHS.TENANTS.DETAILS, element: TenantDetails, page: 'TENANTS' },
     { path: PATHS.TENANTS.EDIT, element: TenantDetails, page: 'TENANTS' },
+    { path: PATHS.TENANTS.SETTINGS, element: WholesalerSettings },
 ];
 
 // ── Full config ───────────────────────────────────────────────────────────────
@@ -232,8 +241,16 @@ export const routesConfig = [
                     ...SALES_MODULE,
                     ...REPORTS_MODULE,
                     ...TENANTS_MODULE,
-                    { path: PATHS.ECOMMERCE.SUNGLASSES, element: EcommerceCatalog, props: { defaultCategory: 'SUNGLASS' } },
-                    { path: PATHS.ECOMMERCE.FRAMES, element: EcommerceCatalog, props: { defaultCategory: 'FRAME' } },
+                    {
+                        path: PATHS.ECOMMERCE.SUNGLASSES,
+                        element: FeatureFlagRoute,
+                        props: { flag: 'ecomFramesSunglasses', element: <EcommerceCatalog defaultCategory="SUNGLASS" /> },
+                    },
+                    {
+                        path: PATHS.ECOMMERCE.FRAMES,
+                        element: FeatureFlagRoute,
+                        props: { flag: 'ecomFramesSunglasses', element: <EcommerceCatalog defaultCategory="FRAME" /> },
+                    },
                     { path: PATHS.SETTINGS, element: Settings },
                 ],
             },
