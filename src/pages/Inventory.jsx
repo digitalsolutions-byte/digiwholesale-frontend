@@ -216,6 +216,7 @@ export default function Inventory() {
     const [toDate, setToDate] = useState("");
     const [keyword, setKeyword] = useState("");
     const [triggerSearch, setTriggerSearch] = useState(0);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     const fetchAllVendors = async () => {
         try {
@@ -226,11 +227,11 @@ export default function Inventory() {
     useEffect(() => { fetchAllVendors(); }, []);
 
     const handleRefresh = () => {
-        Swal.fire({
-            title: "Are you sure?", text: "The page will be refreshed.", icon: "warning",
-            showCancelButton: true, confirmButtonColor: "#ea580c", cancelButtonColor: "#6b7280",
-            confirmButtonText: "Yes, refresh it!",
-        }).then((result) => { if (result.isConfirmed) window.location.reload(); });
+        setFromDate("");
+        setToDate("");
+        setKeyword("");
+        setRefreshTrigger(prev => prev + 1);
+        toast.info("Inventory refreshed");
     };
 
     const [productCodeSuffix, setProductCodeSuffix] = useState("DO");
@@ -459,6 +460,11 @@ export default function Inventory() {
                 cleanupColorPreviews(rows);
                 setRows([{ ...emptyRow, id: uuidv4(), colors: [createEmptyColor()] }]);
                 setShowAddProductModal(false);
+                // Clear any search filter and refresh table immediately
+                setFromDate("");
+                setToDate("");
+                setKeyword("");
+                setRefreshTrigger(prev => prev + 1);
             } else { toast.error(res.data.message || "Something went wrong"); }
         } catch (error) {
             toast.error(error.response?.data?.message || "Failed to save products");
@@ -528,6 +534,7 @@ export default function Inventory() {
                 toDate={toDate} setToDate={setToDate}
                 keyword={keyword} setKeyword={setKeyword}
                 triggerSearch={triggerSearch} setTriggerSearch={setTriggerSearch}
+                refreshTrigger={refreshTrigger}
             />
 
             {/* ── Add Product Modal ── */}
@@ -804,7 +811,15 @@ export default function Inventory() {
             )}
 
             {showBulkUploadModal && (
-                <BulkUploadModal onClose={() => setShowBulkUploadModal(false)} />
+                <BulkUploadModal
+                    onClose={() => setShowBulkUploadModal(false)}
+                    onSuccess={() => {
+                        setFromDate("");
+                        setToDate("");
+                        setKeyword("");
+                        setRefreshTrigger(prev => prev + 1);
+                    }}
+                />
             )}
 
             {showLensRangeModal && (
@@ -812,6 +827,12 @@ export default function Inventory() {
                     settings={settings}
                     vendors={vendors}
                     onClose={() => setShowLensRangeModal(false)}
+                    onSuccess={() => {
+                        setFromDate("");
+                        setToDate("");
+                        setKeyword("");
+                        setRefreshTrigger(prev => prev + 1);
+                    }}
                 />
             )}
         </div>
@@ -891,7 +912,7 @@ const makeEmptyRangeRow = () => ({
     errors: {},
 });
 
-export function LensRangeModal({ settings, vendors, onClose }) {
+export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
     const DEFAULT_STEP = 0.25;
     const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -1167,6 +1188,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
             });
             if (res.data.success) {
                 toast.success(`${res.data.count} lens products created successfully.`);
+                onSuccess?.();
                 onClose();
             } else {
                 toast.error(res.data.message || "Upload failed.");
@@ -1671,7 +1693,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
 }
 
 // ─── InventoryTable ───────────────────────────────────────────────────────────
-function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, setKeyword, triggerSearch, setTriggerSearch }) {
+function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, setKeyword, triggerSearch, setTriggerSearch, refreshTrigger }) {
     const [data, setData] = useState([]);
     const [filteredData, setFilteredData] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
@@ -1864,6 +1886,15 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
             searchProducts();
         }
     }, [triggerSearch]);
+
+    useEffect(() => {
+        if (refreshTrigger > 0) {
+            setIsSearching(false);
+            setFilteredData([]);
+            setGlobalFilter("");
+            fetchProducts(1, false, fetchLimit);
+        }
+    }, [refreshTrigger]);
 
     // ── Open bulk Add Stock — pre-fill rows from selected products ────────────
     const openBulkStock = () => {
@@ -2238,7 +2269,8 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
             {/* Modals */}
             {openEditProductModal && (
                 <EditProductModal product={selectedProduct} settings={settings}
-                    onClose={() => { setOpenEditProductModal(false); setSelectedProduct(null); }} />
+                    onClose={() => { setOpenEditProductModal(false); setSelectedProduct(null); }}
+                    onSuccess={() => fetchProducts(page, false, fetchLimit)} />
             )}
 
             {openInventoryModal && (
@@ -2273,7 +2305,7 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
 
 
 // ─── Edit Product Modal ───────────────────────────────────────────────────────
-function EditProductModal({ product, settings, onClose }) {
+function EditProductModal({ product, settings, onClose, onSuccess }) {
     const toInputDate = (v) => v ? new Date(v).toISOString().split("T")[0] : "";
 
     const [formData, setFormData] = useState({
@@ -2315,7 +2347,11 @@ function EditProductModal({ product, settings, onClose }) {
             dataToSend.append("productId", product._id);
             if (selectedImage instanceof File) dataToSend.append("image", selectedImage);
             const res = await api.put(`/api/digi/product`, dataToSend, { headers: { "Content-Type": "multipart/form-data" } });
-            if (res.data.success) { toast.success("Product updated successfully"); onClose(); }
+            if (res.data.success) {
+                toast.success("Product updated successfully");
+                onSuccess?.();
+                onClose();
+            }
             else toast.error(res.data.message || "Update failed");
         } catch (err) { toast.error("Something went wrong"); }
         finally { setSaving(false); }
@@ -3960,7 +3996,7 @@ function sanitizeRow(raw) {
     return row;
 }
 
-function BulkUploadModal({ onClose }) {
+function BulkUploadModal({ onClose, onSuccess }) {
     const [step, setStep] = useState("upload");
     const [file, setFile] = useState(null);
     const [parsing, setParsing] = useState(false);
@@ -4033,6 +4069,9 @@ function BulkUploadModal({ onClose }) {
         try {
             const res = await api.post("/api/digi/product/bulk", { products: JSON.stringify(rows), suffix: activePrefix });
             setResult({ success: res.data.success, count: res.data.count, message: res.data.message, generatedCodes: res.data.generatedCodes || [], existingCodes: res.data.existingCodes || [], duplicateCodes: res.data.duplicateCodes || [] });
+            if (res.data.success) {
+                onSuccess?.();
+            }
             setStep("result");
         } catch (err) {
             setResult({ success: false, message: err.response?.data?.message || "Upload failed.", existingCodes: err.response?.data?.existingCodes || [], duplicateCodes: err.response?.data?.duplicateCodes || [], generatedCodes: [] });
