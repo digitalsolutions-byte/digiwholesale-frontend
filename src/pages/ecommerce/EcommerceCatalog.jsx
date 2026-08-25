@@ -35,9 +35,20 @@ const EcommerceCatalog = ({ defaultCategory }) => {
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [selectedColor, setSelectedColor] = useState('');
 
+    // Color selected per individual product card in the catalog grid
+    const [cardSelectedColors, setCardSelectedColors] = useState({});
+
+    const handleSelectCardColor = (e, productId, colorName) => {
+        e.stopPropagation();
+        setCardSelectedColors(prev => ({
+            ...prev,
+            [productId]: colorName
+        }));
+    };
+
     useEffect(() => {
         if (selectedProduct) {
-            setSelectedColor(selectedProduct.colors?.[0]?.color || selectedProduct.color || '');
+            setSelectedColor(cardSelectedColors[selectedProduct._id] || selectedProduct.colors?.[0]?.color || selectedProduct.color || '');
         } else {
             setSelectedColor('');
         }
@@ -392,12 +403,15 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                         {filteredProducts.map(product => {
                             const isSelected = selectedProduct?._id === product._id;
                             const hasColors = Array.isArray(product.colors) && product.colors.length > 0;
+                            const activeCardColor = cardSelectedColors[product._id] || product.colors?.[0]?.color || product.color || '';
+                            const activeColorObj = hasColors ? (product.colors.find(c => c.color?.toLowerCase() === activeCardColor.toLowerCase()) || product.colors[0]) : null;
 
                             return (
                                 <div
                                     key={product._id}
                                     onClick={() => {
                                         setSelectedProduct(product);
+                                        setSelectedColor(activeCardColor);
                                         setIsMobileDetailsOpen(true);
                                     }}
                                     className={`group bg-white rounded-2xl border p-3.5 transition-all duration-200 cursor-pointer flex flex-col justify-between relative ${isSelected
@@ -416,40 +430,55 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                                             </span>
                                         </div>
 
-                                        {/* Frame Image Display */}
-                                        <div className="h-32 bg-gray-50 rounded-xl p-2 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform duration-300">
+                                        {/* Frame Image Display (Switches based on activeCardColor) */}
+                                        <div className="h-32 bg-gray-50 rounded-xl p-2 flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform duration-300">
                                             <img
-                                                src={getProductDisplayImage(product)}
+                                                src={getProductDisplayImage(product, activeCardColor)}
                                                 alt={product.productName || 'Product'}
                                                 className="max-h-full max-w-full object-contain"
                                                 onError={(e) => { e.currentTarget.src = "/placeholder-product.png"; }}
                                             />
                                         </div>
 
+                                        {/* Available Colors Selector Bar directly below image */}
+                                        {hasColors && (
+                                            <div className="mb-2.5 bg-gray-50/80 p-1.5 rounded-xl border border-gray-100/80 space-y-1">
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    {product.colors.map((c, idx) => {
+                                                        const colorHex = getValidColorHex(c.color);
+                                                        const isSelectedColor = activeCardColor?.toLowerCase() === c.color?.toLowerCase();
+                                                        return (
+                                                            <button
+                                                                key={idx}
+                                                                type="button"
+                                                                onClick={(e) => handleSelectCardColor(e, product._id, c.color)}
+                                                                title={`${c.color} (${c.qty || 0} pcs)`}
+                                                                className={`w-4 h-4 rounded-full border transition-all duration-150 relative cursor-pointer ${
+                                                                    isSelectedColor
+                                                                        ? 'ring-2 ring-[#2980B9] ring-offset-1 scale-110 border-white shadow-xs z-10'
+                                                                        : 'border-gray-300 hover:scale-105 opacity-75 hover:opacity-100'
+                                                                }`}
+                                                                style={{ backgroundColor: colorHex }}
+                                                            />
+                                                        );
+                                                    })}
+                                                </div>
+                                                {activeColorObj && (
+                                                    <div className="flex items-center justify-between text-[9px] font-bold text-gray-500 pt-0.5">
+                                                        <span className="truncate uppercase text-gray-700 font-extrabold">{activeColorObj.color}</span>
+                                                        <span className={Number(activeColorObj.qty) > 0 ? 'text-emerald-600' : 'text-red-500'}>
+                                                            {Number(activeColorObj.qty) > 0 ? `${activeColorObj.qty} pcs` : '0 pcs'}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
                                         {/* Details */}
                                         <div className="space-y-1">
                                             <h4 className="text-xs font-black text-gray-900 truncate">{product.brand || 'RAY-BAN'}</h4>
                                             <p className="text-[11px] font-extrabold text-gray-700 truncate">{product.productName || product.productCode}</p>
                                             <p className="text-[10px] text-gray-400 font-semibold">{product.shape || 'Rectangular'} • {product.type || 'Full Rim'}</p>
-
-                                            {/* Available Colors Swatches */}
-                                            {hasColors && (
-                                                <div className="pt-1 flex items-center gap-1.5">
-                                                    <span className="text-[9px] text-gray-400 font-bold uppercase">Colors:</span>
-                                                    <div className="flex items-center gap-1">
-                                                        {product.colors.slice(0, 4).map((c, idx) => (
-                                                            <span
-                                                                key={idx}
-                                                                style={{ backgroundColor: getValidColorHex(c.color) }}
-                                                                className="w-3 h-3 rounded-full border border-gray-300 inline-block"
-                                                            />
-                                                        ))}
-                                                        {product.colors.length > 4 && (
-                                                            <span className="text-[9px] font-bold text-gray-500">+{product.colors.length - 4}</span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
                                         </div>
                                     </div>
 
@@ -457,7 +486,7 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                                     <div className="pt-3 mt-3 border-t border-gray-100 flex items-center justify-between gap-2">
                                         <div>
                                             <span className="text-[10px] font-extrabold text-emerald-600 block">
-                                                {product.qty || 0} Pcs Available
+                                                {(activeColorObj ? activeColorObj.qty : product.qty) || 0} Pcs Available
                                             </span>
                                             <span className="text-sm font-black text-gray-900">
                                                 ₹{product.price || 0}
@@ -467,8 +496,11 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                                             type="button"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                setSelectedProduct(product);
-                                                setIsMobileDetailsOpen(true);
+                                                if (hasColors && activeColorObj) {
+                                                    handleAddToCart(product, activeColorObj, 1);
+                                                } else {
+                                                    handleAddToCart(product, null, 1);
+                                                }
                                             }}
                                             className="px-3 py-1.5 bg-[#2980B9] hover:bg-[#2471A3] text-white text-xs font-bold rounded-xl transition shadow-2xs active:scale-95 flex items-center gap-1 flex-shrink-0"
                                         >
@@ -666,26 +698,75 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                         </div>
 
                         {/* Product Header Info Card */}
-                        <div className="flex items-center gap-4 bg-gray-50 p-3.5 rounded-2xl border border-gray-100">
-                            <div className="w-20 h-20 bg-white rounded-xl p-1.5 border border-gray-200 flex items-center justify-center flex-shrink-0">
-                                <img
-                                    src={getProductDisplayImage(selectedProduct, selectedColor)}
-                                    alt={selectedProduct.productName}
-                                    className="max-h-full max-w-full object-contain"
-                                    onError={(e) => { e.currentTarget.src = "/placeholder-product.png"; }}
-                                />
-                            </div>
-                            <div className="space-y-1 min-w-0 flex-1">
-                                <span className="text-[10px] font-mono font-bold text-gray-400 block">Code: {selectedProduct.productCode}</span>
-                                <h4 className="text-sm font-black text-gray-900 truncate">{selectedProduct.productName || selectedProduct.productCode}</h4>
-                                <p className="text-xs text-gray-500 font-semibold truncate">{selectedProduct.brand || 'Ray-Ban'} • {selectedProduct.shape || 'Rectangular'}</p>
-                                <div className="flex items-center gap-2 pt-0.5">
-                                    <span className="text-sm font-black text-gray-900">₹{selectedProduct.price || 0}</span>
-                                    <span className="px-2 py-0.5 text-[9px] font-extrabold bg-emerald-100 text-emerald-800 rounded">
-                                        {Number(selectedProduct.qty) > 0 ? 'IN STOCK' : 'OUT OF STOCK'}
-                                    </span>
+                        <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 space-y-3">
+                            <div className="flex items-center gap-4">
+                                <div className="w-20 h-20 bg-white rounded-xl p-1.5 border border-gray-200 flex items-center justify-center flex-shrink-0">
+                                    <img
+                                        src={getProductDisplayImage(selectedProduct, selectedColor)}
+                                        alt={selectedProduct.productName}
+                                        className="max-h-full max-w-full object-contain"
+                                        onError={(e) => { e.currentTarget.src = "/placeholder-product.png"; }}
+                                    />
+                                </div>
+                                <div className="space-y-1 min-w-0 flex-1">
+                                    <span className="text-[10px] font-mono font-bold text-gray-400 block">Code: {selectedProduct.productCode}</span>
+                                    <h4 className="text-sm font-black text-gray-900 truncate">{selectedProduct.productName || selectedProduct.productCode}</h4>
+                                    <p className="text-xs text-gray-500 font-semibold truncate">{selectedProduct.brand || 'Ray-Ban'} • {selectedProduct.shape || 'Rectangular'}</p>
+                                    <div className="flex items-center gap-2 pt-0.5">
+                                        <span className="text-sm font-black text-gray-900">₹{selectedProduct.price || 0}</span>
+                                        <span className="px-2 py-0.5 text-[9px] font-extrabold bg-emerald-100 text-emerald-800 rounded">
+                                            {Number(selectedProduct.qty) > 0 ? 'IN STOCK' : 'OUT OF STOCK'}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
+
+                            {/* Interactive Color Selector Swatches for Mobile Modal */}
+                            {Array.isArray(selectedProduct.colors) && selectedProduct.colors.length > 0 && (
+                                <div className="pt-2 border-t border-gray-200/70 flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Colors:</span>
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                            {selectedProduct.colors.map((c, idx) => {
+                                                const colorHex = getValidColorHex(c.color);
+                                                const isSelected = selectedColor?.toLowerCase() === c.color?.toLowerCase();
+                                                return (
+                                                    <button
+                                                        key={idx}
+                                                        type="button"
+                                                        onClick={() => setSelectedColor(c.color)}
+                                                        title={`${c.color} (${c.qty || 0} pcs)`}
+                                                        className={`w-5 h-5 rounded-full border transition-all duration-200 relative cursor-pointer flex items-center justify-center ${
+                                                            isSelected
+                                                                ? 'ring-2 ring-[#2980B9] ring-offset-2 scale-110 border-white shadow-md z-10'
+                                                                : 'border-gray-300 hover:scale-105 opacity-80 hover:opacity-100'
+                                                        }`}
+                                                        style={{ backgroundColor: colorHex }}
+                                                    >
+                                                        {isSelected && (
+                                                            <Icon icon="lucide:check" className={`text-[10px] drop-shadow-sm ${['#ffffff', '#fff', 'white'].includes(colorHex.toLowerCase()) ? 'text-gray-900' : 'text-white'}`} />
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                    {selectedColor && (
+                                        <div className="text-right">
+                                            <span className="text-xs font-black text-gray-900 uppercase block">{selectedColor}</span>
+                                            {(() => {
+                                                const activeColorObj = selectedProduct.colors.find(c => c.color?.toLowerCase() === selectedColor.toLowerCase());
+                                                const qty = activeColorObj?.qty ?? selectedProduct.qty ?? 0;
+                                                return (
+                                                    <span className={`text-[10px] font-bold ${Number(qty) > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                                        {Number(qty) > 0 ? `${qty} pcs in stock` : 'Out of stock'}
+                                                    </span>
+                                                );
+                                            })()}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* Color Shades Selection Table */}
@@ -718,6 +799,8 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                                                 <span className={`text-[11px] font-bold ${isAvailable ? 'text-emerald-600' : 'text-red-500'}`}>
                                                     {isAvailable ? `${c.qty} pcs` : '0 pcs'}
                                                 </span>
+
+                                                <span className="font-black text-gray-900 text-xs">₹{selectedProduct.price}</span>
 
                                                 {isAvailable ? (
                                                     <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
@@ -854,6 +937,53 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                                         <span className="text-xs text-gray-400 font-semibold">• {selectedProduct.dimensions || '55 - 18 - 145'}</span>
                                     </div>
                                 </div>
+
+                                {/* Interactive Color Selector Swatches directly inside preview card */}
+                                {Array.isArray(selectedProduct.colors) && selectedProduct.colors.length > 0 && (
+                                    <div className="pt-2.5 border-t border-gray-200/70 flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Colors:</span>
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                {selectedProduct.colors.map((c, idx) => {
+                                                    const colorHex = getValidColorHex(c.color);
+                                                    const isSelected = selectedColor?.toLowerCase() === c.color?.toLowerCase();
+                                                    return (
+                                                        <button
+                                                            key={idx}
+                                                            type="button"
+                                                            onClick={() => setSelectedColor(c.color)}
+                                                            title={`${c.color} (${c.qty || 0} pcs)`}
+                                                            className={`w-6 h-6 rounded-full border transition-all duration-200 relative cursor-pointer flex items-center justify-center ${
+                                                                isSelected
+                                                                    ? 'ring-2 ring-[#2980B9] ring-offset-2 scale-110 border-white shadow-md z-10'
+                                                                    : 'border-gray-300 hover:scale-105 opacity-80 hover:opacity-100'
+                                                            }`}
+                                                            style={{ backgroundColor: colorHex }}
+                                                        >
+                                                            {isSelected && (
+                                                                <Icon icon="lucide:check" className={`text-xs drop-shadow-sm ${['#ffffff', '#fff', 'white'].includes(colorHex.toLowerCase()) ? 'text-gray-900' : 'text-white'}`} />
+                                                            )}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                        {selectedColor && (
+                                            <div className="text-right">
+                                                <span className="text-xs font-black text-gray-900 uppercase block">{selectedColor}</span>
+                                                {(() => {
+                                                    const activeColorObj = selectedProduct.colors.find(c => c.color?.toLowerCase() === selectedColor.toLowerCase());
+                                                    const qty = activeColorObj?.qty ?? selectedProduct.qty ?? 0;
+                                                    return (
+                                                        <span className={`text-[10px] font-bold ${Number(qty) > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                                            {Number(qty) > 0 ? `${qty} pcs in stock` : 'Out of stock'}
+                                                        </span>
+                                                    );
+                                                })()}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Available Colors & Quantity Stepper Table */}
