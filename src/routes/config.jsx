@@ -69,7 +69,14 @@ import { useFeatureFlags } from '../context/FeatureFlagsContext';
 import { Navigate } from 'react-router-dom';
 
 const FeatureFlagRoute = ({ flag, element }) => {
-    const { flags } = useFeatureFlags();
+    const { flags, loading } = useFeatureFlags();
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-[500px]">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#2980B9]" />
+            </div>
+        );
+    }
     return flags[flag] ? element : <Navigate to="/" replace />;
 };
 
