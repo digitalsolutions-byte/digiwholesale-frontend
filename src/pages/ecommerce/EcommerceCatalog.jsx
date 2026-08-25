@@ -5,6 +5,7 @@ import { Icon } from '@iconify/react';
 import { toast } from 'react-toastify';
 import api from '../../services/apiInstance';
 import { PATHS } from '../../routes/paths';
+import { getProductDisplayImage } from '../../utils/productUtils';
 
 const EcommerceCatalog = ({ defaultCategory }) => {
     const location = useLocation();
@@ -32,6 +33,15 @@ const EcommerceCatalog = ({ defaultCategory }) => {
 
     // Currently selected product for Model Details center panel
     const [selectedProduct, setSelectedProduct] = useState(null);
+    const [selectedColor, setSelectedColor] = useState('');
+
+    useEffect(() => {
+        if (selectedProduct) {
+            setSelectedColor(selectedProduct.colors?.[0]?.color || selectedProduct.color || '');
+        } else {
+            setSelectedColor('');
+        }
+    }, [selectedProduct]);
 
     // Quantities selected per color in Model Details table (key: colorId or colorName -> qty)
     const [colorQuantities, setColorQuantities] = useState({});
@@ -173,7 +183,7 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                     brand: product.brand || '',
                     category: product.category || activeTab || 'FRAME',
                     unit: product.unit || 'PIECE',
-                    image: product.image || (product.photos?.[0]) || '',
+                    image: getProductDisplayImage(product, colorName),
                     price: Number(product.price) || 0,
                     mrp: Number(product.mrp || product.price) || 0,
                     gst: pGst,
@@ -194,7 +204,7 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                     discountAmount: product.discountAmount ?? 0,
                     itemStatus: product.itemStatus || 'ACTIVE',
                     coating: product.coating || '',
-                    photos: Array.isArray(product.photos) && product.photos.length > 0 ? product.photos : (product.image ? [product.image] : []),
+                    photos: Array.isArray(product.photos) && product.photos.length > 0 ? product.photos : [getProductDisplayImage(product, colorName)].filter(img => img && img !== "/placeholder-product.png"),
                     vendor: product.vendor || { id: null, name: null },
                     orderSource: product.orderSource || 'INHOUSE',
                     orderType: product.orderType || 'STOCK',
@@ -408,11 +418,12 @@ const EcommerceCatalog = ({ defaultCategory }) => {
 
                                         {/* Frame Image Display */}
                                         <div className="h-32 bg-gray-50 rounded-xl p-2 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform duration-300">
-                                            {product.image ? (
-                                                <img src={product.image} alt={product.productName} className="max-h-full max-w-full object-contain" />
-                                            ) : (
-                                                <Icon icon="lucide:glasses" className="text-4xl text-gray-300" />
-                                            )}
+                                            <img
+                                                src={getProductDisplayImage(product)}
+                                                alt={product.productName || 'Product'}
+                                                className="max-h-full max-w-full object-contain"
+                                                onError={(e) => { e.currentTarget.src = "/placeholder-product.png"; }}
+                                            />
                                         </div>
 
                                         {/* Details */}
@@ -657,11 +668,12 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                         {/* Product Header Info Card */}
                         <div className="flex items-center gap-4 bg-gray-50 p-3.5 rounded-2xl border border-gray-100">
                             <div className="w-20 h-20 bg-white rounded-xl p-1.5 border border-gray-200 flex items-center justify-center flex-shrink-0">
-                                {selectedProduct.image ? (
-                                    <img src={selectedProduct.image} alt={selectedProduct.productName} className="max-h-full max-w-full object-contain" />
-                                ) : (
-                                    <Icon icon="lucide:glasses" className="text-3xl text-gray-300" />
-                                )}
+                                <img
+                                    src={getProductDisplayImage(selectedProduct, selectedColor)}
+                                    alt={selectedProduct.productName}
+                                    className="max-h-full max-w-full object-contain"
+                                    onError={(e) => { e.currentTarget.src = "/placeholder-product.png"; }}
+                                />
                             </div>
                             <div className="space-y-1 min-w-0 flex-1">
                                 <span className="text-[10px] font-mono font-bold text-gray-400 block">Code: {selectedProduct.productCode}</span>
@@ -688,9 +700,16 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                                         const key = c._id || c.color;
                                         const currentQty = colorQuantities[key] ?? 1;
                                         const isAvailable = Number(c.qty) > 0;
+                                        const isCurrentColorActive = selectedColor?.toLowerCase() === c.color?.toLowerCase();
 
                                         return (
-                                            <div key={idx} className="p-3 bg-white flex items-center justify-between gap-2">
+                                            <div
+                                                key={idx}
+                                                onClick={() => setSelectedColor(c.color)}
+                                                className={`p-3 transition flex items-center justify-between gap-2 cursor-pointer ${
+                                                    isCurrentColorActive ? 'bg-blue-50/60 ring-1 ring-[#2980B9]' : 'bg-white hover:bg-gray-50'
+                                                }`}
+                                            >
                                                 <div className="flex items-center gap-2 min-w-[85px]">
                                                     <span style={{ backgroundColor: getValidColorHex(c.color) }} className="w-5 h-5 rounded-full border border-gray-300 flex-shrink-0" />
                                                     <span className="font-extrabold text-gray-800 uppercase text-xs truncate">{c.color}</span>
@@ -813,11 +832,12 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                             {/* Main Preview Box & Title */}
                             <div className="bg-gray-50 rounded-2xl border border-gray-100 p-4 space-y-3">
                                 <div className="w-full h-48 bg-white rounded-xl p-3 border border-gray-200 flex items-center justify-center">
-                                    {selectedProduct.image ? (
-                                        <img src={selectedProduct.image} alt={selectedProduct.productName} className="max-h-full max-w-full object-contain" />
-                                    ) : (
-                                        <Icon icon="lucide:glasses" className="text-5xl text-gray-300" />
-                                    )}
+                                    <img
+                                        src={getProductDisplayImage(selectedProduct, selectedColor)}
+                                        alt={selectedProduct.productName}
+                                        className="max-h-full max-w-full object-contain"
+                                        onError={(e) => { e.currentTarget.src = "/placeholder-product.png"; }}
+                                    />
                                 </div>
 
                                 <div className="space-y-1">
@@ -848,9 +868,16 @@ const EcommerceCatalog = ({ defaultCategory }) => {
                                             const key = c._id || c.color;
                                             const currentQty = colorQuantities[key] ?? 1;
                                             const isAvailable = Number(c.qty) > 0;
+                                            const isCurrentColorActive = selectedColor?.toLowerCase() === c.color?.toLowerCase();
 
                                             return (
-                                                <div key={idx} className="p-3 bg-white hover:bg-gray-50 transition flex items-center justify-between gap-3">
+                                                <div
+                                                    key={idx}
+                                                    onClick={() => setSelectedColor(c.color)}
+                                                    className={`p-3 transition flex items-center justify-between gap-3 cursor-pointer ${
+                                                        isCurrentColorActive ? 'bg-blue-50/60 ring-1 ring-[#2980B9]' : 'bg-white hover:bg-gray-50'
+                                                    }`}
+                                                >
                                                     <div className="flex items-center gap-2 min-w-[100px]">
                                                         <span style={{ backgroundColor: getValidColorHex(c.color) }} className="w-5 h-5 rounded-full border border-gray-300 flex-shrink-0" />
                                                         <span className="font-extrabold text-gray-800 uppercase">{c.color}</span>

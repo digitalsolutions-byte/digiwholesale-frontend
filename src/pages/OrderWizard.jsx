@@ -30,6 +30,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { PATHS } from '../routes/paths';
 import { getOrderById, updateOrder } from '../services/orderService';
 import { uploadImage } from '../services/bucketService';
+import { getProductDisplayImage } from '../utils/productUtils';
 
 const SectionCard = ({ children, className = '' }) => (
     <div className={`bg-white rounded-2xl border border-gray-100 shadow-[0_1px_4px_0_rgba(0,0,0,0.06)] ${className}`}>
@@ -388,8 +389,10 @@ const OrderWizard = () => {
                     discountAmount: item.discountAmount ?? 0,
                     itemStatus: item.itemStatus || 'ACTIVE',
                     coating: item.coating || '',
-                    photos: Array.isArray(item.photos) && item.photos.length > 0 ? item.photos : (item.image ? [item.image] : []),
-                    image: item.image || (item.photos?.[0]) || '',
+                    photos: Array.isArray(item.photos) && item.photos.length > 0
+                        ? item.photos
+                        : [getProductDisplayImage(item, item.color)].filter(img => img && img !== "/placeholder-product.png"),
+                    image: getProductDisplayImage(item, item.color) !== "/placeholder-product.png" ? getProductDisplayImage(item, item.color) : '',
                     vendor: item.vendor || { id: null, name: null },
                     vendorId: item.vendor?.id || item.vendorId || '',
                     orderSource: item.orderSource || 'INHOUSE',
@@ -459,8 +462,10 @@ const OrderWizard = () => {
                 discountAmount: prod.discountAmount ?? 0,
                 itemStatus: prod.itemStatus || 'ACTIVE',
                 coating: prod.coating || '',
-                photos: Array.isArray(prod.photos) && prod.photos.length > 0 ? prod.photos : (prod.image ? [prod.image] : []),
-                image: prod.image || (prod.photos?.[0]) || '',
+                photos: Array.isArray(prod.photos) && prod.photos.length > 0
+                    ? prod.photos
+                    : [getProductDisplayImage(prod, pColor)].filter(img => img && img !== "/placeholder-product.png"),
+                image: getProductDisplayImage(prod, pColor) !== "/placeholder-product.png" ? getProductDisplayImage(prod, pColor) : '',
                 vendor: prod.vendor || { id: null, name: null },
                 vendorId: prod.vendor?.id || prod.vendorId || '',
                 orderSource: prod.orderSource || 'INHOUSE',
@@ -599,8 +604,10 @@ const OrderWizard = () => {
             formik.setFieldValue('products.0.dimensions', prod.dimensions || '');
             formik.setFieldValue('products.0.availability', 'in-house');
             formik.setFieldValue('products.0.orderType', 'stock');
-            if (prod.image) {
-                formik.setFieldValue('products.0.photos', [prod.image]);
+            const prefillImg = getProductDisplayImage(prod, colorVal);
+            if (prefillImg && prefillImg !== "/placeholder-product.png") {
+                formik.setFieldValue('products.0.photos', [prefillImg]);
+                formik.setFieldValue('products.0.image', prefillImg);
             }
 
             if (pName) {
@@ -1354,7 +1361,8 @@ const OrderWizard = () => {
             formik.setFieldValue(`${prefix}shape`, rawProd.shape || '');
             formik.setFieldValue(`${prefix}material`, rawProd.material || '');
             formik.setFieldValue(`${prefix}dimensions`, rawProd.dimensions || '');
-            formik.setFieldValue(`${prefix}image`, rawProd.image || '');
+            const rawDisplayImg = getProductDisplayImage(rawProd, rawProd.color);
+            formik.setFieldValue(`${prefix}image`, rawDisplayImg !== "/placeholder-product.png" ? rawDisplayImg : '');
             formik.setFieldValue(`${prefix}code`, rawProd.productCode || rawProd.code || '');
             formik.setFieldValue(`${prefix}productCode`, rawProd.productCode || rawProd.code || '');
             formik.setFieldValue(`${prefix}HSNSAC`, rawProd.hsnSac || rawProd.HSNSAC || '');
@@ -1440,7 +1448,8 @@ const OrderWizard = () => {
                     set('shape', fullProd.shape || '');
                     set('material', fullProd.material || '');
                     set('dimensions', fullProd.dimensions || '');
-                    set('image', fullProd.image || '');
+                    const fullDisplayImg = getProductDisplayImage(fullProd, fullProd.color);
+                    set('image', fullDisplayImg !== "/placeholder-product.png" ? fullDisplayImg : '');
                     set('HSNSAC', fullProd.hsnSac || fullProd.HSNSAC || '');
                     set('expiry', fullProd.expiry || '');
                     set('coating', fullProd.coating || '');

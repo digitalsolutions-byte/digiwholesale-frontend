@@ -22,6 +22,7 @@ import * as XLSX from "xlsx";
 import { FiUpload, FiDownload, FiCheckCircle, FiAlertCircle } from "react-icons/fi";
 
 import { createPortal } from "react-dom";
+import { getProductDisplayImage } from "../utils/productUtils";
 
 // ─── shared primitives ────────────────────────────────────────────────────────
 const Modal = ({ children, onClose, maxWidth = "max-w-5xl" }) => {
@@ -234,18 +235,51 @@ export default function Inventory() {
 
     const [productCodeSuffix, setProductCodeSuffix] = useState("DO");
 
+    const createEmptyColor = () => ({
+        color: "",
+        qty: "",
+        productColorImage: "",
+        imageFile: null,
+        previewUrl: ""
+    });
+
     const emptyRow = {
         id: uuidv4(), date: "", productCode: "", productName: "", category: "",
         brand: "", color: "", size: "", type: "", shape: "", sph: "", cyl: "",
         index: "", axis: "", addition: "", coating: "", expiry: "", pairOrSingle: "Single",
         price: "", gst: "0", hsnSac: "", mrp: "", discount: "0", qty: "", vendor: "",
-        image: null, material: "", dimensions: "",
-        colors: [{ color: "", qty: "" }]
+        material: "", dimensions: "",
+        colors: [createEmptyColor()]
     };
 
     const [rows, setRows] = useState([emptyRow]);
-    const addRow = () => setRows([...rows, { ...emptyRow, id: uuidv4() }]);
-    const removeRow = (id) => { if (rows.length === 1) return; setRows(prev => prev.filter(r => r.id !== id)); };
+    const cleanupColorPreviews = (rowsList) => {
+        if (!Array.isArray(rowsList)) return;
+        rowsList.forEach(r => {
+            if (Array.isArray(r?.colors)) {
+                r.colors.forEach(c => {
+                    if (c?.previewUrl) {
+                        try { URL.revokeObjectURL(c.previewUrl); } catch (e) { /* ignore */ }
+                    }
+                });
+            }
+        });
+    };
+
+    const addRow = () => setRows([...rows, { ...emptyRow, id: uuidv4(), colors: [createEmptyColor()] }]);
+    const removeRow = (id) => {
+        if (rows.length === 1) return;
+        setRows(prev => {
+            const toRemove = prev.find(r => r.id === id);
+            if (toRemove) cleanupColorPreviews([toRemove]);
+            return prev.filter(r => r.id !== id);
+        });
+    };
+
+    const handleCloseAddProductModal = () => {
+        cleanupColorPreviews(rows);
+        setShowAddProductModal(false);
+    };
 
     const LENS_FIELDS = ["sph", "cyl", "index", "axis", "coating", "expiry", "pairOrSingle"];
     const isLensCategory = (v) => Boolean(v && (v.toLowerCase().includes("lens") || v.toLowerCase().includes("glass") || v.toLowerCase().includes("contact lens")));
@@ -296,11 +330,38 @@ export default function Inventory() {
     const handleColorChange = (rowIndex, colorIndex, field, value) => {
         const copy = [...rows];
         const colorsCopy = [...(copy[rowIndex].colors || [])];
-        colorsCopy[colorIndex] = { ...colorsCopy[colorIndex], [field]: value };
+        const currentColor = colorsCopy[colorIndex] || createEmptyColor();
+
+        if (field === "imageFile") {
+            if (currentColor.previewUrl) {
+                try { URL.revokeObjectURL(currentColor.previewUrl); } catch (e) { /* ignore */ }
+            }
+            const file = value;
+            const previewUrl = file ? URL.createObjectURL(file) : "";
+            colorsCopy[colorIndex] = {
+                ...currentColor,
+                imageFile: file,
+                previewUrl: previewUrl,
+                productColorImage: ""
+            };
+        } else if (field === "removeImage") {
+            if (currentColor.previewUrl) {
+                try { URL.revokeObjectURL(currentColor.previewUrl); } catch (e) { /* ignore */ }
+            }
+            colorsCopy[colorIndex] = {
+                ...currentColor,
+                imageFile: null,
+                previewUrl: "",
+                productColorImage: ""
+            };
+        } else {
+            colorsCopy[colorIndex] = { ...currentColor, [field]: value };
+        }
+
         copy[rowIndex].colors = colorsCopy;
         
         const totalQty = colorsCopy.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
-        if (totalQty > 0) {
+        if (totalQty > 0 || colorsCopy.some(item => item.qty !== "")) {
             copy[rowIndex].qty = totalQty;
         }
         setRows(copy);
@@ -315,16 +376,20 @@ export default function Inventory() {
 
     const addColorRow = (rowIndex) => {
         const copy = [...rows];
-        copy[rowIndex].colors = [...(copy[rowIndex].colors || []), { color: "", qty: "" }];
+        copy[rowIndex].colors = [...(copy[rowIndex].colors || []), createEmptyColor()];
         setRows(copy);
     };
 
     const removeColorRow = (rowIndex, colorIndex) => {
         const copy = [...rows];
         if (copy[rowIndex].colors?.length > 1) {
+            const toRemove = copy[rowIndex].colors[colorIndex];
+            if (toRemove?.previewUrl) {
+                try { URL.revokeObjectURL(toRemove.previewUrl); } catch (e) { /* ignore */ }
+            }
             copy[rowIndex].colors = copy[rowIndex].colors.filter((_, idx) => idx !== colorIndex);
             const totalQty = copy[rowIndex].colors.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
-            if (totalQty > 0) copy[rowIndex].qty = totalQty;
+            copy[rowIndex].qty = totalQty;
             setRows(copy);
         }
     };
@@ -336,10 +401,21 @@ export default function Inventory() {
             if (!row.productName?.trim()) return `Product Name is required (Row ${i + 1})`;
             if (!row.category) return `Category is required (Row ${i + 1})`;
             if (!row.brand) return `Brand is required (Row ${i + 1})`;
-            if (isRequireImageCategory(row.category) && !row.image) return `Product Image is required for Frame and Sunglass products (Row ${i + 1})`;
             if (row.price === "" || Number(row.price) <= 0) return `Price must be > 0 (Row ${i + 1})`;
             if (row.mrp === "" || Number(row.mrp) <= 0) return `MRP must be > 0 (Row ${i + 1})`;
             if (row.qty === "" || Number(row.qty) <= 0) return `Quantity must be > 0 (Row ${i + 1})`;
+
+            if (isRequireImageCategory(row.category) && Array.isArray(row.colors)) {
+                for (let cIdx = 0; cIdx < row.colors.length; cIdx++) {
+                    const c = row.colors[cIdx];
+                    if (!c.color || !c.color.trim()) {
+                        return `Color is required for row ${cIdx + 1} (Product #${i + 1})`;
+                    }
+                    if (c.qty === "" || Number(c.qty) <= 0) {
+                        return `Valid quantity (> 0) is required for color "${c.color}" (Product #${i + 1})`;
+                    }
+                }
+            }
         }
         return null;
     };
@@ -350,16 +426,38 @@ export default function Inventory() {
         if (errorMessage) { toast.error(errorMessage); return; }
         try {
             const formData = new FormData();
-            const formattedRows = rows.map(r => ({
-                ...r,
-                productCodeSuffix: isLensCategory(r.category) ? productCodeSuffix : undefined
-            }));
-            formData.append("products", JSON.stringify(formattedRows));
-            rows.forEach((row, index) => { if (row.image instanceof File) formData.append(`productImage_${index}`, row.image); });
+            // Step 1: Clean products JSON (omit imageFile, previewUrl, and common image)
+            const sanitizedProducts = rows.map((product) => {
+                const { image, ...rest } = product;
+                return {
+                    ...rest,
+                    productCodeSuffix: isLensCategory(product.category) ? productCodeSuffix : undefined,
+                    colors: (product.colors || []).map((c) => ({
+                        color: c.color,
+                        qty: Number(c.qty) || 0,
+                        productColorImage: typeof c.productColorImage === 'string' ? c.productColorImage : ""
+                    }))
+                };
+            });
+            formData.append("products", JSON.stringify(sanitizedProducts));
+
+            // Step 2: Append color binary images using indexed keys: productColorImage_${pIndex}_${cIndex}
+            rows.forEach((product, pIndex) => {
+                if (Array.isArray(product.colors)) {
+                    product.colors.forEach((colorItem, cIndex) => {
+                        if (colorItem.imageFile instanceof File) {
+                            formData.append(`productColorImage_${pIndex}_${cIndex}`, colorItem.imageFile);
+                        }
+                    });
+                }
+            });
+
+            // Step 3: Send POST request
             const res = await api.post("/api/digi/product", formData, { headers: { "Content-Type": "multipart/form-data" } });
             if (res.data.success) {
                 toast.success("Products added successfully");
-                setRows([{ ...emptyRow, id: uuidv4() }]);
+                cleanupColorPreviews(rows);
+                setRows([{ ...emptyRow, id: uuidv4(), colors: [createEmptyColor()] }]);
                 setShowAddProductModal(false);
             } else { toast.error(res.data.message || "Something went wrong"); }
         } catch (error) {
@@ -434,8 +532,8 @@ export default function Inventory() {
 
             {/* ── Add Product Modal ── */}
             {showAddProductModal && (
-                <Modal onClose={() => setShowAddProductModal(false)} maxWidth="max-w-7xl">
-                    <ModalHeader title="Add Product" subtitle="Fill in product details below" icon={FiPlus} onClose={() => setShowAddProductModal(false)} />
+                <Modal onClose={handleCloseAddProductModal} maxWidth="max-w-7xl">
+                    <ModalHeader title="Add Product" subtitle="Fill in product details below" icon={FiPlus} onClose={handleCloseAddProductModal} />
                     <form onSubmit={submitAddProductForm} className="flex-1 min-h-0 flex flex-col">
                         <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
                             {rows.some(r => isLensCategory(r.category)) && (
@@ -555,23 +653,28 @@ export default function Inventory() {
                                             </FieldInput>
 
                                             {isRequireImageCategory(row.category) && (
-                                                <div className="col-span-full mt-3 pt-3 border-t border-gray-200/80 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    {/* Colors & Quantity */}
-                                                    <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-2xs space-y-2.5">
-                                                        <div className="flex items-center justify-between">
-                                                            <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
-                                                                <span className="w-2 h-2 rounded-full bg-[#2980b9]"></span>
-                                                                Colors & Quantity
-                                                            </label>
-                                                            <span className="text-[10px] text-gray-400 font-medium">
-                                                                Total: {row.colors?.reduce((sum, item) => sum + (Number(item.qty) || 0), 0) || 0} Pcs
+                                                <div className="col-span-full mt-3 pt-3 border-t border-gray-200/80">
+                                                    <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-2xs space-y-3">
+                                                        <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="w-2.5 h-2.5 rounded-full bg-[#2980b9]"></span>
+                                                                <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider">
+                                                                    Colors & Variants
+                                                                </label>
+                                                                <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full font-medium hidden sm:inline-block">
+                                                                    Color, stock quantity & color-specific image
+                                                                </span>
+                                                            </div>
+                                                            <span className="text-[10px] text-gray-500 font-semibold bg-gray-100/80 px-2.5 py-1 rounded-lg">
+                                                                Total: <strong className="text-gray-800 font-bold">{row.colors?.reduce((sum, item) => sum + (Number(item.qty) || 0), 0) || 0}</strong> Pcs
                                                             </span>
                                                         </div>
 
-                                                        <div className="space-y-2">
+                                                        <div className="space-y-2.5">
                                                             {row.colors?.map((cItem, cIdx) => (
-                                                                <div key={cIdx} className="flex items-center gap-2">
-                                                                    <div className="flex items-center gap-2 bg-gray-50 border border-gray-300 rounded-xl p-1.5 pr-3 flex-1 focus-within:border-[#2980b9] focus-within:ring-2 focus-within:ring-[#2980b9]/20 transition">
+                                                                <div key={cIdx} className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 p-2.5 bg-gray-50/80 rounded-xl border border-gray-200/80 hover:border-gray-300 transition">
+                                                                    {/* Color Picker + Name/Hex */}
+                                                                    <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-xl p-1.5 pr-3 flex-1 min-w-[200px] focus-within:border-[#2980b9] focus-within:ring-2 focus-within:ring-[#2980b9]/20 transition">
                                                                         <input
                                                                             type="color"
                                                                             value={parseColorToHex(cItem.color)}
@@ -582,108 +685,98 @@ export default function Inventory() {
                                                                         <input
                                                                             type="text"
                                                                             className="w-full text-xs font-semibold bg-transparent text-gray-800 outline-none placeholder:text-gray-400"
-                                                                            placeholder="Color name or Hex (e.g. red, #464D59)"
+                                                                            placeholder="Color name or Hex (e.g. red, #3B82F6)"
                                                                             value={cItem.color}
                                                                             onChange={e => handleColorChange(i, cIdx, "color", e.target.value)}
                                                                         />
                                                                     </div>
-                                                                    <input
-                                                                        type="number"
-                                                                        min="0"
-                                                                        className={`${inputCls} max-w-[100px] font-bold`}
-                                                                        placeholder="Qty"
-                                                                        value={cItem.qty}
-                                                                        onChange={e => handleColorChange(i, cIdx, "qty", e.target.value)}
-                                                                    />
+
+                                                                    {/* Qty Input */}
+                                                                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                                        <label className="text-[10px] font-bold text-gray-400 uppercase">Qty</label>
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            className={`${inputCls} w-24 font-bold bg-white`}
+                                                                            placeholder="Qty"
+                                                                            value={cItem.qty}
+                                                                            onChange={e => handleColorChange(i, cIdx, "qty", e.target.value)}
+                                                                        />
+                                                                    </div>
+
+                                                                    {/* Color-specific Image Upload & Preview */}
+                                                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                                                        {(cItem.previewUrl || cItem.productColorImage) ? (
+                                                                            <div className="relative group w-10 h-10 rounded-xl overflow-hidden border border-gray-200 bg-white flex items-center justify-center shadow-xs">
+                                                                                <img
+                                                                                    src={cItem.previewUrl || cItem.productColorImage}
+                                                                                    alt={`Color ${cItem.color} preview`}
+                                                                                    className="w-full h-full object-contain p-0.5"
+                                                                                />
+                                                                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                                                                                    <label className="p-1 text-white hover:text-[#2980b9] cursor-pointer transition" title="Change color image">
+                                                                                        <FiUpload size={12} />
+                                                                                        <input
+                                                                                            type="file"
+                                                                                            accept="image/*"
+                                                                                            className="hidden"
+                                                                                            onChange={e => {
+                                                                                                if (e.target.files && e.target.files[0]) {
+                                                                                                    handleColorChange(i, cIdx, "imageFile", e.target.files[0]);
+                                                                                                }
+                                                                                            }}
+                                                                                        />
+                                                                                    </label>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => handleColorChange(i, cIdx, "removeImage")}
+                                                                                        className="p-1 text-white hover:text-red-400 transition"
+                                                                                        title="Remove color image"
+                                                                                    >
+                                                                                        <FiTrash2 size={12} />
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <label className="flex items-center gap-1.5 px-3 py-2 bg-white border border-dashed border-gray-300 hover:border-[#2980b9] hover:bg-[#2980b9]/5 rounded-xl text-xs font-semibold text-gray-600 hover:text-[#2980b9] cursor-pointer transition shadow-2xs">
+                                                                                <FiImage size={13} className="text-[#2980b9]" />
+                                                                                <span>Upload Image</span>
+                                                                                <input
+                                                                                    type="file"
+                                                                                    accept="image/*"
+                                                                                    className="hidden"
+                                                                                    onChange={e => {
+                                                                                        if (e.target.files && e.target.files[0]) {
+                                                                                            handleColorChange(i, cIdx, "imageFile", e.target.files[0]);
+                                                                                        }
+                                                                                    }}
+                                                                                />
+                                                                            </label>
+                                                                        )}
+                                                                    </div>
+
+                                                                    {/* Remove Color Row Button */}
                                                                     {row.colors.length > 1 && (
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => removeColorRow(i, cIdx)}
-                                                                            className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition"
-                                                                            title="Remove color"
+                                                                            className="p-2 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 transition flex-shrink-0"
+                                                                            title="Remove variant"
                                                                         >
                                                                             <FiTrash2 size={14} />
                                                                         </button>
                                                                     )}
                                                                 </div>
                                                             ))}
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => addColorRow(i)}
-                                                                className="mt-1 px-3.5 py-1.5 border border-dashed border-[#2980b9] text-[#2980b9] hover:bg-blue-50 text-xs font-bold rounded-xl transition flex items-center gap-1.5"
-                                                            >
-                                                                <FiPlus size={13} /> + Color
-                                                            </button>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Product Image Upload & Preview */}
-                                                    <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-2xs space-y-2.5 flex flex-col justify-between">
-                                                        <div className="flex items-center justify-between">
-                                                            <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
-                                                                <FiImage className="text-[#2980b9]" size={14} />
-                                                                Product Image <span className="text-red-500">*</span>
-                                                            </label>
-                                                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                                                                Required
-                                                            </span>
                                                         </div>
 
-                                                        {row.image ? (
-                                                            <div className="relative group rounded-xl overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center min-h-[120px] p-2 flex-1">
-                                                                <img
-                                                                    src={row.image instanceof File ? URL.createObjectURL(row.image) : row.image}
-                                                                    alt="Product Preview"
-                                                                    className="max-h-36 max-w-full object-contain rounded-lg shadow-sm"
-                                                                />
-                                                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                                                    <label className="p-2 bg-white text-gray-700 hover:text-[#2980b9] rounded-xl cursor-pointer shadow-md transition text-xs font-semibold flex items-center gap-1">
-                                                                        <FiUpload size={14} />
-                                                                        <span>Change</span>
-                                                                        <input
-                                                                            type="file"
-                                                                            accept="image/*"
-                                                                            className="hidden"
-                                                                            onChange={e => {
-                                                                                if (e.target.files && e.target.files[0]) {
-                                                                                    handleChange(i, "image", e.target.files[0]);
-                                                                                }
-                                                                            }}
-                                                                        />
-                                                                    </label>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => handleChange(i, "image", null)}
-                                                                        className="p-2 bg-red-600 text-white rounded-xl shadow-md hover:bg-red-700 transition text-xs font-semibold flex items-center gap-1"
-                                                                    >
-                                                                        <FiTrash2 size={14} />
-                                                                        <span>Remove</span>
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        ) : (
-                                                            <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 hover:border-[#2980b9] bg-gray-50/50 hover:bg-blue-50/30 rounded-xl cursor-pointer transition text-center group flex-1 min-h-[120px]">
-                                                                <div className="w-10 h-10 rounded-full bg-blue-50 text-[#2980b9] flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                                                                    <FiUpload size={18} />
-                                                                </div>
-                                                                <span className="text-xs font-bold text-gray-700 group-hover:text-[#2980b9] transition">
-                                                                    Click to upload product image
-                                                                </span>
-                                                                <span className="text-[10px] text-gray-400 mt-0.5">
-                                                                    PNG, JPG, WEBP (Required)
-                                                                </span>
-                                                                <input
-                                                                    type="file"
-                                                                    accept="image/*"
-                                                                    className="hidden"
-                                                                    onChange={e => {
-                                                                        if (e.target.files && e.target.files[0]) {
-                                                                            handleChange(i, "image", e.target.files[0]);
-                                                                        }
-                                                                    }}
-                                                                />
-                                                            </label>
-                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => addColorRow(i)}
+                                                            className="mt-1 px-3.5 py-1.5 border border-dashed border-[#2980b9] text-[#2980b9] hover:bg-blue-50 text-xs font-bold rounded-xl transition flex items-center gap-1.5"
+                                                        >
+                                                            <FiPlus size={13} /> + Color Variant
+                                                        </button>
                                                     </div>
                                                 </div>
                                             )}
@@ -697,7 +790,7 @@ export default function Inventory() {
                             </button>
                         </div>
                         <ModalFooter>
-                            <button type="button" onClick={() => setShowAddProductModal(false)}
+                            <button type="button" onClick={handleCloseAddProductModal}
                                 className="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition">
                                 Cancel
                             </button>
@@ -1862,13 +1955,41 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
             header: "Image", accessorKey: "image",
             cell: ({ row }) => {
                 const product = row.original;
-                if (!product.image) return <span className="text-gray-300">—</span>;
+                const displayImg = getProductDisplayImage(product);
+                const hasColors = Array.isArray(product.colors) && product.colors.length > 0;
                 return (
-                    <div className="flex justify-center">
-                        <button onClick={e => { e.stopPropagation(); window.open(product.image, "_blank"); }}
-                            className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-500 transition" title="View Image">
-                            <FiImage size={14} />
-                        </button>
+                    <div className="flex items-center gap-2">
+                        {displayImg && displayImg !== "/placeholder-product.png" ? (
+                            <button
+                                onClick={e => { e.stopPropagation(); window.open(displayImg, "_blank"); }}
+                                className="w-10 h-10 rounded-lg overflow-hidden border border-gray-200 hover:border-[#2980b9] bg-white flex items-center justify-center p-0.5 shadow-2xs transition flex-shrink-0"
+                                title="Click to view full image"
+                            >
+                                <img
+                                    src={displayImg}
+                                    alt={product.productName}
+                                    className="w-full h-full object-contain"
+                                    onError={(e) => { e.currentTarget.src = "/placeholder-product.png"; }}
+                                />
+                            </button>
+                        ) : (
+                            <span className="text-gray-300">—</span>
+                        )}
+                        {hasColors && (
+                            <div className="flex items-center gap-1 flex-wrap max-w-[50px]">
+                                {product.colors.slice(0, 3).map((c, idx) => (
+                                    <span
+                                        key={idx}
+                                        title={`Color: ${c.color} | Qty: ${c.qty}`}
+                                        className="w-3.5 h-3.5 rounded-full border border-gray-300 shadow-2xs"
+                                        style={{ backgroundColor: c.color }}
+                                    />
+                                ))}
+                                {product.colors.length > 3 && (
+                                    <span className="text-[9px] font-bold text-gray-400">+{product.colors.length - 3}</span>
+                                )}
+                            </div>
+                        )}
                     </div>
                 );
             },
@@ -2252,12 +2373,15 @@ function EditProductModal({ product, settings, onClose }) {
                         </FieldInput>
                         <FieldInput label="Product Image (Max 5 MB)">
                             <div className="flex items-center gap-2">
-                                {product?.image && (
-                                    <button type="button" onClick={() => window.open(product.image, "_blank")}
-                                        className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-500 transition flex-shrink-0">
-                                        <FiImage size={14} />
-                                    </button>
-                                )}
+                                {(() => {
+                                    const displayImg = getProductDisplayImage(product);
+                                    return displayImg && displayImg !== "/placeholder-product.png" && (
+                                        <button type="button" onClick={() => window.open(displayImg, "_blank")}
+                                            className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-500 transition flex-shrink-0" title="View Current Image">
+                                            <FiImage size={14} />
+                                        </button>
+                                    );
+                                })()}
                                 <input type="file" accept="image/*" onChange={e => {
                                     const file = e.target.files[0];
                                     if (file && file.size > 5 * 1024 * 1024) {
