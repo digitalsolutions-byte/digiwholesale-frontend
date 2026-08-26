@@ -127,5 +127,7 @@ export const PATHS = {
         SUNGLASSES: '/ecommerce/sunglasses',
         FRAMES: '/ecommerce/frames',
     },
+    // VIRTUAL GLASS TRY-ON
+    GLASS_TRYON: '/glass-tryon',
     SETTINGS: '/settings'
 };

@@ -137,6 +137,7 @@ const navItems = [
             { label: 'Frames', path: PATHS.ECOMMERCE.FRAMES, page: 'INVENTORY' },
         ],
     },
+    { label: 'Virtual Try-On', icon: 'lucide:glasses', path: PATHS.GLASS_TRYON },
     { label: 'Inventory', icon: 'lucide:package-search', path: PATHS.INVENTORY, page: 'INVENTORY' },
     { label: 'Settings', icon: 'lucide:settings', path: PATHS.SETTINGS },
 ];

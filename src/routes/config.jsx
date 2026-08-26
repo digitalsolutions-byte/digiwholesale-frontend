@@ -58,6 +58,8 @@ import WholesalerSettings from '../pages/owner/WholesalerSettings';
 import CustomerLogin from '../pages/CustomerLogin';
 import CustomerLayout from '../components/layout/CustomerLayout';
 import CustomerDashboard from '../pages/CustomerDashboard';
+import { GlassTryOnPage, createGlassTryOnApi } from '../modules/glassTryOn';
+import glassTryOnService from '../services/glassTryOnService';
 
 import { PATHS } from './paths';
 import Inventory from '../pages/Inventory';
@@ -195,6 +197,16 @@ const TENANTS_MODULE = [
     { path: PATHS.TENANTS.SETTINGS, element: WholesalerSettings },
 ];
 
+// ── Virtual Glass Try-On Module ─────────────────────────────────────────────
+const glassTryOnApiAdapter = createGlassTryOnApi(glassTryOnService);
+const GLASS_TRYON_MODULE = [
+    {
+        path: PATHS.GLASS_TRYON,
+        element: GlassTryOnPage,
+        props: { apiAdapter: glassTryOnApiAdapter },
+    },
+];
+
 // ── Full config ───────────────────────────────────────────────────────────────
 export const routesConfig = [
     // Public routes
@@ -241,6 +253,7 @@ export const routesConfig = [
                     ...SALES_MODULE,
                     ...REPORTS_MODULE,
                     ...TENANTS_MODULE,
+                    ...GLASS_TRYON_MODULE,
                     {
                         path: PATHS.ECOMMERCE.SUNGLASSES,
                         element: FeatureFlagRoute,
