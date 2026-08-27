@@ -6,6 +6,7 @@ export default function GlassCarousel({
     selectedGlass,
     onSelectGlass,
     isLoading = false,
+    onOpenUploadModal,
 }) {
     const [activeCategory, setActiveCategory] = useState('ALL');
     const [activeShape, setActiveShape] = useState('ALL');
@@ -29,22 +30,37 @@ export default function GlassCarousel({
                     </span>
                 </div>
 
-                {/* Category Pills */}
-                <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
-                    {FRAME_CATEGORIES.map((cat) => (
+                <div className="flex items-center gap-2">
+                    {onOpenUploadModal && (
                         <button
-                            key={cat.id}
                             type="button"
-                            onClick={() => setActiveCategory(cat.id)}
-                            className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-all shrink-0 ${
-                                activeCategory === cat.id
-                                    ? 'bg-indigo-600 text-white shadow-xs'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}
+                            onClick={onOpenUploadModal}
+                            className="text-xs font-bold px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl transition-all flex items-center gap-1.5 shrink-0 border border-indigo-200/80"
                         >
-                            {cat.label}
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                            </svg>
+                            Upload Frame
                         </button>
-                    ))}
+                    )}
+
+                    {/* Category Pills */}
+                    <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
+                        {FRAME_CATEGORIES.map((cat) => (
+                            <button
+                                key={cat.id}
+                                type="button"
+                                onClick={() => setActiveCategory(cat.id)}
+                                className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-all shrink-0 ${
+                                    activeCategory === cat.id
+                                        ? 'bg-indigo-600 text-white shadow-xs'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                }`}
+                            >
+                                {cat.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
@@ -71,12 +87,25 @@ export default function GlassCarousel({
                 <div className="py-12 text-center text-gray-400 text-xs animate-pulse">
                     Loading eyewear catalog...
                 </div>
-            ) : filteredGlasses.length === 0 ? (
-                <div className="py-10 text-center text-gray-400 text-xs bg-gray-50/60 rounded-xl">
-                    No frames found for this filter.
-                </div>
             ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[360px] overflow-y-auto pr-1">
+                    {/* + Upload Custom Frame Card */}
+                    {onOpenUploadModal && (
+                        <button
+                            type="button"
+                            onClick={onOpenUploadModal}
+                            className="group relative bg-indigo-50/20 hover:bg-indigo-50/60 rounded-xl p-3 border-2 border-dashed border-indigo-200 hover:border-indigo-400 transition-all text-center flex flex-col items-center justify-center min-h-[140px]"
+                        >
+                            <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                            </div>
+                            <p className="text-xs font-bold text-indigo-900">+ Upload Frame</p>
+                            <p className="text-[10px] text-gray-500 mt-0.5">1 or 3 Angles</p>
+                        </button>
+                    )}
+
                     {filteredGlasses.map((glass) => {
                         const isSelected = selectedGlass?.id === glass.id;
                         return (
@@ -90,12 +119,19 @@ export default function GlassCarousel({
                                         : 'border-gray-200 hover:border-gray-300'
                                 }`}
                             >
-                                {/* Active Badge */}
-                                {isSelected && (
-                                    <div className="absolute top-2 right-2 bg-indigo-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                                        Active
-                                    </div>
-                                )}
+                                {/* Active Badge or Custom Badge */}
+                                <div className="absolute top-2 right-2 flex items-center gap-1">
+                                    {glass.isCustom && (
+                                        <span className="bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                                            Custom
+                                        </span>
+                                    )}
+                                    {isSelected && (
+                                        <span className="bg-indigo-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                                            Active
+                                        </span>
+                                    )}
+                                </div>
 
                                 {/* Frame Thumbnail Preview */}
                                 <div className="h-16 flex items-center justify-center p-1 my-1">
@@ -114,9 +150,13 @@ export default function GlassCarousel({
                                     <p className="text-xs font-bold text-gray-800 truncate">
                                         {glass.name}
                                     </p>
-                                    {glass.price > 0 && (
+                                    {glass.price > 0 ? (
                                         <p className="text-xs font-mono font-semibold text-indigo-600 mt-0.5">
                                             ₹{glass.price}
+                                        </p>
+                                    ) : (
+                                        <p className="text-[10px] text-emerald-600 font-semibold mt-0.5">
+                                            {glass.images ? '3D 3-Angles' : '2.5D Ready'}
                                         </p>
                                     )}
                                 </div>

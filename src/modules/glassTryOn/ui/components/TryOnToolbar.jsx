@@ -7,6 +7,9 @@ export default function TryOnToolbar({
     resetTransforms,
     hideGlasses,
     setHideGlasses,
+    showFaceMesh,
+    setShowFaceMesh,
+    poseInfo,
     onSaveSnapshot,
 }) {
     const [isExpanded, setIsExpanded] = useState(false);
@@ -17,11 +20,25 @@ export default function TryOnToolbar({
                 <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
                     <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700">
-                        Fit & Calibration
+                        2.5D Tracking & Calibration
                     </h4>
                 </div>
 
                 <div className="flex items-center gap-2">
+                    {/* Face Mesh Wireframe Toggle */}
+                    <button
+                        type="button"
+                        onClick={() => setShowFaceMesh(!showFaceMesh)}
+                        className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 ${
+                            showFaceMesh
+                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                                : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-gray-200'
+                        }`}
+                    >
+                        <span>🕸️</span>
+                        Mesh {showFaceMesh ? 'ON' : 'OFF'}
+                    </button>
+
                     <button
                         type="button"
                         onClick={resetTransforms}
@@ -47,6 +64,27 @@ export default function TryOnToolbar({
                     </button>
                 </div>
             </div>
+
+            {/* Live 2.5D Pose Telemetry HUD */}
+            {poseInfo && (
+                <div className="flex items-center justify-between bg-slate-900 text-white px-3.5 py-2 rounded-xl text-[11px] font-mono shadow-inner">
+                    <div className="flex items-center gap-1.5 text-slate-300">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                        <span>Pose 2.5D:</span>
+                    </div>
+                    <div className="flex items-center gap-3 font-semibold">
+                        <span title="Head Yaw (Left / Right)">
+                            Yaw: <span className="text-indigo-400">{poseInfo.yawDeg || 0}°</span>
+                        </span>
+                        <span title="Head Pitch (Up / Down)">
+                            Pitch: <span className="text-emerald-400">{poseInfo.pitchDeg || 0}°</span>
+                        </span>
+                        <span title="Head Roll (Tilt)">
+                            Roll: <span className="text-amber-400">{poseInfo.rollDeg || 0}°</span>
+                        </span>
+                    </div>
+                </div>
+            )}
 
             {/* Core Sliders (Always Visible) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useGlassTryOn } from '../../application/hooks/useGlassTryOn';
 import { useCamera } from '../../application/hooks/useCamera';
 import { TRYON_TABS } from '../../constants';
@@ -7,7 +7,9 @@ import FacePreview from '../components/FacePreview';
 import UploadImage from '../components/UploadImage';
 import TryOnToolbar from '../components/TryOnToolbar';
 import GlassCarousel from '../components/GlassCarousel';
+import FaceShapeBadge from '../components/FaceShapeBadge';
 import SaveDialog from '../dialogs/SaveDialog';
+import UploadGlassDialog from '../dialogs/UploadGlassDialog';
 
 export default function GlassTryOnPage({ apiAdapter }) {
     const [glasses, setGlasses] = useState([]);
@@ -15,8 +17,10 @@ export default function GlassTryOnPage({ apiAdapter }) {
     const [activeTab, setActiveTab] = useState(TRYON_TABS.MODELS);
     const [savedSnapshotUrl, setSavedSnapshotUrl] = useState(null);
     const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+    const [recommendedFilter, setRecommendedFilter] = useState(null);
 
-    // Main Try-On Coordinator Hook
+    // Upgraded 2.5D Try-On Coordinator Hook
     const {
         canvasRef,
         selectedGlass,
@@ -28,6 +32,11 @@ export default function GlassTryOnPage({ apiAdapter }) {
         resetTransforms,
         hideGlasses,
         setHideGlasses,
+        showFaceMesh,
+        setShowFaceMesh,
+        faceShapeInfo,
+        poseInfo,
+        processLiveVideoFrame,
         getSnapshotDataUrl,
         canvasEvents,
         isDragging,
@@ -41,7 +50,6 @@ export default function GlassTryOnPage({ apiAdapter }) {
         isStreaming: isCameraActive,
         startCamera,
         stopCamera,
-        captureSnapshot,
     } = useCamera();
 
     // Fetch Glasses via API adapter on mount
@@ -72,6 +80,28 @@ export default function GlassTryOnPage({ apiAdapter }) {
         };
     }, [apiAdapter, setSelectedGlass]);
 
+    // Handle adding custom uploaded glasses (Single or 3-Angles)
+    const handleAddCustomGlass = (newGlass) => {
+        setGlasses((prev) => [newGlass, ...prev]);
+        setSelectedGlass(newGlass);
+    };
+
+    // Filter glasses by recommended face shape styles if applied
+    const displayedGlasses = useMemo(() => {
+        if (!recommendedFilter || recommendedFilter.length === 0) {
+            return glasses;
+        }
+        return glasses.filter((g) => recommendedFilter.includes(g.shape));
+    }, [glasses, recommendedFilter]);
+
+    const handleToggleRecommendedFilter = (styles) => {
+        if (recommendedFilter) {
+            setRecommendedFilter(null);
+        } else {
+            setRecommendedFilter(styles);
+        }
+    };
+
     // Handle Camera Snapshot to Face Source
     const handleStartCamera = async () => {
         await startCamera();
@@ -84,19 +114,26 @@ export default function GlassTryOnPage({ apiAdapter }) {
         setFaceSourceUrl(faceUrl);
     };
 
-    // When Camera is active, continuously capture frame or set snapshot
+    // When Camera is active, continuously run 60 FPS real-time MediaPipe AI face tracking
     useEffect(() => {
-        if (!isCameraActive) return;
+        if (!isCameraActive || !cameraVideoRef.current) return;
 
-        const interval = setInterval(() => {
-            const snap = captureSnapshot();
-            if (snap) {
-                setFaceSourceUrl(snap);
+        let animationFrameId;
+        const trackingLoop = () => {
+            if (cameraVideoRef.current && cameraVideoRef.current.readyState >= 2) {
+                processLiveVideoFrame(cameraVideoRef.current);
             }
-        }, 120);
+            animationFrameId = requestAnimationFrame(trackingLoop);
+        };
 
-        return () => clearInterval(interval);
-    }, [isCameraActive, captureSnapshot, setFaceSourceUrl]);
+        animationFrameId = requestAnimationFrame(trackingLoop);
+
+        return () => {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+        };
+    }, [isCameraActive, cameraVideoRef, processLiveVideoFrame]);
 
     // Save & Download Action
     const handleOpenSaveDialog = () => {
@@ -120,15 +157,25 @@ export default function GlassTryOnPage({ apiAdapter }) {
                             </svg>
                         </span>
                         <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
-                            Virtual Glass Try-On Studio
+                            Virtual Glass Try-On Studio 2.5D
                         </h1>
                     </div>
                     <p className="text-xs font-medium text-gray-500 mt-1">
-                        Select a model or upload a photo to preview optical frames & sunglasses in real-time
+                        Real-time face mapping, AI face shape classification & 2.5D head pose tracking
                     </p>
                 </div>
 
                 <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setIsUploadModalOpen(true)}
+                        className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-indigo-200/80"
+                    >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Upload Glasses
+                    </button>
                     <button
                         type="button"
                         onClick={resetTransforms}
@@ -151,9 +198,9 @@ export default function GlassTryOnPage({ apiAdapter }) {
 
             {/* Main Studio Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* Left Column: Interactive Canvas & Calibration Controls */}
+                {/* Left Column: Interactive 2.5D Viewport & Calibration Controls */}
                 <div className="lg:col-span-7 space-y-4">
-                    {/* Viewport Canvas */}
+                    {/* 2.5D Viewport Canvas */}
                     <FacePreview
                         canvasRef={canvasRef}
                         canvasEvents={canvasEvents}
@@ -164,19 +211,31 @@ export default function GlassTryOnPage({ apiAdapter }) {
                         isDragging={isDragging}
                     />
 
-                    {/* Calibration & Micro-Fit Toolbar */}
+                    {/* Calibration & 2.5D Tracking Toolbar */}
                     <TryOnToolbar
                         transforms={transforms}
                         updateTransform={updateTransform}
                         resetTransforms={resetTransforms}
                         hideGlasses={hideGlasses}
                         setHideGlasses={setHideGlasses}
+                        showFaceMesh={showFaceMesh}
+                        setShowFaceMesh={setShowFaceMesh}
+                        poseInfo={poseInfo}
                         onSaveSnapshot={handleOpenSaveDialog}
                     />
                 </div>
 
-                {/* Right Column: Face Selection & Frame Catalog */}
+                {/* Right Column: AI Face Shape, Photo Selector & Frame Catalog */}
                 <div className="lg:col-span-5 space-y-4">
+                    {/* AI Face Shape Detection Badge & Recommendation */}
+                    {faceShapeInfo && (
+                        <FaceShapeBadge
+                            faceShapeInfo={faceShapeInfo}
+                            onApplyFilter={handleToggleRecommendedFilter}
+                            isFilterActive={Boolean(recommendedFilter)}
+                        />
+                    )}
+
                     {/* Model & Photo Selector */}
                     <UploadImage
                         activeTab={activeTab}
@@ -189,13 +248,21 @@ export default function GlassTryOnPage({ apiAdapter }) {
 
                     {/* Frame Catalog & Selector */}
                     <GlassCarousel
-                        glasses={glasses}
+                        glasses={displayedGlasses}
                         selectedGlass={selectedGlass}
                         onSelectGlass={setSelectedGlass}
                         isLoading={isLoadingGlasses}
+                        onOpenUploadModal={() => setIsUploadModalOpen(true)}
                     />
                 </div>
             </div>
+
+            {/* Upload Custom Glasses Modal */}
+            <UploadGlassDialog
+                isOpen={isUploadModalOpen}
+                onClose={() => setIsUploadModalOpen(false)}
+                onAddGlass={handleAddCustomGlass}
+            />
 
             {/* Save & Download Modal */}
             <SaveDialog

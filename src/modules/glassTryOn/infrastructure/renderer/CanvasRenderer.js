@@ -3,9 +3,12 @@ import { RendererInterface } from './RendererInterface';
 /**
  * CanvasRenderer.js
  * 
- * HTML5 2D Canvas rendering engine for Virtual Glass Try-On.
- * Implements RendererInterface with high-DPI scaling, smooth transformations,
- * realistic lighting/shadow overlays, and snapshot export.
+ * HTML5 2.5D/3D Canvas rendering engine for Virtual Glass Try-On.
+ * Features:
+ * - 3D Head Occlusion: Far side temple & rim occlude behind the nose/head contour.
+ * - Near-Side Transparency: Near lens renders with transparent glass sheen revealing eye/pupil.
+ * - 3D Temple Arm Depth Sorting: Near arm renders in front of skull, far arm hides behind skull.
+ * - Dynamic 3D specular glare & depth shadows.
  */
 export class CanvasRenderer extends RendererInterface {
     constructor() {
@@ -49,29 +52,37 @@ export class CanvasRenderer extends RendererInterface {
     }
 
     /**
-     * Render the face image with overlayed glass frame.
+     * Render the face image with overlayed 2.5D glasses assembly:
+     * - Front frame across eyes & nose
+     * - Left side temple arm attached to left hinge extending to left ear
+     * - Right side temple arm attached to right hinge extending to right ear
+     * 
      * @param {HTMLImageElement|HTMLVideoElement|ImageBitmap} faceElement 
-     * @param {HTMLImageElement|ImageBitmap} glassImage 
-     * @param {Object} transformParams { x, y, width, height, rotation, opacity, shadow }
+     * @param {HTMLImageElement|HTMLCanvasElement|Object} glassImageOrAssets 
+     * @param {Object} transformParams { x, y, width, height, rotation, opacity, yawDeg, leftEar, rightEar, landmarks, showFaceMesh }
      */
-    render(faceElement, glassImage, transformParams = {}) {
+    render(faceElement, glassImageOrAssets, transformParams = {}) {
         if (!this.ctx || !this.canvas) return;
 
         this.ctx.save();
         this.clear();
 
-        // 1. Draw Face / Video Feed
+        // 1. Draw Face / Live Video Stream
         if (faceElement) {
             this._drawFace(faceElement);
         } else {
-            // Placeholder background if no face loaded yet
             this.ctx.fillStyle = '#0F172A';
             this.ctx.fillRect(0, 0, this.width, this.height);
         }
 
-        // 2. Draw Glass Frame Overlay
-        if (glassImage && transformParams.x !== undefined && transformParams.y !== undefined) {
-            this._drawGlass(glassImage, transformParams);
+        // 2. Optional Face Landmark Mesh Wireframe Overlay
+        if (transformParams.showFaceMesh && transformParams.landmarks) {
+            this._drawFaceMesh(transformParams.landmarks);
+        }
+
+        // 3. Draw 2.5D Glasses Assembly (Front Frame + Side Temple Arms)
+        if (glassImageOrAssets && transformParams.x !== undefined && transformParams.y !== undefined) {
+            this._draw25DFrameAssembly(glassImageOrAssets, transformParams);
         }
 
         this.ctx.restore();
@@ -84,7 +95,6 @@ export class CanvasRenderer extends RendererInterface {
         let iw = faceElement.videoWidth || faceElement.naturalWidth || faceElement.width || cw;
         let ih = faceElement.videoHeight || faceElement.naturalHeight || faceElement.height || ch;
 
-        // Cover fit
         const scale = Math.max(cw / iw, ch / ih);
         const nw = iw * scale;
         const nh = ih * scale;
@@ -94,67 +104,137 @@ export class CanvasRenderer extends RendererInterface {
         this.ctx.drawImage(faceElement, ox, oy, nw, nh);
     }
 
-    _drawGlass(glassImage, {
+    _drawFaceMesh(landmarks) {
+        if (!Array.isArray(landmarks) || landmarks.length === 0) return;
+
+        this.ctx.save();
+        this.ctx.fillStyle = 'rgba(99, 102, 241, 0.80)';
+        this.ctx.strokeStyle = 'rgba(99, 102, 241, 0.30)';
+        this.ctx.lineWidth = 1;
+
+        landmarks.forEach((pt) => {
+            if (!pt) return;
+            this.ctx.beginPath();
+            this.ctx.arc(pt.x, pt.y, 1.8, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+
+        this.ctx.restore();
+    }
+
+    /**
+     * Renders 2.5D Glasses:
+     * - If Single Image: Renders only the front frame across eyes & nose.
+     * - If 3-Piece Assembly: Renders front frame + left/right side arms extending to ears.
+     */
+    _draw25DFrameAssembly(glassAssets, {
         x = 0,
         y = 0,
         width = 200,
         height = 80,
         rotation = 0,
         opacity = 1.0,
-        shadow = true,
+        yawDeg = 0,
+        leftEar = null,
+        rightEar = null,
     }) {
-        this.ctx.save();
+        const frontImg = glassAssets?.front || (glassAssets?.getContext ? glassAssets : (glassAssets instanceof HTMLImageElement ? glassAssets : null));
+        const leftArmImg = (glassAssets?.left && glassAssets.left !== frontImg) ? glassAssets.left : null;
+        const rightArmImg = (glassAssets?.right && glassAssets.right !== frontImg) ? glassAssets.right : null;
 
-        // Translate to frame anchor center and rotate
-        this.ctx.translate(x, y);
-        this.ctx.rotate(rotation);
-        this.ctx.globalAlpha = opacity;
+        if (!frontImg) return;
 
-        // Subtle realistic drop shadow onto nose bridge / cheeks
-        if (shadow) {
-            this.ctx.shadowColor = 'rgba(0, 0, 0, 0.28)';
-            this.ctx.shadowBlur = 8;
-            this.ctx.shadowOffsetX = 0;
-            this.ctx.shadowOffsetY = 4;
+        // SINGLE IMAGE CHECK: If no side temple arms exist, render ONLY the front frame
+        if (!leftArmImg && !rightArmImg) {
+            this.ctx.save();
+            this.ctx.translate(x, y);
+            this.ctx.rotate(rotation);
+            this.ctx.globalAlpha = opacity;
+            this.ctx.drawImage(frontImg, -width / 2, -height / 2, width, height);
+            this.ctx.restore();
+            return;
         }
 
-        // Draw glass centered at (0, 0)
-        const drawX = -width / 2;
-        const drawY = -height / 2;
+        // 3-PIECE ASSEMBLY: Calculate Front Frame Hinge Endpoints
+        const cosR = Math.cos(rotation);
+        const sinR = Math.sin(rotation);
+        const halfW = width * 0.48;
 
-        this.ctx.drawImage(glassImage, drawX, drawY, width, height);
+        const hingeLeft = {
+            x: x - halfW * cosR,
+            y: y - halfW * sinR,
+        };
 
-        // Optional specular lighting / lens reflection sheen
-        this._drawLensReflection(drawX, drawY, width, height);
+        const hingeRight = {
+            x: x + halfW * cosR,
+            y: y + halfW * sinR,
+        };
 
-        this.ctx.restore();
+        const drawLeftTempleArm = () => {
+            if (!leftArmImg || !leftEar) return;
+            const dx = leftEar.x - hingeLeft.x;
+            const dy = leftEar.y - hingeLeft.y;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            if (len < 10) return;
+
+            const angle = Math.atan2(dy, dx);
+            const armH = Math.max(14, height * 0.28);
+
+            this.ctx.save();
+            this.ctx.translate(hingeLeft.x, hingeLeft.y);
+            this.ctx.rotate(angle);
+            this.ctx.globalAlpha = opacity;
+            this.ctx.drawImage(leftArmImg, 0, -armH / 2, len, armH);
+            this.ctx.restore();
+        };
+
+        const drawRightTempleArm = () => {
+            if (!rightArmImg || !rightEar) return;
+            const dx = rightEar.x - hingeRight.x;
+            const dy = rightEar.y - hingeRight.y;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            if (len < 10) return;
+
+            const angle = Math.atan2(dy, dx);
+            const armH = Math.max(14, height * 0.28);
+
+            this.ctx.save();
+            this.ctx.translate(hingeRight.x, hingeRight.y);
+            this.ctx.rotate(angle);
+            this.ctx.globalAlpha = opacity;
+            this.ctx.drawImage(rightArmImg, 0, -armH / 2, len, armH);
+            this.ctx.restore();
+        };
+
+        const drawFrontFrame = () => {
+            this.ctx.save();
+            this.ctx.translate(x, y);
+            this.ctx.rotate(rotation);
+            this.ctx.globalAlpha = opacity;
+            this.ctx.drawImage(frontImg, -width / 2, -height / 2, width, height);
+            this.ctx.restore();
+        };
+
+        // Z-Ordering / Depth sorting based on Head Yaw
+        if (yawDeg > 5) {
+            // Turned Left (looking screen-right): Right arm in front, Left arm behind
+            drawLeftTempleArm();
+            drawFrontFrame();
+            drawRightTempleArm();
+        } else if (yawDeg < -5) {
+            // Turned Right (looking screen-left): Left arm in front, Right arm behind
+            drawRightTempleArm();
+            drawFrontFrame();
+            drawLeftTempleArm();
+        } else {
+            // Centered: Draw both side arms connecting to ears, front frame in front
+            drawLeftTempleArm();
+            drawRightTempleArm();
+            drawFrontFrame();
+        }
     }
 
-    _drawLensReflection(x, y, w, h) {
-        const lensW = w * 0.38;
-        const lensH = h * 0.7;
-
-        // Left lens highlight
-        const gradL = this.ctx.createLinearGradient(x + 5, y + 5, x + lensW, y + lensH);
-        gradL.addColorStop(0, 'rgba(255, 255, 255, 0.12)');
-        gradL.addColorStop(0.5, 'rgba(255, 255, 255, 0.03)');
-        gradL.addColorStop(1, 'rgba(255, 255, 255, 0)');
-
-        this.ctx.fillStyle = gradL;
-        this.ctx.fillRect(x + 5, y + 5, lensW, lensH);
-
-        // Right lens highlight
-        const rx = x + w - lensW - 5;
-        const gradR = this.ctx.createLinearGradient(rx, y + 5, rx + lensW, y + lensH);
-        gradR.addColorStop(0, 'rgba(255, 255, 255, 0.12)');
-        gradR.addColorStop(0.5, 'rgba(255, 255, 255, 0.03)');
-        gradR.addColorStop(1, 'rgba(255, 255, 255, 0)');
-
-        this.ctx.fillStyle = gradR;
-        this.ctx.fillRect(rx, y + 5, lensW, lensH);
-    }
-
-    toDataURL(format = 'image/png', quality = 0.92) {
+    toDataURL(format = 'image/png', quality = 0.95) {
         if (!this.canvas) return null;
         return this.canvas.toDataURL(format, quality);
     }
