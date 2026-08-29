@@ -141,7 +141,7 @@ function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loadi
                     {/* Order Journey - Horizontal Stepper on Mobile, Vertical Sidebar on Desktop */}
                     <div className="w-full md:w-48 flex-shrink-0 border-b md:border-b-0 md:border-r border-slate-100 p-3 sm:p-4 md:p-6 overflow-x-auto md:overflow-y-auto bg-slate-50/50 md:bg-transparent">
                         <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 md:mb-4">Order Journey</p>
-                        
+
                         {/* Mobile Stepper (Horizontal) */}
                         <div className="flex md:hidden items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
                             {ALL_STEPS.map((step, idx) => {
@@ -151,17 +151,15 @@ function StatusJourneyModal({ order, currentStatus, onClose, onTransition, loadi
                                 return (
                                     <div
                                         key={step}
-                                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap border flex-shrink-0 ${
-                                            isDone
+                                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap border flex-shrink-0 ${isDone
                                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                                 : isCurrent
-                                                ? 'bg-blue-50 text-blue-700 border-blue-300 ring-2 ring-blue-100'
-                                                : 'bg-white text-slate-400 border-slate-200'
-                                        }`}
+                                                    ? 'bg-blue-50 text-blue-700 border-blue-300 ring-2 ring-blue-100'
+                                                    : 'bg-white text-slate-400 border-slate-200'
+                                            }`}
                                     >
-                                        <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${
-                                            isDone ? 'bg-emerald-500 text-white' : isCurrent ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-500'
-                                        }`}>
+                                        <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${isDone ? 'bg-emerald-500 text-white' : isCurrent ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-500'
+                                            }`}>
                                             {isDone ? '✓' : idx + 1}
                                         </span>
                                         <span>{cfg.label}</span>
@@ -971,278 +969,278 @@ const AllOrdersList = ({ isPendingOnly = false, defaultStatus = '' }) => {
                                     </tr>
                                 </thead>
                                 <tbody className="text-gray-600">
-                                {orders.map((order) => {
-                                    const totalOrders = order.orders?.length || 0;
-                                    let totalItemsQty = 0;
-                                    let grandTotal = 0;
-                                    let orderStatus = 'PENDING';
-                                    console.log(order, "order")
+                                    {orders.map((order) => {
+                                        const totalOrders = order.orders?.length || 0;
+                                        let totalItemsQty = 0;
+                                        let grandTotal = 0;
+                                        let orderStatus = 'PENDING';
+                                        console.log(order, "order")
 
-                                    if (totalOrders > 0) {
-                                        orderStatus = order.orders[0]?.status || 'PENDING';
-                                        order.orders.forEach(bo => {
-                                            if (bo.items) {
-                                                bo.items.forEach(item => {
-                                                    totalItemsQty += (Number(item.qty) || 0);
-                                                });
-                                            }
-                                        });
-                                    }
+                                        if (totalOrders > 0) {
+                                            orderStatus = order.orders[0]?.status || 'PENDING';
+                                            order.orders.forEach(bo => {
+                                                if (bo.items) {
+                                                    bo.items.forEach(item => {
+                                                        totalItemsQty += (Number(item.qty) || 0);
+                                                    });
+                                                }
+                                            });
+                                        }
 
-                                    return (
-                                        <React.Fragment key={order._id}>
-                                            <tr
-                                                className={`border-b border-gray-100 last:border-b-0 hover:bg-erp-accent/5/20 transition-all h-16 cursor-pointer ${expandedRows.has(order._id) ? 'bg-erp-accent/5/10' : ''}`}
-                                                onClick={() => toggleRow(order._id)}
-                                            >
-                                                <td className="px-4 py-2 text-center border-r border-gray-50">
-                                                    <span className="text-xs font-black text-erp-accent/80 font-mono tracking-tighter uppercase">
-                                                        #{order.orders?.[0]?.orderNumber || order?._id?.slice(-6) || '---'}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-2 text-center border-r border-gray-50">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-sm font-black text-gray-800 tracking-tight">{order?.customer?.customerName || '---'}</span>
-                                                        <span className="text-[10px] text-gray-400 font-bold uppercase ">{order?.customer?.customerShipToBranchName || '---'}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-2 text-center border-r border-gray-50">
-                                                    <div className="flex flex-col items-center">
-                                                        <span className="text-xs font-bold text-gray-700">{dayjs(order?.createdAt).format('DD MMM YYYY')}</span>
-                                                        <span className="text-[10px] font-black text-erp-accent/80 uppercase tracking-tighter">{dayjs(order?.createdAt).format('hh:mm A')}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-2 text-center border-r border-gray-50">
-                                                    {(() => {
-                                                        const est = order.estimatedDeliveryDate || order.orders?.[0]?.estimatedDeliveryDate;
-                                                        return est ? (
-                                                            <div className="flex flex-col items-center">
-                                                                <span className="text-xs font-bold text-[#2980B9]">{dayjs(est).format('DD MMM YYYY')}</span>
-                                                                <span className="text-[10px] font-black text-gray-400 uppercase">{dayjs(est).format('hh:mm A')}</span>
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-xs text-gray-400 font-medium">---</span>
-                                                        );
-                                                    })()}
-                                                </td>
-                                                <td className="px-4 py-2 text-center border-r border-gray-50">
-                                                    <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-black uppercase tracking-widest border border-blue-100">
-                                                        {totalOrders}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-2 text-center border-r border-gray-50">
-                                                    <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-md text-xs font-black uppercase tracking-widest border border-amber-100">
-                                                        {totalItemsQty}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-2 text-center border-r border-gray-50">
-                                                    {(() => {
-                                                        const summary = order.summary || {};
-                                                        const grand = Number(summary.grandTotal ?? order?.orders?.[0]?.totalOrderPrice ?? 0);
-                                                        const advanceVal = Number(summary.advanceAmount ?? order.advanceAmount ?? 0);
-                                                        const nowPayableVal = summary.nowPayable !== undefined ? Number(summary.nowPayable) : (grand - advanceVal);
-
-                                                        return (
-                                                            <div className="flex flex-col items-center">
-                                                                <span className="text-sm font-black text-gray-800 tracking-tight">
-                                                                    ₹{grand.toFixed(2)}
-                                                                </span>
-                                                                {advanceVal > 0 && (
-                                                                    <span className="text-[10px] font-bold text-emerald-600">
-                                                                        Adv: ₹{advanceVal} | Due: ₹{nowPayableVal.toFixed(2)}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })()}
-                                                </td>
-                                                <td className="px-4 py-2 text-center border-r border-gray-50">
-                                                    {(() => {
-                                                        const cfg = STATUS_CONFIG[orderStatus] || STATUS_CONFIG[Object.keys(STATUS_CONFIG).find(k => k.toLowerCase() === orderStatus?.toLowerCase())] || { label: orderStatus, badge: 'bg-gray-100 text-gray-700 border-gray-200' };
-                                                        return (
-                                                            <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${cfg.badge}`}>
-                                                                {cfg.label}
-                                                            </span>
-                                                        );
-                                                    })()}
-                                                </td>
-                                                <td className="px-4 py-2 text-center relative" onClick={(e) => e.stopPropagation()}>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            const rect = e.currentTarget.getBoundingClientRect();
-                                                            if (activeActionMenu?.id === order._id) {
-                                                                setActiveActionMenu(null);
-                                                            } else {
-                                                                setActiveActionMenu({
-                                                                    id: order._id,
-                                                                    top: rect.bottom + window.scrollY,
-                                                                    left: rect.right,
-                                                                    order,
-                                                                    orderStatus,
-                                                                    canUpdateStatus
-                                                                });
-                                                            }
-                                                        }}
-                                                        className={`p-2 rounded-xl transition-all ${activeActionMenu?.id === order._id ? 'bg-erp-accent text-white shadow-lg' : 'text-gray-400 hover:text-erp-accent hover:bg-erp-accent/5'}`}
-                                                    >
-                                                        <Icon icon="mdi:dots-vertical" className="w-6 h-6" />
-                                                    </button>
-                                                </td>
-                                            </tr>
-
-                                            {/* Collapsible Details Row */}
-                                            {expandedRows.has(order._id) && (
-                                                <tr className="bg-gray-50/50">
-                                                    <td colSpan="8" className="p-0 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
-                                                        <div className="p-8 border-x-4 border-erp-accent/20 bg-gradient-to-br from-white to-amber-50/30 flex flex-col gap-8">
-                                                            {order.orders?.map((subOrder, soIndex) => (
-                                                                <div key={soIndex} className="flex flex-col gap-6 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                                                                    <div className="flex justify-between items-center border-b border-gray-100 pb-4">
-                                                                        <div className="flex items-center gap-3">
-                                                                            <span className="text-sm font-black text-erp-accent uppercase">Sub Order: {subOrder.orderNumber || 'N/A'}</span>
-                                                                            <span className={getStatusBadge(subOrder.status)}>{subOrder.status || 'PENDING'}</span>
-                                                                        </div>
-                                                                        <div className="flex items-center gap-4">
-                                                                            {subOrder.cgst && <span className="text-xs font-bold text-gray-500">CGST: {subOrder.cgst}%</span>}
-                                                                            {subOrder.sgst && <span className="text-xs font-bold text-gray-500">SGST: {subOrder.sgst}%</span>}
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <div className="flex flex-col gap-6">
-                                                                        {subOrder.items?.map((item, itemIdx) => (
-                                                                            <div key={itemIdx} className="flex flex-col gap-4 p-5 rounded-2xl bg-gray-50/50 border border-gray-100">
-                                                                                <div className="flex justify-between items-center">
-                                                                                    <div className="flex flex-col">
-                                                                                        <span className="text-sm font-black text-gray-800">{item.itemName || 'Unnamed Item'}</span>
-                                                                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{item.category} • {item.orderType}</span>
-                                                                                    </div>
-                                                                                    <div className="flex items-center gap-4">
-                                                                                        <span className="text-xs font-black text-gray-600 bg-white px-3 py-1 rounded-lg border border-gray-200">Qty: {item.qty} {item.unit}</span>
-                                                                                        <span className="text-sm font-black text-erp-accent">₹{item.price}</span>
-                                                                                    </div>
-                                                                                </div>
-
-                                                                                {item.orderType === 'RX' && item.rx && (
-                                                                                    <>
-                                                                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-2">
-                                                                                            <DetailSection title="Patient Info">
-                                                                                                <DetailItem label="Card Name" value={item.rx.consumerCardName} />
-                                                                                                <DetailItem label="Optician" value={item.rx.opticianName} />
-                                                                                                <DetailItem label="Reference" value={item.rx.orderReference} />
-                                                                                            </DetailSection>
-                                                                                            <DetailSection title="Centration (R)">
-                                                                                                <DetailItem label="PD" value={item.rx.centration?.find(c => c.side === 'R')?.pd} />
-                                                                                                <DetailItem label="Corridor" value={item.rx.centration?.find(c => c.side === 'R')?.corridor} />
-                                                                                                <DetailItem label="Fitting Ht" value={item.rx.centration?.find(c => c.side === 'R')?.fittingHeight} />
-                                                                                            </DetailSection>
-                                                                                            <DetailSection title="Centration (L)">
-                                                                                                <DetailItem label="PD" value={item.rx.centration?.find(c => c.side === 'L')?.pd} />
-                                                                                                <DetailItem label="Corridor" value={item.rx.centration?.find(c => c.side === 'L')?.corridor} />
-                                                                                                <DetailItem label="Fitting Ht" value={item.rx.centration?.find(c => c.side === 'L')?.fittingHeight} />
-                                                                                            </DetailSection>
-                                                                                            <DetailSection title="Technical Details">
-                                                                                                <DetailItem label="Frame Type" value={item.rx.fitting?.frameType} />
-                                                                                                <DetailItem label="Coating" value={item.rx.coating?.name || item.coating} />
-                                                                                                <DetailItem label="Treatment" value={item.rx.treatment?.name} />
-                                                                                                <DetailItem label="Tint" value={item.rx.tint?.name || item.tint} />
-                                                                                            </DetailSection>
-                                                                                        </div>
-
-                                                                                        {/* Power Table for RX */}
-                                                                                        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm mt-2">
-                                                                                            <div className="grid grid-cols-6 bg-gray-50/80 px-6 py-2 border-b border-gray-100">
-                                                                                                <span className="text-[10px] font-black uppercase text-gray-400">Eye</span>
-                                                                                                <span className="text-[10px] font-black uppercase text-gray-400">SPH</span>
-                                                                                                <span className="text-[10px] font-black uppercase text-gray-400">CYL</span>
-                                                                                                <span className="text-[10px] font-black uppercase text-gray-400">AXIS</span>
-                                                                                                <span className="text-[10px] font-black uppercase text-gray-400">ADD</span>
-                                                                                                <span className="text-[10px] font-black uppercase text-gray-400">PRISM</span>
-                                                                                            </div>
-                                                                                            {['R', 'L'].filter(side => item.rx.powers?.some(p => p.side === side)).map((side) => {
-                                                                                                const power = item.rx.powers?.find(p => p.side === side) || {};
-                                                                                                const prism = item.rx.prisms?.find(p => p.side === side) || {};
-                                                                                                return (
-                                                                                                    <div key={side} className="grid grid-cols-6 px-6 py-3 border-b border-gray-50 last:border-b-0">
-                                                                                                        <span className="text-xs font-black text-erp-accent">{side === 'R' ? 'Right Eye' : 'Left Eye'}</span>
-                                                                                                        <span className="text-xs font-bold text-gray-800">{power.sph ?? '---'}</span>
-                                                                                                        <span className="text-xs font-bold text-gray-800">{power.cyl ?? '---'}</span>
-                                                                                                        <span className="text-xs font-bold text-gray-800">{power.axis ?? '---'}</span>
-                                                                                                        <span className="text-xs font-bold text-gray-800">{power.add ?? '---'}</span>
-                                                                                                        <span className="text-xs font-bold text-gray-800">{prism.prism ? `${prism.prism} / ${prism.base}` : '---'}</span>
-                                                                                                    </div>
-                                                                                                );
-                                                                                            })}
-                                                                                        </div>
-                                                                                    </>
-                                                                                )}
-
-                                                                                {item.orderType === 'STOCK' && (
-                                                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-2 bg-white p-5 rounded-2xl border border-gray-100">
-                                                                                        <DetailItem label="SPH" value={item.sph} />
-                                                                                        <DetailItem label="CYL" value={item.cyl} />
-                                                                                        <DetailItem label="AXIS" value={item.axis} />
-                                                                                        <DetailItem label="ADD" value={item.add} />
-                                                                                        <DetailItem label="Index" value={item.index} />
-                                                                                        <DetailItem label="Color" value={item.color} />
-                                                                                        <DetailItem label="Coating" value={item.coating} />
-                                                                                        <DetailItem label="Tint" value={item.tint} />
-                                                                                        <DetailItem label="Expiry" value={item.expiry ? dayjs(item.expiry).format('DD MMM YYYY') : ''} />
-                                                                                        <DetailItem label="Disposability" value={item.disposability} />
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
-
-                                                                    {/* Status Change Audit History */}
-                                                                    {((subOrder.statusHistory && subOrder.statusHistory.length > 0) || (order.statusHistory && order.statusHistory.length > 0)) && (
-                                                                        <div className="bg-white p-5 rounded-2xl border border-gray-100 flex flex-col gap-3">
-                                                                            <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
-                                                                                <Icon icon="mdi:history" className="text-blue-500 text-lg" />
-                                                                                <span className="text-xs font-black text-gray-800 uppercase tracking-wider">Status Change History & Audit Logs</span>
-                                                                            </div>
-                                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                                                {(subOrder.statusHistory || order.statusHistory || []).map((sh, shIdx) => (
-                                                                                    <div key={shIdx} className="p-3 rounded-xl bg-gray-50/80 border border-gray-100 flex flex-col gap-1.5 text-xs">
-                                                                                        <div className="flex justify-between items-center">
-                                                                                            <div className="flex items-center gap-1.5">
-                                                                                                <Icon icon="mdi:account-circle-outline" className="text-gray-400 text-sm" />
-                                                                                                <span className="font-bold text-gray-800">{sh.changedByName || sh.changedBy || 'System'}</span>
-                                                                                            </div>
-                                                                                            <span className="text-[10px] text-gray-400 font-mono">
-                                                                                                {sh.changedAt ? dayjs(sh.changedAt).format('DD MMM YYYY, hh:mm A') : ''}
-                                                                                            </span>
-                                                                                        </div>
-                                                                                        <div className="flex items-center gap-1.5 font-semibold text-[11px]">
-                                                                                            <span className="text-gray-500">{sh.from || 'Started'}</span>
-                                                                                            <Icon icon="mdi:arrow-right" className="text-blue-400 text-xs" />
-                                                                                            <span className="text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">{sh.to}</span>
-                                                                                        </div>
-                                                                                        {sh.remarks && (
-                                                                                            <p className="text-[11px] text-gray-600 bg-white p-2 rounded-lg border border-gray-100 italic">
-                                                                                                &ldquo;{sh.remarks}&rdquo;
-                                                                                            </p>
-                                                                                        )}
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            ))}
+                                        return (
+                                            <React.Fragment key={order._id}>
+                                                <tr
+                                                    className={`border-b border-gray-100 last:border-b-0 hover:bg-erp-accent/5/20 transition-all h-16 cursor-pointer ${expandedRows.has(order._id) ? 'bg-erp-accent/5/10' : ''}`}
+                                                    onClick={() => toggleRow(order._id)}
+                                                >
+                                                    <td className="px-4 py-2 text-center border-r border-gray-50">
+                                                        <span className="text-xs font-black text-erp-accent/80 font-mono tracking-tighter uppercase">
+                                                            #{order.orders?.[0]?.orderNumber || order?._id?.slice(-6) || '---'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-2 text-center border-r border-gray-50">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm font-black text-gray-800 tracking-tight">{order?.customer?.customerName || '---'}</span>
+                                                            <span className="text-[10px] text-gray-400 font-bold uppercase ">{order?.customer?.customerShipToBranchName || '---'}</span>
                                                         </div>
                                                     </td>
+                                                    <td className="px-4 py-2 text-center border-r border-gray-50">
+                                                        <div className="flex flex-col items-center">
+                                                            <span className="text-xs font-bold text-gray-700">{dayjs(order?.createdAt).format('DD MMM YYYY')}</span>
+                                                            <span className="text-[10px] font-black text-erp-accent/80 uppercase tracking-tighter">{dayjs(order?.createdAt).format('hh:mm A')}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-2 text-center border-r border-gray-50">
+                                                        {(() => {
+                                                            const est = order.estimatedDeliveryDate || order.orders?.[0]?.estimatedDeliveryDate;
+                                                            return est ? (
+                                                                <div className="flex flex-col items-center">
+                                                                    <span className="text-xs font-bold text-[#2980B9]">{dayjs(est).format('DD MMM YYYY')}</span>
+                                                                    <span className="text-[10px] font-black text-gray-400 uppercase">{dayjs(est).format('hh:mm A')}</span>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-xs text-gray-400 font-medium">---</span>
+                                                            );
+                                                        })()}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-center border-r border-gray-50">
+                                                        <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-black uppercase tracking-widest border border-blue-100">
+                                                            {totalOrders}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-2 text-center border-r border-gray-50">
+                                                        <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-md text-xs font-black uppercase tracking-widest border border-amber-100">
+                                                            {totalItemsQty}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-2 text-center border-r border-gray-50">
+                                                        {(() => {
+                                                            const summary = order.summary || {};
+                                                            const grand = Number(summary.grandTotal ?? order?.orders?.[0]?.totalOrderPrice ?? 0);
+                                                            const advanceVal = Number(summary.advanceAmount ?? order.advanceAmount ?? 0);
+                                                            const nowPayableVal = summary.nowPayable !== undefined ? Number(summary.nowPayable) : (grand - advanceVal);
+
+                                                            return (
+                                                                <div className="flex flex-col items-center">
+                                                                    <span className="text-sm font-black text-gray-800 tracking-tight">
+                                                                        ₹{grand.toFixed(2)}
+                                                                    </span>
+                                                                    {advanceVal > 0 && (
+                                                                        <span className="text-[10px] font-bold text-emerald-600">
+                                                                            Adv: ₹{advanceVal} | Due: ₹{nowPayableVal.toFixed(2)}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-center border-r border-gray-50">
+                                                        {(() => {
+                                                            const cfg = STATUS_CONFIG[orderStatus] || STATUS_CONFIG[Object.keys(STATUS_CONFIG).find(k => k.toLowerCase() === orderStatus?.toLowerCase())] || { label: orderStatus, badge: 'bg-gray-100 text-gray-700 border-gray-200' };
+                                                            return (
+                                                                <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${cfg.badge}`}>
+                                                                    {cfg.label}
+                                                                </span>
+                                                            );
+                                                        })()}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-center relative" onClick={(e) => e.stopPropagation()}>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const rect = e.currentTarget.getBoundingClientRect();
+                                                                if (activeActionMenu?.id === order._id) {
+                                                                    setActiveActionMenu(null);
+                                                                } else {
+                                                                    setActiveActionMenu({
+                                                                        id: order._id,
+                                                                        top: rect.bottom + window.scrollY,
+                                                                        left: rect.right,
+                                                                        order,
+                                                                        orderStatus,
+                                                                        canUpdateStatus
+                                                                    });
+                                                                }
+                                                            }}
+                                                            className={`p-2 rounded-xl transition-all ${activeActionMenu?.id === order._id ? 'bg-erp-accent text-white shadow-lg' : 'text-gray-400 hover:text-erp-accent hover:bg-erp-accent/5'}`}
+                                                        >
+                                                            <Icon icon="mdi:dots-vertical" className="w-6 h-6" />
+                                                        </button>
+                                                    </td>
                                                 </tr>
-                                            )}
-                                        </React.Fragment>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                </>
-            )}
+
+                                                {/* Collapsible Details Row */}
+                                                {expandedRows.has(order._id) && (
+                                                    <tr className="bg-gray-50/50">
+                                                        <td colSpan="8" className="p-0 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+                                                            <div className="p-8 border-x-4 border-erp-accent/20 bg-gradient-to-br from-white to-amber-50/30 flex flex-col gap-8">
+                                                                {order.orders?.map((subOrder, soIndex) => (
+                                                                    <div key={soIndex} className="flex flex-col gap-6 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                                                                        <div className="flex justify-between items-center border-b border-gray-100 pb-4">
+                                                                            <div className="flex items-center gap-3">
+                                                                                <span className="text-sm font-black text-erp-accent uppercase">Sub Order: {subOrder.orderNumber || 'N/A'}</span>
+                                                                                <span className={getStatusBadge(subOrder.status)}>{subOrder.status || 'PENDING'}</span>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-4">
+                                                                                {subOrder.cgst && <span className="text-xs font-bold text-gray-500">CGST: {subOrder.cgst}</span>}
+                                                                                {subOrder.sgst && <span className="text-xs font-bold text-gray-500">SGST: {subOrder.sgst}</span>}
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div className="flex flex-col gap-6">
+                                                                            {subOrder.items?.map((item, itemIdx) => (
+                                                                                <div key={itemIdx} className="flex flex-col gap-4 p-5 rounded-2xl bg-gray-50/50 border border-gray-100">
+                                                                                    <div className="flex justify-between items-center">
+                                                                                        <div className="flex flex-col">
+                                                                                            <span className="text-sm font-black text-gray-800">{item.itemName || 'Unnamed Item'}</span>
+                                                                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{item.category} • {item.orderType}</span>
+                                                                                        </div>
+                                                                                        <div className="flex items-center gap-4">
+                                                                                            <span className="text-xs font-black text-gray-600 bg-white px-3 py-1 rounded-lg border border-gray-200">Qty: {item.qty} {item.unit}</span>
+                                                                                            <span className="text-sm font-black text-erp-accent">₹{item.price}</span>
+                                                                                        </div>
+                                                                                    </div>
+
+                                                                                    {item.orderType === 'RX' && item.rx && (
+                                                                                        <>
+                                                                                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-2">
+                                                                                                <DetailSection title="Patient Info">
+                                                                                                    <DetailItem label="Card Name" value={item.rx.consumerCardName} />
+                                                                                                    <DetailItem label="Optician" value={item.rx.opticianName} />
+                                                                                                    <DetailItem label="Reference" value={item.rx.orderReference} />
+                                                                                                </DetailSection>
+                                                                                                <DetailSection title="Centration (R)">
+                                                                                                    <DetailItem label="PD" value={item.rx.centration?.find(c => c.side === 'R')?.pd} />
+                                                                                                    <DetailItem label="Corridor" value={item.rx.centration?.find(c => c.side === 'R')?.corridor} />
+                                                                                                    <DetailItem label="Fitting Ht" value={item.rx.centration?.find(c => c.side === 'R')?.fittingHeight} />
+                                                                                                </DetailSection>
+                                                                                                <DetailSection title="Centration (L)">
+                                                                                                    <DetailItem label="PD" value={item.rx.centration?.find(c => c.side === 'L')?.pd} />
+                                                                                                    <DetailItem label="Corridor" value={item.rx.centration?.find(c => c.side === 'L')?.corridor} />
+                                                                                                    <DetailItem label="Fitting Ht" value={item.rx.centration?.find(c => c.side === 'L')?.fittingHeight} />
+                                                                                                </DetailSection>
+                                                                                                <DetailSection title="Technical Details">
+                                                                                                    <DetailItem label="Frame Type" value={item.rx.fitting?.frameType} />
+                                                                                                    <DetailItem label="Coating" value={item.rx.coating?.name || item.coating} />
+                                                                                                    <DetailItem label="Treatment" value={item.rx.treatment?.name} />
+                                                                                                    <DetailItem label="Tint" value={item.rx.tint?.name || item.tint} />
+                                                                                                </DetailSection>
+                                                                                            </div>
+
+                                                                                            {/* Power Table for RX */}
+                                                                                            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm mt-2">
+                                                                                                <div className="grid grid-cols-6 bg-gray-50/80 px-6 py-2 border-b border-gray-100">
+                                                                                                    <span className="text-[10px] font-black uppercase text-gray-400">Eye</span>
+                                                                                                    <span className="text-[10px] font-black uppercase text-gray-400">SPH</span>
+                                                                                                    <span className="text-[10px] font-black uppercase text-gray-400">CYL</span>
+                                                                                                    <span className="text-[10px] font-black uppercase text-gray-400">AXIS</span>
+                                                                                                    <span className="text-[10px] font-black uppercase text-gray-400">ADD</span>
+                                                                                                    <span className="text-[10px] font-black uppercase text-gray-400">PRISM</span>
+                                                                                                </div>
+                                                                                                {['R', 'L'].filter(side => item.rx.powers?.some(p => p.side === side)).map((side) => {
+                                                                                                    const power = item.rx.powers?.find(p => p.side === side) || {};
+                                                                                                    const prism = item.rx.prisms?.find(p => p.side === side) || {};
+                                                                                                    return (
+                                                                                                        <div key={side} className="grid grid-cols-6 px-6 py-3 border-b border-gray-50 last:border-b-0">
+                                                                                                            <span className="text-xs font-black text-erp-accent">{side === 'R' ? 'Right Eye' : 'Left Eye'}</span>
+                                                                                                            <span className="text-xs font-bold text-gray-800">{power.sph ?? '---'}</span>
+                                                                                                            <span className="text-xs font-bold text-gray-800">{power.cyl ?? '---'}</span>
+                                                                                                            <span className="text-xs font-bold text-gray-800">{power.axis ?? '---'}</span>
+                                                                                                            <span className="text-xs font-bold text-gray-800">{power.add ?? '---'}</span>
+                                                                                                            <span className="text-xs font-bold text-gray-800">{prism.prism ? `${prism.prism} / ${prism.base}` : '---'}</span>
+                                                                                                        </div>
+                                                                                                    );
+                                                                                                })}
+                                                                                            </div>
+                                                                                        </>
+                                                                                    )}
+
+                                                                                    {item.orderType === 'STOCK' && (
+                                                                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-2 bg-white p-5 rounded-2xl border border-gray-100">
+                                                                                            <DetailItem label="SPH" value={item.sph} />
+                                                                                            <DetailItem label="CYL" value={item.cyl} />
+                                                                                            <DetailItem label="AXIS" value={item.axis} />
+                                                                                            <DetailItem label="ADD" value={item.add} />
+                                                                                            <DetailItem label="Index" value={item.index} />
+                                                                                            <DetailItem label="Color" value={item.color} />
+                                                                                            <DetailItem label="Coating" value={item.coating} />
+                                                                                            <DetailItem label="Tint" value={item.tint} />
+                                                                                            <DetailItem label="Expiry" value={item.expiry ? dayjs(item.expiry).format('DD MMM YYYY') : ''} />
+                                                                                            <DetailItem label="Disposability" value={item.disposability} />
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+
+                                                                        {/* Status Change Audit History */}
+                                                                        {((subOrder.statusHistory && subOrder.statusHistory.length > 0) || (order.statusHistory && order.statusHistory.length > 0)) && (
+                                                                            <div className="bg-white p-5 rounded-2xl border border-gray-100 flex flex-col gap-3">
+                                                                                <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
+                                                                                    <Icon icon="mdi:history" className="text-blue-500 text-lg" />
+                                                                                    <span className="text-xs font-black text-gray-800 uppercase tracking-wider">Status Change History & Audit Logs</span>
+                                                                                </div>
+                                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                                                    {(subOrder.statusHistory || order.statusHistory || []).map((sh, shIdx) => (
+                                                                                        <div key={shIdx} className="p-3 rounded-xl bg-gray-50/80 border border-gray-100 flex flex-col gap-1.5 text-xs">
+                                                                                            <div className="flex justify-between items-center">
+                                                                                                <div className="flex items-center gap-1.5">
+                                                                                                    <Icon icon="mdi:account-circle-outline" className="text-gray-400 text-sm" />
+                                                                                                    <span className="font-bold text-gray-800">{sh.changedByName || sh.changedBy || 'System'}</span>
+                                                                                                </div>
+                                                                                                <span className="text-[10px] text-gray-400 font-mono">
+                                                                                                    {sh.changedAt ? dayjs(sh.changedAt).format('DD MMM YYYY, hh:mm A') : ''}
+                                                                                                </span>
+                                                                                            </div>
+                                                                                            <div className="flex items-center gap-1.5 font-semibold text-[11px]">
+                                                                                                <span className="text-gray-500">{sh.from || 'Started'}</span>
+                                                                                                <Icon icon="mdi:arrow-right" className="text-blue-400 text-xs" />
+                                                                                                <span className="text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">{sh.to}</span>
+                                                                                            </div>
+                                                                                            {sh.remarks && (
+                                                                                                <p className="text-[11px] text-gray-600 bg-white p-2 rounded-lg border border-gray-100 italic">
+                                                                                                    &ldquo;{sh.remarks}&rdquo;
+                                                                                                </p>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </React.Fragment>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </>
+                )}
 
                 {!loading && pagination.totalPages > 1 && (
                     <div className="flex justify-center items-center gap-4 py-6 border-t border-gray-100 bg-gray-50/30">

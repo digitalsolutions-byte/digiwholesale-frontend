@@ -1,3 +1,4 @@
+import CustomerPaymentModal from './accounting/CustomerPaymentModal';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
@@ -58,6 +59,7 @@ const CustomerList = () => {
     const [expandedRows, setExpandedRows] = useState(new Set());
     const [activeActionMenu, setActiveActionMenu] = useState(null);
     const [selectedCustomerForDeactivate, setSelectedCustomerForDeactivate] = useState(null);
+    const [accountingPaymentCustomer, setAccountingPaymentCustomer] = useState(null);
     const [selectedCustomerForCorrection, setSelectedCustomerForCorrection] = useState(null);
     const [selectedCustomerForContactEdit, setSelectedCustomerForContactEdit] = useState(null);
     const [deactivateLoading, setDeactivateLoading] = useState(false);
@@ -798,6 +800,29 @@ const CustomerList = () => {
                             left: Math.max(10, activeActionMenu.left - window.scrollX - 160)
                         }}
                     >
+                        <button
+                            onClick={() => { navigate(`/accounting/customer-statement/${activeActionMenu.id}`); setActiveActionMenu(null); }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-blue-600 hover:bg-blue-50 transition-colors"
+                        >
+                            <Icon icon="mdi:book-open-page-variant" className="text-lg" />
+                            Khata Statement
+                        </button>
+                        <button
+                            onClick={() => {
+                                setAccountingPaymentCustomer({
+                                    _id: activeActionMenu.cust._id,
+                                    shopName: activeActionMenu.cust.shopName,
+                                    ownerName: activeActionMenu.cust.ownerName,
+                                    mobile: activeActionMenu.cust.mobileNo1 || activeActionMenu.cust.mobile,
+                                    currentBalance: 0
+                                });
+                                setActiveActionMenu(null);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-emerald-600 hover:bg-emerald-50 transition-colors"
+                        >
+                            <Icon icon="mdi:cash-plus" className="text-lg" />
+                            Collect Payment
+                        </button>
                         <button
                             onClick={() => { navigate(`/customer/profile/${activeActionMenu.id}`); setActiveActionMenu(null); }}
                             className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-erp-accent/5 hover:text-erp-accent transition-colors"

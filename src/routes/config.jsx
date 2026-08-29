@@ -55,6 +55,15 @@ import TenantList from '../pages/tenants/TenantList';
 import TenantDetails from '../pages/tenants/TenantDetails';
 import WholesalerSettings from '../pages/owner/WholesalerSettings';
 
+import ChartOfAccounts from '../pages/accounting/ChartOfAccounts';
+import CustomerLedgers from '../pages/accounting/CustomerLedgers';
+import CustomerKhataStatement from '../pages/accounting/CustomerKhataStatement';
+import VendorLedgers from '../pages/accounting/VendorLedgers';
+import VendorStatement from '../pages/accounting/VendorStatement';
+import PaymentList from '../pages/accounting/PaymentList';
+import ChequeManagement from '../pages/accounting/ChequeManagement';
+import AgingReport from '../pages/accounting/AgingReport';
+
 import CustomerLogin from '../pages/CustomerLogin';
 import CustomerLayout from '../components/layout/CustomerLayout';
 import CustomerDashboard from '../pages/CustomerDashboard';
@@ -203,6 +212,17 @@ const TENANTS_MODULE = [
 ];
 
 // ── Full config ───────────────────────────────────────────────────────────────
+const ACCOUNTING_MODULE = [
+    { path: PATHS.ACCOUNTING.COA, element: ChartOfAccounts },
+    { path: PATHS.ACCOUNTING.CUSTOMER_LEDGERS, element: CustomerLedgers },
+    { path: PATHS.ACCOUNTING.CUSTOMER_STATEMENT, element: CustomerKhataStatement },
+    { path: PATHS.ACCOUNTING.VENDOR_LEDGERS, element: VendorLedgers },
+    { path: PATHS.ACCOUNTING.VENDOR_STATEMENT, element: VendorStatement },
+    { path: PATHS.ACCOUNTING.PAYMENTS, element: PaymentList },
+    { path: PATHS.ACCOUNTING.CHEQUES, element: ChequeManagement },
+    { path: PATHS.ACCOUNTING.AGING, element: AgingReport },
+];
+
 export const routesConfig = [
     // Public routes
     { path: PATHS.LOGIN, element: Login, isPublic: true },
@@ -248,6 +268,7 @@ export const routesConfig = [
                     ...SALES_MODULE,
                     ...REPORTS_MODULE,
                     ...TENANTS_MODULE,
+                    ...ACCOUNTING_MODULE,
                     {
                         path: PATHS.ECOMMERCE.SUNGLASSES,
                         element: FeatureFlagRoute,

@@ -137,6 +137,18 @@ const navItems = [
             { label: 'Frames', path: PATHS.ECOMMERCE.FRAMES, page: 'INVENTORY' },
         ],
     },
+    {
+        label: 'Accounts & Payments',
+        icon: 'lucide:coins',
+        subItems: [
+            // { label: 'Chart of Accounts', path: PATHS.ACCOUNTING.COA },
+            { label: 'Customer Khata', path: PATHS.ACCOUNTING.CUSTOMER_LEDGERS },
+            { label: 'Vendor Ledgers', path: PATHS.ACCOUNTING.VENDOR_LEDGERS },
+            { label: 'Payments & Vouchers', path: PATHS.ACCOUNTING.PAYMENTS },
+            { label: 'Cheque Clearance', path: PATHS.ACCOUNTING.CHEQUES },
+            // { label: '30/60/90 Aging Report', path: PATHS.ACCOUNTING.AGING },
+        ],
+    },
     { label: 'Inventory', icon: 'lucide:package-search', path: PATHS.INVENTORY, page: 'INVENTORY' },
     { label: 'Settings', icon: 'lucide:settings', path: PATHS.SETTINGS },
 ];

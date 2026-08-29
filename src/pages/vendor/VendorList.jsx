@@ -1,3 +1,5 @@
+import VendorPayoutModal from '../accounting/VendorPayoutModal';
+import { useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useReactTable, getCoreRowModel, getPaginationRowModel, getFilteredRowModel, flexRender } from "@tanstack/react-table";
@@ -303,6 +305,8 @@ export default function VendorList() {
     const [showOrderModal, setShowOrderModal] = useState(false);
     const [notes, setNotes] = useState("");
     const dispatch = useDispatch();
+    const navigate = useNavigate();
+    const [payoutModalVendor, setPayoutModalVendor] = useState(null);
     const permissions = useSelector(s => s?.auth?.user?.permissions || {});
     const checkPerm = (p) => Array.isArray(permissions) ? permissions.includes(p) : !!permissions[p];
 

@@ -1,3 +1,4 @@
+import CustomerPaymentModal from './accounting/CustomerPaymentModal';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
@@ -17,29 +18,31 @@ const OrderDetails = () => {
     const [trackingModalOpen, setTrackingModalOpen] = useState(false);
     const [trackingForm, setTrackingForm] = useState({ trackingId: '', trackingLink: '' });
     const [updatingTracking, setUpdatingTracking] = useState(false);
+    const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+
+    const fetchOrder = async () => {
+        try {
+            setLoading(true);
+            const res = await getOrderById(id);
+            if (res.success) {
+                setOrder(res.data);
+                const subOrd = res.data?.orders?.[0] || {};
+                setTrackingForm({
+                    trackingId: res.data?.trackingId || subOrd.trackingId || '',
+                    trackingLink: res.data?.trackingLink || subOrd.trackingLink || ''
+                });
+            }
+        } catch (error) {
+            toast.error('Failed to load order details');
+            navigate(PATHS.CUSTOMER_CARE.ALL_ORDERS);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchOrder = async () => {
-            try {
-                setLoading(true);
-                const res = await getOrderById(id);
-                if (res.success) {
-                    setOrder(res.data);
-                    const subOrd = res.data?.orders?.[0] || {};
-                    setTrackingForm({
-                        trackingId: res.data?.trackingId || subOrd.trackingId || '',
-                        trackingLink: res.data?.trackingLink || subOrd.trackingLink || ''
-                    });
-                }
-            } catch (error) {
-                toast.error('Failed to load order details');
-                navigate(PATHS.CUSTOMER_CARE.ALL_ORDERS);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchOrder();
-    }, [id, navigate]);
+    }, [id]);
 
     const handleSaveTracking = async (e) => {
         e.preventDefault();
@@ -239,6 +242,20 @@ const OrderDetails = () => {
                     >
                         <Icon icon="mdi:truck-fast-outline" className="text-base" />
                         <span>{order.trackingId || order.trackingLink ? 'Edit Tracking' : 'Add Tracking'}</span>
+                    </button>
+                    <button
+                        onClick={() => setPaymentModalOpen(true)}
+                        className="px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-1.5 shadow-xs"
+                    >
+                        <Icon icon="mdi:cash-plus" className="text-base" />
+                        <span>Collect Payment</span>
+                    </button>
+                    <button
+                        onClick={() => navigate(`/accounting/customer-statement/${order?.customer?.customerId || order?.customerId || order?.customer?._id}`)}
+                        className="px-3 py-2 rounded-xl bg-blue-50 text-[#2980B9] border border-blue-200 text-xs font-bold hover:bg-[#2980B9] hover:text-white transition-all flex items-center gap-1.5 shadow-xs"
+                    >
+                        <Icon icon="mdi:book-open-page-variant" className="text-base" />
+                        <span>Khata</span>
                     </button>
                     {order.invoiceUrl && (
                         <a
@@ -566,6 +583,20 @@ const OrderDetails = () => {
                         </form>
                     </div>
                 </div>
+            )}
+
+            {paymentModalOpen && (
+                <CustomerPaymentModal
+                    open={paymentModalOpen}
+                    onClose={() => setPaymentModalOpen(false)}
+                    customer={{
+                        _id: order?.customer?.customerId || order?.customerId || order?.customer?._id,
+                        shopName: order?.customer?.shopName || order?.shopName || 'Customer',
+                        ownerName: order?.customer?.ownerName || '',
+                        mobile: order?.customer?.mobile || ''
+                    }}
+                    onSuccess={() => fetchOrder()}
+                />
             )}
         </div>
     );
