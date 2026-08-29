@@ -935,7 +935,7 @@ const OrderWizard = () => {
             const tintData = getFieldData('tints', prod.tintId);
             const treatmentData = getFieldData('treatment', prod.treatmentId);
 
-            const isRx = prod.orderType === 'rx' || prod.availability === 'order' || prod.availability === 'order-to-whom' || !!prod.vendorId;
+            const isRx = String(prod.orderType || '').toLowerCase() === 'rx' && (cat === 'LENS' || cat === 'RX_LENS');
             const cat = determineCategory(categoryData?.name, productData?.name);
 
             // Calculate discount details
@@ -1012,7 +1012,7 @@ const OrderWizard = () => {
             }
 
             // If it is RX, populate nested rx object
-            if (prod.orderType === 'rx' || isRx) {
+            if (isRx) {
                 const powers = [];
                 const mapPower = (side) => {
                     const pSide = prod.powerTable?.[side] || {};
@@ -3711,5 +3711,3 @@ const OrderWizard = () => {
 };
 
 export default OrderWizard;
-
-
