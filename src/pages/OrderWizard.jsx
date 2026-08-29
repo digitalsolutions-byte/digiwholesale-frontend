@@ -935,8 +935,8 @@ const OrderWizard = () => {
             const tintData = getFieldData('tints', prod.tintId);
             const treatmentData = getFieldData('treatment', prod.treatmentId);
 
-            const isRx = String(prod.orderType || '').toLowerCase() === 'rx' && (cat === 'LENS' || cat === 'RX_LENS');
             const cat = determineCategory(categoryData?.name, productData?.name);
+            const isRx = String(prod.orderType || '').toLowerCase() === 'rx' && (cat === 'LENS' || cat === 'RX_LENS');
 
             // Calculate discount details
             const discountAmount = parseFloat(prod.discount) || 0;
