@@ -5,7 +5,6 @@ import {
   Typography,
   Button,
   Grid,
-  Chip,
   Paper,
   Table,
   TableHead,
@@ -13,7 +12,6 @@ import {
   TableCell,
   TableBody,
   TextField,
-  MenuItem,
   CircularProgress
 } from '@mui/material';
 import { Icon } from '@iconify/react';
@@ -29,7 +27,6 @@ const VendorStatement = () => {
   const [statementData, setStatementData] = useState(null);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [voucherType, setVoucherType] = useState('');
 
   const [payoutModalOpen, setPayoutModalOpen] = useState(false);
 
@@ -38,8 +35,7 @@ const VendorStatement = () => {
       setLoading(true);
       const res = await getVendorStatement(vendorId, {
         startDate,
-        endDate,
-        voucherType
+        endDate
       });
       setStatementData(res.data || null);
     } catch (err) {
@@ -53,7 +49,7 @@ const VendorStatement = () => {
     if (vendorId) {
       fetchStatement();
     }
-  }, [vendorId, voucherType]);
+  }, [vendorId]);
 
   const summary = statementData?.summary || {};
   const stats = summary?.statistics || {};
@@ -159,7 +155,7 @@ const VendorStatement = () => {
       {/* Filter Bar */}
       <Card sx={{ p: 2, mb: 3, borderRadius: '12px', border: '1px solid', borderColor: 'divider' }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={3}>
+          <Grid item xs={12} sm={4}>
             <TextField
               label="From Date"
               type="date"
@@ -170,7 +166,7 @@ const VendorStatement = () => {
               fullWidth
             />
           </Grid>
-          <Grid item xs={12} sm={3}>
+          <Grid item xs={12} sm={4}>
             <TextField
               label="To Date"
               type="date"
@@ -181,22 +177,7 @@ const VendorStatement = () => {
               fullWidth
             />
           </Grid>
-          <Grid item xs={12} sm={3}>
-            <TextField
-              select
-              label="Voucher Filter"
-              size="small"
-              value={voucherType}
-              onChange={(e) => setVoucherType(e.target.value)}
-              fullWidth
-            >
-              <MenuItem value="">All Vouchers</MenuItem>
-              <MenuItem value="Purchase Invoice">Purchase Invoice</MenuItem>
-              <MenuItem value="Payment Voucher">Payment Voucher</MenuItem>
-              <MenuItem value="Debit Note">Debit Note (Return)</MenuItem>
-            </TextField>
-          </Grid>
-          <Grid item xs={12} sm={3}>
+          <Grid item xs={12} sm={4}>
             <Button
               variant="contained"
               onClick={fetchStatement}
@@ -227,7 +208,6 @@ const VendorStatement = () => {
             <TableHead sx={{ backgroundColor: '#F8FAFC' }}>
               <TableRow>
                 <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Voucher Type</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Reference No.</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Narration / Details</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700, color: '#059669' }}>Debit (Payout/Return ₹)</TableCell>
@@ -239,14 +219,6 @@ const VendorStatement = () => {
               {transactions.map((t) => (
                 <TableRow key={t._id} hover>
                   <TableCell>{new Date(t.transactionDate).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      label={t.voucherType}
-                      color={t.voucherType === 'Payment Voucher' ? 'success' : t.voucherType === 'Debit Note' ? 'warning' : 'default'}
-                      sx={{ fontWeight: 600, height: 22 }}
-                    />
-                  </TableCell>
                   <TableCell sx={{ fontWeight: 600, fontFamily: 'monospace' }}>
                     {t.referenceNumber}
                   </TableCell>

@@ -129,14 +129,14 @@ export const PATHS = {
     },
         // ACCOUNTING & PAYMENTS MODULE
     ACCOUNTING: {
-        COA: '/accounting/chart-of-accounts',
+        // COA: '/accounting/chart-of-accounts',
         CUSTOMER_LEDGERS: '/accounting/customer-ledgers',
         CUSTOMER_STATEMENT: '/accounting/customer-statement/:customerId',
         VENDOR_LEDGERS: '/accounting/vendor-ledgers',
         VENDOR_STATEMENT: '/accounting/vendor-statement/:vendorId',
         PAYMENTS: '/accounting/payments',
-        CHEQUES: '/accounting/cheques',
-        AGING: '/accounting/aging-report',
+        // CHEQUES: '/accounting/cheques',
+        // AGING: '/accounting/aging-report',
     },
     SETTINGS: '/settings'
 };

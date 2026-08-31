@@ -3,24 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, NavLink } from 'react-router-dom';
 import { useState, useEffect, useMemo } from 'react';
 import { Icon } from '@iconify/react';
-import {
-    Box,
-    Drawer,
-    List,
-    ListItem,
-    ListItemButton,
-    useMediaQuery,
-    ListItemIcon,
-    ListItemText,
-    Collapse,
-    Typography,
-    IconButton,
-    Tooltip,
-    Divider,
-    Avatar,
-    useTheme,
-    alpha
-} from '@mui/material';
+import { Box, Drawer, List, ListItem, ListItemButton, useMediaQuery, ListItemIcon, ListItemText, Collapse, Typography, IconButton, useTheme, alpha } from '@mui/material';
 import { logoutUser } from '../../services/authService';
 import { logOut, selectCurrentUser, selectCurrentTenant } from '../../store/slices/authSlice';
 import usePermissions from '../../hooks/usePermissions';
@@ -28,9 +11,6 @@ import { resetRegistration } from '../../store/slices/customerRegistrationSlice'
 import logo from '../../assets/logo.png';
 import { useFeatureFlags } from '../../context/FeatureFlagsContext';
 
-// ── Nav item definitions ─────────────────────────────────────────────────────
-// `page` must match a pageAccess[] key from the backend login response.
-// Items without a `page` key are visible to all authenticated users.
 const navItems = [
     { label: 'Dashboard', icon: 'lucide:layout-dashboard', path: PATHS.ROOT, page: 'DASHBOARD' },
     {
@@ -145,7 +125,7 @@ const navItems = [
             { label: 'Customer Khata', path: PATHS.ACCOUNTING.CUSTOMER_LEDGERS },
             { label: 'Vendor Ledgers', path: PATHS.ACCOUNTING.VENDOR_LEDGERS },
             { label: 'Payments & Vouchers', path: PATHS.ACCOUNTING.PAYMENTS },
-            { label: 'Cheque Clearance', path: PATHS.ACCOUNTING.CHEQUES },
+            // { label: 'Cheque Clearance', path: PATHS.ACCOUNTING.CHEQUES },
             // { label: '30/60/90 Aging Report', path: PATHS.ACCOUNTING.AGING },
         ],
     },

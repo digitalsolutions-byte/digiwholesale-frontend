@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box, Card, Typography, Button, Grid, Chip, IconButton,
-  TextField, MenuItem, Table, TableHead, TableRow, TableCell, TableBody,
+  TextField, Table, TableHead, TableRow, TableCell, TableBody,
   Paper, CircularProgress, Divider, Alert
 } from '@mui/material';
 import { Icon } from '@iconify/react';
@@ -17,7 +17,7 @@ const CustomerKhataStatement = () => {
   const [adjusting, setAdjusting] = useState(false);
   const [summary, setSummary] = useState({});
   const [transactions, setTransactions] = useState([]);
-  const [filters, setFilters] = useState({ startDate: '', endDate: '', voucherType: '' });
+  const [filters, setFilters] = useState({ startDate: '', endDate: '' });
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
   const fetchStatement = async () => {
@@ -261,23 +261,6 @@ const CustomerKhataStatement = () => {
             />
           </Grid>
           <Grid item xs={12} sm={3}>
-            <TextField
-              select
-              size="small"
-              label="Voucher Type"
-              value={filters.voucherType}
-              onChange={(e) => setFilters({ ...filters, voucherType: e.target.value })}
-              fullWidth
-            >
-              <MenuItem value="">All Vouchers</MenuItem>
-              <MenuItem value="Sales Invoice">Sales Invoice</MenuItem>
-              <MenuItem value="Receipt">Payment Receipt</MenuItem>
-              <MenuItem value="Journal Voucher">Journal Voucher (Adjustment)</MenuItem>
-              <MenuItem value="Debit Note">Debit Note (Penalty / Charge)</MenuItem>
-              <MenuItem value="Credit Note">Credit Note</MenuItem>
-            </TextField>
-          </Grid>
-          <Grid item xs={12} sm={3}>
             <Button
               variant="contained"
               onClick={fetchStatement}
@@ -307,7 +290,6 @@ const CustomerKhataStatement = () => {
             <TableHead sx={{ backgroundColor: '#F8FAFC' }}>
               <TableRow>
                 <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Voucher Type</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Reference No.</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Narration / Details</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700 }}>Debit (₹)</TableCell>
@@ -325,24 +307,6 @@ const CustomerKhataStatement = () => {
                   <TableRow key={txn._id || idx} hover>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>
                       {new Date(txn.transactionDate).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        label={txn.voucherType}
-                        color={
-                          txn.voucherType === 'Receipt'
-                            ? 'success'
-                            : txn.voucherType === 'Sales Invoice'
-                            ? 'primary'
-                            : txn.voucherType === 'Journal Voucher'
-                            ? 'warning'
-                            : txn.voucherType === 'Debit Note'
-                            ? 'error'
-                            : 'default'
-                        }
-                        sx={{ fontWeight: 600, height: 22 }}
-                      />
                     </TableCell>
                     <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600 }}>
                       {txn.referenceNumber || '—'}

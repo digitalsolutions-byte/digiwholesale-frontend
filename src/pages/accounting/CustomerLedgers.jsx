@@ -48,7 +48,6 @@ const CustomerLedgers = () => {
     customerType: 'Wholesale',
     creditLimit: 0,
     creditDays: 30,
-    creditUsed: 0,
     interestRate: 0,
     openingBalance: 0,
     openingBalanceType: 'Debit',
@@ -83,9 +82,8 @@ const CustomerLedgers = () => {
     setFormData({
       customerId: ledger.customerId?._id || ledger.customerId,
       customerType: ledger.customerType || 'Wholesale',
-      creditLimit: ledger.creditLimit || ledger.customerId?.creditLimit || 0,
+      creditLimit: ledger.creditLimit ?? ledger.customerId?.creditLimit ?? 0,
       creditDays: ledger.creditDays || 30,
-      creditUsed: ledger.creditUsed || ledger.customerId?.creditUsed || 0,
       interestRate: ledger.interestRate || 0,
       openingBalance: ledger.openingBalance || 0,
       openingBalanceType: ledger.openingBalanceType || 'Debit',
@@ -272,9 +270,9 @@ const CustomerLedgers = () => {
             </TableHead>
             <TableBody>
               {ledgers.map((l) => {
-                const limit = Number(l.creditLimit || l.customerId?.creditLimit || 0);
-                const used = Number(l.creditUsed !== undefined ? l.creditUsed : (l.customerId?.creditUsed || 0));
-                const adv = Number(l.advanceAmount !== undefined ? l.advanceAmount : (l.customerId?.customerBalance || 0));
+                const limit = Number(l.creditLimit ?? l.customerId?.creditLimit ?? 0);
+                const used  = Number(l.creditUsed  ?? l.customerId?.creditUsed  ?? 0);
+                const adv   = Number(l.advanceAmount ?? l.customerId?.customerBalance ?? 0);
                 const available = Math.max(0, limit - used);
 
                 return (
@@ -458,14 +456,33 @@ const CustomerLedgers = () => {
                 onChange={(e) => setFormData({ ...formData, interestRate: Number(e.target.value) })}
                 fullWidth
               />
-              <TextField
-                type="number"
-                label="Current Credit Used (Due) (₹)"
-                value={formData.creditUsed}
-                onChange={(e) => setFormData({ ...formData, creditUsed: Number(e.target.value) })}
-                fullWidth
-                helperText="Outstanding receivable balance"
-              />
+              {/* Credit Used is READ-ONLY — managed exclusively by order placement & payment processing */}
+              <Box
+                sx={{
+                  p: 2,
+                  borderRadius: '8px',
+                  border: '1px solid #FECDD3',
+                  backgroundColor: '#FFF1F2',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}
+              >
+                <Box>
+                  <Typography variant="caption" sx={{ color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase' }}>
+                    Current Credit Used / Due (₹)
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: '#E11D48', mt: 0.25 }}>
+                    ₹{Number(selectedLedger?.creditUsed ?? selectedLedger?.customerId?.creditUsed ?? 0).toLocaleString()}
+                  </Typography>
+                </Box>
+                <Tooltip title="Credit Used is automatically updated by the accounting engine when orders are placed or payments are received. It cannot be manually edited here.">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#9CA3AF', cursor: 'help' }}>
+                    <Icon icon="lucide:lock" fontSize={14} />
+                    <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>System-managed</Typography>
+                  </Box>
+                </Tooltip>
+              </Box>
             </Box>
           )}
 
