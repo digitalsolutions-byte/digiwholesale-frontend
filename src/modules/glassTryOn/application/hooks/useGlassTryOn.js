@@ -269,10 +269,19 @@ export function useGlassTryOn({ initialGlass = null, initialFaceUrl = null } = {
 
     // Transform updates
     const updateTransform = useCallback((key, value) => {
-        setTransforms((prev) => ({
-            ...prev,
-            [key]: typeof value === 'number' ? Number(value) : value,
-        }));
+        setTransforms((prev) => {
+            let parsedVal = value;
+            if (['userScale', 'offsetY', 'offsetX', 'rotationDeg', 'opacity'].includes(key)) {
+                parsedVal = Number(value);
+                if (isNaN(parsedVal)) {
+                    parsedVal = prev[key] || 0;
+                }
+            }
+            return {
+                ...prev,
+                [key]: parsedVal,
+            };
+        });
     }, []);
 
     const resetTransforms = useCallback(() => {

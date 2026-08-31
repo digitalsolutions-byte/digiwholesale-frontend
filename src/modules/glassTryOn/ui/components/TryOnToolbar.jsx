@@ -92,15 +92,15 @@ export default function TryOnToolbar({
                 <div className="space-y-1.5 bg-gray-50/70 p-2.5 rounded-xl border border-gray-100">
                     <div className="flex justify-between text-xs font-medium text-gray-700">
                         <span>Frame Size</span>
-                        <span className="font-mono text-indigo-600 font-semibold">{transforms.userScale.toFixed(2)}x</span>
+                        <span className="font-mono text-indigo-600 font-semibold">{Number(transforms.userScale ?? 1).toFixed(2)}x</span>
                     </div>
                     <input
                         type="range"
                         min={ADJUSTMENT_LIMITS.scale.min}
                         max={ADJUSTMENT_LIMITS.scale.max}
                         step={ADJUSTMENT_LIMITS.scale.step}
-                        value={transforms.userScale}
-                        onChange={(e) => updateTransform('userScale', e.target.value)}
+                        value={Number(transforms.userScale ?? 1)}
+                        onChange={(e) => updateTransform('userScale', parseFloat(e.target.value))}
                         className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                     />
                 </div>
@@ -109,15 +109,15 @@ export default function TryOnToolbar({
                 <div className="space-y-1.5 bg-gray-50/70 p-2.5 rounded-xl border border-gray-100">
                     <div className="flex justify-between text-xs font-medium text-gray-700">
                         <span>Bridge Height</span>
-                        <span className="font-mono text-indigo-600 font-semibold">{transforms.offsetY}px</span>
+                        <span className="font-mono text-indigo-600 font-semibold">{Number(transforms.offsetY ?? 0)}px</span>
                     </div>
                     <input
                         type="range"
                         min={ADJUSTMENT_LIMITS.offsetY.min}
                         max={ADJUSTMENT_LIMITS.offsetY.max}
                         step={ADJUSTMENT_LIMITS.offsetY.step}
-                        value={transforms.offsetY}
-                        onChange={(e) => updateTransform('offsetY', e.target.value)}
+                        value={Number(transforms.offsetY ?? 0)}
+                        onChange={(e) => updateTransform('offsetY', parseFloat(e.target.value))}
                         className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                     />
                 </div>
@@ -130,15 +130,15 @@ export default function TryOnToolbar({
                     <div className="space-y-1.5 bg-gray-50/70 p-2.5 rounded-xl border border-gray-100">
                         <div className="flex justify-between text-xs font-medium text-gray-700">
                             <span>Center Alignment</span>
-                            <span className="font-mono text-indigo-600 font-semibold">{transforms.offsetX}px</span>
+                            <span className="font-mono text-indigo-600 font-semibold">{Number(transforms.offsetX ?? 0)}px</span>
                         </div>
                         <input
                             type="range"
                             min={ADJUSTMENT_LIMITS.offsetX.min}
                             max={ADJUSTMENT_LIMITS.offsetX.max}
                             step={ADJUSTMENT_LIMITS.offsetX.step}
-                            value={transforms.offsetX}
-                            onChange={(e) => updateTransform('offsetX', e.target.value)}
+                            value={Number(transforms.offsetX ?? 0)}
+                            onChange={(e) => updateTransform('offsetX', parseFloat(e.target.value))}
                             className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                         />
                     </div>
@@ -147,15 +147,15 @@ export default function TryOnToolbar({
                     <div className="space-y-1.5 bg-gray-50/70 p-2.5 rounded-xl border border-gray-100">
                         <div className="flex justify-between text-xs font-medium text-gray-700">
                             <span>Angle / Tilt</span>
-                            <span className="font-mono text-indigo-600 font-semibold">{transforms.rotationDeg}°</span>
+                            <span className="font-mono text-indigo-600 font-semibold">{Number(transforms.rotationDeg ?? 0)}°</span>
                         </div>
                         <input
                             type="range"
                             min={ADJUSTMENT_LIMITS.rotationDeg.min}
                             max={ADJUSTMENT_LIMITS.rotationDeg.max}
                             step={ADJUSTMENT_LIMITS.rotationDeg.step}
-                            value={transforms.rotationDeg}
-                            onChange={(e) => updateTransform('rotationDeg', e.target.value)}
+                            value={Number(transforms.rotationDeg ?? 0)}
+                            onChange={(e) => updateTransform('rotationDeg', parseFloat(e.target.value))}
                             className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                         />
                     </div>
