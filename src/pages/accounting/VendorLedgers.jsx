@@ -21,8 +21,6 @@ import {
   Tabs,
   Tab,
   MenuItem,
-  FormControlLabel,
-  Checkbox,
   CircularProgress,
   Tooltip
 } from '@mui/material';
@@ -37,7 +35,6 @@ const VendorLedgers = () => {
   const [loading, setLoading] = useState(true);
   const [ledgers, setLedgers] = useState([]);
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
   
   // 3-Tab Master Modal
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -45,10 +42,6 @@ const VendorLedgers = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [formData, setFormData] = useState({
     vendorId: '',
-    vendorCategory: 'Manufacturer',
-    tdsApplicable: false,
-    tdsSection: '194Q',
-    tdsPercentage: 0.1,
     gstin: '',
     pan: '',
     paymentTerms: 30,
@@ -65,7 +58,7 @@ const VendorLedgers = () => {
   const fetchLedgers = async () => {
     try {
       setLoading(true);
-      const res = await getVendorLedgers({ search, category: categoryFilter });
+      const res = await getVendorLedgers({ search });
       setLedgers(res.data?.ledgers || []);
     } catch (err) {
       toast.error(err.message || 'Failed to load vendor ledgers');
@@ -76,17 +69,13 @@ const VendorLedgers = () => {
 
   useEffect(() => {
     fetchLedgers();
-  }, [categoryFilter]);
+  }, []);
 
   const handleOpenEdit = (ledger) => {
     setSelectedLedger(ledger);
     setActiveTab(0);
     setFormData({
       vendorId: ledger.vendorId?._id || ledger.vendorId,
-      vendorCategory: ledger.vendorCategory || 'Manufacturer',
-      tdsApplicable: Boolean(ledger.tdsApplicable),
-      tdsSection: ledger.tdsSection || '194Q',
-      tdsPercentage: ledger.tdsPercentage || 0.1,
       gstin: ledger.gstin || ledger.vendorId?.gstNumber || '',
       pan: ledger.pan || '',
       paymentTerms: ledger.paymentTerms || 30,
@@ -117,17 +106,14 @@ const VendorLedgers = () => {
       mobile: ledger.vendorId?.mobile,
       gstNumber: ledger.vendorId?.gstNumber,
       pan: ledger.pan,
-      currentOutstanding: ledger.currentOutstanding,
-      tdsApplicable: ledger.tdsApplicable,
-      tdsSection: ledger.tdsSection,
-      tdsPercentage: ledger.tdsPercentage
+      currentOutstanding: ledger.currentOutstanding
     });
     setPayoutModalOpen(true);
   };
 
   const totalPayables = ledgers.reduce((sum, l) => sum + (Number(l.currentOutstanding) || 0), 0);
   const totalOverdue = ledgers.reduce((sum, l) => sum + (Number(l.overdueAmount) || 0), 0);
-  const tdsTrackedCount = ledgers.filter((l) => l.tdsApplicable).length;
+  const activeVendorsCount = ledgers.filter((l) => l.ledgerStatus === 'Active').length;
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
@@ -139,7 +125,7 @@ const VendorLedgers = () => {
             Vendor Ledgers (Accounts Payable)
           </Typography>
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            Manufacturer, Lab, Logistics, and Supplier payables with automatic TDS and Return adjustments
+            Vendor accounts payable, credit terms, and payout tracking
           </Typography>
         </Box>
       </Box>
@@ -169,10 +155,10 @@ const VendorLedgers = () => {
         <Grid item xs={12} sm={4}>
           <Card sx={{ p: 2.5, borderRadius: '12px', border: '1px solid', borderColor: 'divider' }}>
             <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-              TDS DEDUCTION ENABLED
+              ACTIVE VENDORS
             </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: '#4F46E5', mt: 0.5 }}>
-              {tdsTrackedCount} / {ledgers.length}
+            <Typography variant="h5" sx={{ fontWeight: 700, color: '#059669', mt: 0.5 }}>
+              {activeVendorsCount} / {ledgers.length}
             </Typography>
           </Card>
         </Grid>
@@ -181,10 +167,10 @@ const VendorLedgers = () => {
       {/* Filter Bar */}
       <Card sx={{ p: 2, mb: 3, borderRadius: '12px', border: '1px solid', borderColor: 'divider' }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid item xs={12} sm={8} md={6}>
             <TextField
               size="small"
-              placeholder="Search vendor by firm, name, or mobile..."
+              placeholder="Search vendor by firm, name, mobile, email, or GST..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && fetchLedgers()}
@@ -194,22 +180,7 @@ const VendorLedgers = () => {
               fullWidth
             />
           </Grid>
-          <Grid item xs={12} sm={4} md={3}>
-            <TextField
-              select
-              size="small"
-              label="Vendor Category"
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              fullWidth
-            >
-              <MenuItem value="">All Categories</MenuItem>
-              {['Manufacturer', 'Distributor', 'Service Provider', 'Logistics', 'Lab', 'Equipment', 'Utility', 'Other'].map((cat) => (
-                <MenuItem key={cat} value={cat}>{cat}</MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-          <Grid item xs={12} sm={2}>
+          <Grid item xs={12} sm={4} md={2}>
             <Button
               variant="outlined"
               onClick={fetchLedgers}
@@ -240,8 +211,8 @@ const VendorLedgers = () => {
               <TableRow>
                 <TableCell sx={{ fontWeight: 700 }}>Ledger Code</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Vendor / Firm</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Category</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>TDS Setup</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Contact Info</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>GST Number</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700 }}>Payment Terms</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700 }}>Outstanding (₹)</TableCell>
                 <TableCell align="center" sx={{ fontWeight: 700 }}>Status</TableCell>
@@ -251,27 +222,66 @@ const VendorLedgers = () => {
             <TableBody>
               {ledgers.map((l) => {
                 const out = Number(l.currentOutstanding || 0);
+                const gstNo = l.gstin || l.vendorId?.gstNumber;
                 return (
                   <TableRow key={l._id} hover>
                     <TableCell sx={{ fontWeight: 600, fontFamily: 'monospace' }}>
                       {l.ledgerCode}
                     </TableCell>
                     <TableCell>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0F172A' }}>
                         {l.vendorId?.firm || l.vendorId?.name || 'N/A'}
                       </Typography>
-                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                        {l.vendorId?.name} | {l.vendorId?.mobile}
-                      </Typography>
+                      {l.vendorId?.firm && l.vendorId?.name && l.vendorId?.firm !== l.vendorId?.name && (
+                        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+                          Contact: {l.vendorId?.name}
+                        </Typography>
+                      )}
                     </TableCell>
                     <TableCell>
-                      <Chip size="small" label={l.vendorCategory || 'Manufacturer'} variant="outlined" />
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                          <Icon icon="lucide:phone" style={{ fontSize: '13px', color: '#0284C7' }} />
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: '#1E293B' }}>
+                            {l.vendorId?.mobile || '—'}
+                          </Typography>
+                        </Box>
+                        {l.vendorId?.email ? (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                            <Icon icon="lucide:mail" style={{ fontSize: '13px', color: '#64748B' }} />
+                            <Typography variant="caption" sx={{ color: '#475569' }}>
+                              {l.vendorId?.email}
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            No email
+                          </Typography>
+                        )}
+                      </Box>
                     </TableCell>
                     <TableCell>
-                      {l.tdsApplicable ? (
-                        <Chip size="small" label={`TDS: ${l.tdsSection} (${l.tdsPercentage || 0}%)`} color="warning" sx={{ height: 22 }} />
+                      {gstNo ? (
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontFamily: 'monospace',
+                            fontWeight: 700,
+                            color: '#0F172A',
+                            backgroundColor: '#F1F5F9',
+                            px: 1,
+                            py: 0.5,
+                            borderRadius: '4px',
+                            border: '1px solid #E2E8F0',
+                            display: 'inline-block'
+                          }}
+                        >
+                          {gstNo}
+                        </Typography>
                       ) : (
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>Exempt</Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                          —
+                        </Typography>
                       )}
                     </TableCell>
                     <TableCell align="right">{l.paymentTerms || 0} Days</TableCell>
@@ -318,7 +328,7 @@ const VendorLedgers = () => {
                             <Icon icon="lucide:arrow-up-right" style={{ fontSize: '18px' }} />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Edit Financial Settings (3-Tab)">
+                        <Tooltip title="Edit Financial Settings">
                           <IconButton
                             size="small"
                             onClick={() => handleOpenEdit(l)}
@@ -336,7 +346,7 @@ const VendorLedgers = () => {
         </Paper>
       )}
 
-      {/* 3-Tab Master Modal */}
+      {/* Financial Master Modal */}
       <Dialog open={editModalOpen} onClose={() => setEditModalOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>
           Vendor Financial Master Configuration
@@ -348,7 +358,7 @@ const VendorLedgers = () => {
             sx={{ borderBottom: '1px solid', borderColor: 'divider', px: 3, pt: 1 }}
           >
             <Tab label="Tab 1: Basic Information" sx={{ textTransform: 'none', fontWeight: 600 }} />
-            <Tab label="Tab 2: TDS & Financial Settings" sx={{ textTransform: 'none', fontWeight: 600 }} />
+            <Tab label="Tab 2: Financial Settings" sx={{ textTransform: 'none', fontWeight: 600 }} />
             <Tab label="Tab 3: Account Status" sx={{ textTransform: 'none', fontWeight: 600 }} />
           </Tabs>
 
@@ -375,20 +385,6 @@ const VendorLedgers = () => {
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField
-                    select
-                    label="Vendor Category"
-                    size="small"
-                    value={formData.vendorCategory}
-                    onChange={(e) => setFormData({ ...formData, vendorCategory: e.target.value })}
-                    fullWidth
-                  >
-                    {['Manufacturer', 'Distributor', 'Service Provider', 'Logistics', 'Lab', 'Equipment', 'Utility', 'Other'].map((cat) => (
-                      <MenuItem key={cat} value={cat}>{cat}</MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
                     label="GSTIN"
                     size="small"
                     value={formData.gstin}
@@ -410,45 +406,6 @@ const VendorLedgers = () => {
 
             {activeTab === 1 && (
               <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={formData.tdsApplicable}
-                        onChange={(e) => setFormData({ ...formData, tdsApplicable: e.target.checked })}
-                      />
-                    }
-                    label="Enable TDS Deduction for this Vendor"
-                  />
-                </Grid>
-                {formData.tdsApplicable && (
-                  <>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        select
-                        size="small"
-                        label="TDS Section"
-                        value={formData.tdsSection}
-                        onChange={(e) => setFormData({ ...formData, tdsSection: e.target.value })}
-                        fullWidth
-                      >
-                        <MenuItem value="194Q">Section 194Q (Purchase of Goods)</MenuItem>
-                        <MenuItem value="194C">Section 194C (Jobwork / Lab Services)</MenuItem>
-                        <MenuItem value="194J">Section 194J (Technical / Professional Fees)</MenuItem>
-                      </TextField>
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        label="TDS Rate (%)"
-                        type="number"
-                        size="small"
-                        value={formData.tdsPercentage}
-                        onChange={(e) => setFormData({ ...formData, tdsPercentage: e.target.value })}
-                        fullWidth
-                      />
-                    </Grid>
-                  </>
-                )}
                 <Grid item xs={12} sm={6}>
                   <TextField
                     label="Payment Terms (Days)"

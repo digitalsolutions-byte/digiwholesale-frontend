@@ -96,24 +96,20 @@ const VendorStatement = () => {
               )}
               <Box sx={{ display: 'flex', gap: 1, mt: 1.5, flexWrap: 'wrap' }}>
                 <Chip size="small" label={`Ledger: ${master.ledgerCode || 'VEND-LED'}`} sx={{ fontWeight: 600 }} />
-                <Chip size="small" label={`Category: ${master.vendorCategory || '—'}`} variant="outlined" sx={{ fontWeight: 600 }} />
                 <Chip size="small" label={`Terms: ${master.paymentTerms || 0} Days`} sx={{ fontWeight: 600 }} />
-                {master.tdsApplicable && (
-                  <Chip size="small" label={`TDS: ${master.tdsSection} (${master.tdsPercentage}%)`} color="warning" sx={{ fontWeight: 600 }} />
-                )}
               </Box>
             </Grid>
             <Grid item xs={12} md={5} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
               <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, letterSpacing: 0.5 }}>
                 CURRENT OUTSTANDING PAYABLE
               </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 800, color: currentOutstanding > 0 ? '#E11D48' : '#6B7280', mt: 0.5 }}>
-                {currentOutstanding > 0 ? `₹${currentOutstanding.toLocaleString()} (Payable)` : '₹0 (Settled)'}
+              <Typography variant="h4" sx={{ fontWeight: 800, color: currentOutstanding > 0 ? '#E11D48' : currentOutstanding < 0 ? '#059669' : '#6B7280', mt: 0.5 }}>
+                {currentOutstanding > 0 ? `₹${currentOutstanding.toLocaleString()} (Payable)` : currentOutstanding < 0 ? `₹${Math.abs(currentOutstanding).toLocaleString()} (Advance)` : '₹0 (Settled)'}
               </Typography>
               <Chip
                 size="small"
-                label={currentOutstanding > 0 ? 'Payment Due (Payable)' : 'Account Settled'}
-                color={currentOutstanding > 0 ? 'error' : 'default'}
+                label={currentOutstanding > 0 ? 'Payment Due (Payable)' : currentOutstanding < 0 ? 'Advance Paid' : 'Account Settled'}
+                color={currentOutstanding > 0 ? 'error' : currentOutstanding < 0 ? 'success' : 'default'}
                 sx={{ mt: 1, fontWeight: 700 }}
               />
             </Grid>
@@ -123,10 +119,12 @@ const VendorStatement = () => {
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={3}>
-          <Paper elevation={0} sx={{ p: 2, borderRadius: '10px', border: '1px solid #FECDD3', backgroundColor: '#FFF1F2' }}>
-            <Typography variant="caption" sx={{ color: '#E11D48', fontWeight: 700 }}>Outstanding Payable</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 800, color: '#E11D48' }}>
-              ₹{currentOutstanding.toLocaleString()}
+          <Paper elevation={0} sx={{ p: 2, borderRadius: '10px', border: currentOutstanding < 0 ? '1px solid #A7F3D0' : '1px solid #FECDD3', backgroundColor: currentOutstanding < 0 ? '#ECFDF5' : '#FFF1F2' }}>
+            <Typography variant="caption" sx={{ color: currentOutstanding < 0 ? '#059669' : '#E11D48', fontWeight: 700 }}>
+              {currentOutstanding < 0 ? 'Advance Paid' : 'Outstanding Payable'}
+            </Typography>
+            <Typography variant="h6" sx={{ fontWeight: 800, color: currentOutstanding < 0 ? '#059669' : '#E11D48' }}>
+              ₹{Math.abs(currentOutstanding).toLocaleString()}
             </Typography>
           </Paper>
         </Grid>
@@ -267,10 +265,7 @@ const VendorStatement = () => {
             mobile: summary.vendor.mobile,
             gstNumber: summary.vendor.gstin,
             pan: master.pan,
-            currentOutstanding,
-            tdsApplicable: master.tdsApplicable,
-            tdsSection: master.tdsSection,
-            tdsPercentage: master.tdsPercentage
+            currentOutstanding
           }}
           onSuccess={fetchStatement}
         />
