@@ -111,7 +111,14 @@ const VendorLedgers = () => {
     setPayoutModalOpen(true);
   };
 
-  const totalPayables = ledgers.reduce((sum, l) => sum + (Number(l.currentOutstanding) || 0), 0);
+  const totalPayables = ledgers.reduce((sum, l) => {
+    const out = Number(l.currentOutstanding) || 0;
+    return sum + (out > 0 ? out : 0); // Only sum amounts actually owed to vendors
+  }, 0);
+  const totalAdvancesPaid = ledgers.reduce((sum, l) => {
+    const out = Number(l.currentOutstanding) || 0;
+    return sum + (out < 0 ? Math.abs(out) : 0); // Only sum overpaid/advance amounts
+  }, 0);
   const totalOverdue = ledgers.reduce((sum, l) => sum + (Number(l.overdueAmount) || 0), 0);
   const activeVendorsCount = ledgers.filter((l) => l.ledgerStatus === 'Active').length;
 
@@ -132,17 +139,29 @@ const VendorLedgers = () => {
 
       {/* Metric Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={12} sm={3}>
           <Card sx={{ p: 2.5, borderRadius: '12px', border: '1px solid', borderColor: 'divider' }}>
             <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-              TOTAL PAYABLES (CREDITORS)
+              TOTAL PAYABLES (TO PAY)
             </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: '#E11D48', mt: 0.5 }}>
+            <Typography variant="h5" sx={{ fontWeight: 700, color: totalPayables > 0 ? '#E11D48' : '#6B7280', mt: 0.5 }}>
               ₹{totalPayables.toLocaleString()}
             </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>Amount owed to vendors</Typography>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={12} sm={3}>
+          <Card sx={{ p: 2.5, borderRadius: '12px', border: '1px solid', borderColor: '#A7F3D0', backgroundColor: totalAdvancesPaid > 0 ? '#ECFDF5' : 'background.paper' }}>
+            <Typography variant="caption" sx={{ color: '#059669', fontWeight: 600 }}>
+              TOTAL ADVANCES PAID
+            </Typography>
+            <Typography variant="h5" sx={{ fontWeight: 700, color: '#059669', mt: 0.5 }}>
+              ₹{totalAdvancesPaid.toLocaleString()}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>Advance / Overpaid to vendors</Typography>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={3}>
           <Card sx={{ p: 2.5, borderRadius: '12px', border: '1px solid', borderColor: 'divider' }}>
             <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
               OVERDUE PAYABLES
@@ -150,9 +169,10 @@ const VendorLedgers = () => {
             <Typography variant="h5" sx={{ fontWeight: 700, color: '#D97706', mt: 0.5 }}>
               ₹{totalOverdue.toLocaleString()}
             </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>Past due amount</Typography>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={12} sm={3}>
           <Card sx={{ p: 2.5, borderRadius: '12px', border: '1px solid', borderColor: 'divider' }}>
             <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
               ACTIVE VENDORS
@@ -160,6 +180,7 @@ const VendorLedgers = () => {
             <Typography variant="h5" sx={{ fontWeight: 700, color: '#059669', mt: 0.5 }}>
               {activeVendorsCount} / {ledgers.length}
             </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>Vendors with active ledgers</Typography>
           </Card>
         </Grid>
       </Grid>
