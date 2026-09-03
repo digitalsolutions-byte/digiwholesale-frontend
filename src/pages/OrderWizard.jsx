@@ -213,6 +213,7 @@ const OrderWizard = () => {
     const [itemModalIndex, setItemModalIndex] = useState(null);
     const [activeCategories, setActiveCategories] = useState([]);
     const [uploadingItemImages, setUploadingItemImages] = useState({});
+    const [includeDeliveryTime, setIncludeDeliveryTime] = useState(false);
 
     const handleItemImageUpload = async (index, file) => {
         if (!file) return;
@@ -296,7 +297,7 @@ const OrderWizard = () => {
         expiry: '',
         productCode: '',
         image: '',
-        color: '',
+        color: 'BLACK',
         size: '',
         type: '',
         shape: '',
@@ -330,7 +331,7 @@ const OrderWizard = () => {
         };
 
         const extractColor = (item) => {
-            if (!item) return '';
+            if (!item) return 'BLACK';
             const c = item.color || item.selectedColor || item.colorName || item.colorHex;
             if (typeof c === 'string' && c.trim()) return c.trim();
             if (typeof c === 'object' && c) {
@@ -342,7 +343,7 @@ const OrderWizard = () => {
                 if (typeof c0 === 'object' && c0) return c0.color || c0.name || c0.hex || '';
             }
             if (item.rawProduct) return extractColor(item.rawProduct);
-            return '';
+            return 'BLACK';
         };
 
         if (Array.isArray(state?.cartItems) && state.cartItems.length > 0) {
@@ -565,7 +566,7 @@ const OrderWizard = () => {
     useEffect(() => {
         if (!id && location.state?.prefillProduct) {
             const prod = location.state.prefillProduct;
-            const colorVal = location.state.selectedColor || prod.color || (prod.colors?.[0]?.color) || '';
+            const colorVal = location.state.selectedColor || prod.color || (prod.colors?.[0]?.color) || 'BLACK';
             const qtyVal = location.state.selectedQty || 1;
 
             const matchedCategoryObj = (configs.category || []).find(c =>
@@ -857,6 +858,7 @@ const OrderWizard = () => {
             return !!(p.productName || p.brandId || p.categoryId || p.brand || p.productId);
         });
         const sanitizedNewProducts = (newProducts || []).map(p => ({
+            color: p.color?.trim() || 'BLACK',
             ...p,
             powerTable: p.powerTable || {
                 R: { sph: p.sph || '', cyl: p.cyl || '', axis: p.axis || '', add: p.addition || '', dia: '70' },
@@ -935,8 +937,8 @@ const OrderWizard = () => {
             const tintData = getFieldData('tints', prod.tintId);
             const treatmentData = getFieldData('treatment', prod.treatmentId);
 
-            const isRx = String(prod.orderType || '').toLowerCase() === 'rx' && (cat === 'LENS' || cat === 'RX_LENS');
             const cat = determineCategory(categoryData?.name, productData?.name);
+            const isRx = String(prod.orderType || '').toLowerCase() === 'rx' && (cat === 'LENS' || cat === 'RX_LENS');
 
             // Calculate discount details
             const discountAmount = parseFloat(prod.discount) || 0;
@@ -967,7 +969,7 @@ const OrderWizard = () => {
                 mrp: parseFloat(prod.MRP) || 0,
                 brand: prod.brand || brandData?.name || prod.Brand || '',
                 code: prod.code || prod.Code || '',
-                color: prod.color || '',
+                color: prod.color?.trim() || 'BLACK',
                 size: prod.size || prod.Size || '',
                 shape: prod.shape || prod.Shape || '',
                 dimensions: prod.dimensions || prod.Dimensions || prod.size || prod.Size || '',
@@ -997,7 +999,7 @@ const OrderWizard = () => {
 
             // Add stock-specific / contact lens fields
             if (cat === 'FRAME' || cat === 'SUNGLASS' || cat === 'CONTACT_LENS') {
-                baseItem.color = prod.color || '';
+                baseItem.color = prod.color?.trim() || 'BLACK';
             }
             if (cat === 'FRAME' || cat === 'SUNGLASS') {
                 baseItem.brand = brandData?.name || prod.Brand || prod.brand || '';
@@ -1355,7 +1357,7 @@ const OrderWizard = () => {
             });
 
             // Set other properties
-            formik.setFieldValue(`${prefix}color`, rawProd.color || '');
+            formik.setFieldValue(`${prefix}color`, rawProd.color || 'BLACK');
             formik.setFieldValue(`${prefix}size`, rawProd.size || '');
             formik.setFieldValue(`${prefix}type`, rawProd.type || '');
             formik.setFieldValue(`${prefix}shape`, rawProd.shape || '');
@@ -1442,7 +1444,7 @@ const OrderWizard = () => {
                     set('brand', brandInfo.brandName);
                     set('price', fullProd.price || 0);
                     set('MRP', fullProd.mrp || fullProd.MRP || 0);
-                    set('color', fullProd.color || '');
+                    set('color', fullProd.color || 'BLACK');
                     set('size', fullProd.size || '');
                     set('type', fullProd.type || '');
                     set('shape', fullProd.shape || '');
@@ -1840,6 +1842,114 @@ const OrderWizard = () => {
         };
 
         // ── Derive a variant for credit used vs limit ────────────────────────────
+                const renderEstimatedDeliveryDateField = () => {
+            const rawDeliveryVal = formik.values.estimatedDeliveryDate || '';
+            let currentDatePart = '';
+            let currentTimePart = '';
+
+            if (rawDeliveryVal) {
+                if (rawDeliveryVal.includes('T')) {
+                    const [d, t] = rawDeliveryVal.split('T');
+                    currentDatePart = d || '';
+                    currentTimePart = t ? t.substring(0, 5) : '';
+                } else if (rawDeliveryVal.includes(' ')) {
+                    const [d, t] = rawDeliveryVal.split(' ');
+                    currentDatePart = d || '';
+                    currentTimePart = t ? t.substring(0, 5) : '';
+                } else {
+                    currentDatePart = rawDeliveryVal.substring(0, 10);
+                }
+            }
+
+            const handleDeliveryDateChange = (e) => {
+                const newDate = e.target.value;
+                if (!newDate) {
+                    formik.setFieldValue('estimatedDeliveryDate', '');
+                    return;
+                }
+                if (includeDeliveryTime && currentTimePart) {
+                    formik.setFieldValue('estimatedDeliveryDate', `${newDate}T${currentTimePart}`);
+                } else {
+                    formik.setFieldValue('estimatedDeliveryDate', newDate);
+                }
+            };
+
+            const handleDeliveryTimeChange = (e) => {
+                const newTime = e.target.value;
+                const dateToUse = currentDatePart || new Date().toISOString().split('T')[0];
+                if (newTime) {
+                    formik.setFieldValue('estimatedDeliveryDate', `${dateToUse}T${newTime}`);
+                } else {
+                    formik.setFieldValue('estimatedDeliveryDate', dateToUse);
+                }
+            };
+
+            const handleToggleDeliveryTime = () => {
+                const nextState = !includeDeliveryTime;
+                setIncludeDeliveryTime(nextState);
+                if (nextState) {
+                    const dateToUse = currentDatePart || new Date().toISOString().split('T')[0];
+                    const timeToUse = currentTimePart || '18:00';
+                    formik.setFieldValue('estimatedDeliveryDate', `${dateToUse}T${timeToUse}`);
+                } else {
+                    formik.setFieldValue('estimatedDeliveryDate', currentDatePart);
+                }
+            };
+
+            return (
+                <div className="flex flex-col gap-1.5 w-full">
+                    <div className="flex items-center justify-between ml-0.5">
+                        <span className="text-[0.825rem] font-bold uppercase tracking-[0.05em] text-gray-500">
+                            Estimated Delivery Date
+                        </span>
+                        {!isReadOnly && (
+                            <button
+                                type="button"
+                                onClick={handleToggleDeliveryTime}
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold transition-all border ${
+                                    includeDeliveryTime
+                                        ? 'bg-blue-50 text-blue-700 border-blue-300 ring-2 ring-blue-100'
+                                        : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100 hover:text-gray-700'
+                                }`}
+                                title={includeDeliveryTime ? "Click to remove time (Date only)" : "Click to add specific delivery time"}
+                            >
+                                <Icon icon="mdi:clock-outline" className="w-3.5 h-3.5" />
+                                <span>{includeDeliveryTime ? 'Time: ON' : '+ Add Time'}</span>
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        {/* Date Input - Always active */}
+                        <div className={includeDeliveryTime ? "w-7/12" : "w-full"}>
+                            <input
+                                type="date"
+                                name="estimatedDeliveryDate"
+                                value={currentDatePart}
+                                onChange={handleDeliveryDateChange}
+                                disabled={isReadOnly}
+                                className="w-full text-xs bg-[#f4f7fb] hover:bg-white border border-gray-200 focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 rounded-xl px-3 py-2.5 outline-none transition-all font-semibold text-gray-700 cursor-pointer disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                            />
+                        </div>
+
+                        {/* Time Input - Smoothly toggled */}
+                        {includeDeliveryTime && (
+                            <div className="w-5/12 animate-in fade-in slide-in-from-left-2 duration-200">
+                                <input
+                                    type="time"
+                                    name="estimatedDeliveryTime"
+                                    value={currentTimePart}
+                                    onChange={handleDeliveryTimeChange}
+                                    disabled={isReadOnly}
+                                    className="w-full text-xs bg-blue-50/40 hover:bg-white border border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-xl px-2.5 py-2.5 outline-none transition-all font-semibold text-gray-700 cursor-pointer disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                />
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
         const creditUsed = parseFloat(selectedCustomer?.creditUsed || 0);
         const creditLimit = parseFloat(selectedCustomer?.creditLimit || 0);
         const usedRatio = creditLimit > 0 ? creditUsed / creditLimit : 0;
@@ -1907,12 +2017,7 @@ const OrderWizard = () => {
                         name: "opticianName",
                         placeholder: "Enter optician's name"
                     })}
-                    {wrapInput(Input, {
-                        label: "Estimated Delivery Date",
-                        name: "estimatedDeliveryDate",
-                        type: "datetime-local",
-                        disabled: isReadOnly
-                    })}
+                    {renderEstimatedDeliveryDateField()}
                 </div>
 
             </div>

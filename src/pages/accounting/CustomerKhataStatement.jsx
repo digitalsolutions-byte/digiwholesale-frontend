@@ -7,7 +7,7 @@ import {
 import { Icon } from '@iconify/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { getCustomerStatement, adjustDueFromAdvance } from '../../services/accountingService';
+import { getCustomerStatement, adjustDueFromAdvance, downloadPaymentReceipt } from '../../services/accountingService';
 import CustomerPaymentModal from './CustomerPaymentModal';
 
 const CustomerKhataStatement = () => {
@@ -19,13 +19,29 @@ const CustomerKhataStatement = () => {
   const [transactions, setTransactions] = useState([]);
   const [filters, setFilters] = useState({ startDate: '', endDate: '' });
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [downloadingReceiptId, setDownloadingReceiptId] = useState(null);
+
+  const handleDownloadReceipt = async (txn) => {
+    const refKey = txn.voucherId || txn.referenceNumber || txn._id;
+    try {
+      setDownloadingReceiptId(refKey);
+      await downloadPaymentReceipt(refKey, `Receipt-${txn.referenceNumber || 'CPAY'}`);
+      toast.success('Payment receipt downloaded successfully!');
+    } catch (err) {
+      toast.error(err.message || 'Failed to download receipt');
+    } finally {
+      setDownloadingReceiptId(null);
+    }
+  };
 
   const fetchStatement = async () => {
     try {
       setLoading(true);
       const res = await getCustomerStatement(customerId, filters);
       setSummary(res.data?.summary || {});
-      setTransactions(res.data?.transactions || []);
+      const rawTxns = res.data?.transactions || [];
+      const sorted = [...rawTxns].sort((a, b) => new Date(b.transactionDate || b.createdAt) - new Date(a.transactionDate || a.createdAt));
+      setTransactions(sorted);
     } catch (err) {
       toast.error(err.message || 'Failed to load customer statement');
     } finally {

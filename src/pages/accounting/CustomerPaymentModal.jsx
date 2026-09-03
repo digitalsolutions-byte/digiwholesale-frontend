@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-toastify';
-import { executeCustomerPayment } from '../../services/accountingService';
+import { executeCustomerPayment, downloadPaymentReceipt } from '../../services/accountingService';
 import api from '../../services/apiInstance';
 
 const CustomerPaymentModal = ({ open, onClose, customer, onSuccess }) => {
@@ -112,8 +112,18 @@ const CustomerPaymentModal = ({ open, onClose, customer, onSuccess }) => {
         paymentDetails: formData.paymentDetails
       };
 
-      await executeCustomerPayment(payload);
-      toast.success('Payment of ₹' + enteredAmount.toLocaleString() + ' recorded successfully!');
+            const res = await executeCustomerPayment(payload);
+      const createdPayment = res?.data || res;
+      toast.success(`Payment of ₹${enteredAmount.toLocaleString()} recorded! Receipt sent to customer email.`);
+      
+      if (createdPayment?._id) {
+        try {
+          await downloadPaymentReceipt(createdPayment._id, `Receipt-${createdPayment.paymentNumber || 'CPAY'}`);
+        } catch (dlErr) {
+          console.warn('Receipt download skipped:', dlErr);
+        }
+      }
+
       if (onSuccess) onSuccess();
       onClose();
     } catch (err) {
@@ -184,7 +194,7 @@ const CustomerPaymentModal = ({ open, onClose, customer, onSuccess }) => {
               onChange={(e) => setFormData({ ...formData, paymentMode: e.target.value })}
               fullWidth
             >
-              <MenuItem value="UPI">UPI / QR Code</MenuItem>
+              <MenuItem value="UPI">UPI</MenuItem>
               <MenuItem value="CASH">Cash Counter</MenuItem>
               <MenuItem value="CHEQUE">Cheque (A/C Payee)</MenuItem>
               <MenuItem value="BANK_TRANSFER">Bank Transfer (NEFT/RTGS/IMPS)</MenuItem>

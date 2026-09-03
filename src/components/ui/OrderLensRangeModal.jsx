@@ -17,25 +17,36 @@ const makeEmptyRangeRow = () => ({
 });
 
 export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddProducts }) {
-    const isLensCat = (cat) => /lens|glass|contact/i.test(cat || "");
-    const lensCategories = (configs?.category || []).filter(c => isLensCat(c.name));
+    const categories = configs?.category || [];
 
     // Form settings
     const [form, setForm] = useState({
         productName: "",
         categoryId: "",
         brandId: "",
-        indexId: "",
-        coatingId: "",
-        treatmentId: "",
-        tintId: "",
+        color: "BLACK",
+        vendorId: "",
         material: "",
+        prefix: "DO",
         price: "",
         mrp: "",
         gst: "12",
         hsnSac: "9001",
         qty: "1",
-        prefix: "DO",
+        // Lens Specific
+        indexId: "",
+        coatingId: "",
+        treatmentId: "",
+        tintId: "",
+        // Frame / Glasses Specific
+        frameType: "",
+        shape: "",
+        size: "",
+        dimensions: "",
+        // Contact Lens Specific
+        disposability: "",
+        baseCurve: "",
+        diameter: "",
     });
 
     const [rangeRows, setRangeRows] = useState([makeEmptyRangeRow()]);
@@ -44,14 +55,60 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
     const [submitting, setSubmitting] = useState(false);
     const [previewSearch, setPreviewSearch] = useState("");
 
+    // Category type detection
+    const selectedCategoryObj = useMemo(() => {
+        return categories.find(c => c._id === form.categoryId || c.name === form.categoryId);
+    }, [categories, form.categoryId]);
+
+    const catName = (selectedCategoryObj?.name || form.categoryId || "").toUpperCase();
+    const isFrameOrGlass = catName === 'FRAME' || catName === 'SUNGLASS' || catName.includes('FRAME') || catName.includes('SUNGLASS') || catName.includes('GLASSES') || catName.includes('OPTICAL') || catName === 'READING GLASSES';
+    const isContactLens = catName.includes('CONTACT');
+    const isLens = !isFrameOrGlass && !isContactLens;
+
     useEffect(() => {
         if (isOpen) {
-            // Preset first category if lens category is available
-            const initialLensCat = lensCategories[0]?._id || "";
-            setForm(prev => ({
-                ...prev,
-                categoryId: initialLensCat
-            }));
+            // Preset first category
+            const initialCat = categories[0]?._id || "";
+            const initialCatName = (categories[0]?.name || "").toUpperCase();
+            
+            let defaultHsn = "9001";
+            let defaultPrefix = "DO";
+            if (initialCatName.includes("FRAME") || initialCatName.includes("GLASSES")) {
+                defaultHsn = "9003";
+                defaultPrefix = "FRM";
+            } else if (initialCatName.includes("SUNGLASS")) {
+                defaultHsn = "9004";
+                defaultPrefix = "SUN";
+            } else if (initialCatName.includes("CONTACT")) {
+                defaultHsn = "9001";
+                defaultPrefix = "CL";
+            }
+
+            setForm({
+                productName: "",
+                categoryId: initialCat,
+                brandId: "",
+                color: "BLACK",
+                vendorId: "",
+                material: "",
+                prefix: defaultPrefix,
+                price: "",
+                mrp: "",
+                gst: "12",
+                hsnSac: defaultHsn,
+                qty: "1",
+                indexId: "",
+                coatingId: "",
+                treatmentId: "",
+                tintId: "",
+                frameType: "",
+                shape: "",
+                size: "",
+                dimensions: "",
+                disposability: "",
+                baseCurve: "",
+                diameter: "",
+            });
             setRangeRows([makeEmptyRangeRow()]);
             setPreviewRows([]);
             setShowPreview(false);
@@ -60,7 +117,27 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
 
     const handleFormChange = (e) => {
         const { name, value } = e.target;
-        setForm(prev => ({ ...prev, [name]: value }));
+        setForm(prev => {
+            const next = { ...prev, [name]: value };
+            if (name === "categoryId") {
+                const catObj = categories.find(c => c._id === value || c.name === value);
+                const cUpper = (catObj?.name || value || "").toUpperCase();
+                if (cUpper.includes("FRAME") || cUpper.includes("GLASSES")) {
+                    next.hsnSac = "9003";
+                    next.prefix = "FRM";
+                } else if (cUpper.includes("SUNGLASS")) {
+                    next.hsnSac = "9004";
+                    next.prefix = "SUN";
+                } else if (cUpper.includes("CONTACT")) {
+                    next.hsnSac = "9001";
+                    next.prefix = "CL";
+                } else {
+                    next.hsnSac = "9001";
+                    next.prefix = "DO";
+                }
+            }
+            return next;
+        });
         setShowPreview(false);
     };
 
@@ -97,7 +174,7 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
             if (value !== "" && !isNaN(parseFloat(value))) {
                 if (!isValidStep(value, step)) {
                     const nearest = (Math.round(parseFloat(value) / step) * step).toFixed(2);
-                    errors[field] = `Must be a multiple of ${step} (nearest: ${nearest})`;
+                    errors[field] = "Must be a multiple of " + step + " (nearest: " + nearest + ")";
                 } else {
                     delete errors[field];
                 }
@@ -120,6 +197,11 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
         const sphStep = parseFloat(row.sphStep) || DEFAULT_STEP;
         const cylStep = parseFloat(row.cylStep) || DEFAULT_STEP;
         const addStep = parseFloat(row.addStep) || DEFAULT_STEP;
+
+        // If all fields are empty, return empty
+        if (row.sphFrom === "" && row.sphTo === "" && row.cylFrom === "" && row.cylTo === "") {
+            return null;
+        }
 
         if ([sphFrom, sphTo, cylFrom, cylTo].some(isNaN)) return null;
         if (!isPositiveStep(sphStep) || !isPositiveStep(cylStep) || !isPositiveStep(addStep)) return null;
@@ -173,16 +255,30 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
 
     const handlePreview = () => {
         if (!form.productName || !form.categoryId || !form.brandId)
-            return toast.error("Please select Product Name, Category, and Brand first.");
+            return toast.error("Please fill Product Name, Category, and Brand first.");
         if (hasAnyRangeErrors) return toast.error("Please fix any step combination errors first.");
 
         const allCombos = [];
         for (let ri = 0; ri < rangeRows.length; ri++) {
             const row = rangeRows[ri];
-            if (!row.sphFrom && !row.sphTo && !row.cylFrom && !row.cylTo) continue;
+            if (!row.sphFrom && !row.sphTo && !row.cylFrom && !row.cylTo) {
+                // If it's frame or glasses and user left powers blank, allow adding 1 standard row
+                if (isFrameOrGlass && ri === 0) {
+                    allCombos.push({
+                        sph: "0.00",
+                        cyl: "0.00",
+                        addition: "",
+                        rowIndex: ri,
+                        price: form.price || 0,
+                        mrp: form.mrp || 0,
+                        qty: form.qty || 1
+                    });
+                }
+                continue;
+            }
             const combos = generateRowCombinations(row);
             if (!combos || combos.length === 0)
-                return toast.error(`Row ${ri + 1}: SPH/CYL range invalid. Check step multiples.`);
+                return toast.error("Row " + (ri + 1) + ": SPH/CYL range invalid. Check step multiples.");
             combos.forEach(c => allCombos.push({
                 ...c, rowIndex: ri,
                 price: form.price || 0, mrp: form.mrp || 0, qty: form.qty || 1
@@ -212,7 +308,7 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
         return previewRows
             .map((r, i) => ({ ...r, _origIdx: i }))
             .filter(r => {
-                const label = `${form.productName} sph${r.sph} cyl${r.cyl} ${r.addition ? `add${r.addition}` : ""}`.toLowerCase();
+                const label = (form.productName + " sph" + r.sph + " cyl" + r.cyl + (r.addition ? " add" + r.addition : "")).toLowerCase();
                 return label.includes(q) || r.sph.includes(q) || r.cyl.includes(q);
             });
     }, [previewRows, previewSearch, form.productName]);
@@ -225,29 +321,51 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
 
         for (let i = 0; i < previewRows.length; i++) {
             const r = previewRows[i];
-            if (!r.price || Number(r.price) <= 0) return toast.error(`Preview Row ${i + 1}: Price must be > 0`);
-            if (!r.mrp || Number(r.mrp) <= 0) return toast.error(`Preview Row ${i + 1}: MRP must be > 0`);
-            if (!r.qty || Number(r.qty) <= 0) return toast.error(`Preview Row ${i + 1}: Qty must be > 0`);
+            if (!r.price || Number(r.price) <= 0) return toast.error("Preview Row " + (i + 1) + ": Price must be > 0");
+            if (!r.mrp || Number(r.mrp) <= 0) return toast.error("Preview Row " + (i + 1) + ": MRP must be > 0");
+            if (!r.qty || Number(r.qty) <= 0) return toast.error("Preview Row " + (i + 1) + ": Qty must be > 0");
         }
 
-        const selectedCat = configs.category?.find(c => c._id === form.categoryId);
-        const selectedBrand = configs.brand?.find(b => b._id === form.brandId);
-        const selectedCoating = configs.coating?.find(c => c._id === form.coatingId);
-        const selectedTreatment = configs.treatment?.find(t => t._id === form.treatmentId);
-        const selectedTint = configs.tints?.find(t => t._id === form.tintId);
+        const selectedCat = categories.find(c => c._id === form.categoryId || c.name === form.categoryId);
+        const selectedBrand = configs?.brand?.find(b => b._id === form.brandId || b.name === form.brandId);
+        const selectedCoating = configs?.coating?.find(c => c._id === form.coatingId);
+        const selectedTreatment = configs?.treatment?.find(t => t._id === form.treatmentId);
+        const selectedTint = configs?.tints?.find(t => t._id === form.tintId);
+        const selectedVendor = (Array.isArray(configs?.vendors) ? configs.vendors : []).find(
+            v => v._id === form.vendorId || v.vendorNumber === form.vendorId || v.name === form.vendorId
+        );
+        const vendorObj = selectedVendor
+            ? { id: selectedVendor._id || selectedVendor.vendorNumber, name: selectedVendor.name }
+            : (form.vendorId ? { id: form.vendorId, name: form.vendorId } : undefined);
+
+        const chosenColor = form.color?.trim() || "BLACK";
 
         const productsToCreate = previewRows.map(({ sph, cyl, addition, price, mrp, qty }, i) => {
-            const labelPower = `SPH ${sph} CYL ${cyl}${addition ? ` ADD ${addition}` : ""}`;
-            const generatedName = `${form.productName.trim().toUpperCase()} ${labelPower}`;
+            const hasPower = (sph && sph !== "0.00") || (cyl && cyl !== "0.00") || addition;
+            const labelPower = hasPower ? ("SPH " + sph + " CYL " + cyl + (addition ? " ADD " + addition : "")) : (form.size ? "SIZE " + form.size : "");
+            const generatedName = labelPower 
+                ? (form.productName.trim().toUpperCase() + " " + labelPower)
+                : form.productName.trim().toUpperCase();
+
             return {
-                productCode: `${i + 1}${form.prefix.trim().toUpperCase() || "DO"}`,
+                productCode: "" + (i + 1) + (form.prefix.trim().toUpperCase() || "DO"),
                 productName: generatedName,
                 category: selectedCat?.name || "",
                 brand: selectedBrand?.name || "",
-                coating: selectedCoating?.name || "",
+                // Lens attributes
+                coating: isLens ? (selectedCoating?.name || "") : "",
+                index: isLens ? (form.indexId || "") : "",
+                addition: isLens ? (addition || "") : "",
+                // Frame attributes
+                type: isFrameOrGlass ? (form.frameType || "") : "",
+                shape: isFrameOrGlass ? (form.shape || "") : "",
+                size: isFrameOrGlass ? (form.size || "") : "",
+                dimensions: isFrameOrGlass ? (form.dimensions || form.size || "") : "",
+                // Contact lens attributes
+                disposability: isContactLens ? (form.disposability || "") : "",
+                // Common attributes
                 material: form.material || "",
-                addition: addition || "",
-                index: "",
+                color: chosenColor,
                 sph,
                 cyl,
                 price: Number(price),
@@ -255,20 +373,22 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                 gst: Number(form.gst),
                 hsnSac: form.hsnSac,
                 qty: Number(qty),
-                discount: 0
+                discount: 0,
+                orderSource: form.vendorId ? 'ORDER' : 'INHOUSE',
+                vendor: vendorObj || { id: null, name: null }
             };
         });
 
         setSubmitting(true);
         try {
-            // First step: Register in Backend Database
+            // Register in Backend Database
             const res = await api.post("/api/digi/product/bulk", {
                 products: JSON.stringify(productsToCreate),
                 suffix: form.prefix.trim().toUpperCase() || "DO",
             });
 
             if (res.data?.success) {
-                toast.success(`${res.data.count} bulk lens products created in inventory database! 🚀`);
+                toast.success(res.data.count + " bulk items created in inventory database!");
                 
                 // Construct the formik items
                 const createdProducts = res.data.products || [];
@@ -276,9 +396,11 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                     const matchFromDb = createdProducts.find(p => p.productName === prod.productName) || {};
                     const dbId = matchFromDb._id || matchFromDb.id || "";
                     
+                    const isRxType = isLens;
+
                     return {
                         qty: Number(prod.qty),
-                        unit: 'piece',
+                        unit: isFrameOrGlass ? 'piece' : 'pair',
                         price: Number(prod.price),
                         discount: 0,
                         brand: prod.brand,
@@ -304,8 +426,25 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                             remarks: ""
                         },
                         powerMode: 'both',
-                        productMode: 'rx',
-                        orderType: 'rx',
+                        productMode: isRxType ? 'rx' : 'stock',
+                        orderType: isRxType ? 'rx' : 'stock',
+                        availability: form.vendorId ? 'order' : 'in-house',
+                        orderSource: form.vendorId ? 'ORDER' : 'INHOUSE',
+                        vendorId: form.vendorId || "",
+                        vendorName: selectedVendor?.name || "",
+                        vendor: vendorObj || { id: "", name: "" },
+                        color: chosenColor,
+                        // Frame Specific
+                        frameType: isFrameOrGlass ? form.frameType : "",
+                        shape: isFrameOrGlass ? form.shape : "",
+                        size: isFrameOrGlass ? form.size : "",
+                        dimensions: isFrameOrGlass ? (form.dimensions || form.size) : "",
+                        // Lens Specific
+                        indexId: isLens ? (form.indexId || "") : "",
+                        coatingId: isLens ? form.coatingId : "",
+                        treatmentId: isLens ? form.treatmentId : "",
+                        tintId: isLens ? form.tintId : "",
+                        material: form.material,
                         hasPrism: 'no',
                         powerTable: {
                             R: { sph: prod.sph, cyl: prod.cyl, axis: '', add: prod.addition, dia: '70' },
@@ -320,11 +459,6 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                             R: { pd: '', corridor: '', fittingHeight: '' },
                             L: { pd: '', corridor: '', fittingHeight: '' }
                         },
-                        indexId: form.indexId || "",
-                        coatingId: form.coatingId,
-                        treatmentId: form.treatmentId,
-                        tintId: form.tintId,
-                        material: form.material,
                         photos: []
                     };
                 });
@@ -355,10 +489,10 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                     <div className="min-w-0">
                         <h2 className="text-sm sm:text-base font-bold text-gray-800 flex items-center gap-2">
                             <Icon icon="mdi:playlist-plus" className="text-[#2980B9] text-lg sm:text-xl flex-shrink-0" />
-                            <span className="truncate">Bulk Lens Generator</span>
+                            <span className="truncate">Bulk {isFrameOrGlass ? 'Frame & Glass' : isContactLens ? 'Contact Lens' : 'Lens'} Generator</span>
                         </h2>
                         <p className="text-[10px] sm:text-[11px] text-gray-400 mt-0.5 truncate">
-                            Define ranges to generate catalog items
+                            Define ranges and category specifications to generate catalog items
                         </p>
                     </div>
                     <button
@@ -373,17 +507,26 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                 <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
                     {/* Basic Info */}
                     <div className="bg-gray-50/50 p-3 sm:p-4 rounded-xl border border-gray-100 space-y-3 sm:space-y-4">
-                        <h3 className="text-[11px] font-black text-[#1F618D] uppercase tracking-wider">Product Info</h3>
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-[11px] font-black text-[#1F618D] uppercase tracking-wider">
+                                {isFrameOrGlass ? 'Frame / Glass Details' : isContactLens ? 'Contact Lens Details' : 'Lens Details'}
+                            </h3>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#2980B9]/10 text-[#2980B9] uppercase">
+                                Mode: {isFrameOrGlass ? 'Frame / Glasses' : isContactLens ? 'Contact Lens' : 'Optical Lens'}
+                            </span>
+                        </div>
+
+                        {/* Common Row 1 */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                             <div>
                                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Product Name *</label>
-                                <input name="productName" type="text" className={inputCls} placeholder="e.g. CR39 SINGLE VISION" value={form.productName} onChange={handleFormChange} />
+                                <input name="productName" type="text" className={inputCls} placeholder={isFrameOrGlass ? "e.g. AVIATOR TITANIUM CLASSIC" : "e.g. CR39 SINGLE VISION"} value={form.productName} onChange={handleFormChange} />
                             </div>
                             <div>
                                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Category *</label>
                                 <select name="categoryId" className={selectCls} value={form.categoryId} onChange={handleFormChange}>
                                     <option value="">Select Category</option>
-                                    {(configs?.category || []).map(c => <option key={c._id || c.name} value={c._id || c.name}>{c.name}</option>)}
+                                    {categories.map(c => <option key={c._id || c.name} value={c._id || c.name}>{c.name}</option>)}
                                 </select>
                             </div>
                             <div>
@@ -394,61 +537,205 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                                 </select>
                             </div>
                             <div>
-                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Coating</label>
-                                <select name="coatingId" className={selectCls} value={form.coatingId} onChange={handleFormChange}>
-                                    <option value="">Select Coating</option>
-                                    {(configs?.coating || []).map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Index</label>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Color *</label>
                                 <input
-                                    name="indexId"
+                                    name="color"
                                     type="text"
                                     className={inputCls}
-                                    placeholder="Type Index"
-                                    value={form.indexId}
+                                    placeholder="e.g. BLACK, GOLD, CLEAR"
+                                    value={form.color}
                                     onChange={handleFormChange}
-                                    list="index-range-modal-options"
+                                    list="color-range-modal-options"
                                 />
-                                <datalist id="index-range-modal-options">
-                                    {(configs?.index || []).map((idx, i) => {
-                                        const val = idx.value?.toString() || idx.name || idx.toString();
-                                        return <option key={i} value={val} />;
-                                    })}
+                                <datalist id="color-range-modal-options">
+                                    <option value="BLACK" />
+                                    <option value="GOLD" />
+                                    <option value="SILVER" />
+                                    <option value="GUNMETAL" />
+                                    <option value="BROWN" />
+                                    <option value="TORTOISE" />
+                                    <option value="TRANSPARENT / CLEAR" />
+                                    <option value="BLUE" />
+                                    <option value="GREY" />
+                                    <option value="MATTE BLACK" />
                                 </datalist>
                             </div>
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Treatment</label>
-                                <select name="treatmentId" className={selectCls} value={form.treatmentId} onChange={handleFormChange}>
-                                    <option value="">Select Treatment</option>
-                                    {(configs?.treatment || []).map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Tint</label>
-                                <select name="tintId" className={selectCls} value={form.tintId} onChange={handleFormChange}>
-                                    <option value="">Select Tint</option>
-                                    {(configs?.tints || []).map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Material</label>
-                                <input name="material" type="text" className={inputCls} placeholder="e.g. CR39" value={form.material} onChange={handleFormChange} />
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Prefix Code</label>
-                                <input name="prefix" type="text" className={inputCls} placeholder="e.g. LNV" value={form.prefix} onChange={handleFormChange} />
-                            </div>
                         </div>
+
+                        {/* DYNAMIC CATEGORY-SPECIFIC ROW 2 */}
+                        {isLens && (
+                            /* LENS SPECIFIC FIELDS */
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 pt-1 border-t border-gray-100">
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Index</label>
+                                    <input
+                                        name="indexId"
+                                        type="text"
+                                        className={inputCls}
+                                        placeholder="1.56, 1.61..."
+                                        value={form.indexId}
+                                        onChange={handleFormChange}
+                                        list="index-range-modal-options"
+                                    />
+                                    <datalist id="index-range-modal-options">
+                                        {(configs?.index || []).map((idx, i) => {
+                                            const val = idx.value?.toString() || idx.name || idx.toString();
+                                            return <option key={i} value={val} />;
+                                        })}
+                                    </datalist>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Coating</label>
+                                    <select name="coatingId" className={selectCls} value={form.coatingId} onChange={handleFormChange}>
+                                        <option value="">Select Coating</option>
+                                        {(configs?.coating || []).map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Treatment</label>
+                                    <select name="treatmentId" className={selectCls} value={form.treatmentId} onChange={handleFormChange}>
+                                        <option value="">Select Treatment</option>
+                                        {(configs?.treatment || []).map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Tint</label>
+                                    <select name="tintId" className={selectCls} value={form.tintId} onChange={handleFormChange}>
+                                        <option value="">Select Tint</option>
+                                        {(configs?.tints || []).map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Material</label>
+                                    <input name="material" type="text" className={inputCls} placeholder="e.g. CR39, Poly" value={form.material} onChange={handleFormChange} />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Prefix Code</label>
+                                    <input name="prefix" type="text" className={inputCls} placeholder="e.g. LNV" value={form.prefix} onChange={handleFormChange} />
+                                </div>
+                            </div>
+                        )}
+
+                        {isFrameOrGlass && (
+                            /* FRAME & GLASSES SPECIFIC FIELDS */
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 pt-1 border-t border-gray-100">
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Frame Type</label>
+                                    <select name="frameType" className={selectCls} value={form.frameType} onChange={handleFormChange}>
+                                        <option value="">Select Type</option>
+                                        <option value="FULL RIM">Full Rim</option>
+                                        <option value="HALF RIM">Half Rim / Supra</option>
+                                        <option value="RIMLESS">Rimless</option>
+                                        <option value="CLIP-ON">Clip-On</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Shape</label>
+                                    <input
+                                        name="shape"
+                                        type="text"
+                                        className={inputCls}
+                                        placeholder="e.g. Rectangle, Aviator"
+                                        value={form.shape}
+                                        onChange={handleFormChange}
+                                        list="shape-range-modal-options"
+                                    />
+                                    <datalist id="shape-range-modal-options">
+                                        <option value="RECTANGLE" />
+                                        <option value="SQUARE" />
+                                        <option value="ROUND" />
+                                        <option value="AVIATOR" />
+                                        <option value="CAT EYE" />
+                                        <option value="WAYFARER" />
+                                        <option value="CLUBMASTER" />
+                                        <option value="HEXAGON" />
+                                        <option value="GEOMETRIC" />
+                                        <option value="OVAL" />
+                                    </datalist>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Size</label>
+                                    <input
+                                        name="size"
+                                        type="text"
+                                        className={inputCls}
+                                        placeholder="e.g. Medium, 52-18-140"
+                                        value={form.size}
+                                        onChange={handleFormChange}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Dimensions</label>
+                                    <input
+                                        name="dimensions"
+                                        type="text"
+                                        className={inputCls}
+                                        placeholder="e.g. 52-18-140"
+                                        value={form.dimensions}
+                                        onChange={handleFormChange}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Frame Material</label>
+                                    <input
+                                        name="material"
+                                        type="text"
+                                        className={inputCls}
+                                        placeholder="e.g. Acetate, Titanium, TR90"
+                                        value={form.material}
+                                        onChange={handleFormChange}
+                                        list="frame-material-options"
+                                    />
+                                    <datalist id="frame-material-options">
+                                        <option value="ACETATE" />
+                                        <option value="METAL / ALLOY" />
+                                        <option value="TITANIUM" />
+                                        <option value="TR90" />
+                                        <option value="ULTEM" />
+                                        <option value="STAINLESS STEEL" />
+                                        <option value="PLASTIC" />
+                                    </datalist>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Prefix Code</label>
+                                    <input name="prefix" type="text" className={inputCls} placeholder="e.g. FRM" value={form.prefix} onChange={handleFormChange} />
+                                </div>
+                            </div>
+                        )}
+
+                        {isContactLens && (
+                            /* CONTACT LENS SPECIFIC FIELDS */
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 pt-1 border-t border-gray-100">
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Disposability</label>
+                                    <select name="disposability" className={selectCls} value={form.disposability} onChange={handleFormChange}>
+                                        <option value="">Select Disposability</option>
+                                        <option value="DAILY">Daily Disposable</option>
+                                        <option value="BI-WEEKLY">Bi-Weekly</option>
+                                        <option value="MONTHLY">Monthly Disposable</option>
+                                        <option value="YEARLY">Yearly Conventional</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Material</label>
+                                    <input name="material" type="text" className={inputCls} placeholder="e.g. Silicone Hydrogel" value={form.material} onChange={handleFormChange} />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Base Curve (BC)</label>
+                                    <input name="baseCurve" type="text" className={inputCls} placeholder="e.g. 8.6" value={form.baseCurve} onChange={handleFormChange} />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Prefix Code</label>
+                                    <input name="prefix" type="text" className={inputCls} placeholder="e.g. CL" value={form.prefix} onChange={handleFormChange} />
+                                </div>
+                            </div>
+                        )}
+
                     </div>
 
-                    {/* Defaults */}
+                    {/* Defaults & Pricing */}
                     <div className="bg-gray-50/50 p-3 sm:p-4 rounded-xl border border-gray-100 space-y-3 sm:space-y-4">
-                        <h3 className="text-[11px] font-black text-[#1F618D] uppercase tracking-wider">Default Pricing & Qty</h3>
+                        <h3 className="text-[11px] font-black text-[#1F618D] uppercase tracking-wider">Default Pricing, Qty & Vendor</h3>
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
                             <div>
                                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Price *</label>
@@ -460,7 +747,7 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                             </div>
                             <div>
                                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">HSN/SAC</label>
-                                <input name="hsnSac" type="text" className={inputCls} placeholder="9001" value={form.hsnSac} onChange={handleFormChange} />
+                                <input name="hsnSac" type="text" className={inputCls} placeholder={isFrameOrGlass ? "9003" : "9001"} value={form.hsnSac} onChange={handleFormChange} />
                             </div>
                             <div>
                                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Qty/Product *</label>
@@ -475,15 +762,32 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                                     <option value="28">28%</option>
                                 </select>
                             </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Vendor / Lab</label>
+                                <select name="vendorId" className={selectCls} value={form.vendorId} onChange={handleFormChange}>
+                                    <option value="">Select Vendor (Optional)</option>
+                                    {(Array.isArray(configs?.vendors) ? configs.vendors : []).map(v => (
+                                        <option key={v._id || v.vendorNumber} value={v._id || v.vendorNumber}>
+                                            {v.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Ranges */}
+                    {/* Ranges Section */}
                     <div className="space-y-3 sm:space-y-4">
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                             <div>
-                                <h3 className="text-[11px] font-black text-[#1F618D] uppercase tracking-wider">Range Rows</h3>
-                                <p className="text-[10px] text-gray-400 mt-0.5">Configure power ranges with step values</p>
+                                <h3 className="text-[11px] font-black text-[#1F618D] uppercase tracking-wider">
+                                    {isFrameOrGlass ? 'Power Range / Item Generation Rows' : 'Lens Power Range Rows'}
+                                </h3>
+                                <p className="text-[10px] text-gray-400 mt-0.5">
+                                    {isFrameOrGlass 
+                                        ? 'Configure power steps for reading glasses, or leave blank to create standard frame units' 
+                                        : 'Configure SPH, CYL and ADD power ranges with step values'}
+                                </p>
                             </div>
                             {totalComboCount > 0 && (
                                 <div className="px-3 py-1 bg-[#eaf4fb] text-[#1F618D] text-[10px] sm:text-xs font-bold rounded-lg border border-[#2980B9]/20 flex-shrink-0">
@@ -523,35 +827,78 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                                         </div>
                                     </div>
 
-                                    {/* Range Inputs - responsive grid */}
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
-                                        <div>
-                                            <label className="text-[9px] font-bold text-gray-400 block mb-0.5">SPH FROM</label>
-                                            <input type="text" className={inputCls} placeholder="-2.00" value={row.sphFrom} onChange={e => handleRangeRowChange(row.id, "sphFrom", e.target.value)} />
-                                            {row.errors.sphFrom && <p className="text-[8px] text-red-500 mt-0.5">{row.errors.sphFrom}</p>}
+                                    {/* SPH, CYL, ADD inputs */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+                                        {/* SPH */}
+                                        <div className="p-2.5 sm:p-3 bg-gray-50/70 rounded-lg border border-gray-100 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-black text-gray-600 uppercase tracking-wider">SPH Range</span>
+                                                <span className="text-[9px] text-gray-400 font-bold">Step: {row.sphStep}</span>
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-1.5">
+                                                <div>
+                                                    <label className="text-[8px] font-bold text-gray-400 block mb-0.5">From</label>
+                                                    <input type="number" step="any" placeholder="-6.00" className={inputCls} value={row.sphFrom} onChange={e => handleRangeRowChange(row.id, "sphFrom", e.target.value)} />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[8px] font-bold text-gray-400 block mb-0.5">To</label>
+                                                    <input type="number" step="any" placeholder="+6.00" className={inputCls} value={row.sphTo} onChange={e => handleRangeRowChange(row.id, "sphTo", e.target.value)} />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[8px] font-bold text-gray-400 block mb-0.5">Step</label>
+                                                    <input type="number" step="any" placeholder="0.25" className={inputCls} value={row.sphStep} onChange={e => handleRangeRowChange(row.id, "sphStep", e.target.value)} />
+                                                </div>
+                                            </div>
+                                            {row.errors?.sphFrom && <p className="text-[9px] text-red-500 font-bold">{row.errors.sphFrom}</p>}
+                                            {row.errors?.sphTo && <p className="text-[9px] text-red-500 font-bold">{row.errors.sphTo}</p>}
                                         </div>
-                                        <div>
-                                            <label className="text-[9px] font-bold text-gray-400 block mb-0.5">SPH TO</label>
-                                            <input type="text" className={inputCls} placeholder="+2.00" value={row.sphTo} onChange={e => handleRangeRowChange(row.id, "sphTo", e.target.value)} />
-                                            {row.errors.sphTo && <p className="text-[8px] text-red-500 mt-0.5">{row.errors.sphTo}</p>}
+
+                                        {/* CYL */}
+                                        <div className="p-2.5 sm:p-3 bg-gray-50/70 rounded-lg border border-gray-100 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-black text-gray-600 uppercase tracking-wider">CYL Range</span>
+                                                <span className="text-[9px] text-gray-400 font-bold">Step: {row.cylStep}</span>
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-1.5">
+                                                <div>
+                                                    <label className="text-[8px] font-bold text-gray-400 block mb-0.5">From</label>
+                                                    <input type="number" step="any" placeholder="-2.00" className={inputCls} value={row.cylFrom} onChange={e => handleRangeRowChange(row.id, "cylFrom", e.target.value)} />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[8px] font-bold text-gray-400 block mb-0.5">To</label>
+                                                    <input type="number" step="any" placeholder="0.00" className={inputCls} value={row.cylTo} onChange={e => handleRangeRowChange(row.id, "cylTo", e.target.value)} />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[8px] font-bold text-gray-400 block mb-0.5">Step</label>
+                                                    <input type="number" step="any" placeholder="0.25" className={inputCls} value={row.cylStep} onChange={e => handleRangeRowChange(row.id, "cylStep", e.target.value)} />
+                                                </div>
+                                            </div>
+                                            {row.errors?.cylFrom && <p className="text-[9px] text-red-500 font-bold">{row.errors.cylFrom}</p>}
+                                            {row.errors?.cylTo && <p className="text-[9px] text-red-500 font-bold">{row.errors.cylTo}</p>}
                                         </div>
-                                        <div>
-                                            <label className="text-[9px] font-bold text-gray-400 block mb-0.5">CYL FROM</label>
-                                            <input type="text" className={inputCls} placeholder="-1.00" value={row.cylFrom} onChange={e => handleRangeRowChange(row.id, "cylFrom", e.target.value)} />
-                                            {row.errors.cylFrom && <p className="text-[8px] text-red-500 mt-0.5">{row.errors.cylFrom}</p>}
-                                        </div>
-                                        <div>
-                                            <label className="text-[9px] font-bold text-gray-400 block mb-0.5">CYL TO</label>
-                                            <input type="text" className={inputCls} placeholder="0.00" value={row.cylTo} onChange={e => handleRangeRowChange(row.id, "cylTo", e.target.value)} />
-                                            {row.errors.cylTo && <p className="text-[8px] text-red-500 mt-0.5">{row.errors.cylTo}</p>}
-                                        </div>
-                                        <div>
-                                            <label className="text-[9px] font-bold text-gray-400 block mb-0.5">ADD FROM</label>
-                                            <input type="text" className={inputCls} placeholder="1.00" value={row.additionFrom} onChange={e => handleRangeRowChange(row.id, "additionFrom", e.target.value)} />
-                                        </div>
-                                        <div>
-                                            <label className="text-[9px] font-bold text-gray-400 block mb-0.5">ADD TO</label>
-                                            <input type="text" className={inputCls} placeholder="3.00" value={row.additionTo} onChange={e => handleRangeRowChange(row.id, "additionTo", e.target.value)} />
+
+                                        {/* ADD */}
+                                        <div className="p-2.5 sm:p-3 bg-gray-50/70 rounded-lg border border-gray-100 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-black text-gray-600 uppercase tracking-wider">Addition (Optional)</span>
+                                                <span className="text-[9px] text-gray-400 font-bold">Step: {row.addStep}</span>
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-1.5">
+                                                <div>
+                                                    <label className="text-[8px] font-bold text-gray-400 block mb-0.5">From</label>
+                                                    <input type="number" step="any" placeholder="+1.00" className={inputCls} value={row.additionFrom} onChange={e => handleRangeRowChange(row.id, "additionFrom", e.target.value)} />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[8px] font-bold text-gray-400 block mb-0.5">To</label>
+                                                    <input type="number" step="any" placeholder="+3.00" className={inputCls} value={row.additionTo} onChange={e => handleRangeRowChange(row.id, "additionTo", e.target.value)} />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[8px] font-bold text-gray-400 block mb-0.5">Step</label>
+                                                    <input type="number" step="any" placeholder="0.25" className={inputCls} value={row.addStep} onChange={e => handleRangeRowChange(row.id, "addStep", e.target.value)} />
+                                                </div>
+                                            </div>
+                                            {row.errors?.additionFrom && <p className="text-[9px] text-red-500 font-bold">{row.errors.additionFrom}</p>}
+                                            {row.errors?.additionTo && <p className="text-[9px] text-red-500 font-bold">{row.errors.additionTo}</p>}
                                         </div>
                                     </div>
                                 </div>
@@ -559,44 +906,53 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                         </div>
                     </div>
 
-                    {/* Preview */}
+                    {/* Preview Table */}
                     {showPreview && (
-                        <div className="space-y-3 bg-white p-3 sm:p-4 rounded-xl border border-gray-200 shadow-sm animate-in fade-in duration-200">
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3">
-                                <h3 className="text-[10px] sm:text-xs font-black text-gray-700 uppercase tracking-wider">Preview ({filteredPreviewRows.length} items)</h3>
-                                <input
-                                    type="text"
-                                    className="w-full sm:w-48 px-3 py-2 sm:py-1.5 text-[11px] border border-gray-200 rounded-xl sm:rounded-lg outline-none"
-                                    placeholder="Search preview..."
-                                    value={previewSearch}
-                                    onChange={e => setPreviewSearch(e.target.value)}
-                                />
+                        <div className="space-y-3 sm:space-y-4 pt-2 border-t border-gray-100">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                                <div>
+                                    <h3 className="text-[11px] font-black text-[#1F618D] uppercase tracking-wider">
+                                        Generated Preview ({filteredPreviewRows.length} items)
+                                    </h3>
+                                    <p className="text-[10px] text-gray-400 mt-0.5">Review generated sheet before injecting into order</p>
+                                </div>
+                                <div className="w-full sm:w-64">
+                                    <input
+                                        type="text"
+                                        placeholder="Search preview..."
+                                        value={previewSearch}
+                                        onChange={e => setPreviewSearch(e.target.value)}
+                                        className="w-full px-3 py-1.5 text-xs border rounded-lg bg-gray-50"
+                                    />
+                                </div>
                             </div>
 
                             {/* Desktop Preview Table */}
-                            <div className="hidden sm:block overflow-x-auto border rounded-xl max-h-60 custom-scrollbar">
-                                <table className="w-full text-left text-xs border-collapse">
-                                    <thead>
-                                        <tr className="bg-gray-50 border-b">
-                                            <th className="p-2 font-bold text-gray-600">Product Name</th>
-                                            <th className="p-2 font-bold text-gray-600">SPH</th>
-                                            <th className="p-2 font-bold text-gray-600">CYL</th>
-                                            <th className="p-2 font-bold text-gray-600">ADD</th>
-                                            <th className="p-2 font-bold text-gray-600">Price</th>
-                                            <th className="p-2 font-bold text-gray-600">MRP</th>
-                                            <th className="p-2 font-bold text-gray-600">Qty</th>
-                                            <th className="p-2 font-bold text-gray-600 text-right">Action</th>
+                            <div className="hidden sm:block max-h-72 overflow-y-auto border border-gray-200 rounded-xl">
+                                <table className="w-full text-left text-xs">
+                                    <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 font-bold text-gray-600 uppercase text-[10px]">
+                                        <tr>
+                                            <th className="p-2 w-12 text-center">#</th>
+                                            <th className="p-2">Item Name / Particulars</th>
+                                            <th className="p-2 w-20">SPH</th>
+                                            <th className="p-2 w-20">CYL</th>
+                                            <th className="p-2 w-20">ADD</th>
+                                            <th className="p-2 w-24">Price</th>
+                                            <th className="p-2 w-24">MRP</th>
+                                            <th className="p-2 w-20">Qty</th>
+                                            <th className="p-2 w-12 text-right">Action</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y">
-                                        {filteredPreviewRows.map((r) => (
-                                            <tr key={r._origIdx} className="hover:bg-gray-50">
-                                                <td className="p-2 font-medium text-gray-700">
-                                                    {form.productName.toUpperCase()} SPH {r.sph} CYL {r.cyl}{r.addition ? ` ADD ${r.addition}` : ""}
+                                    <tbody className="divide-y divide-gray-100">
+                                        {filteredPreviewRows.map((r, i) => (
+                                            <tr key={r._origIdx} className="hover:bg-blue-50/50">
+                                                <td className="p-2 text-center text-gray-400">{i + 1}</td>
+                                                <td className="p-2 font-medium text-gray-800">
+                                                    {form.productName.toUpperCase() + " SPH " + r.sph + " CYL " + r.cyl + (r.addition ? " ADD " + r.addition : "")}
                                                 </td>
-                                                <td className="p-2 font-mono font-bold text-gray-800">{r.sph}</td>
-                                                <td className="p-2 font-mono font-bold text-gray-800">{r.cyl}</td>
-                                                <td className="p-2 font-mono font-bold text-gray-800">{r.addition || "—"}</td>
+                                                <td className="p-2 font-mono font-bold text-gray-700">{r.sph}</td>
+                                                <td className="p-2 font-mono font-bold text-gray-700">{r.cyl}</td>
+                                                <td className="p-2 font-mono text-gray-500">{r.addition || "—"}</td>
                                                 <td className="p-2">
                                                     <input type="number" className="w-16 px-1 py-0.5 border rounded text-xs" value={r.price} onChange={e => handlePreviewEdit(r._origIdx, "price", e.target.value)} />
                                                 </td>
@@ -623,7 +979,7 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                                     <div key={r._origIdx} className="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2">
                                         <div className="flex items-start justify-between gap-2">
                                             <p className="text-[10px] font-bold text-gray-700 leading-tight flex-1">
-                                                {form.productName.toUpperCase()} SPH {r.sph} CYL {r.cyl}{r.addition ? ` ADD ${r.addition}` : ""}
+                                                {form.productName.toUpperCase() + " SPH " + r.sph + " CYL " + r.cyl + (r.addition ? " ADD " + r.addition : "")}
                                             </p>
                                             <button type="button" onClick={() => handlePreviewDeleteRow(r._origIdx)} className="text-red-400 hover:text-red-600 flex-shrink-0">
                                                 <Icon icon="mdi:close-circle" className="text-lg" />
@@ -688,7 +1044,7 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                         >
                             {submitting && <Icon icon="mdi:loading" className="animate-spin text-sm" />}
                             <span className="hidden sm:inline">Generate & Add to Order</span>
-                            <span className="sm:hidden">Generate</span>
+                            <span className="sm:hidden">Add to Order</span>
                         </button>
                     </div>
                 </div>
