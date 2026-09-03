@@ -25,7 +25,7 @@ import {
 } from '@mui/material';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-toastify';
-import { getPaymentsList } from '../../services/accountingService';
+import { getPaymentsList, downloadPaymentReceipt } from '../../services/accountingService';
 
 const PaymentList = () => {
   const [loading, setLoading] = useState(true);
@@ -33,6 +33,20 @@ const PaymentList = () => {
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [search, setSearch] = useState('');
   const [selectedVoucher, setSelectedVoucher] = useState(null);
+  const [downloadingId, setDownloadingId] = useState(null);
+
+  const handleDownloadReceipt = async (p) => {
+    const pId = p._id || p.paymentNumber;
+    try {
+      setDownloadingId(pId);
+      await downloadPaymentReceipt(pId, `Receipt-${p.paymentNumber || 'CPAY'}`);
+      toast.success('Payment receipt downloaded successfully!');
+    } catch (err) {
+      toast.error(err.message || 'Failed to download receipt');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   const fetchPayments = async () => {
     try {
@@ -142,15 +156,46 @@ const PaymentList = () => {
                         sx={{ height: 22, fontWeight: 600 }}
                       />
                     </TableCell>
-                    <TableCell align="center">
-                      <Button
-                        size="small"
-                        variant="text"
-                        onClick={() => setSelectedVoucher(p)}
-                        sx={{ textTransform: 'none' }}
-                      >
-                        View Slip
-                      </Button>
+                    <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                        <Button
+                          size="small"
+                          variant="text"
+                          onClick={() => setSelectedVoucher(p)}
+                          sx={{ textTransform: 'none', fontSize: '0.75rem', fontWeight: 600 }}
+                        >
+                          Slip
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          disabled={downloadingId === (p._id || p.paymentNumber)}
+                          onClick={() => handleDownloadReceipt(p)}
+                          startIcon={
+                            downloadingId === (p._id || p.paymentNumber) ? (
+                              <CircularProgress size={12} color="inherit" />
+                            ) : (
+                              <Icon icon="lucide:download" />
+                            )
+                          }
+                          sx={{
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            textTransform: 'none',
+                            borderRadius: '8px',
+                            py: 0.3,
+                            px: 1,
+                            borderColor: '#0284C7',
+                            color: '#0284C7',
+                            '&:hover': {
+                              backgroundColor: '#E0F2FE',
+                              borderColor: '#0369A1',
+                            }
+                          }}
+                        >
+                          PDF
+                        </Button>
+                      </Box>
                     </TableCell>
                   </TableRow>
                 );

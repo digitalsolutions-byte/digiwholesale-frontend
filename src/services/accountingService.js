@@ -158,3 +158,22 @@ export const adjustDueFromAdvance = async (data) => {
     throw handleServiceError(error, 'Failed to adjust due from advance');
   }
 };
+
+export const downloadPaymentReceipt = async (paymentId, fileName = 'PaymentReceipt') => {
+  try {
+    const response = await api.get(`/api/v1/payments/${paymentId}/receipt`, {
+      responseType: 'blob'
+    });
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${fileName}-${paymentId}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    throw handleServiceError(error, 'Failed to download payment receipt');
+  }
+};
