@@ -205,10 +205,18 @@ const VendorStatement = () => {
               <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
                 Contact: <strong>{vendor.contactPerson || '—'}</strong> | Mobile: <strong>{vendor.mobile || '—'}</strong>
               </Typography>
-              <Box sx={{ display: 'flex', gap: 2, mt: 1.5 }}>
-                <Chip label={`Ledger: ${master.ledgerCode || '—'}`} size="small" variant="outlined" sx={{ fontFamily: 'monospace' }} />
-                <Chip label={`Total Purchase: ₹${Number(stats.totalCredit || 0).toLocaleString()}`} size="small" variant="outlined" />
-                <Chip label={`Total Payout: ₹${Number(stats.totalDebit || 0).toLocaleString()}`} size="small" color="success" variant="outlined" />
+              {summary.vendor.gstin && (
+                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+                  GSTIN: {summary.vendor.gstin}
+                </Typography>
+              )}
+              <Box sx={{ display: 'flex', gap: 1, mt: 1.5, flexWrap: 'wrap' }}>
+                <Chip size="small" label={`Ledger: ${master.ledgerCode || 'VEND-LED'}`} sx={{ fontWeight: 600 }} />
+                <Chip size="small" label={`Category: ${master.vendorCategory || '—'}`} variant="outlined" sx={{ fontWeight: 600 }} />
+                <Chip size="small" label={`Terms: ${master.paymentTerms || 0} Days`} sx={{ fontWeight: 600 }} />
+                {master.tdsApplicable && (
+                  <Chip size="small" label={`TDS: ${master.tdsSection} (${master.tdsPercentage}%)`} color="warning" sx={{ fontWeight: 600 }} />
+                )}
               </Box>
             </Grid>
 
@@ -216,17 +224,58 @@ const VendorStatement = () => {
               <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase', fontWeight: 700 }}>
                 Net Balance Payable to Vendor
               </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 900, color: '#E11D48', mt: 0.5 }}>
-                ₹{Number(master.currentBalance || 0).toLocaleString()}
+              <Typography variant="h4" sx={{ fontWeight: 800, color: currentOutstanding > 0 ? '#E11D48' : '#6B7280', mt: 0.5 }}>
+                {currentOutstanding > 0 ? `₹${currentOutstanding.toLocaleString()} (Payable)` : '₹0 (Settled)'}
               </Typography>
+              <Chip
+                size="small"
+                label={currentOutstanding > 0 ? 'Payment Due (Payable)' : 'Account Settled'}
+                color={currentOutstanding > 0 ? 'error' : 'default'}
+                sx={{ mt: 1, fontWeight: 700 }}
+              />
             </Grid>
           </Grid>
         </Card>
 
-        {/* Date Filter */}
-        <Card sx={{ p: 2, mb: 3, borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid item xs={6} sm={3}>
+            <Paper elevation={0} sx={{ p: 2, borderRadius: '10px', border: '1px solid #FECDD3', backgroundColor: '#FFF1F2' }}>
+              <Typography variant="caption" sx={{ color: '#E11D48', fontWeight: 700 }}>Outstanding Payable</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#E11D48' }}>
+                ₹{currentOutstanding.toLocaleString()}
+              </Typography>
+            </Paper>
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <Paper elevation={0} sx={{ p: 2, borderRadius: '10px', border: '1px solid #E2E8F0', backgroundColor: '#F8FAFC' }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700 }}>Total Purchased (Credit)</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                ₹{totalCredit.toLocaleString()}
+              </Typography>
+            </Paper>
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <Paper elevation={0} sx={{ p: 2, borderRadius: '10px', border: '1px solid #A7F3D0', backgroundColor: '#ECFDF5' }}>
+              <Typography variant="caption" sx={{ color: '#059669', fontWeight: 700 }}>Total Paid Out (Debit)</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#059669' }}>
+                ₹{totalDebit.toLocaleString()}
+              </Typography>
+            </Paper>
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <Paper elevation={0} sx={{ p: 2, borderRadius: '10px', border: '1px solid #E2E8F0', backgroundColor: '#F8FAFC' }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700 }}>Opening Balance</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                ₹{Number(stats.openingBalance || 0).toLocaleString()}
+              </Typography>
+            </Paper>
+          </Grid>
+        </Grid>
+
+        <Card sx={{ p: 2, mb: 3, borderRadius: '12px', border: '1px solid', borderColor: 'divider' }}>
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={3}>
+            <Grid item xs={12} sm={4}>
               <TextField
                 type="date"
                 size="small"
@@ -237,7 +286,7 @@ const VendorStatement = () => {
                 fullWidth
               />
             </Grid>
-            <Grid item xs={12} sm={3}>
+            <Grid item xs={12} sm={4}>
               <TextField
                 type="date"
                 size="small"
@@ -248,13 +297,13 @@ const VendorStatement = () => {
                 fullWidth
               />
             </Grid>
-            <Grid item xs={12} sm={3}>
+            <Grid item xs={12} sm={4}>
               <Button
                 variant="contained"
                 onClick={fetchStatement}
                 startIcon={<Icon icon="lucide:filter" />}
                 fullWidth
-                sx={{ borderRadius: '8px', textTransform: 'none', height: 40, backgroundColor: '#0284C7' }}
+                sx={{ borderRadius: '8px', textTransform: 'none', height: 40, backgroundColor: '#00A2FF' }}
               >
                 Apply Filter
               </Button>
@@ -308,8 +357,19 @@ const VendorStatement = () => {
         <VendorPayoutModal
           open={payoutModalOpen}
           onClose={() => setPayoutModalOpen(false)}
-          vendor={vendor}
-          onSuccess={() => fetchStatement()}
+          vendor={{
+            _id: summary.vendor.id,
+            firm: summary.vendor.firm,
+            name: summary.vendor.name,
+            mobile: summary.vendor.mobile,
+            gstNumber: summary.vendor.gstin,
+            pan: master.pan,
+            currentOutstanding,
+            tdsApplicable: master.tdsApplicable,
+            tdsSection: master.tdsSection,
+            tdsPercentage: master.tdsPercentage
+          }}
+          onSuccess={fetchStatement}
         />
       )}
     </Box>

@@ -12,9 +12,6 @@ import {
   Grid,
   Divider,
   Paper,
-  Alert,
-  FormControlLabel,
-  Checkbox,
   CircularProgress
 } from '@mui/material';
 import { Icon } from '@iconify/react';
@@ -25,10 +22,6 @@ const VendorPayoutModal = ({ open, onClose, vendor, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     grossAmount: '',
-    applyTds: false,
-    tdsSection: '194Q',
-    tdsPercentage: 0.1,
-    debitNoteDeducted: 0,
     paymentMode: 'BANK_TRANSFER',
     paymentDetails: {
       utrNumber: '',
@@ -44,10 +37,6 @@ const VendorPayoutModal = ({ open, onClose, vendor, onSuccess }) => {
     if (open && vendor) {
       setFormData({
         grossAmount: '',
-        applyTds: Boolean(vendor.tdsApplicable),
-        tdsSection: vendor.tdsSection || '194Q',
-        tdsPercentage: vendor.tdsPercentage || 0.1,
-        debitNoteDeducted: 0,
         paymentMode: 'BANK_TRANSFER',
         paymentDetails: {
           utrNumber: '',
@@ -61,15 +50,12 @@ const VendorPayoutModal = ({ open, onClose, vendor, onSuccess }) => {
     }
   }, [open, vendor]);
 
-  const gross = Number(formData.grossAmount) || 0;
-  const tdsAmt = formData.applyTds ? Math.round((gross * Number(formData.tdsPercentage || 0)) / 100) : 0;
-  const debitNoteAmt = Number(formData.debitNoteDeducted) || 0;
-  const netPaid = Math.max(0, gross - tdsAmt - debitNoteAmt);
+  const amount = Number(formData.grossAmount) || 0;
 
   const handleSubmit = async () => {
     try {
-      if (!gross || gross <= 0) {
-        toast.warning('Please enter a valid gross payout amount');
+      if (!amount || amount <= 0) {
+        toast.warning('Please enter a valid payout amount');
         return;
       }
 
@@ -77,16 +63,13 @@ const VendorPayoutModal = ({ open, onClose, vendor, onSuccess }) => {
 
       const payload = {
         vendorId: vendor._id || vendor.id,
-        grossAmount: gross,
-        tdsDeducted: tdsAmt,
-        tdsSection: formData.applyTds ? formData.tdsSection : null,
-        debitNoteDeducted: debitNoteAmt,
+        grossAmount: amount,
         paymentMode: formData.paymentMode,
         paymentDetails: formData.paymentDetails
       };
 
       await executeVendorPayment(payload);
-      toast.success(`Vendor payout of ₹${netPaid} processed successfully!`);
+      toast.success(`Vendor payout of ₹${amount.toLocaleString()} processed successfully!`);
       if (onSuccess) onSuccess();
       onClose();
     } catch (err) {
@@ -135,14 +118,14 @@ const VendorPayoutModal = ({ open, onClose, vendor, onSuccess }) => {
         <Grid container spacing={2} sx={{ mb: 3 }}>
           <Grid item xs={12} sm={6}>
             <TextField
-              label="Gross Bill Amount to Settle (₹)"
+              label="Payout Amount to Settle (₹)"
               type="number"
               size="small"
               value={formData.grossAmount}
               onChange={(e) => setFormData({ ...formData, grossAmount: e.target.value })}
               fullWidth
               required
-              helperText="Gross invoice value before TDS and Return deductions"
+              helperText="Enter payment amount to settle outstanding"
             />
           </Grid>
           <Grid item xs={12} sm={6}>
@@ -161,65 +144,6 @@ const VendorPayoutModal = ({ open, onClose, vendor, onSuccess }) => {
             </TextField>
           </Grid>
         </Grid>
-
-        {/* TDS & Debit Note Deductions */}
-        <Paper elevation={0} sx={{ p: 2, mb: 3, backgroundColor: '#FFFBEB', borderRadius: '10px', border: '1px solid #FDE68A' }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#D97706', mb: 1.5 }}>
-            Statutory Deductions & Adjustments (TDS / Debit Notes)
-          </Typography>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={4}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={formData.applyTds}
-                    onChange={(e) => setFormData({ ...formData, applyTds: e.target.checked })}
-                  />
-                }
-                label="Deduct TDS (Income Tax)"
-              />
-            </Grid>
-            {formData.applyTds && (
-              <>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    select
-                    size="small"
-                    label="TDS Section"
-                    value={formData.tdsSection}
-                    onChange={(e) => setFormData({ ...formData, tdsSection: e.target.value })}
-                    fullWidth
-                  >
-                    <MenuItem value="194Q">Sec 194Q (Goods Purchase - 0.1%)</MenuItem>
-                    <MenuItem value="194C">Sec 194C (Contractor/Jobwork - 1%/2%)</MenuItem>
-                    <MenuItem value="194J">Sec 194J (Professional/Tech - 10%)</MenuItem>
-                  </TextField>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    label="TDS Rate (%)"
-                    type="number"
-                    size="small"
-                    value={formData.tdsPercentage}
-                    onChange={(e) => setFormData({ ...formData, tdsPercentage: e.target.value })}
-                    fullWidth
-                  />
-                </Grid>
-              </>
-            )}
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Purchase Return / Debit Note Deduction (₹)"
-                type="number"
-                size="small"
-                value={formData.debitNoteDeducted}
-                onChange={(e) => setFormData({ ...formData, debitNoteDeducted: e.target.value })}
-                fullWidth
-                helperText="Amount deducted for QC failed/returned items"
-              />
-            </Grid>
-          </Grid>
-        </Paper>
 
         {/* Dynamic Mode Reference */}
         {formData.paymentMode === 'BANK_TRANSFER' && (
@@ -294,24 +218,47 @@ const VendorPayoutModal = ({ open, onClose, vendor, onSuccess }) => {
           </Grid>
         )}
 
-        {/* Payout Calculation Breakdown */}
+        {formData.paymentMode === 'UPI' && (
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Receiver UPI ID / VPA"
+                size="small"
+                value={formData.paymentDetails.receiverUpiId}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  paymentDetails: { ...formData.paymentDetails, receiverUpiId: e.target.value }
+                })}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Transaction / Reference Remarks"
+                size="small"
+                value={formData.paymentDetails.remarks}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  paymentDetails: { ...formData.paymentDetails, remarks: e.target.value }
+                })}
+                fullWidth
+              />
+            </Grid>
+          </Grid>
+        )}
+
+        {/* Payout Summary Breakdown */}
         <Paper elevation={0} sx={{ p: 2.5, backgroundColor: '#EFF6FF', borderRadius: '10px', border: '1px solid #BFDBFE' }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={3}>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>Gross Invoiced</Typography>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>₹{gross.toLocaleString()}</Typography>
+          <Grid container spacing={2} alignItems="center" justifyContent="space-between">
+            <Grid item xs={6}>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>Net Amount to Pay</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#059669' }}>₹{amount.toLocaleString()}</Typography>
             </Grid>
-            <Grid item xs={3}>
-              <Typography variant="caption" sx={{ color: '#D97706' }}>- TDS Deducted</Typography>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#D97706' }}>₹{tdsAmt.toLocaleString()}</Typography>
-            </Grid>
-            <Grid item xs={3}>
-              <Typography variant="caption" sx={{ color: '#E11D48' }}>- Debit Notes</Typography>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#E11D48' }}>₹{debitNoteAmt.toLocaleString()}</Typography>
-            </Grid>
-            <Grid item xs={3}>
-              <Typography variant="caption" sx={{ color: '#059669', fontWeight: 700 }}>= NET PAID</Typography>
-              <Typography variant="h6" sx={{ fontWeight: 800, color: '#059669' }}>₹{netPaid.toLocaleString()}</Typography>
+            <Grid item xs={6} sx={{ textAlign: 'right' }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>Payment Mode</Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#1E293B' }}>
+                {formData.paymentMode.replace('_', ' ')}
+              </Typography>
             </Grid>
           </Grid>
         </Paper>
@@ -322,7 +269,7 @@ const VendorPayoutModal = ({ open, onClose, vendor, onSuccess }) => {
         <Button
           variant="contained"
           onClick={handleSubmit}
-          disabled={loading || !gross}
+          disabled={loading || !amount}
           startIcon={loading ? <CircularProgress size={18} color="inherit" /> : <Icon icon="lucide:check" />}
           sx={{ borderRadius: '8px', textTransform: 'none', px: 3, backgroundColor: '#E11D48', '&:hover': { backgroundColor: '#BE123C' } }}
         >
