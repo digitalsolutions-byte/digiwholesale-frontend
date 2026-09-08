@@ -719,6 +719,7 @@ const VendorStatement = () => {
             firm: vendor.firm || vendor.firmName || vendor.name,
             name: vendor.name || vendor.contactPerson,
             mobile: vendor.mobile,
+            email: vendor.email,
             gstNumber: vendor.gstin || vendor.gstNumber,
             pan: master.pan || vendor.pan,
             currentOutstanding,

@@ -12,6 +12,7 @@ import {
   Grid,
   Divider,
   Paper,
+  Alert,
   CircularProgress
 } from '@mui/material';
 import { Icon } from '@iconify/react';
@@ -68,8 +69,11 @@ const VendorPayoutModal = ({ open, onClose, vendor, onSuccess }) => {
         paymentDetails: formData.paymentDetails
       };
 
-      await executeVendorPayment(payload);
-      toast.success(`Vendor payout of ₹${amount.toLocaleString()} processed successfully!`);
+      const res = await executeVendorPayment(payload);
+      toast.success(
+        res?.message ||
+        `Vendor payout of ₹${amount.toLocaleString()} processed successfully! Receipt sent to vendor email.`
+      );
       if (onSuccess) onSuccess();
       onClose();
     } catch (err) {
@@ -88,31 +92,47 @@ const VendorPayoutModal = ({ open, onClose, vendor, onSuccess }) => {
 
       <DialogContent dividers>
         {/* Vendor Header */}
-        <Paper elevation={0} sx={{ p: 2, mb: 3, backgroundColor: '#F8FAFC', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+        <Paper elevation={0} sx={{ p: 2, mb: 2.5, backgroundColor: '#F8FAFC', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+            <Grid item xs={12} sm={7}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '1rem', color: '#0F172A' }}>
                 {vendor?.firm || vendor?.name}
               </Typography>
-              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                Contact: {vendor?.name} | Mobile: {vendor?.mobile}
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
+                Contact: <strong>{vendor?.name || '—'}</strong> | Mobile: <strong>{vendor?.mobile || '—'}</strong>
               </Typography>
-              {vendor?.gstNumber && (
-                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                  GSTIN: {vendor.gstNumber} | PAN: {vendor.pan || '—'}
-                </Typography>
-              )}
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+                Email: <strong style={{ color: vendor?.email ? '#0284C7' : '#94A3B8' }}>{vendor?.email || 'No email configured'}</strong>
+                {vendor?.gstNumber ? ` | GSTIN: ${vendor.gstNumber}` : ''}
+              </Typography>
             </Grid>
-            <Grid item xs={12} sm={6} sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
+            <Grid item xs={12} sm={5} sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
               <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
                 Current Payable Outstanding
               </Typography>
-              <Typography variant="h6" sx={{ fontWeight: 700, color: '#E11D48' }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#E11D48' }}>
                 ₹{Number(vendor?.currentOutstanding || 0).toLocaleString()}
               </Typography>
             </Grid>
           </Grid>
         </Paper>
+
+        {/* Email Auto-Dispatch Notice */}
+        <Alert
+          severity={vendor?.email ? "info" : "warning"}
+          icon={<Icon icon={vendor?.email ? "lucide:mail-check" : "lucide:alert-triangle"} style={{ fontSize: '18px' }} />}
+          sx={{ mb: 2.5, borderRadius: '8px', fontSize: '0.8rem', py: 0.5 }}
+        >
+          {vendor?.email ? (
+            <span>
+              Official <strong>Payment Advice Voucher PDF</strong> will be automatically generated and emailed to <strong>{vendor.email}</strong> upon submission.
+            </span>
+          ) : (
+            <span>
+              No email configured for this vendor. Payout voucher will be recorded in ledger and downloadable from vendor statement.
+            </span>
+          )}
+        </Alert>
 
         {/* Payout Amounts */}
         <Grid container spacing={2} sx={{ mb: 3 }}>

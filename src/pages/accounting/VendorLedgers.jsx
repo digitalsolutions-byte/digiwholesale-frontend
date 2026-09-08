@@ -100,11 +100,13 @@ const VendorLedgers = () => {
 
   const handleOpenPayout = (ledger) => {
     setPayoutVendor({
-      _id: ledger.vendorId?._id,
+      _id: ledger.vendorId?._id || ledger.vendorId,
+      id: ledger.vendorId?._id || ledger.vendorId,
       firm: ledger.vendorId?.firm || ledger.vendorId?.name,
       name: ledger.vendorId?.name,
       mobile: ledger.vendorId?.mobile,
-      gstNumber: ledger.vendorId?.gstNumber,
+      email: ledger.vendorId?.email,
+      gstNumber: ledger.vendorId?.gstNumber || ledger.gstin,
       pan: ledger.pan,
       currentOutstanding: ledger.currentOutstanding
     });
@@ -331,7 +333,16 @@ const VendorLedgers = () => {
                     </TableCell>
                     <TableCell align="center">
                       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
-                        <Tooltip title="View Vendor Statement">
+                        <Tooltip title="Print / View Vendor Statement">
+                          <IconButton
+                            size="small"
+                            sx={{ color: '#0284C7' }}
+                            onClick={() => navigate(`/accounting/vendor-statement/${l.vendorId?._id}`)}
+                          >
+                            <Icon icon="lucide:printer" style={{ fontSize: '18px' }} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="View Statement Table">
                           <IconButton
                             size="small"
                             color="primary"
