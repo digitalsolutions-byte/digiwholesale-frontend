@@ -7,7 +7,7 @@ import {
 import { Icon } from '@iconify/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { getCustomerStatement, adjustDueFromAdvance, downloadPaymentReceipt } from '../../services/accountingService';
+import { getCustomerStatement, adjustDueFromAdvance, downloadPaymentReceipt, sendPaymentDueReminder } from '../../services/accountingService';
 import CustomerPaymentModal from './CustomerPaymentModal';
 
 const formatAddress = (addr) => {
@@ -36,17 +36,26 @@ const CustomerKhataStatement = () => {
   const [filters, setFilters] = useState({ startDate: '', endDate: '' });
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [downloadingReceiptId, setDownloadingReceiptId] = useState(null);
+  const [sendingReminder, setSendingReminder] = useState(false);
+  const [notApproved, setNotApproved] = useState(false);
+  const [statementError, setStatementError] = useState(null);
 
   const fetchStatement = async () => {
     try {
       setLoading(true);
+      setNotApproved(false);
+      setStatementError(null);
       const res = await getCustomerStatement(customerId, filters);
       setSummary(res.data?.summary || {});
       const rawTxns = res.data?.transactions || [];
       const sorted = [...rawTxns].sort((a, b) => new Date(b.transactionDate || b.createdAt) - new Date(a.transactionDate || a.createdAt));
       setTransactions(sorted);
     } catch (err) {
-      toast.error(err.message || 'Failed to load customer statement');
+      const isUnapproved = err.response?.data?.errorCode === 'CUSTOMER_NOT_APPROVED';
+      setNotApproved(isUnapproved);
+      const msg = err.response?.data?.message || err.message || 'Failed to load customer statement';
+      setStatementError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -442,6 +451,28 @@ const CustomerKhataStatement = () => {
     }
   };
 
+  const handleSendDueReminder = async () => {
+    if (creditUsed <= 0) {
+      toast.info('Customer has no outstanding balance due.');
+      return;
+    }
+    const customerTitle = cust.shopName || cust.ownerName || 'Customer';
+    const confirmed = window.confirm(
+      `Send WhatsApp & Email payment due reminder for ₹${creditUsed.toLocaleString('en-IN')} to ${customerTitle}?`
+    );
+    if (!confirmed) return;
+
+    try {
+      setSendingReminder(true);
+      const res = await sendPaymentDueReminder({ partyId: customerId, entityType: 'Customer' });
+      toast.success(res.message || 'Payment due reminder sent via WhatsApp & Email!');
+    } catch (err) {
+      toast.error(err.message || 'Failed to send payment due reminder');
+    } finally {
+      setSendingReminder(false);
+    }
+  };
+
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1300, mx: 'auto' }}>
       {/* Top Header Bar */}
@@ -449,7 +480,7 @@ const CustomerKhataStatement = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Button
             variant="outlined"
-            onClick={() => navigate('/accounting/customer-khata')}
+            onClick={() => navigate('/accounting/customer-ledgers')}
             startIcon={<Icon icon="lucide:arrow-left" />}
             sx={{ borderRadius: '8px', textTransform: 'none', color: '#0284C7', borderColor: '#BAE6FD' }}
           >
@@ -480,6 +511,19 @@ const CustomerKhataStatement = () => {
             </Button>
           )}
 
+          {creditUsed > 0 && (
+            <Button
+              variant="outlined"
+              color="warning"
+              disabled={sendingReminder}
+              onClick={handleSendDueReminder}
+              startIcon={sendingReminder ? <CircularProgress size={16} color="inherit" /> : <Icon icon="logos:whatsapp-icon" />}
+              sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}
+            >
+              {sendingReminder ? 'Sending...' : 'Send Due Reminder (WhatsApp)'}
+            </Button>
+          )}
+
           <Button
             variant="contained"
             color="success"
@@ -507,6 +551,47 @@ const CustomerKhataStatement = () => {
           </Button>
         </Box>
       </Box>
+
+      {/* Unapproved Customer Notice Banner */}
+      {notApproved && (
+        <Alert
+          severity="warning"
+          variant="filled"
+          sx={{ mb: 3, borderRadius: '12px', fontWeight: 600, boxShadow: '0 2px 8px rgba(245,158,11,0.2)' }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => navigate('/accounting/customer-ledgers')}
+              sx={{ fontWeight: 700, textTransform: 'none' }}
+            >
+              Back to Khatas
+            </Button>
+          }
+        >
+          {statementError || 'Customer Registration Incomplete: This customer has not yet received final Sales Head registration approval. Accounting ledgers and financial statements are restricted to approved active customers only.'}
+        </Alert>
+      )}
+
+      {/* General Statement Error Banner */}
+      {statementError && !notApproved && (
+        <Alert
+          severity="error"
+          sx={{ mb: 3, borderRadius: '12px', fontWeight: 600 }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={fetchStatement}
+              sx={{ fontWeight: 700, textTransform: 'none' }}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {statementError}
+        </Alert>
+      )}
 
       {/* Customer & Khata Summary Header Card */}
       {summary.customer && (

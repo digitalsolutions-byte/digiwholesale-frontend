@@ -177,3 +177,22 @@ export const downloadPaymentReceipt = async (paymentId, fileName = 'PaymentRecei
     throw handleServiceError(error, 'Failed to download payment receipt');
   }
 };
+
+export const sendPaymentDueReminder = async (data) => {
+  try {
+    const response = await api.post('/api/v1/payments/due-reminder', data);
+    return response.data;
+  } catch (error) {
+    throw handleServiceError(error, 'Failed to send payment due reminder');
+  }
+};
+
+export const resendPaymentReceipt = async (paymentId, channel = 'both') => {
+  try {
+    const response = await api.post(`/api/v1/payments/${paymentId}/resend-receipt`, { channel });
+    return response.data;
+  } catch (error) {
+    throw handleServiceError(error, 'Failed to resend payment receipt');
+  }
+};
+

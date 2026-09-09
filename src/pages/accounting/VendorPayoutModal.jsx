@@ -72,7 +72,7 @@ const VendorPayoutModal = ({ open, onClose, vendor, onSuccess }) => {
       const res = await executeVendorPayment(payload);
       toast.success(
         res?.message ||
-        `Vendor payout of ₹${amount.toLocaleString()} processed successfully! Receipt sent to vendor email.`
+        `Vendor payout of ₹${amount.toLocaleString()} processed successfully! Receipt sent via WhatsApp & Email.`
       );
       if (onSuccess) onSuccess();
       onClose();
@@ -117,19 +117,19 @@ const VendorPayoutModal = ({ open, onClose, vendor, onSuccess }) => {
           </Grid>
         </Paper>
 
-        {/* Email Auto-Dispatch Notice */}
+        {/* Dispatch Notice */}
         <Alert
-          severity={vendor?.email ? "info" : "warning"}
-          icon={<Icon icon={vendor?.email ? "lucide:mail-check" : "lucide:alert-triangle"} style={{ fontSize: '18px' }} />}
+          severity={vendor?.mobile || vendor?.email ? "info" : "warning"}
+          icon={<Icon icon={vendor?.mobile || vendor?.email ? "lucide:send" : "lucide:alert-triangle"} style={{ fontSize: '18px' }} />}
           sx={{ mb: 2.5, borderRadius: '8px', fontSize: '0.8rem', py: 0.5 }}
         >
-          {vendor?.email ? (
+          {vendor?.mobile || vendor?.email ? (
             <span>
-              Official <strong>Payment Advice Voucher PDF</strong> will be automatically generated and emailed to <strong>{vendor.email}</strong> upon submission.
+              Official <strong>Payment Advice Voucher PDF</strong> will be automatically generated and sent via <strong>WhatsApp ({vendor.mobile || '—'})</strong> and <strong>Email ({vendor.email || '—'})</strong> upon submission.
             </span>
           ) : (
             <span>
-              No email configured for this vendor. Payout voucher will be recorded in ledger and downloadable from vendor statement.
+              No mobile or email configured for this vendor. Payout voucher will be recorded in ledger and downloadable from vendor statement.
             </span>
           )}
         </Alert>
