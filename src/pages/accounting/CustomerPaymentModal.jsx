@@ -114,7 +114,7 @@ const CustomerPaymentModal = ({ open, onClose, customer, onSuccess }) => {
 
             const res = await executeCustomerPayment(payload);
       const createdPayment = res?.data || res;
-      toast.success(`Payment of ₹${enteredAmount.toLocaleString()} recorded! Receipt sent to customer email.`);
+      toast.success(`Payment of ₹${enteredAmount.toLocaleString()} recorded! Receipt sent via WhatsApp & Email.`);
       
       if (createdPayment?._id) {
         try {

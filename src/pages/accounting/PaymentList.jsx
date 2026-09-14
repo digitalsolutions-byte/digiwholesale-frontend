@@ -25,7 +25,7 @@ import {
 } from '@mui/material';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-toastify';
-import { getPaymentsList, downloadPaymentReceipt } from '../../services/accountingService';
+import { getPaymentsList, downloadPaymentReceipt, resendPaymentReceipt } from '../../services/accountingService';
 
 const PaymentList = () => {
   const [loading, setLoading] = useState(true);
@@ -34,6 +34,7 @@ const PaymentList = () => {
   const [search, setSearch] = useState('');
   const [selectedVoucher, setSelectedVoucher] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
+  const [resendingId, setResendingId] = useState(null);
 
   const handleDownloadReceipt = async (p) => {
     const pId = p._id || p.paymentNumber;
@@ -45,6 +46,19 @@ const PaymentList = () => {
       toast.error(err.message || 'Failed to download receipt');
     } finally {
       setDownloadingId(null);
+    }
+  };
+
+  const handleResendReceipt = async (p) => {
+    const pId = p._id || p.paymentNumber;
+    try {
+      setResendingId(pId);
+      const res = await resendPaymentReceipt(pId, 'whatsapp');
+      toast.success(res.message || 'WhatsApp payment receipt sent successfully!');
+    } catch (err) {
+      toast.error(err.message || 'Failed to send WhatsApp receipt');
+    } finally {
+      setResendingId(null);
     }
   };
 
@@ -195,6 +209,35 @@ const PaymentList = () => {
                         >
                           PDF
                         </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          disabled={resendingId === (p._id || p.paymentNumber)}
+                          onClick={() => handleResendReceipt(p)}
+                          startIcon={
+                            resendingId === (p._id || p.paymentNumber) ? (
+                              <CircularProgress size={12} color="inherit" />
+                            ) : (
+                              <Icon icon="logos:whatsapp-icon" />
+                            )
+                          }
+                          sx={{
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            textTransform: 'none',
+                            borderRadius: '8px',
+                            py: 0.3,
+                            px: 1,
+                            borderColor: '#10B981',
+                            color: '#059669',
+                            '&:hover': {
+                              backgroundColor: '#ECFDF5',
+                              borderColor: '#059669',
+                            }
+                          }}
+                        >
+                          WhatsApp
+                        </Button>
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -267,8 +310,26 @@ const PaymentList = () => {
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
           <Button onClick={() => setSelectedVoucher(null)} sx={{ textTransform: 'none' }}>Close</Button>
+          {selectedVoucher && (
+            <Button
+              variant="outlined"
+              color="success"
+              disabled={resendingId === (selectedVoucher._id || selectedVoucher.paymentNumber)}
+              onClick={() => handleResendReceipt(selectedVoucher)}
+              startIcon={
+                resendingId === (selectedVoucher._id || selectedVoucher.paymentNumber) ? (
+                  <CircularProgress size={14} color="inherit" />
+                ) : (
+                  <Icon icon="logos:whatsapp-icon" />
+                )
+              }
+              sx={{ textTransform: 'none', fontWeight: 600 }}
+            >
+              Send WhatsApp Receipt
+            </Button>
+          )}
           <Button variant="contained" onClick={() => window.print()} sx={{ textTransform: 'none' }}>Print Voucher</Button>
         </DialogActions>
       </Dialog>
