@@ -255,7 +255,7 @@ const OrderDetails = () => {
                         className="px-3 py-2 rounded-xl bg-blue-50 text-[#2980B9] border border-blue-200 text-xs font-bold hover:bg-[#2980B9] hover:text-white transition-all flex items-center gap-1.5 shadow-xs"
                     >
                         <Icon icon="mdi:book-open-page-variant" className="text-base" />
-                        <span>Khata</span>
+                        <span>Ledger</span>
                     </button>
                     {order.invoiceUrl && (
                         <a

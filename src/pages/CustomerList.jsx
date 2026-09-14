@@ -805,7 +805,7 @@ const CustomerList = () => {
                             className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-blue-600 hover:bg-blue-50 transition-colors"
                         >
                             <Icon icon="mdi:book-open-page-variant" className="text-lg" />
-                            Khata Statement
+                            Ledger Statement
                         </button>
                         <button
                             onClick={() => {
@@ -941,7 +941,7 @@ const CustomerList = () => {
                                     <h3 className="text-erp-accent font-bold uppercase text-xs tracking-widest border-b pb-2">Registered Addresses</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         {([selectedCustomer?.billToAddress, ...(selectedCustomer?.customerShipToDetails || selectedCustomer?.address || [])].filter(Boolean)).map((addr, idx) => (
-                                            <div key={idx} className="bg-erp-accent/5/50 p-4 rounded-2xl border border-erp-accent/10">
+                                            <div key={idx} className="bg-blue-50/40 p-4 rounded-2xl border border-erp-accent/10">
                                                 <p className="font-bold text-gray-800 text-sm mb-2 italic">Address {idx + 1}</p>
                                                 <p className="text-xs text-gray-600 mb-1">{addr?.address || addr?.address1 || addr?.branchAddress}</p>
                                                 <p className="text-xs text-gray-600 mb-2">{addr?.city}, {addr?.state}, {addr?.country} - {addr?.zipCode}</p>

@@ -2084,7 +2084,7 @@ const OrderWizard = () => {
                                     const disabled = isSideDisabled(side);
                                     const active = product.powerMode === 'single' && product.selectedSide === side;
                                     const isSingle = product.powerMode === 'single';
-                                    const sideBg = side === 'R' ? 'bg-amber-50/30 border-amber-200/70' : 'bg-blue-50/30 border-blue-200/70';
+                                    const sideBg = side === 'R' ? 'bg-amber-50/60 border-amber-200' : 'bg-blue-50/60 border-blue-200';
                                     const sideTitleColor = side === 'R' ? 'text-amber-900' : 'text-blue-900';
                                     const badgeColor = side === 'R' ? 'bg-amber-500' : 'bg-blue-500';
 
@@ -2165,7 +2165,7 @@ const OrderWizard = () => {
 
                             {/* Prism Table (if enabled) */}
                             {product.hasPrism === 'yes' && (
-                                <div className="rounded-xl border border-erp-accent/20 p-3 bg-erp-accent/5/30 space-y-2">
+                                <div className="rounded-xl border border-erp-accent/20 p-3 bg-blue-50/40 space-y-2">
                                     <span className="text-[10px] font-black uppercase tracking-wider text-erp-accent">Prism Specification</span>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         {['R', 'L'].map((side) => {
@@ -2326,7 +2326,7 @@ const OrderWizard = () => {
                         })}
 
                         {/* Text Inputs Row Start */}
-                        {product.orderType === 'rx' && isLensCategory && wrapInput(Input, {
+                        {product.orderType === 'rx' && isLensCategory && !product.vendorId && wrapInput(Input, {
                             label: "Lab name",
                             name: `${prefix}labName`,
                             placeholder: "Enter lab name",

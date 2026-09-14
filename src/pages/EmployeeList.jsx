@@ -512,7 +512,7 @@ const EmployeeList = () => {
                                             {expandedRows.has(emp._id) && (
                                                 <tr className="bg-gray-50/50">
                                                     <td colSpan="8" className="p-0 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
-                                                        <div className="p-10 border-x-4 border-erp-accent/20 bg-gradient-to-br from-white to-erp-accent/10/30">
+                                                        <div className="p-10 border-x-4 border-erp-accent/20 bg-gradient-to-br from-white to-blue-50/30">
                                                             <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
                                                                 <div className="space-y-6">
                                                                     <h4 className="text-[11px] font-black text-erp-accent/80 uppercase tracking-widest border-b border-erp-accent/20 pb-2">Profile Info</h4>

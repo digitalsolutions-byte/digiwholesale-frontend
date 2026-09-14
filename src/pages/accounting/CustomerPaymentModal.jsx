@@ -216,7 +216,7 @@ const CustomerPaymentModal = ({ open, onClose, customer, onSuccess }) => {
             </Typography>
             {excessNewAdvance > 0 ? (
               <Typography variant="body2" sx={{ color: '#059669', fontWeight: 700 }}>
-                • Excess <strong>₹{excessNewAdvance.toLocaleString()}</strong> will be credited to Customer's Advance Khata (Total Advance: ₹{(currentAdvance + excessNewAdvance).toLocaleString()}).
+                • Excess <strong>₹{excessNewAdvance.toLocaleString()}</strong> will be credited to Customer's Advance Balance (Total Advance: ₹{(currentAdvance + excessNewAdvance).toLocaleString()}).
               </Typography>
             ) : (
               <Typography variant="body2" sx={{ color: 'text.secondary' }}>

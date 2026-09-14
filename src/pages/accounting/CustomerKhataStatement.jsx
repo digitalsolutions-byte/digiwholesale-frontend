@@ -324,7 +324,7 @@ const CustomerKhataStatement = () => {
           </div>
 
           <div class="info-box">
-            <div class="box-title">Khata / Account Summary</div>
+            <div class="box-title">Ledger / Account Summary</div>
             <div><strong>Ledger Code:</strong> <span style="font-family: monospace; font-weight: 700;">${ledgerCode}</span></div>
             <div><strong>Credit Limit:</strong> ₹${creditLimit.toLocaleString('en-IN')} &nbsp;|&nbsp; <strong>Terms:</strong> ${master.creditDays || 30} Days</div>
             <div><strong>Available Credit:</strong> ₹${availableCredit.toLocaleString('en-IN')}</div>
@@ -449,16 +449,16 @@ const CustomerKhataStatement = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Button
             variant="outlined"
-            onClick={() => navigate('/accounting/customer-khata')}
+            onClick={() => navigate('/accounting/customer-ledgers')}
             startIcon={<Icon icon="lucide:arrow-left" />}
             sx={{ borderRadius: '8px', textTransform: 'none', color: '#0284C7', borderColor: '#BAE6FD' }}
           >
-            Back to Khatas
+            Back to Customer Ledgers
           </Button>
           <Box>
             <Typography variant="h5" sx={{ fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 1 }}>
               <Icon icon="lucide:file-spreadsheet" className="text-[#0284C7]" />
-              Customer Khata Statement
+              Customer Ledger Statement
             </Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
               Complete ledger transactions, debits, credits, and live balance history

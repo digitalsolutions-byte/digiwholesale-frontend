@@ -6,6 +6,58 @@ import { toast } from 'react-toastify';
 import Swal from 'sweetalert2';
 import { PATHS } from '../../routes/paths';
 
+
+const calculatePurchaseTotals = (order) => {
+    let baseTotal = 0;
+    let gstTotal = 0;
+
+    if (order?.orders && Array.isArray(order.orders)) {
+        order.orders.forEach((subOrder) => {
+            const subItems = subOrder.items || [];
+            const subTaxable = subItems.reduce((sum, item) => {
+                const price = Number(item.price ?? item.unitRate ?? item.rate ?? item.mrp ?? 0);
+                const qty = Number(item.qty || 1);
+                const discount = Number(item.discountAmount || 0);
+                return sum + (price * qty) - discount;
+            }, 0);
+
+            baseTotal += subTaxable;
+
+            const cgstRate = Number(subOrder.cgst || 0);
+            const sgstRate = Number(subOrder.sgst || 0);
+            const igstRate = Number(subOrder.igst || 0);
+            const subOrderGstRate = cgstRate + sgstRate + igstRate;
+
+            if (subOrderGstRate > 0) {
+                gstTotal += (subTaxable * subOrderGstRate) / 100;
+            } else {
+                const itemGst = subItems.reduce((sum, item) => {
+                    const price = Number(item.price ?? item.unitRate ?? item.rate ?? item.mrp ?? 0);
+                    const qty = Number(item.qty || 1);
+                    const discount = Number(item.discountAmount || 0);
+                    const net = (price * qty) - discount;
+                    const gstRate = Number(item.gst ?? item.gstRate ?? 0);
+                    return sum + ((net * gstRate) / 100);
+                }, 0);
+                gstTotal += itemGst;
+            }
+        });
+    }
+
+    if (baseTotal === 0 && order?.totalAmount) {
+        baseTotal = Number(order.totalAmount || 0);
+        gstTotal = Number(order.gstAmount || 0);
+    }
+
+    const grandTotal = baseTotal + gstTotal;
+
+    return {
+        baseTotal,
+        gstTotal,
+        grandTotal
+    };
+};
+
 const PurchaseItems = () => {
     const navigate = useNavigate();
     const [purchaseOrders, setPurchaseOrders] = useState([]);
@@ -129,7 +181,7 @@ const PurchaseItems = () => {
                         purchaseOrders.map((order) => {
                             const vendorName = order.vendor?.vendorName || order.vendor?.vendorId || order.vendorId?.name || order.vendorId || 'N/A';
                             const purchaseId = order._id.substring(order._id.length - 8).toUpperCase();
-                            const totalAmount = order.orders?.reduce((acc, subOrder) => acc + (subOrder.items?.reduce((sum, item) => sum + ((item.mrp || item.price || 0) * (item.qty || 1)), 0) || 0), 0) || order.totalAmount || 0;
+                            const totals = calculatePurchaseTotals(order);
 
                             return (
                                 <div
@@ -156,8 +208,11 @@ const PurchaseItems = () => {
 
                                     <div className="grid grid-cols-2 gap-2 text-xs">
                                         <div>
-                                            <span className="text-[9px] font-bold text-gray-400 uppercase block">Total Amount</span>
-                                            <span className="font-bold text-gray-900">₹{totalAmount.toFixed(2)}</span>
+                                            <span className="text-[9px] font-bold text-gray-400 uppercase block">Total Amount (Inc. GST)</span>
+                                            <span className="font-bold text-gray-900">₹{totals.grandTotal.toFixed(2)}</span>
+                                            <div className="text-[10px] font-medium text-emerald-600 mt-0.5">
+                                                GST: ₹{totals.gstTotal.toFixed(2)} <span className="text-gray-400 font-normal">| Base: ₹{totals.baseTotal.toFixed(2)}</span>
+                                            </div>
                                         </div>
                                         <div>
                                             <span className="text-[9px] font-bold text-gray-400 uppercase block">Created At</span>

@@ -2118,7 +2118,7 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                             return (
                                 <tr key={row.id}
                                     className={`border-b border-gray-50 text-center transition-colors cursor-pointer
-                                        ${isChecked ? "bg-[#2980b9]/10/70 hover:bg-[#2980b9]/10" : "hover:bg-[#2980b9]/10"}`}
+                                        ${isChecked ? "bg-blue-50/60 hover:bg-[#2980b9]/10" : "hover:bg-[#2980b9]/10"}`}
                                     onClick={() => toggleRow(row.original)}
                                 >
                                     {row.getVisibleCells().map(cell => (

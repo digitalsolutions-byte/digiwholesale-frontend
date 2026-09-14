@@ -7,6 +7,58 @@ import { toast } from 'react-toastify';
 import Swal from 'sweetalert2';
 import { PATHS } from '../../routes/paths';
 
+
+const calculatePurchaseTotals = (order) => {
+    let baseTotal = 0;
+    let gstTotal = 0;
+
+    if (order?.orders && Array.isArray(order.orders)) {
+        order.orders.forEach((subOrder) => {
+            const subItems = subOrder.items || [];
+            const subTaxable = subItems.reduce((sum, item) => {
+                const price = Number(item.price ?? item.unitRate ?? item.rate ?? item.mrp ?? 0);
+                const qty = Number(item.qty || 1);
+                const discount = Number(item.discountAmount || 0);
+                return sum + (price * qty) - discount;
+            }, 0);
+
+            baseTotal += subTaxable;
+
+            const cgstRate = Number(subOrder.cgst || 0);
+            const sgstRate = Number(subOrder.sgst || 0);
+            const igstRate = Number(subOrder.igst || 0);
+            const subOrderGstRate = cgstRate + sgstRate + igstRate;
+
+            if (subOrderGstRate > 0) {
+                gstTotal += (subTaxable * subOrderGstRate) / 100;
+            } else {
+                const itemGst = subItems.reduce((sum, item) => {
+                    const price = Number(item.price ?? item.unitRate ?? item.rate ?? item.mrp ?? 0);
+                    const qty = Number(item.qty || 1);
+                    const discount = Number(item.discountAmount || 0);
+                    const net = (price * qty) - discount;
+                    const gstRate = Number(item.gst ?? item.gstRate ?? 0);
+                    return sum + ((net * gstRate) / 100);
+                }, 0);
+                gstTotal += itemGst;
+            }
+        });
+    }
+
+    if (baseTotal === 0 && order?.totalAmount) {
+        baseTotal = Number(order.totalAmount || 0);
+        gstTotal = Number(order.gstAmount || 0);
+    }
+
+    const grandTotal = baseTotal + gstTotal;
+
+    return {
+        baseTotal,
+        gstTotal,
+        grandTotal
+    };
+};
+
 const PurchaseItemDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -379,7 +431,7 @@ const PurchaseItemDetails = () => {
     }
 
     const vendorName = orderDetails.vendorId?.name || orderDetails.vendor?.vendorName || orderDetails.vendorId || 'Unknown Vendor';
-    const totalAmount = orderDetails.orders?.reduce((acc, subOrder) => acc + (subOrder.items?.reduce((sum, item) => sum + ((item.mrp || 0) * (item.qty || 1)), 0) || 0), 0) || 0;
+    const totals = calculatePurchaseTotals(orderDetails);
 
     const getInwardStatusColor = (status) => {
         switch (status) {
@@ -487,9 +539,14 @@ const PurchaseItemDetails = () => {
                             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Date</span>
                             <span className="text-sm font-semibold text-gray-800">{new Date(orderDetails.createdAt).toLocaleDateString()}</span>
                         </div>
-                        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-2">
-                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total</span>
-                            <span className="text-lg font-bold text-erp-accent">₹{totalAmount.toFixed(2)}</span>
+                        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-1">
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Amount (Inc. GST)</span>
+                            <span className="text-lg font-bold text-[#2980B9]">₹{totals.grandTotal.toFixed(2)}</span>
+                            <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
+                                <span>GST: <span className="font-bold text-emerald-600">₹{totals.gstTotal.toFixed(2)}</span></span>
+                                <span className="text-gray-300">•</span>
+                                <span>Base: ₹{totals.baseTotal.toFixed(2)}</span>
+                            </div>
                         </div>
                     </div>
 

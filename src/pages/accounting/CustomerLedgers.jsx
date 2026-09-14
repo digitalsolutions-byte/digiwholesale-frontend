@@ -145,7 +145,7 @@ const CustomerLedgers = () => {
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
             <Icon icon="lucide:book-open" style={{ color: '#00A2FF' }} />
-            Customer Khata & Ledgers
+            Customer Ledgers
           </Typography>
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
             Multi-branch Customer accounting, credit limits, credit used (receivables), and advance balances
@@ -188,7 +188,7 @@ const CustomerLedgers = () => {
         <Grid item xs={12} sm={3}>
           <Card sx={{ p: 2.5, borderRadius: '12px', border: '1px solid #E2E8F0', backgroundColor: '#F8FAFC' }}>
             <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700 }}>
-              ACTIVE CUSTOMER KHATAS
+              ACTIVE CUSTOMER LEDGERS
             </Typography>
             <Typography variant="h5" sx={{ fontWeight: 800, color: '#10B981', mt: 0.5 }}>
               {activeCount} / {ledgers.length}
@@ -329,7 +329,7 @@ const CustomerLedgers = () => {
                     </TableCell>
                     <TableCell align="center">
                       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
-                        <Tooltip title="View Khata Statement">
+                        <Tooltip title="View Customer Statement">
                           <IconButton
                             size="small"
                             color="primary"

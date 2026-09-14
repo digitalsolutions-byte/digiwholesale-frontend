@@ -288,7 +288,7 @@ const ChequeManagement = () => {
             disabled={actionLoading}
             sx={{ textTransform: 'none' }}
           >
-            Confirm Clearance & Credit Khata
+            Confirm Clearance & Credit Ledger
           </Button>
         </DialogActions>
       </Dialog>
@@ -302,7 +302,7 @@ const ChequeManagement = () => {
           <Alert severity="error" sx={{ mb: 2, borderRadius: '8px' }}>
             <strong>Rule Triggered:</strong> Marking this cheque as bounced will automatically:
             <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
-              <li>Debit Customer Khata with original ₹{Number(selectedCheque?.grossAmount || 0).toLocaleString()}</li>
+              <li>Debit Customer Ledger with original ₹{Number(selectedCheque?.grossAmount || 0).toLocaleString()}</li>
               <li>Debit automatic <strong>₹500 Cheque Bounce Penalty</strong></li>
               <li>Post dual non-editable audit trail records (REV- & CHG-)</li>
             </ul>
