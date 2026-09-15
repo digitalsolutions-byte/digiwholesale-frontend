@@ -31,6 +31,7 @@ import { PATHS } from '../routes/paths';
 import { getOrderById, updateOrder } from '../services/orderService';
 import { uploadImage } from '../services/bucketService';
 import { getProductDisplayImage } from '../utils/productUtils';
+import { getBatchesForProduct } from '../services/batchService';
 
 const SectionCard = ({ children, className = '' }) => (
     <div className={`bg-white rounded-2xl border border-gray-100 shadow-[0_1px_4px_0_rgba(0,0,0,0.06)] ${className}`}>
@@ -268,6 +269,9 @@ const OrderWizard = () => {
         tintId: '',
         tintDetails: '',
         remarks: '',
+        batchId: '',
+        batchNumber: '',
+        availableBatches: [],
         hasMirror: 'no',
         vendorId: '',
         labName: '',
@@ -956,6 +960,8 @@ const OrderWizard = () => {
 
             const baseItem = {
                 productId: prod.productId || undefined,
+                batchId: prod.batchId || undefined,
+                batchNumber: prod.batchNumber || undefined,
                 unit: (prod.unit || 'piece').toUpperCase(),
                 orderType: isRx ? 'RX' : 'STOCK',
                 itemName: prod.itemName || prod.productName || productData?.name || '',
@@ -1513,14 +1519,18 @@ const OrderWizard = () => {
                 }).catch(err => {
                     console.error('Failed to fetch full product details:', err);
                 });
-            }
 
-        } else if (selectedValue) {
-            // Custom RX / freeSolo input
-            formik.setFieldValue(`${prefix}productId`, '');
-            formik.setFieldValue(`${prefix}productName`, selectedValue);
-            formik.setFieldValue(`${prefix}itemName`, selectedValue);
-        }
+                // Fetch available batches for product
+                getBatchesForProduct(productId).then(bRes => {
+                    const batchList = bRes?.data?.batches || bRes?.batches || [];
+                    formik.setFieldValue(`${prefix}availableBatches`, batchList);
+                    if (batchList.length > 0) {
+                        formik.setFieldValue(`${prefix}batchId`, batchList[0]._id);
+                        formik.setFieldValue(`${prefix}batchNumber`, batchList[0].batchNumber);
+                    }
+                }).catch(err => console.error('Failed to fetch product batches:', err));
+            }
+            }
     };
 
     // Initial search and filter changes for active product
@@ -2592,6 +2602,9 @@ const OrderWizard = () => {
                                             Order Type
                                         </th>
                                         <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+                                            Batch No.
+                                        </th>
+                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
                                             Qty
                                         </th>
                                         <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
@@ -2859,6 +2872,30 @@ const OrderWizard = () => {
                                                         >
                                                             <option value="stock">Stock</option>
                                                             {(!product.category && !product.categoryId || product.category?.toUpperCase().includes('LENS') || (configs.category?.find(c => c._id === product.categoryId)?.name?.toUpperCase().includes('LENS'))) && <option value="rx">Rx</option>}
+                                                        </select>
+                                                    </td>
+
+                                                    {/* Batch Select */}
+                                                    <td className="px-2 py-2 min-w-[130px]">
+                                                        <select
+                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all cursor-pointer font-medium text-gray-700 disabled:bg-gray-100 disabled:text-gray-400"
+                                                            name={`products.${index}.batchId`}
+                                                            value={product.batchId || ''}
+                                                            onChange={(e) => {
+                                                                const bId = e.target.value;
+                                                                const bObj = (product.availableBatches || []).find(b => b._id === bId);
+                                                                formik.setFieldValue(`products.${index}.batchId`, bId);
+                                                                formik.setFieldValue(`products.${index}.batchNumber`, bObj ? bObj.batchNumber : '');
+                                                            }}
+                                                            disabled={isReadOnly || product.orderType === 'rx'}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <option value="">{product.availableBatches?.length ? "Auto (Oldest)" : "No Batch"}</option>
+                                                            {(product.availableBatches || []).map(b => (
+                                                                <option key={b._id} value={b._id}>
+                                                                    {b.batchNumber} ({b.availableQty} available)
+                                                                </option>
+                                                            ))}
                                                         </select>
                                                     </td>
 

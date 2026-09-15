@@ -443,6 +443,11 @@ const OrderDetails = () => {
                                                         <span className={`px-1.5 py-0.5 rounded uppercase ${item.orderSource === 'ORDER' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-600'}`}>
                                                             Source: {item.orderSource || 'INHOUSE'}
                                                         </span>
+                                                        {item.batchNumber && (
+                                                            <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded uppercase font-bold">
+                                                                Batch: {item.batchNumber}
+                                                            </span>
+                                                        )}
                                                         {vendorObj?.name && (
                                                             <span className="px-1.5 py-0.5 bg-blue-50 text-[#2980B9] rounded border border-blue-100">
                                                                 Vendor: {vendorObj.name}

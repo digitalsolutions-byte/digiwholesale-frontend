@@ -23,8 +23,8 @@ import { FiUpload, FiDownload, FiCheckCircle, FiAlertCircle } from "react-icons/
 
 import { createPortal } from "react-dom";
 import { getProductDisplayImage } from "../utils/productUtils";
+import { getBatchesForProduct, allocateManualBatch } from "../services/batchService";
 
-// ─── shared primitives ────────────────────────────────────────────────────────
 const Modal = ({ children, onClose, maxWidth = "max-w-5xl" }) => {
     return createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -93,6 +93,7 @@ function RowCheckbox({ checked, onChange, indeterminate = false }) {
             type="checkbox"
             checked={checked}
             onChange={onChange}
+            onClick={(e) => e.stopPropagation()}
             className="w-3.5 h-3.5 rounded accent-[#2980b9] cursor-pointer"
         />
     );
@@ -1680,7 +1681,6 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
     const [globalFilter, setGlobalFilter] = useState("");
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
-    // const [vendors, setVendors] = useState([]);
 
     const [openEditProductModal, setOpenEditProductModal] = useState(false);
     const [openInventoryModal, setOpenInventoryModal] = useState(false);
@@ -1696,6 +1696,88 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
 
     const [openBarcodeModal, setOpenBarcodeModal] = useState(false);
     const [barcodeProduct, setBarcodeProduct] = useState(null);
+
+    const [openBatchModal, setOpenBatchModal] = useState(false);
+    const [batchProduct, setBatchProduct] = useState(null);
+    const [productBatches, setProductBatches] = useState([]);
+    const [batchSummary, setBatchSummary] = useState({ totalStock: 0, allocatedQty: 0, unallocatedQty: 0 });
+    const [loadingBatches, setLoadingBatches] = useState(false);
+    const [allocatingBatch, setAllocatingBatch] = useState(false);
+    const [batchFormData, setBatchFormData] = useState({
+        batchNumber: '',
+        qty: '',
+        costPrice: '',
+        remarks: ''
+    });
+
+    const fetchBatchesForSelectedProduct = useCallback(async (productId) => {
+        if (!productId) return;
+        setLoadingBatches(true);
+        try {
+            const res = await getBatchesForProduct(productId, 'ALL');
+            const batchList = res?.data?.batches || res?.batches || [];
+            const totalStock = res?.data?.totalStock ?? res?.totalStock ?? 0;
+            const allocatedQty = res?.data?.allocatedQty ?? res?.allocatedQty ?? 0;
+            const unallocatedQty = res?.data?.unallocatedQty ?? res?.unallocatedQty ?? 0;
+
+            setProductBatches(batchList);
+            setBatchSummary({ totalStock, allocatedQty, unallocatedQty });
+            setBatchFormData(prev => ({
+                ...prev,
+                qty: unallocatedQty > 0 ? unallocatedQty : 0
+            }));
+        } catch (err) {
+            console.error("Failed to load product batches:", err);
+        } finally {
+            setLoadingBatches(false);
+        }
+    }, []);
+
+    const handleOpenBatchModal = (product) => {
+        setBatchProduct(product);
+        setBatchSummary({ totalStock: product.qty || 0, allocatedQty: 0, unallocatedQty: product.qty || 0 });
+        setBatchFormData({
+            batchNumber: '',
+            qty: product.qty || 1,
+            costPrice: product.price || 0,
+            remarks: 'Manual batch allocation from Inventory'
+        });
+        setOpenBatchModal(true);
+        fetchBatchesForSelectedProduct(product._id);
+    };
+
+    const handleAllocateBatchSubmit = async (e) => {
+        e.preventDefault();
+        if (!batchProduct?._id) return;
+
+        const reqQty = Number(batchFormData.qty) || 0;
+        if (reqQty <= 0) {
+            toast.error("Please enter a valid allocated quantity (> 0)");
+            return;
+        }
+        if (reqQty > batchSummary.unallocatedQty) {
+            toast.error(`Allocated quantity (${reqQty}) cannot exceed remaining unallocated quantity (${batchSummary.unallocatedQty})`);
+            return;
+        }
+
+        setAllocatingBatch(true);
+        try {
+            const res = await allocateManualBatch({
+                productId: batchProduct._id,
+                batchNumber: batchFormData.batchNumber,
+                qty: reqQty,
+                costPrice: Number(batchFormData.costPrice) || 0,
+                remarks: batchFormData.remarks
+            });
+            toast.success(res?.message || "Batch allocated successfully!");
+            setBatchFormData({ batchNumber: '', qty: 0, costPrice: batchProduct.price || 0, remarks: '' });
+            fetchBatchesForSelectedProduct(batchProduct._id);
+        } catch (err) {
+            toast.error(err?.message || "Failed to allocate batch");
+        } finally {
+            setAllocatingBatch(false);
+        }
+    };
 
     // ── Row selection state ───────────────────────────────────────────────────
     // Map of rowId (_id) → product object for selected rows
@@ -1790,6 +1872,47 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
             }
         } catch (error) {
             Swal.fire({ icon: "error", title: "Error", text: error.message || error.response?.data?.message || "Something went wrong" });
+        }
+    };
+
+    const handleDeleteBulkProducts = async () => {
+        const idsToDelete = Object.keys(selectedRows);
+        if (idsToDelete.length === 0) return;
+
+        const result = await Swal.fire({
+            title: "Delete Selected Products?",
+            text: `Are you sure you want to permanently delete ${idsToDelete.length} selected product(s)? This action cannot be undone.`,
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#dc2626",
+            cancelButtonColor: "#6b7280",
+            confirmButtonText: `Yes, delete ${idsToDelete.length} product(s)`,
+        });
+
+        if (!result.isConfirmed) return;
+
+        try {
+            Swal.fire({ title: "Deleting selected products...", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            const res = await api.post("/api/digi/product/delete-bulk", { ids: idsToDelete });
+            if (res.data.success) {
+                const deletedIdSet = new Set(idsToDelete);
+                setData(prev => prev.filter(p => !deletedIdSet.has(p._id)));
+                setFilteredData(prev => prev.filter(p => !deletedIdSet.has(p._id)));
+                setSelectedRows({});
+                Swal.fire({
+                    icon: "success",
+                    title: "Deleted!",
+                    text: `${res.data.deletedCount || idsToDelete.length} product(s) deleted successfully.`,
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            }
+        } catch (error) {
+            Swal.fire({
+                icon: "error",
+                title: "Error Deleting Products",
+                text: error.response?.data?.message || error.message || "Failed to delete selected products."
+            });
         }
     };
 
@@ -1942,6 +2065,10 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                             className="p-1.5 rounded-lg hover:bg-[#2980b9]/10 text-[#2980b9] transition" title="Inventory History">
                             <FiInfo size={14} />
                         </button>
+                        <button onClick={e => { e.stopPropagation(); handleOpenBatchModal(product); }}
+                            className="p-1.5 rounded-lg hover:bg-amber-50 text-amber-600 transition" title="Assign / View Batches">
+                            <FiLayers size={14} />
+                        </button>
                     </div>
                 );
             },
@@ -2081,6 +2208,14 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                             <FiPrinter size={13} /> Print Labels ({selectedCount})
                         </button>
 
+                        {/* Bulk Delete */}
+                        <button
+                            onClick={handleDeleteBulkProducts}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-xl transition shadow-sm"
+                        >
+                            <FiTrash2 size={13} /> Delete Selected ({selectedCount})
+                        </button>
+
                     </div>
                 ) : (
                     <div /> // placeholder to keep search on right
@@ -2125,8 +2260,8 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                                         <td key={cell.id}
                                             className="px-4 py-2.5 text-gray-700 whitespace-nowrap text-sm"
                                             onClick={e => {
-                                                // Don't toggle row when clicking action buttons
-                                                if (cell.column.id === "actions" || cell.column.id === "delete") e.stopPropagation();
+                                                // Don't toggle row when clicking action buttons or checkbox cell
+                                                if (cell.column.id === "actions" || cell.column.id === "delete" || cell.column.id === "select") e.stopPropagation();
                                             }}
                                         >
                                             {flexRender(cell.column.columnDef.cell ?? cell.column.columnDef.accessorKey, cell.getContext())}
@@ -2256,6 +2391,21 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
             {openInventoryHistoryTableModal && (
                 <InventoryHistoryModal product={selectedProduct}
                     onClose={() => { setSelectedProduct(null); setOpenInventoryHistoryTableModal(false); }} />
+            )}
+
+            {openBatchModal && (
+                <BatchManagementModal
+                    isOpen={openBatchModal}
+                    onClose={() => { setOpenBatchModal(false); setBatchProduct(null); }}
+                    product={batchProduct}
+                    batches={productBatches}
+                    summary={batchSummary}
+                    loading={loadingBatches}
+                    allocating={allocatingBatch}
+                    formData={batchFormData}
+                    setFormData={setBatchFormData}
+                    onAllocateSubmit={handleAllocateBatchSubmit}
+                />
             )}
 
             {openBarcodeModal && (
@@ -4314,3 +4464,203 @@ function BulkUploadModal({ onClose }) {
         </Modal>
     );
 }
+
+const BatchManagementModal = ({ isOpen, onClose, product, batches, summary, loading, allocating, formData, setFormData, onAllocateSubmit }) => {
+    if (!isOpen || !product) return null;
+
+    const { totalStock = 0, allocatedQty = 0, unallocatedQty = 0 } = summary || {};
+    const isUnallocatedEmpty = unallocatedQty <= 0;
+
+    return (
+        <Modal onClose={onClose} maxWidth="max-w-4xl">
+            <ModalHeader
+                title="Batch Allocation & Details"
+                subtitle={`${product.productName || 'Product'} (${product.productCode || 'N/A'})`}
+                onClose={onClose}
+                icon={FiLayers}
+            />
+            <div className="p-6 overflow-y-auto max-h-[75vh] flex flex-col gap-6">
+                {/* Stock Allocation Summary Banner */}
+                <div className="grid grid-cols-3 gap-3 bg-gray-50 border border-gray-100 rounded-2xl p-4">
+                    <div className="text-center border-r border-gray-200/80 pr-2">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Total Inventory Stock</span>
+                        <span className="text-lg font-black text-gray-800">{totalStock}</span>
+                    </div>
+                    <div className="text-center border-r border-gray-200/80 pr-2">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Allocated to Batches</span>
+                        <span className="text-lg font-black text-blue-600">{allocatedQty}</span>
+                    </div>
+                    <div className="text-center">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Remaining Unallocated</span>
+                        <span className={`text-lg font-black ${unallocatedQty > 0 ? 'text-emerald-600' : 'text-amber-600'}`}>{unallocatedQty}</span>
+                    </div>
+                </div>
+
+                {/* Allocate New Batch Form */}
+                <div className={`border rounded-2xl p-5 shadow-2xs transition-all ${isUnallocatedEmpty ? 'bg-amber-50/40 border-amber-200' : 'bg-gradient-to-r from-blue-50/70 to-indigo-50/70 border-blue-100'}`}>
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                            <FiPlus className={isUnallocatedEmpty ? "text-amber-600" : "text-[#2980b9]"} size={16} />
+                            <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Allocate New Batch Number</h3>
+                        </div>
+                        {isUnallocatedEmpty && (
+                            <span className="text-[11px] font-bold text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full">
+                                Stock Fully Allocated
+                            </span>
+                        )}
+                    </div>
+
+                    {isUnallocatedEmpty ? (
+                        <div className="p-3 bg-white/80 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2">
+                            <FiAlertCircle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                            <div>
+                                <p className="font-bold">No unallocated stock available!</p>
+                                <p className="text-[11px] text-amber-700 mt-0.5">
+                                    All {totalStock} units of this product are already assigned to active batches.
+                                    To create a new batch, please add more inventory stock or wait until existing batches are sold.
+                                </p>
+                            </div>
+                        </div>
+                    ) : (
+                        <form onSubmit={onAllocateSubmit} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Batch Number</label>
+                                <input
+                                    type="text"
+                                    placeholder="Auto (e.g. BTCN1)"
+                                    className="w-full px-3 py-2 text-xs font-semibold uppercase bg-white border border-gray-200 rounded-xl outline-none focus:border-[#2980b9] focus:ring-1 focus:ring-[#2980b9]/30"
+                                    value={formData.batchNumber}
+                                    onChange={e => setFormData(prev => ({ ...prev, batchNumber: e.target.value }))}
+                                />
+                                <span className="text-[9px] text-gray-400 mt-0.5 block">Leave blank for auto-generate</span>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">
+                                    Allocated Qty * <span className="text-emerald-600 font-semibold">(Max: {unallocatedQty})</span>
+                                </label>
+                                <input
+                                    type="number"
+                                    required
+                                    min="1"
+                                    max={unallocatedQty}
+                                    placeholder={`Max ${unallocatedQty}`}
+                                    className="w-full px-3 py-2 text-xs font-semibold bg-white border border-gray-200 rounded-xl outline-none focus:border-[#2980b9] focus:ring-1 focus:ring-[#2980b9]/30"
+                                    value={formData.qty}
+                                    onChange={e => setFormData(prev => ({ ...prev, qty: e.target.value }))}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Cost Price (₹)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="Cost Price"
+                                    className="w-full px-3 py-2 text-xs font-semibold bg-white border border-gray-200 rounded-xl outline-none focus:border-[#2980b9] focus:ring-1 focus:ring-[#2980b9]/30"
+                                    value={formData.costPrice}
+                                    onChange={e => setFormData(prev => ({ ...prev, costPrice: e.target.value }))}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Remarks</label>
+                                <input
+                                    type="text"
+                                    placeholder="Allocation remarks..."
+                                    className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-xl outline-none focus:border-[#2980b9] focus:ring-1 focus:ring-[#2980b9]/30"
+                                    value={formData.remarks}
+                                    onChange={e => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
+                                />
+                            </div>
+                            <div className="sm:col-span-2 md:col-span-4 flex justify-end">
+                                <button
+                                    type="submit"
+                                    disabled={allocating || isUnallocatedEmpty}
+                                    className="flex items-center gap-2 px-5 py-2.5 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white text-xs font-bold rounded-xl transition shadow-md disabled:opacity-50 cursor-pointer"
+                                >
+                                    {allocating ? (
+                                        <>
+                                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                            <span>Allocating...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <FiCheckSquare size={15} />
+                                            <span>Allocate Batch</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </form>
+                    )}
+                </div>
+
+                {/* Existing Batches List */}
+                <div>
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-2">
+                            <FiPackage size={14} className="text-gray-500" />
+                            Assigned Batches ({batches.length})
+                        </h3>
+                    </div>
+
+                    {loading ? (
+                        <div className="py-12 text-center text-gray-400 text-xs flex flex-col items-center gap-2">
+                            <div className="w-5 h-5 border-2 border-[#2980b9] border-t-transparent rounded-full animate-spin" />
+                            <span>Loading batches...</span>
+                        </div>
+                    ) : batches.length === 0 ? (
+                        <div className="p-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                            <FiAlertCircle size={28} className="mx-auto text-amber-400 mb-2" />
+                            <p className="text-xs font-bold text-gray-700">No Batches Assigned</p>
+                            <p className="text-[11px] text-gray-400 mt-0.5">This product currently does not have any batch allocated. Use the form above to assign a batch number.</p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto border border-gray-100 rounded-xl shadow-2xs">
+                            <table className="w-full text-left text-xs">
+                                <thead className="bg-gray-50/80 text-gray-500 font-bold uppercase tracking-wider text-[10px] border-b border-gray-100">
+                                    <tr>
+                                        <th className="px-4 py-3">Batch Number</th>
+                                        <th className="px-4 py-3 text-center">Available Qty</th>
+                                        <th className="px-4 py-3 text-center">Initial Qty</th>
+                                        <th className="px-4 py-3 text-right">Cost Price</th>
+                                        <th className="px-4 py-3 text-center">Status</th>
+                                        <th className="px-4 py-3">Inward Date</th>
+                                        <th className="px-4 py-3">Remarks</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
+                                    {batches.map(b => (
+                                        <tr key={b._id} className="hover:bg-gray-50/60 transition">
+                                            <td className="px-4 py-3 font-bold text-gray-900 font-mono">
+                                                <span className="px-2 py-0.5 bg-blue-50 text-[#2980b9] border border-blue-100 rounded-lg">
+                                                    {b.batchNumber}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-center font-bold text-emerald-600">{b.availableQty}</td>
+                                            <td className="px-4 py-3 text-center text-gray-500">{b.initialQty}</td>
+                                            <td className="px-4 py-3 text-right font-semibold">₹{b.costPrice || 0}</td>
+                                            <td className="px-4 py-3 text-center">
+                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${b.status === 'OPEN' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                    {b.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-gray-500 text-[11px]">{b.inwardDate ? new Date(b.inwardDate).toLocaleDateString('en-IN') : '—'}</td>
+                                            <td className="px-4 py-3 text-gray-400 text-[11px] max-w-[150px] truncate" title={b.remarks}>{b.remarks || '—'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            </div>
+            <ModalFooter>
+                <button
+                    onClick={onClose}
+                    className="px-5 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition"
+                >
+                    Close
+                </button>
+            </ModalFooter>
+        </Modal>
+    );
+};
