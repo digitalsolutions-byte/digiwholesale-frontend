@@ -211,6 +211,31 @@ const InwardDetails = () => {
                 </div>
             </div>
 
+            {/* Receipt Information */}
+            {(inward.receivedBy || inward.receivedOn || inward.receivedFrom) && (
+                <div className="bg-white p-5 rounded-xl border border-blue-100 shadow-sm bg-gradient-to-r from-blue-50/50 to-indigo-50/30">
+                    <span className="text-xs font-bold text-[#1F618D] uppercase tracking-wider flex items-center gap-1.5 mb-3">
+                        <Icon icon="lucide:clipboard-list" className="text-sm" /> Receipt Information
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <span className="text-xs text-gray-400 uppercase tracking-wider block font-semibold mb-1">Received By</span>
+                            <span className="text-sm font-bold text-gray-800">{inward.receivedBy || '—'}</span>
+                        </div>
+                        <div>
+                            <span className="text-xs text-gray-400 uppercase tracking-wider block font-semibold mb-1">Received On</span>
+                            <span className="text-sm font-bold text-gray-800">
+                                {inward.receivedOn ? new Date(inward.receivedOn).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                            </span>
+                        </div>
+                        <div>
+                            <span className="text-xs text-gray-400 uppercase tracking-wider block font-semibold mb-1">Received From</span>
+                            <span className="text-sm font-bold text-gray-800">{inward.receivedFrom || '—'}</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Remarks */}
             {inward.remarks && (
                 <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">

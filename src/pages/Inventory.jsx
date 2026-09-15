@@ -19,7 +19,7 @@ import JsBarcode from "jsbarcode";
 import QRCode from "qrcode"; // npm install qrcode
 
 import * as XLSX from "xlsx";
-import { FiUpload, FiDownload, FiCheckCircle, FiAlertCircle } from "react-icons/fi";
+import { FiUpload, FiDownload, FiCheckCircle, FiAlertCircle, FiTrendingUp, FiTruck, FiUser, FiClock, FiFileText } from "react-icons/fi";
 
 import { createPortal } from "react-dom";
 import { getProductDisplayImage } from "../utils/productUtils";
@@ -250,7 +250,12 @@ export default function Inventory() {
         index: "", axis: "", addition: "", coating: "", expiry: "", pairOrSingle: "Single",
         price: "", gst: "0", hsnSac: "", mrp: "", discount: "0", qty: "", vendor: "",
         material: "", dimensions: "",
-        colors: [createEmptyColor()]
+        colors: [createEmptyColor()],
+        // Batch allocation fields
+        allocateBatch: true,
+        batchNumber: "",
+        batchQty: "",
+        batchRemarks: ""
     };
 
     const [rows, setRows] = useState([emptyRow]);
@@ -437,7 +442,13 @@ export default function Inventory() {
                         color: c.color,
                         qty: Number(c.qty) || 0,
                         productColorImage: typeof c.productColorImage === 'string' ? c.productColorImage : ""
-                    }))
+                    })),
+                    // Batch allocation
+                    allocateBatch: product.allocateBatch !== false,
+                    batchNumber: product.batchNumber?.trim() || "",
+                    batchQty: product.batchQty !== "" && product.batchQty !== null && product.batchQty !== undefined
+                        ? Number(product.batchQty) : "",
+                    batchRemarks: product.batchRemarks?.trim() || ""
                 };
             });
             formData.append("products", JSON.stringify(sanitizedProducts));
@@ -652,6 +663,73 @@ export default function Inventory() {
                                                     ))}
                                                 </select>
                                             </FieldInput>
+
+                                            {/* ── Batch Allocation Section ── */}
+                                            <div className="col-span-full mt-1">
+                                                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/70 rounded-2xl p-4">
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="w-2.5 h-2.5 rounded-full bg-[#2980b9]" />
+                                                            <label className="text-[11px] font-bold text-[#1a5276] uppercase tracking-wider">
+                                                                Batch Allocation <span className="text-gray-400 font-normal normal-case">(Optional)</span>
+                                                            </label>
+                                                        </div>
+                                                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                                                            <span className="text-[11px] font-semibold text-gray-500">
+                                                                {row.allocateBatch ? 'Enabled' : 'Skip batch'}
+                                                            </span>
+                                                            <div
+                                                                onClick={() => handleChange(i, 'allocateBatch', !row.allocateBatch)}
+                                                                className={`relative w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer ${
+                                                                    row.allocateBatch ? 'bg-[#2980b9]' : 'bg-gray-300'
+                                                                }`}
+                                                            >
+                                                                <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${
+                                                                    row.allocateBatch ? 'translate-x-4' : 'translate-x-0'
+                                                                }`} />
+                                                            </div>
+                                                        </label>
+                                                    </div>
+                                                    {row.allocateBatch && (
+                                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                            <FieldInput label="Batch Number">
+                                                                <input
+                                                                    type="text"
+                                                                    value={row.batchNumber}
+                                                                    className={inputCls}
+                                                                    placeholder="Auto-generated if blank"
+                                                                    onChange={e => handleChange(i, 'batchNumber', e.target.value)}
+                                                                />
+                                                            </FieldInput>
+                                                            <FieldInput label={`Batch Qty (Max: ${row.qty || 0})`}>
+                                                                <input
+                                                                    type="number"
+                                                                    min="1"
+                                                                    max={row.qty || undefined}
+                                                                    value={row.batchQty}
+                                                                    className={inputCls}
+                                                                    placeholder={`Default: full qty (${row.qty || 0})`}
+                                                                    onChange={e => handleChange(i, 'batchQty', e.target.value)}
+                                                                />
+                                                            </FieldInput>
+                                                            <FieldInput label="Batch Remarks">
+                                                                <input
+                                                                    type="text"
+                                                                    value={row.batchRemarks}
+                                                                    className={inputCls}
+                                                                    placeholder="e.g. Initial stock"
+                                                                    onChange={e => handleChange(i, 'batchRemarks', e.target.value)}
+                                                                />
+                                                            </FieldInput>
+                                                        </div>
+                                                    )}
+                                                    {!row.allocateBatch && (
+                                                        <p className="text-[11px] text-gray-400 mt-1">
+                                                            No batch will be created. You can allocate batches later from the Inventory section.
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
 
                                             {isRequireImageCategory(row.category) && (
                                                 <div className="col-span-full mt-3 pt-3 border-t border-gray-200/80">
@@ -1687,6 +1765,11 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
     const [openInventoryHistoryTableModal, setOpenInventoryHistoryTableModal] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
 
+    const handleOpenProductDetailsModal = (product) => {
+        setSelectedProduct(product);
+        setOpenInventoryHistoryTableModal(true);
+    };
+
     const settings = useSelector((state) => state.settings.data);
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
@@ -2008,6 +2091,37 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
         setOpenBarcodeModal(true);
     };
 
+    // Column dimension and alignment metadata to keep compact fields from expanding
+    const INVENTORY_COLUMN_META = {
+        select: { width: "40px", minWidth: "40px", maxWidth: "40px", align: "text-center", px: "px-1" },
+        actions: { width: "135px", minWidth: "135px", maxWidth: "135px", align: "text-center", px: "px-1" },
+        createdAt: { width: "88px", minWidth: "88px", maxWidth: "92px", align: "text-center", px: "px-1.5" },
+        productCode: { width: "105px", minWidth: "105px", maxWidth: "115px", align: "text-center", px: "px-1.5" },
+        productName: { width: "220px", minWidth: "180px", maxWidth: "260px", align: "text-left", px: "px-2.5" },
+        category: { width: "105px", minWidth: "100px", maxWidth: "120px", align: "text-left", px: "px-2" },
+        brand: { width: "95px", minWidth: "90px", maxWidth: "110px", align: "text-left", px: "px-2" },
+        image: { width: "75px", minWidth: "75px", maxWidth: "80px", align: "text-center", px: "px-1" },
+        qty: { width: "55px", minWidth: "55px", maxWidth: "60px", align: "text-center font-semibold", px: "px-1" },
+        mrp: { width: "70px", minWidth: "70px", maxWidth: "75px", align: "text-center", px: "px-1" },
+        gst: { width: "58px", minWidth: "58px", maxWidth: "62px", align: "text-center", px: "px-1" },
+        sph: { width: "55px", minWidth: "55px", maxWidth: "60px", align: "text-center", px: "px-1" },
+        cyl: { width: "55px", minWidth: "55px", maxWidth: "60px", align: "text-center", px: "px-1" },
+        axis: { width: "50px", minWidth: "50px", maxWidth: "55px", align: "text-center", px: "px-1" },
+        addition: { width: "52px", minWidth: "52px", maxWidth: "58px", align: "text-center", px: "px-1" },
+        dimensions: { width: "95px", minWidth: "95px", maxWidth: "105px", align: "text-center", px: "px-1.5" },
+        material: { width: "85px", minWidth: "85px", maxWidth: "95px", align: "text-center", px: "px-1.5" },
+        color: { width: "70px", minWidth: "70px", maxWidth: "80px", align: "text-center", px: "px-1" },
+        shape: { width: "80px", minWidth: "80px", maxWidth: "90px", align: "text-center", px: "px-1" },
+        size: { width: "55px", minWidth: "55px", maxWidth: "65px", align: "text-center", px: "px-1" },
+        type: { width: "70px", minWidth: "70px", maxWidth: "80px", align: "text-center", px: "px-1" },
+        index: { width: "58px", minWidth: "58px", maxWidth: "62px", align: "text-center", px: "px-1" },
+        coating: { width: "95px", minWidth: "95px", maxWidth: "105px", align: "text-center", px: "px-1.5" },
+        expiry: { width: "85px", minWidth: "85px", maxWidth: "90px", align: "text-center", px: "px-1.5" },
+        price: { width: "72px", minWidth: "72px", maxWidth: "78px", align: "text-center font-medium", px: "px-1" },
+        hsnSac: { width: "75px", minWidth: "75px", maxWidth: "85px", align: "text-center", px: "px-1" },
+        delete: { width: "48px", minWidth: "48px", maxWidth: "50px", align: "text-center", px: "px-1" },
+    };
+
     const columns = useMemo(() => [
         // ── Checkbox column ──────────────────────────────────────────────────
         {
@@ -2040,8 +2154,8 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                 return (
                     <div className="flex items-center justify-center gap-0.5">
                         <button onClick={e => { e.stopPropagation(); setSelectedProduct(product); setOpenEditProductModal(true); }}
-                            className="p-1.5 rounded-lg hover:bg-[#2980b9]/10 text-[#2980b9] transition" title="Edit">
-                            <FiEdit2 size={14} />
+                            className="p-1 rounded-lg hover:bg-[#2980b9]/10 text-[#2980b9] transition" title="Edit">
+                            <FiEdit2 size={13} />
                         </button>
                         <button onClick={e => {
                             e.stopPropagation();
@@ -2049,8 +2163,8 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                             setBulkStockProducts(null);
                             setOpenInventoryModal(true);
                         }}
-                            className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-500 transition" title="Add Stock">
-                            <FiShoppingCart size={14} />
+                            className="p-1 rounded-lg hover:bg-emerald-50 text-emerald-500 transition" title="Add Stock">
+                            <FiShoppingCart size={13} />
                         </button>
                         <button onClick={e => {
                             e.stopPropagation();
@@ -2058,26 +2172,52 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                             setBarcodeProduct(product);
                             setOpenBarcodeModal(true);
                         }}
-                            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition" title="Print Barcode">
-                            <BsUpcScan size={14} />
+                            className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 transition" title="Print Barcode">
+                            <BsUpcScan size={13} />
                         </button>
-                        <button onClick={e => { e.stopPropagation(); setOpenInventoryHistoryTableModal(true); setSelectedProduct(product); }}
-                            className="p-1.5 rounded-lg hover:bg-[#2980b9]/10 text-[#2980b9] transition" title="Inventory History">
-                            <FiInfo size={14} />
+                        <button onClick={e => { e.stopPropagation(); handleOpenProductDetailsModal(product); }}
+                            className="p-1 rounded-lg hover:bg-[#2980b9]/10 text-[#2980b9] transition" title="Product Details & Receiving History">
+                            <FiInfo size={13} />
                         </button>
                         <button onClick={e => { e.stopPropagation(); handleOpenBatchModal(product); }}
-                            className="p-1.5 rounded-lg hover:bg-amber-50 text-amber-600 transition" title="Assign / View Batches">
-                            <FiLayers size={14} />
+                            className="p-1 rounded-lg hover:bg-amber-50 text-amber-600 transition" title="Assign / View Batches">
+                            <FiLayers size={13} />
                         </button>
                     </div>
                 );
             },
         },
         { header: "Date", accessorKey: "createdAt", cell: ({ getValue }) => getValue() ? new Date(getValue()).toLocaleDateString("en-IN") : "-" },
-        { header: "Code", accessorKey: "productCode" },
-        { header: "Name", accessorKey: "productName" },
-        { header: "Category", accessorKey: "category" },
-        { header: "Brand", accessorKey: "brand" },
+        {
+            header: "Code",
+            accessorKey: "productCode",
+            cell: ({ getValue, row }) => (
+                <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleOpenProductDetailsModal(row.original); }}
+                    className="font-mono text-xs font-bold text-[#2980b9] hover:text-[#1a5276] hover:underline cursor-pointer transition text-center truncate block w-full"
+                    title={getValue() || "Click to view product details & receiving history"}
+                >
+                    {getValue()}
+                </button>
+            ),
+        },
+        {
+            header: "Name",
+            accessorKey: "productName",
+            cell: ({ getValue, row }) => (
+                <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleOpenProductDetailsModal(row.original); }}
+                    className="font-semibold text-gray-900 hover:text-[#2980b9] hover:underline cursor-pointer transition text-left truncate block w-full"
+                    title={getValue() || "Click to view product details & receiving history"}
+                >
+                    {getValue()}
+                </button>
+            ),
+        },
+        { header: "Category", accessorKey: "category", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+        { header: "Brand", accessorKey: "brand", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
         {
             header: "Image", accessorKey: "image",
             cell: ({ row }) => {
@@ -2085,11 +2225,11 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                 const displayImg = getProductDisplayImage(product);
                 const hasColors = Array.isArray(product.colors) && product.colors.length > 0;
                 return (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center gap-1.5">
                         {displayImg && displayImg !== "/placeholder-product.png" ? (
                             <button
                                 onClick={e => { e.stopPropagation(); window.open(displayImg, "_blank"); }}
-                                className="w-10 h-10 rounded-lg overflow-hidden border border-gray-200 hover:border-[#2980b9] bg-white flex items-center justify-center p-0.5 shadow-2xs transition flex-shrink-0"
+                                className="w-8 h-8 rounded-lg overflow-hidden border border-gray-200 hover:border-[#2980b9] bg-white flex items-center justify-center p-0.5 shadow-2xs transition shrink-0"
                                 title="Click to view full image"
                             >
                                 <img
@@ -2103,17 +2243,17 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                             <span className="text-gray-300">—</span>
                         )}
                         {hasColors && (
-                            <div className="flex items-center gap-1 flex-wrap max-w-[50px]">
-                                {product.colors.slice(0, 3).map((c, idx) => (
+                            <div className="flex items-center gap-0.5 flex-wrap max-w-[32px]">
+                                {product.colors.slice(0, 2).map((c, idx) => (
                                     <span
                                         key={idx}
                                         title={`Color: ${c.color} | Qty: ${c.qty}`}
-                                        className="w-3.5 h-3.5 rounded-full border border-gray-300 shadow-2xs"
+                                        className="w-3 h-3 rounded-full border border-gray-300 shadow-2xs"
                                         style={{ backgroundColor: c.color }}
                                     />
                                 ))}
-                                {product.colors.length > 3 && (
-                                    <span className="text-[9px] font-bold text-gray-400">+{product.colors.length - 3}</span>
+                                {product.colors.length > 2 && (
+                                    <span className="text-[9px] font-bold text-gray-400">+{product.colors.length - 2}</span>
                                 )}
                             </div>
                         )}
@@ -2121,26 +2261,26 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                 );
             },
         },
-        { header: "Qty", accessorKey: "qty" },
-        { header: "MRP", accessorKey: "mrp", cell: ({ getValue }) => `₹${getValue()}` },
-        { header: "GST %", accessorKey: "gst", cell: ({ getValue }) => `${getValue()}%` },
+        { header: "Qty", accessorKey: "qty", cell: ({ getValue }) => getValue() ?? 0 },
+        { header: "MRP", accessorKey: "mrp", cell: ({ getValue }) => `₹${getValue() ?? 0}` },
+        { header: "GST %", accessorKey: "gst", cell: ({ getValue }) => `${getValue() ?? 0}%` },
         { header: "SPH", accessorKey: "sph", cell: ({ getValue }) => getValue() || "—" },
         { header: "CYL", accessorKey: "cyl", cell: ({ getValue }) => getValue() || "—" },
         { header: "Axis", accessorKey: "axis", cell: ({ getValue }) => getValue() || "—" },
 
         { header: "Add.", accessorKey: "addition", cell: ({ getValue }) => getValue() || "—" },
-        { header: "Dimensions", accessorKey: "dimensions", cell: ({ getValue }) => getValue() || "—" },
-        { header: "Material", accessorKey: "material", cell: ({ getValue }) => getValue() || "—" },
+        { header: "Dimensions", accessorKey: "dimensions", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+        { header: "Material", accessorKey: "material", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
 
-        { header: "Color", accessorKey: "color", cell: ({ getValue }) => getValue() || "—" },
-        { header: "Shape", accessorKey: "shape", cell: ({ getValue }) => getValue() || "—" },
-        { header: "Size", accessorKey: "size", cell: ({ getValue }) => getValue() || "—" },
-        { header: "Type", accessorKey: "type", cell: ({ getValue }) => getValue() || "—" },
+        { header: "Color", accessorKey: "color", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+        { header: "Shape", accessorKey: "shape", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+        { header: "Size", accessorKey: "size", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+        { header: "Type", accessorKey: "type", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
         { header: "Index", accessorKey: "index", cell: ({ getValue }) => getValue() || "—" },
-        { header: "Coating", accessorKey: "coating", cell: ({ getValue }) => getValue() || "—" },
+        { header: "Coating", accessorKey: "coating", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
         { header: "Expiry", accessorKey: "expiry", cell: ({ getValue }) => getValue() ? new Date(getValue()).toLocaleDateString("en-IN") : "—" },
-        { header: "Price", accessorKey: "price", cell: ({ getValue }) => `₹${getValue()}` },
-        { header: "HSN/SAC", accessorKey: "hsnSac", cell: ({ getValue }) => getValue() || "—" },
+        { header: "Price", accessorKey: "price", cell: ({ getValue }) => `₹${getValue() ?? 0}` },
+        { header: "HSN/SAC", accessorKey: "hsnSac", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
         {
             header: "Delete", id: "delete",
             cell: ({ row }) => (
@@ -2232,15 +2372,26 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
 
             {/* Table */}
             <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
-                <table className="w-full text-sm border-collapse">
+                <table className="w-max min-w-full text-sm border-collapse">
                     <thead className="sticky top-0 z-10 bg-gray-200">
                         {table.getHeaderGroups().map(hg => (
                             <tr key={hg.id} className="bg-gray-200 border-b border-gray-100">
-                                {hg.headers.map(h => (
-                                    <th key={h.id} className="px-4 py-3 text-center text-xs font-semibold text-gray-800 whitespace-nowrap uppercase  ">
-                                        {flexRender(h.column.columnDef.header, h.getContext())}
-                                    </th>
-                                ))}
+                                {hg.headers.map(h => {
+                                    const colStyle = INVENTORY_COLUMN_META[h.column.id] || { width: "80px", minWidth: "60px", maxWidth: "120px", align: "text-center", px: "px-1.5" };
+                                    return (
+                                        <th
+                                            key={h.id}
+                                            style={{
+                                                width: colStyle.width,
+                                                minWidth: colStyle.minWidth,
+                                                maxWidth: colStyle.maxWidth,
+                                            }}
+                                            className={`${colStyle.px} ${colStyle.align} py-2.5 text-xs font-semibold text-gray-800 whitespace-nowrap uppercase tracking-wider overflow-hidden text-ellipsis`}
+                                        >
+                                            {flexRender(h.column.columnDef.header, h.getContext())}
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         ))}
                     </thead>
@@ -2252,21 +2403,37 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                             const isChecked = !!selectedRows[row.original._id];
                             return (
                                 <tr key={row.id}
-                                    className={`border-b border-gray-50 text-center transition-colors cursor-pointer
+                                    className={`border-b border-gray-50 transition-colors cursor-pointer
                                         ${isChecked ? "bg-blue-50/60 hover:bg-[#2980b9]/10" : "hover:bg-[#2980b9]/10"}`}
-                                    onClick={() => toggleRow(row.original)}
+                                    onClick={() => handleOpenProductDetailsModal(row.original)}
                                 >
-                                    {row.getVisibleCells().map(cell => (
-                                        <td key={cell.id}
-                                            className="px-4 py-2.5 text-gray-700 whitespace-nowrap text-sm"
-                                            onClick={e => {
-                                                // Don't toggle row when clicking action buttons or checkbox cell
-                                                if (cell.column.id === "actions" || cell.column.id === "delete" || cell.column.id === "select") e.stopPropagation();
-                                            }}
-                                        >
-                                            {flexRender(cell.column.columnDef.cell ?? cell.column.columnDef.accessorKey, cell.getContext())}
-                                        </td>
-                                    ))}
+                                    {row.getVisibleCells().map(cell => {
+                                        const colStyle = INVENTORY_COLUMN_META[cell.column.id] || { width: "80px", minWidth: "60px", maxWidth: "120px", align: "text-center", px: "px-1.5" };
+                                        return (
+                                            <td
+                                                key={cell.id}
+                                                style={{
+                                                    width: colStyle.width,
+                                                    minWidth: colStyle.minWidth,
+                                                    maxWidth: colStyle.maxWidth,
+                                                }}
+                                                className={`${colStyle.px} ${colStyle.align} py-2 text-gray-700 whitespace-nowrap text-xs sm:text-sm overflow-hidden text-ellipsis`}
+                                                onClick={e => {
+                                                    // Checkbox column toggles row selection without opening popup
+                                                    if (cell.column.id === "select") {
+                                                        e.stopPropagation();
+                                                        toggleRow(row.original);
+                                                    }
+                                                    // Don't trigger row click when clicking action buttons or delete cell
+                                                    if (cell.column.id === "actions" || cell.column.id === "delete") {
+                                                        e.stopPropagation();
+                                                    }
+                                                }}
+                                            >
+                                                {flexRender(cell.column.columnDef.cell ?? cell.column.columnDef.accessorKey, cell.getContext())}
+                                            </td>
+                                        );
+                                    })}
                                 </tr>
                             );
                         })}
@@ -2389,8 +2556,19 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
             )}
 
             {openInventoryHistoryTableModal && (
-                <InventoryHistoryModal product={selectedProduct}
-                    onClose={() => { setSelectedProduct(null); setOpenInventoryHistoryTableModal(false); }} />
+                <ProductDetailsHistoryModal
+                    product={selectedProduct}
+                    onClose={() => { setSelectedProduct(null); setOpenInventoryHistoryTableModal(false); }}
+                    onOpenEdit={(prod) => {
+                        setOpenInventoryHistoryTableModal(false);
+                        setSelectedProduct(prod);
+                        setOpenEditProductModal(true);
+                    }}
+                    onOpenBatches={(prod) => {
+                        setOpenInventoryHistoryTableModal(false);
+                        handleOpenBatchModal(prod);
+                    }}
+                />
             )}
 
             {openBatchModal && (
@@ -2660,81 +2838,632 @@ const InventoryModal = ({ open, onClose, inventoryRows, updateRow, addRow, remov
 };
 
 
-// ─── Inventory History Modal ──────────────────────────────────────────────────
-const InventoryHistoryModal = ({ product, onClose }) => {
-    const [data, setData] = useState([]);
+// ─── Product Details & Receiving History Modal ─────────────────────────────────
+const ProductDetailsHistoryModal = ({ product, onClose, onOpenEdit, onOpenBatches }) => {
     const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState("RECEIVING"); // 'RECEIVING' | 'BATCHES' | 'SPECS'
+    const [productDetails, setProductDetails] = useState(product || null);
+    const [receivingHistory, setReceivingHistory] = useState([]);
+    const [batches, setBatches] = useState([]);
+    const [historySearch, setHistorySearch] = useState("");
 
     useEffect(() => {
-        if (product?._id) fetchInventoryHistory();
-    }, [product]);
+        if (product?._id) {
+            fetchProductInventoryDetails();
+        }
+    }, [product?._id]);
 
-    const fetchInventoryHistory = async () => {
+    const fetchProductInventoryDetails = async () => {
         try {
             setLoading(true);
             const res = await api.get(`/api/digi/product/inventory/${product._id}`);
-            if (res.data.success) setData(Array.isArray(res.data.data) ? res.data.data : [res.data.data]);
-        } catch (err) { console.error(err); }
-        finally { setLoading(false); }
+            if (res.data.success && res.data.data) {
+                const resData = res.data.data;
+                if (resData.product) {
+                    setProductDetails(resData.product);
+                } else if (Array.isArray(resData) && resData[0]) {
+                    setProductDetails(resData[0]);
+                }
+                if (Array.isArray(resData.receivingHistory)) {
+                    setReceivingHistory(resData.receivingHistory);
+                }
+                if (Array.isArray(resData.batches)) {
+                    setBatches(resData.batches);
+                }
+            }
+        } catch (err) {
+            console.error("Failed to load product details & history:", err);
+            toast.error("Failed to load product details");
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const columns = useMemo(() => [
-        { header: "Created At", accessorKey: "createdAt", cell: ({ getValue }) => new Date(getValue()).toLocaleDateString("en-IN") },
-        { header: "Product Code", accessorKey: "productCode" },
-        { header: "Qty", accessorKey: "qty" },
-        { header: "Price", accessorKey: "price", cell: ({ getValue }) => `₹${getValue()}` },
-        { header: "MRP", accessorKey: "mrp", cell: ({ getValue }) => `₹${getValue()}` },
-        { header: "GST %", accessorKey: "gst" },
-        { header: "Total", accessorKey: "total", cell: ({ getValue }) => <span className="font-semibold text-emerald-600">₹{getValue()}</span> },
-        // { header: "Vendor", accessorKey: "vendorName" },
-    ], []);
+    const curr = productDetails || product || {};
+    const stockQty = Number(curr.qty || 0);
+    const buyingPrice = Number(curr.price || 0);
+    const sellingPrice = Number(curr.mrp || 0);
+    const profitMargin = sellingPrice - buyingPrice;
+    const marginPercent = sellingPrice > 0 ? ((profitMargin / sellingPrice) * 100).toFixed(1) : 0;
+    const totalReceivedUnits = receivingHistory.reduce((sum, item) => sum + Number(item.receivedQty || 0), 0);
 
-    const table = useReactTable({ data, columns, getCoreRowModel: getCoreRowModel() });
+    const filteredHistory = useMemo(() => {
+        if (!historySearch.trim()) return receivingHistory;
+        const q = historySearch.toLowerCase();
+        return receivingHistory.filter(item =>
+            (item.vendorName && item.vendorName.toLowerCase().includes(q)) ||
+            (item.batchNumber && item.batchNumber.toLowerCase().includes(q)) ||
+            (item.invoiceNumber && item.invoiceNumber.toLowerCase().includes(q)) ||
+            (item.orderNumber && item.orderNumber.toLowerCase().includes(q)) ||
+            (item.receivedBy && item.receivedBy.toLowerCase().includes(q)) ||
+            (item.receivedFrom && item.receivedFrom.toLowerCase().includes(q))
+        );
+    }, [receivingHistory, historySearch]);
+
+    const formatDate = (val) => {
+        if (!val) return "—";
+        try {
+            return new Date(val).toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+            });
+        } catch {
+            return String(val);
+        }
+    };
+
+    const displayImg = getProductDisplayImage(curr);
 
     return (
-        <Modal onClose={onClose} maxWidth="max-w-4xl">
-            <ModalHeader title="Inventory History" subtitle={product?.productName} icon={FiInfo} onClose={onClose} />
-            <div className="flex-1 min-h-0 overflow-y-auto p-6">
+        <Modal onClose={onClose} maxWidth="max-w-6xl">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0 bg-white">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#2980b9]/10 flex items-center justify-center text-[#2980b9]">
+                        <FiPackage size={20} />
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <h2 className="text-base font-bold text-gray-800">{curr.productName}</h2>
+                            <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-blue-50 text-[#2980b9] font-bold border border-blue-100">
+                                {curr.productCode}
+                            </span>
+                            {curr.category && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-semibold uppercase">
+                                    {curr.category}
+                                </span>
+                            )}
+                            {curr.brand && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 font-semibold uppercase">
+                                    {curr.brand}
+                                </span>
+                            )}
+                        </div>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                            Product Receiving History, Batch Tracking & Inventory Breakdown
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <div className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 ${
+                        stockQty > 10 ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
+                        stockQty > 0 ? "bg-amber-50 text-amber-700 border border-amber-200" :
+                        "bg-red-50 text-red-700 border border-red-200"
+                    }`}>
+                        <span className={`w-2 h-2 rounded-full ${
+                            stockQty > 10 ? "bg-emerald-500" : stockQty > 0 ? "bg-amber-500" : "bg-red-500"
+                        }`} />
+                        <span>{stockQty > 0 ? `In Stock: ${stockQty} Units` : "Out of Stock"}</span>
+                    </div>
+
+                    <button onClick={onClose} className="p-2 rounded-full text-gray-400 hover:bg-gray-100 transition">
+                        <FiX size={18} />
+                    </button>
+                </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
+                {/* ── Summary KPI Cards ── */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    {/* Current Stock */}
+                    <div className="p-3.5 bg-gradient-to-br from-blue-50/80 to-indigo-50/40 border border-blue-100/80 rounded-2xl">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700/80 block mb-1">
+                            Current Stock
+                        </span>
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-xl font-extrabold text-blue-900">{stockQty}</span>
+                            <span className="text-[11px] text-blue-600 font-medium">units</span>
+                        </div>
+                    </div>
+
+                    {/* Buying Price (Cost) */}
+                    <div className="p-3.5 bg-gradient-to-br from-amber-50/80 to-orange-50/40 border border-amber-100/80 rounded-2xl">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700/80 block mb-1">
+                            Buying Price (Cost)
+                        </span>
+                        <div className="flex items-baseline gap-0.5">
+                            <span className="text-xl font-extrabold text-amber-900">₹{buyingPrice}</span>
+                        </div>
+                    </div>
+
+                    {/* Selling Price (MRP) */}
+                    <div className="p-3.5 bg-gradient-to-br from-emerald-50/80 to-teal-50/40 border border-emerald-100/80 rounded-2xl">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700/80 block mb-1">
+                            Selling Price (MRP)
+                        </span>
+                        <div className="flex items-baseline gap-0.5">
+                            <span className="text-xl font-extrabold text-emerald-900">₹{sellingPrice}</span>
+                        </div>
+                    </div>
+
+                    {/* Profit Margin */}
+                    <div className="p-3.5 bg-gradient-to-br from-purple-50/80 to-pink-50/40 border border-purple-100/80 rounded-2xl">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700/80 block mb-1">
+                            Margin / Unit
+                        </span>
+                        <div className="flex items-baseline gap-1">
+                            <span className={`text-xl font-extrabold ${profitMargin >= 0 ? "text-purple-900" : "text-red-600"}`}>
+                                ₹{profitMargin}
+                            </span>
+                            <span className="text-[10px] font-bold text-purple-600">({marginPercent}%)</span>
+                        </div>
+                    </div>
+
+                    {/* Total Received Units */}
+                    <div className="p-3.5 bg-gradient-to-br from-cyan-50/80 to-sky-50/40 border border-cyan-100/80 rounded-2xl">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-700/80 block mb-1">
+                            Total Received
+                        </span>
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-xl font-extrabold text-cyan-900">{totalReceivedUnits || stockQty}</span>
+                            <span className="text-[11px] text-cyan-600 font-medium">units</span>
+                        </div>
+                    </div>
+
+                    {/* Primary Vendor */}
+                    <div className="p-3.5 bg-gradient-to-br from-gray-50 to-slate-100/60 border border-gray-200/70 rounded-2xl">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block mb-1">
+                            Primary Vendor
+                        </span>
+                        <span className="text-xs font-bold text-gray-800 block truncate" title={curr.vendor?.name || curr.vendorName || "—"}>
+                            {curr.vendor?.name || curr.vendorName || "—"}
+                        </span>
+                    </div>
+                </div>
+
+                {/* ── Tabs Navigation ── */}
+                <div className="flex items-center justify-between border-b border-gray-100 pb-2 flex-wrap gap-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab("RECEIVING")}
+                            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
+                                activeTab === "RECEIVING"
+                                    ? "bg-[#2980b9] text-white shadow-sm"
+                                    : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                            }`}
+                        >
+                            <FiTruck size={14} />
+                            <span>Receiving History</span>
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                                activeTab === "RECEIVING" ? "bg-white/25 text-white" : "bg-gray-200 text-gray-700"
+                            }`}>
+                                {receivingHistory.length}
+                            </span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab("BATCHES")}
+                            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
+                                activeTab === "BATCHES"
+                                    ? "bg-[#2980b9] text-white shadow-sm"
+                                    : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                            }`}
+                        >
+                            <FiLayers size={14} />
+                            <span>Assigned Batches</span>
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                                activeTab === "BATCHES" ? "bg-white/25 text-white" : "bg-gray-200 text-gray-700"
+                            }`}>
+                                {batches.length}
+                            </span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab("SPECS")}
+                            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
+                                activeTab === "SPECS"
+                                    ? "bg-[#2980b9] text-white shadow-sm"
+                                    : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                            }`}
+                        >
+                            <FiTag size={14} />
+                            <span>Product Specifications</span>
+                        </button>
+                    </div>
+
+                    {activeTab === "RECEIVING" && receivingHistory.length > 0 && (
+                        <div className="relative w-48 sm:w-64">
+                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={13} />
+                            <input
+                                type="text"
+                                placeholder="Search vendor, batch, invoice..."
+                                value={historySearch}
+                                onChange={e => setHistorySearch(e.target.value)}
+                                className="w-full pl-8 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#2980b9] focus:bg-white font-medium"
+                            />
+                        </div>
+                    )}
+                </div>
+
+                {/* ── Tab Content ── */}
                 {loading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <div className="w-6 h-6 border-2 border-[#2980b9]/40 border-t-transparent rounded-full animate-spin" />
+                    <div className="flex flex-col items-center justify-center py-16 gap-3">
+                        <div className="w-8 h-8 border-2 border-[#2980b9] border-t-transparent rounded-full animate-spin" />
+                        <span className="text-xs text-gray-400 font-semibold">Loading receiving history & details...</span>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto rounded-xl border border-gray-100">
-                        <table className="w-full text-sm border-collapse">
-                            <thead>
-                                {table.getHeaderGroups().map(hg => (
-                                    <tr key={hg.id} className="border-b border-gray-100">
-                                        {hg.headers.map(h => (
-                                            <th key={h.id} className="px-4 py-3 text-center text-xs font-semibold text-white bg-[#2980b9] whitespace-nowrap uppercase  ">
-                                                {h.column.columnDef.header}
-                                            </th>
-                                        ))}
-                                    </tr>
-                                ))}
-                            </thead>
-                            <tbody>
-                                {table.getRowModel().rows.length === 0 && (
-                                    <tr><td colSpan={columns.length} className="py-10 text-center text-gray-400">No inventory data found</td></tr>
+                    <>
+                        {/* TAB 1: RECEIVING HISTORY */}
+                        {activeTab === "RECEIVING" && (
+                            <div>
+                                {filteredHistory.length === 0 ? (
+                                    <div className="p-10 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                                        <FiTruck size={32} className="mx-auto text-gray-300 mb-2" />
+                                        <p className="text-xs font-bold text-gray-700">No Receiving Records Found</p>
+                                        <p className="text-[11px] text-gray-400 mt-1 max-w-sm mx-auto">
+                                            No vendor purchase inward or receiving logs were recorded for this item yet.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="overflow-x-auto rounded-2xl border border-gray-200 shadow-2xs">
+                                        <table className="w-full text-left text-xs border-collapse">
+                                            <thead className="bg-[#eaf4fb]/70 text-[#1F618D] font-bold text-[10px] uppercase tracking-wider border-b border-[#2980b9]/15">
+                                                <tr>
+                                                    <th className="px-4 py-3 whitespace-nowrap">Purchase Date</th>
+                                                    <th className="px-4 py-3 whitespace-nowrap">Received On</th>
+                                                    <th className="px-4 py-3 whitespace-nowrap">Batch / Invoice #</th>
+                                                    <th className="px-4 py-3 whitespace-nowrap">Vendor Name</th>
+                                                    <th className="px-4 py-3 text-center whitespace-nowrap">Qty Received</th>
+                                                    <th className="px-4 py-3 text-right whitespace-nowrap">Buying Price</th>
+                                                    <th className="px-4 py-3 text-right whitespace-nowrap">Selling Price</th>
+                                                    <th className="px-4 py-3 whitespace-nowrap">Received By</th>
+                                                    <th className="px-4 py-3 whitespace-nowrap">Received From</th>
+                                                    <th className="px-4 py-3 text-center whitespace-nowrap">Condition</th>
+                                                    <th className="px-4 py-3 whitespace-nowrap">Remarks</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
+                                                {filteredHistory.map((item, idx) => (
+                                                    <tr key={item._id || idx} className="hover:bg-blue-50/30 transition-colors">
+                                                        {/* Purchase Date */}
+                                                        <td className="px-4 py-3 whitespace-nowrap text-gray-500 font-medium">
+                                                            {formatDate(item.dateOfPurchase)}
+                                                        </td>
+
+                                                        {/* Received On */}
+                                                        <td className="px-4 py-3 whitespace-nowrap">
+                                                            <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-[#1F618D] font-bold text-[11px]">
+                                                                {formatDate(item.receivedOn || item.inwardDate)}
+                                                            </span>
+                                                        </td>
+
+                                                        {/* Batch / Invoice # */}
+                                                        <td className="px-4 py-3 whitespace-nowrap">
+                                                            <span className="px-2 py-0.5 rounded-lg bg-gray-100 text-gray-800 font-mono font-bold text-[11px]">
+                                                                {item.batchNumber || item.invoiceNumber || "—"}
+                                                            </span>
+                                                        </td>
+
+                                                        {/* Vendor Name */}
+                                                        <td className="px-4 py-3 whitespace-nowrap font-bold text-gray-800">
+                                                            {item.vendorName || "—"}
+                                                        </td>
+
+                                                        {/* Qty Received */}
+                                                        <td className="px-4 py-3 text-center whitespace-nowrap">
+                                                            <span className="text-sm font-extrabold text-emerald-600">
+                                                                {item.receivedQty}
+                                                            </span>
+                                                            {item.orderedQty && item.orderedQty !== item.receivedQty && (
+                                                                <span className="text-[10px] text-gray-400 block">
+                                                                    (Ord: {item.orderedQty})
+                                                                </span>
+                                                            )}
+                                                        </td>
+
+                                                        {/* Buying Price */}
+                                                        <td className="px-4 py-3 text-right whitespace-nowrap font-semibold text-amber-700">
+                                                            ₹{item.buyingPrice != null ? item.buyingPrice : "—"}
+                                                        </td>
+
+                                                        {/* Selling Price */}
+                                                        <td className="px-4 py-3 text-right whitespace-nowrap font-semibold text-gray-800">
+                                                            ₹{item.sellingPrice != null ? item.sellingPrice : "—"}
+                                                        </td>
+
+                                                        {/* Received By */}
+                                                        <td className="px-4 py-3 whitespace-nowrap">
+                                                            <div className="flex items-center gap-1 text-gray-700 font-semibold">
+                                                                <FiUser size={12} className="text-gray-400" />
+                                                                <span>{item.receivedBy || "—"}</span>
+                                                            </div>
+                                                        </td>
+
+                                                        {/* Received From */}
+                                                        <td className="px-4 py-3 whitespace-nowrap text-gray-600">
+                                                            {item.receivedFrom || "—"}
+                                                        </td>
+
+                                                        {/* Condition */}
+                                                        <td className="px-4 py-3 text-center whitespace-nowrap">
+                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                                                item.condition === "GOOD" ? "bg-emerald-50 text-emerald-700" :
+                                                                item.condition === "DAMAGED" ? "bg-red-50 text-red-700" :
+                                                                "bg-amber-50 text-amber-700"
+                                                            }`}>
+                                                                {item.condition || "GOOD"}
+                                                            </span>
+                                                        </td>
+
+                                                        {/* Remarks */}
+                                                        <td className="px-4 py-3 text-gray-400 text-[11px] max-w-[150px] truncate" title={item.remarks}>
+                                                            {item.remarks || "—"}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 )}
-                                {table.getRowModel().rows.map(row => (
-                                    <tr key={row.id} className="border-b border-gray-50 hover:bg-[#2980b9]/10 transition-colors">
-                                        {row.getVisibleCells().map(cell => (
-                                            <td key={cell.id} className="px-4 py-2.5 text-gray-700 text-center whitespace-nowrap">
-                                                {cell.renderValue()}
-                                            </td>
-                                        ))}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                            </div>
+                        )}
+
+                        {/* TAB 2: ASSIGNED BATCHES */}
+                        {activeTab === "BATCHES" && (
+                            <div>
+                                {batches.length === 0 ? (
+                                    <div className="p-10 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                                        <FiLayers size={32} className="mx-auto text-gray-300 mb-2" />
+                                        <p className="text-xs font-bold text-gray-700">No Batches Allocated</p>
+                                        <p className="text-[11px] text-gray-400 mt-1 max-w-sm mx-auto">
+                                            No batch numbers have been assigned to this product yet. Click &quot;Assign / View Batches&quot; to allocate batches.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="overflow-x-auto rounded-2xl border border-gray-200 shadow-2xs">
+                                        <table className="w-full text-left text-xs border-collapse">
+                                            <thead className="bg-gray-50 text-gray-600 font-bold text-[10px] uppercase tracking-wider border-b border-gray-100">
+                                                <tr>
+                                                    <th className="px-4 py-3">Batch Number</th>
+                                                    <th className="px-4 py-3 text-center">Available Qty</th>
+                                                    <th className="px-4 py-3 text-center">Initial Qty</th>
+                                                    <th className="px-4 py-3 text-right">Cost Price (₹)</th>
+                                                    <th className="px-4 py-3 text-center">Status</th>
+                                                    <th className="px-4 py-3">Inward Date</th>
+                                                    <th className="px-4 py-3">Remarks</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
+                                                {batches.map((b) => (
+                                                    <tr key={b._id} className="hover:bg-gray-50/50 transition-colors">
+                                                        <td className="px-4 py-3 font-mono font-bold text-[#2980b9]">
+                                                            <span className="px-2 py-0.5 bg-blue-50 border border-blue-100 rounded-lg">
+                                                                {b.batchNumber}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center font-bold text-emerald-600">
+                                                            {b.availableQty}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center text-gray-500 font-medium">
+                                                            {b.initialQty}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right font-semibold text-gray-800">
+                                                            ₹{b.costPrice || 0}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center">
+                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                                                                b.status === "OPEN" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"
+                                                            }`}>
+                                                                {b.status}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-gray-500 text-[11px]">
+                                                            {formatDate(b.inwardDate || b.createdAt)}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-gray-400 text-[11px] max-w-[150px] truncate" title={b.remarks}>
+                                                            {b.remarks || "—"}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* TAB 3: PRODUCT SPECIFICATIONS */}
+                        {activeTab === "SPECS" && (
+                            <div className="space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    {/* Left: Product Image & Basic Info */}
+                                    <div className="bg-gray-50 rounded-2xl border border-gray-100 p-5 flex flex-col items-center text-center">
+                                        <div className="w-36 h-36 rounded-2xl bg-white border border-gray-200 overflow-hidden flex items-center justify-center p-2 mb-4 shadow-sm">
+                                            {displayImg && displayImg !== "/placeholder-product.png" ? (
+                                                <img
+                                                    src={displayImg}
+                                                    alt={curr.productName}
+                                                    className="w-full h-full object-contain"
+                                                    onError={e => { e.currentTarget.src = "/placeholder-product.png"; }}
+                                                />
+                                            ) : (
+                                                <div className="flex flex-col items-center gap-1 text-gray-300">
+                                                    <FiPackage size={36} />
+                                                    <span className="text-[10px]">No image available</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <h3 className="text-sm font-bold text-gray-800">{curr.productName}</h3>
+                                        <span className="font-mono text-xs text-gray-400 mt-0.5">{curr.productCode}</span>
+
+                                        {Array.isArray(curr.colors) && curr.colors.length > 0 && (
+                                            <div className="mt-4 pt-4 border-t border-gray-200/60 w-full">
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">
+                                                    Color Variants
+                                                </span>
+                                                <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                                    {curr.colors.map((c, i) => (
+                                                        <span
+                                                            key={i}
+                                                            title={`Color: ${c.color} | Qty: ${c.qty}`}
+                                                            className="w-4 h-4 rounded-full border border-gray-300 shadow-2xs"
+                                                            style={{ backgroundColor: c.color }}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Right: Technical Attributes */}
+                                    <div className="md:col-span-2 space-y-4">
+                                        {/* Optical Specs */}
+                                        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-2xs">
+                                            <h4 className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                                <FiEye size={13} /> Optical Parameters
+                                            </h4>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">SPH</span>
+                                                    <span className="font-semibold text-gray-800">{curr.sph || "—"}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">CYL</span>
+                                                    <span className="font-semibold text-gray-800">{curr.cyl || "—"}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Axis</span>
+                                                    <span className="font-semibold text-gray-800">{curr.axis || "—"}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Addition</span>
+                                                    <span className="font-semibold text-gray-800">{curr.addition || "—"}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Index</span>
+                                                    <span className="font-semibold text-gray-800">{curr.index || "—"}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Coating</span>
+                                                    <span className="font-semibold text-gray-800">{curr.coating || "—"}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Physical & Dimensions */}
+                                        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-2xs">
+                                            <h4 className="text-xs font-bold text-purple-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                                <FiBox size={13} /> Physical & Material
+                                            </h4>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Color</span>
+                                                    <span className="font-semibold text-gray-800">{curr.color || "—"}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Shape</span>
+                                                    <span className="font-semibold text-gray-800">{curr.shape || "—"}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Size</span>
+                                                    <span className="font-semibold text-gray-800">{curr.size || "—"}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Type</span>
+                                                    <span className="font-semibold text-gray-800">{curr.type || "—"}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Material</span>
+                                                    <span className="font-semibold text-gray-800">{curr.material || "—"}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Dimensions</span>
+                                                    <span className="font-semibold text-gray-800">{curr.dimensions || "—"}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Commercial & Tax */}
+                                        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-2xs">
+                                            <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                                <FiDollarSign size={13} /> Commercial & Tax Details
+                                            </h4>
+                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">MRP</span>
+                                                    <span className="font-semibold text-gray-800">₹{curr.mrp || 0}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Cost Price</span>
+                                                    <span className="font-semibold text-gray-800">₹{curr.price || 0}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">GST Rate</span>
+                                                    <span className="font-semibold text-gray-800">{curr.gst || 0}%</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">HSN / SAC</span>
+                                                    <span className="font-semibold text-gray-800">{curr.hsnSac || "—"}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
-            <ModalFooter>
-                <button onClick={onClose}
-                    className="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition">Close</button>
-            </ModalFooter>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50/60 rounded-b-2xl flex-shrink-0">
+                <div className="flex items-center gap-2">
+                    {onOpenBatches && (
+                        <button
+                            type="button"
+                            onClick={() => onOpenBatches(curr)}
+                            className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition cursor-pointer"
+                        >
+                            <FiLayers size={14} />
+                            <span>Assign / View Batches</span>
+                        </button>
+                    )}
+                    {onOpenEdit && (
+                        <button
+                            type="button"
+                            onClick={() => onOpenEdit(curr)}
+                            className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-[#2980b9] bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl transition cursor-pointer"
+                        >
+                            <FiEdit2 size={14} />
+                            <span>Edit Product</span>
+                        </button>
+                    )}
+                </div>
+
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-5 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition cursor-pointer shadow-2xs"
+                >
+                    Close
+                </button>
+            </div>
         </Modal>
     );
 };

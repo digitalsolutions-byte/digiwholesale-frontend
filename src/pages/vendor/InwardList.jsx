@@ -59,6 +59,7 @@ const InwardList = () => {
                                 <th className="py-2.5 px-4 w-12 text-[#1F618D]"></th>
                                 <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Inward ID</th>
                                 <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Vendor</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Received By</th>
                                 <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Items</th>
                                 <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Condition</th>
                                 <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Status</th>
@@ -68,7 +69,7 @@ const InwardList = () => {
                         <tbody className="divide-y divide-gray-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="7" className="p-8 text-center text-gray-500">
+                                    <td colSpan="8" className="p-8 text-center text-gray-500">
                                         <div className="flex justify-center items-center gap-2">
                                             <Icon icon="lucide:loader-2" className="animate-spin text-xl text-erp-accent" />
                                             <span>Loading inward items...</span>
@@ -77,7 +78,7 @@ const InwardList = () => {
                                 </tr>
                             ) : inwards.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" className="p-8 text-center text-gray-500">
+                                    <td colSpan="8" className="p-8 text-center text-gray-500">
                                         No inward records found.
                                     </td>
                                 </tr>
@@ -103,6 +104,11 @@ const InwardList = () => {
                                             <td className="px-4 py-2">
                                                 <span className="font-semibold text-xs text-gray-800">
                                                     {inward.vendorName || 'N/A'}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-2">
+                                                <span className="text-xs font-medium text-gray-700">
+                                                    {inward.receivedBy || '—'}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-2">

@@ -18,13 +18,16 @@ const PendingInward = () => {
     const [pagination, setPagination] = useState(null);
     const [page, setPage] = useState(1);
 
-    // Inward Modal State
     const [selectedItem, setSelectedItem] = useState(null);
     const [receivedQty, setReceivedQty] = useState(1);
     const [condition, setCondition] = useState('GOOD');
     const [vendorRefId, setVendorRefId] = useState('');
     const [remarks, setRemarks] = useState('');
     const [submittingInward, setSubmittingInward] = useState(false);
+
+    const [receivedBy, setReceivedBy]     = useState('');
+    const [receivedOn, setReceivedOn]     = useState('');
+    const [receivedFrom, setReceivedFrom] = useState('');
 
     const fetchItems = useCallback(async () => {
         setLoading(true);
@@ -53,6 +56,9 @@ const PendingInward = () => {
         setCondition('GOOD');
         setVendorRefId(item.vendorRefId || '');
         setRemarks('');
+        setReceivedBy('');
+        setReceivedOn(new Date().toISOString().split('T')[0]); // Default to today
+        setReceivedFrom('');
     };
 
     const handleSubmitInward = async () => {
@@ -62,11 +68,19 @@ const PendingInward = () => {
             return;
         }
 
+        if (!receivedBy.trim()) {
+            toast.error('Please enter Received By (Name of receiver)');
+            return;
+        }
+
         setSubmittingInward(true);
         try {
             const payload = {
                 purchaseOrderId: selectedItem.purchaseOrderId,
                 remarks: remarks || `Direct inward receipt for item ${selectedItem.itemName}`,
+                receivedBy:   receivedBy.trim()   || null,
+                receivedOn:   receivedOn          || new Date().toISOString().split('T')[0],
+                receivedFrom: receivedFrom.trim() || null,
                 items: [{
                     itemId: selectedItem.itemId || selectedItem._id,
                     receivedQty: Number(receivedQty),
@@ -365,8 +379,6 @@ const PendingInward = () => {
                                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9] bg-white"
                                 >
                                     <option value="GOOD">Good</option>
-                                    <option value="DAMAGED">Damaged</option>
-                                    <option value="DEFECTIVE">Defective</option>
                                     <option value="PARTIAL">Partial</option>
                                 </select>
                             </div>
@@ -381,6 +393,46 @@ const PendingInward = () => {
                                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]"
                                 />
                             </div>
+
+                                <div className="bg-[#eaf4fb]/40 border border-[#2980B9]/15 rounded-xl p-3 space-y-3">
+                                    <p className="text-[11px] font-bold text-[#1F618D] uppercase tracking-wider flex items-center gap-1.5">
+                                        <Icon icon="lucide:clipboard-list" className="text-sm" />
+                                        Receipt Details
+                                    </p>
+
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">Received By <span className="text-red-400">*</span></label>
+                                        <input
+                                            type="text"
+                                            value={receivedBy}
+                                            onChange={e => setReceivedBy(e.target.value)}
+                                            placeholder="Name of person who received the goods"
+                                            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">Received On <span className="text-red-400">*</span></label>
+                                        <input
+                                            type="date"
+                                            value={receivedOn}
+                                            max={new Date().toISOString().split('T')[0]}
+                                            onChange={e => setReceivedOn(e.target.value)}
+                                            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">Received From</label>
+                                        <input
+                                            type="text"
+                                            value={receivedFrom}
+                                            onChange={e => setReceivedFrom(e.target.value)}
+                                            placeholder="Vendor rep / courier / delivery person"
+                                            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]"
+                                        />
+                                    </div>
+                                </div>
 
                             <div>
                                 <label className="block text-xs font-semibold text-gray-600 mb-1.5">Remarks</label>
