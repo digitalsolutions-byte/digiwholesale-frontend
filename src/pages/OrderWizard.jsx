@@ -970,6 +970,8 @@ const OrderWizard = () => {
                 discountPercent: discountPercent,
                 discountAmount: discountAmount,
                 price: price,
+                sellingPrice: price,
+                buyingPrice: parseFloat(prod.buyingPrice) || 0,
                 gst: parseFloat(prod.gstDetails?.gstPercent) || 0,
                 hsnSac: prod.HSNSAC || '',
                 mrp: parseFloat(prod.MRP) || 0,
@@ -1289,12 +1291,18 @@ const OrderWizard = () => {
                     ? rawData.data
                     : (Array.isArray(rawData) ? rawData : (Array.isArray(response) ? response : []));
                 console.log('Fetched products:', items);
-                setProductNames(items.map(p => ({
-                    value: p._id || p.id || p.productName || '',
-                    label: p.productName || p.name || '',
-                    price: p.price || p.mrp || 0,
-                    raw: p
-                })));
+                setProductNames(items.map(p => {
+                    const sellingP = p.sellingPrice != null && Number(p.sellingPrice) > 0 ? Number(p.sellingPrice) : Number(p.price || p.mrp || 0);
+                    return {
+                        value: p._id || p.id || p.productName || '',
+                        label: p.productName || p.name || '',
+                        price: sellingP,
+                        sellingPrice: sellingP,
+                        buyingPrice: Number(p.buyingPrice || p.price || 0),
+                        mrp: Number(p.mrp || 0),
+                        raw: { ...p, sellingPrice: sellingP }
+                    };
+                }));
             } catch (error) {
                 console.error('Failed to fetch product names:', error);
             } finally {
@@ -1346,7 +1354,12 @@ const OrderWizard = () => {
                 formik.setFieldValue(`${prefix}availability`, 'in-house');
             }
 
-            formik.setFieldValue(`${prefix}price`, rawProd.price || 0);
+            const customerSellingPrice = rawProd.sellingPrice != null && Number(rawProd.sellingPrice) > 0
+                ? Number(rawProd.sellingPrice)
+                : Number(rawProd.price || 0);
+            formik.setFieldValue(`${prefix}price`, customerSellingPrice);
+            formik.setFieldValue(`${prefix}sellingPrice`, customerSellingPrice);
+            formik.setFieldValue(`${prefix}buyingPrice`, Number(rawProd.buyingPrice || rawProd.price || 0));
             formik.setFieldValue(`${prefix}MRP`, rawProd.mrp || rawProd.MRP || 0);
             formik.setFieldValue(`${prefix}qty`, 1);
 
@@ -1525,8 +1538,33 @@ const OrderWizard = () => {
                     const batchList = bRes?.data?.batches || bRes?.batches || [];
                     formik.setFieldValue(`${prefix}availableBatches`, batchList);
                     if (batchList.length > 0) {
-                        formik.setFieldValue(`${prefix}batchId`, batchList[0]._id);
-                        formik.setFieldValue(`${prefix}batchNumber`, batchList[0].batchNumber);
+                        const defaultBatch = batchList[0];
+                        formik.setFieldValue(`${prefix}batchId`, defaultBatch._id);
+                        formik.setFieldValue(`${prefix}batchNumber`, defaultBatch.batchNumber);
+
+                        const sPrice = Number(defaultBatch.sellingPrice) > 0 
+                            ? Number(defaultBatch.sellingPrice) 
+                            : (Number(defaultBatch.costPrice) > 0 
+                                ? Number(defaultBatch.costPrice) 
+                                : (Number(defaultBatch.buyingPrice) > 0 
+                                    ? Number(defaultBatch.buyingPrice) 
+                                    : 0));
+                        const bPrice = Number(defaultBatch.buyingPrice) > 0 
+                            ? Number(defaultBatch.buyingPrice) 
+                            : (Number(defaultBatch.costPrice) > 0 
+                                ? Number(defaultBatch.costPrice) 
+                                : sPrice);
+
+                        if (sPrice > 0) {
+                            formik.setFieldValue(`${prefix}price`, sPrice);
+                            formik.setFieldValue(`${prefix}sellingPrice`, sPrice);
+                        }
+                        if (bPrice > 0) {
+                            formik.setFieldValue(`${prefix}buyingPrice`, bPrice);
+                        }
+                        if (Number(defaultBatch.mrp) > 0) {
+                            formik.setFieldValue(`${prefix}MRP`, Number(defaultBatch.mrp));
+                        }
                     }
                 }).catch(err => console.error('Failed to fetch product batches:', err));
             }
@@ -1820,9 +1858,9 @@ const OrderWizard = () => {
                 </div>
                 <div className="flex flex-wrap justify-between items-center w-full text-xs mt-2 pt-2 border-t border-dashed border-gray-100 gap-y-2">
                     <div className="flex flex-wrap gap-3 text-gray-600 font-bold">
-                        <span>Price: <span className="text-emerald-600">₹{raw.price}</span></span>
-                        <span>MRP: <span className="text-gray-500 line-through">₹{raw.mrp}</span></span>
-                        <span>GST: <span className="text-purple-600">{raw.gst}%</span></span>
+                        <span>Selling Price: <span className="text-emerald-600 font-extrabold">₹{raw.sellingPrice != null && Number(raw.sellingPrice) > 0 ? raw.sellingPrice : (raw.price || 0)}</span></span>
+                        <span>MRP: <span className="text-gray-400 line-through">₹{raw.mrp || 0}</span></span>
+                        <span>GST: <span className="text-purple-600">{raw.gst || 0}%</span></span>
                     </div>
                     {raw.qty !== undefined && (
                         <div className={`px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-black whitespace-nowrap ${raw.qty > 0 ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-red-50 text-red-500 border border-red-100'}`}>
@@ -2623,7 +2661,7 @@ const OrderWizard = () => {
                                             Unit
                                         </th>
                                         <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            Price
+                                            Selling Price (₹)
                                         </th>
                                         <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
                                             Disc
@@ -2886,16 +2924,50 @@ const OrderWizard = () => {
                                                                 const bObj = (product.availableBatches || []).find(b => b._id === bId);
                                                                 formik.setFieldValue(`products.${index}.batchId`, bId);
                                                                 formik.setFieldValue(`products.${index}.batchNumber`, bObj ? bObj.batchNumber : '');
+
+                                                                const targetBatch = bObj || (product.availableBatches && product.availableBatches[0]);
+                                                                if (targetBatch) {
+                                                                    const sPrice = Number(targetBatch.sellingPrice) > 0
+                                                                        ? Number(targetBatch.sellingPrice)
+                                                                        : (Number(targetBatch.costPrice) > 0
+                                                                            ? Number(targetBatch.costPrice)
+                                                                            : (Number(targetBatch.buyingPrice) > 0
+                                                                                ? Number(targetBatch.buyingPrice)
+                                                                                : 0));
+                                                                    const bPrice = Number(targetBatch.buyingPrice) > 0
+                                                                        ? Number(targetBatch.buyingPrice)
+                                                                        : (Number(targetBatch.costPrice) > 0
+                                                                            ? Number(targetBatch.costPrice)
+                                                                            : sPrice);
+
+                                                                    if (sPrice > 0) {
+                                                                        formik.setFieldValue(`products.${index}.price`, sPrice);
+                                                                        formik.setFieldValue(`products.${index}.sellingPrice`, sPrice);
+                                                                    }
+                                                                    if (bPrice > 0) {
+                                                                        formik.setFieldValue(`products.${index}.buyingPrice`, bPrice);
+                                                                    }
+                                                                    if (Number(targetBatch.mrp) > 0) {
+                                                                        formik.setFieldValue(`products.${index}.MRP`, Number(targetBatch.mrp));
+                                                                    }
+                                                                }
                                                             }}
                                                             disabled={isReadOnly || product.orderType === 'rx'}
                                                             onClick={(e) => e.stopPropagation()}
                                                         >
                                                             <option value="">{product.availableBatches?.length ? "Auto (Oldest)" : "No Batch"}</option>
-                                                            {(product.availableBatches || []).map(b => (
-                                                                <option key={b._id} value={b._id}>
-                                                                    {b.batchNumber} ({b.availableQty} available)
-                                                                </option>
-                                                            ))}
+                                                            {(product.availableBatches || []).map(b => {
+                                                                const dispPrice = Number(b.sellingPrice) > 0 
+                                                                    ? b.sellingPrice 
+                                                                    : (Number(b.costPrice) > 0 
+                                                                        ? b.costPrice 
+                                                                        : (Number(b.buyingPrice) > 0 ? b.buyingPrice : ''));
+                                                                return (
+                                                                    <option key={b._id} value={b._id}>
+                                                                        {b.batchNumber} ({b.availableQty} avail{dispPrice ? ` | ₹${dispPrice}` : ''})
+                                                                    </option>
+                                                                );
+                                                            })}
                                                         </select>
                                                     </td>
 
@@ -3206,6 +3278,68 @@ const OrderWizard = () => {
                                                 </select>
                                             </div>
 
+                                            {/* Batch Selection for Mobile */}
+                                            {product.orderType !== 'rx' && (
+                                                <div className="col-span-2">
+                                                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                                        Batch Allocation
+                                                    </label>
+                                                    <select
+                                                        className="w-full text-xs bg-white border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-[#2980B9] font-semibold text-slate-700 disabled:bg-gray-100 disabled:text-gray-400"
+                                                        name={`products.${index}.batchId`}
+                                                        value={product.batchId || ''}
+                                                        onChange={(e) => {
+                                                            const bId = e.target.value;
+                                                            const bObj = (product.availableBatches || []).find(b => b._id === bId);
+                                                            formik.setFieldValue(`products.${index}.batchId`, bId);
+                                                            formik.setFieldValue(`products.${index}.batchNumber`, bObj ? bObj.batchNumber : '');
+
+                                                            const targetBatch = bObj || (product.availableBatches && product.availableBatches[0]);
+                                                            if (targetBatch) {
+                                                                const sPrice = Number(targetBatch.sellingPrice) > 0
+                                                                    ? Number(targetBatch.sellingPrice)
+                                                                    : (Number(targetBatch.costPrice) > 0
+                                                                        ? Number(targetBatch.costPrice)
+                                                                        : (Number(targetBatch.buyingPrice) > 0
+                                                                            ? Number(targetBatch.buyingPrice)
+                                                                            : 0));
+                                                                const bPrice = Number(targetBatch.buyingPrice) > 0
+                                                                    ? Number(targetBatch.buyingPrice)
+                                                                    : (Number(targetBatch.costPrice) > 0
+                                                                        ? Number(targetBatch.costPrice)
+                                                                        : sPrice);
+
+                                                                if (sPrice > 0) {
+                                                                    formik.setFieldValue(`products.${index}.price`, sPrice);
+                                                                    formik.setFieldValue(`products.${index}.sellingPrice`, sPrice);
+                                                                }
+                                                                if (bPrice > 0) {
+                                                                    formik.setFieldValue(`products.${index}.buyingPrice`, bPrice);
+                                                                }
+                                                                if (Number(targetBatch.mrp) > 0) {
+                                                                    formik.setFieldValue(`products.${index}.MRP`, Number(targetBatch.mrp));
+                                                                }
+                                                            }
+                                                        }}
+                                                        disabled={isReadOnly}
+                                                    >
+                                                        <option value="">{product.availableBatches?.length ? "Auto (Oldest)" : "No Batch"}</option>
+                                                        {(product.availableBatches || []).map(b => {
+                                                            const dispPrice = Number(b.sellingPrice) > 0 
+                                                                ? b.sellingPrice 
+                                                                : (Number(b.costPrice) > 0 
+                                                                    ? b.costPrice 
+                                                                    : (Number(b.buyingPrice) > 0 ? b.buyingPrice : ''));
+                                                            return (
+                                                                <option key={b._id} value={b._id}>
+                                                                    {b.batchNumber} ({b.availableQty} avail{dispPrice ? ` | ₹${dispPrice}` : ''})
+                                                                </option>
+                                                            );
+                                                        })}
+                                                    </select>
+                                                </div>
+                                            )}
+
                                          {/* Frame / Sunglass Size & Dimensions inputs for Mobile */}
                                          {(product.category === 'FRAME' || product.category === 'SUNGLASS' || (configs.category?.find(c => c._id === product.categoryId)?.name?.toUpperCase() === 'FRAME') || (configs.category?.find(c => c._id === product.categoryId)?.name?.toUpperCase() === 'SUNGLASS')) && (
                                              <div className="grid grid-cols-2 gap-3">
@@ -3278,7 +3412,7 @@ const OrderWizard = () => {
                                             </div>
                                             <div>
                                                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                                                    Price (₹)
+                                                    Selling Price (₹)
                                                 </label>
                                                 <input
                                                     type="number"

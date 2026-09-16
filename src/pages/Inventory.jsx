@@ -208,6 +208,9 @@ export default function Inventory() {
     const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
     const [vendors, setVendors] = useState([]);
     const settings = useSelector((state) => state.settings.data);
+    // Increment this to tell InventoryTable to re-fetch without a page reload
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const triggerInventoryRefresh = () => setRefreshTrigger(prev => prev + 1);
 
     useEffect(() => {
         dispatch(fetchSettings());
@@ -234,8 +237,6 @@ export default function Inventory() {
         }).then((result) => { if (result.isConfirmed) window.location.reload(); });
     };
 
-    const [productCodeSuffix, setProductCodeSuffix] = useState("DO");
-
     const createEmptyColor = () => ({
         color: "",
         qty: "",
@@ -248,7 +249,7 @@ export default function Inventory() {
         id: uuidv4(), date: "", productCode: "", productName: "", category: "",
         brand: "", color: "", size: "", type: "", shape: "", sph: "", cyl: "",
         index: "", axis: "", addition: "", coating: "", expiry: "", pairOrSingle: "Single",
-        price: "", gst: "0", hsnSac: "", mrp: "", discount: "0", qty: "", vendor: "",
+        price: "", buyingPrice: "", sellingPrice: "", gst: "0", hsnSac: "", mrp: "", discount: "0", qty: "", vendor: "",
         material: "", dimensions: "",
         colors: [createEmptyColor()],
         // Batch allocation fields
@@ -407,8 +408,12 @@ export default function Inventory() {
             if (!row.productName?.trim()) return `Product Name is required (Row ${i + 1})`;
             if (!row.category) return `Category is required (Row ${i + 1})`;
             if (!row.brand) return `Brand is required (Row ${i + 1})`;
-            if (row.price === "" || Number(row.price) <= 0) return `Price must be > 0 (Row ${i + 1})`;
-            if (row.mrp === "" || Number(row.mrp) <= 0) return `MRP must be > 0 (Row ${i + 1})`;
+            const buyingP = row.buyingPrice !== "" && row.buyingPrice != null ? Number(row.buyingPrice) : (row.price !== "" ? Number(row.price) : NaN);
+            if (isNaN(buyingP) || buyingP < 0) return `Buying Price must be >= 0 (Row ${i + 1})`;
+            const mrpVal = Number(row.mrp);
+            if (isNaN(mrpVal) || mrpVal <= 0) return `MRP must be > 0 (Row ${i + 1})`;
+            const sellingP = row.sellingPrice !== "" && row.sellingPrice != null ? Number(row.sellingPrice) : mrpVal;
+            if (isNaN(sellingP) || sellingP <= 0) return `Selling Price must be > 0 (Row ${i + 1})`;
             if (row.qty === "" || Number(row.qty) <= 0) return `Quantity must be > 0 (Row ${i + 1})`;
 
             if (isRequireImageCategory(row.category) && Array.isArray(row.colors)) {
@@ -435,9 +440,16 @@ export default function Inventory() {
             // Step 1: Clean products JSON (omit imageFile, previewUrl, and common image)
             const sanitizedProducts = rows.map((product) => {
                 const { image, ...rest } = product;
+                const buyingVal = Number(product.buyingPrice !== "" && product.buyingPrice != null ? product.buyingPrice : (product.price || 0));
+                const mrpVal = Number(product.mrp || 0);
+                const sellingVal = Number(product.sellingPrice !== "" && product.sellingPrice != null ? product.sellingPrice : (product.price || mrpVal));
+
                 return {
                     ...rest,
-                    productCodeSuffix: isLensCategory(product.category) ? productCodeSuffix : undefined,
+                    price: buyingVal,
+                    buyingPrice: buyingVal,
+                    sellingPrice: sellingVal,
+                    mrp: mrpVal,
                     colors: (product.colors || []).map((c) => ({
                         color: c.color,
                         qty: Number(c.qty) || 0,
@@ -471,6 +483,8 @@ export default function Inventory() {
                 cleanupColorPreviews(rows);
                 setRows([{ ...emptyRow, id: uuidv4(), colors: [createEmptyColor()] }]);
                 setShowAddProductModal(false);
+                // Refresh the table immediately — no page reload needed
+                triggerInventoryRefresh();
             } else { toast.error(res.data.message || "Something went wrong"); }
         } catch (error) {
             toast.error(error.response?.data?.message || "Failed to save products");
@@ -540,6 +554,7 @@ export default function Inventory() {
                 toDate={toDate} setToDate={setToDate}
                 keyword={keyword} setKeyword={setKeyword}
                 triggerSearch={triggerSearch} setTriggerSearch={setTriggerSearch}
+                refreshTrigger={refreshTrigger}
             />
 
             {/* ── Add Product Modal ── */}
@@ -548,21 +563,6 @@ export default function Inventory() {
                     <ModalHeader title="Add Product" subtitle="Fill in product details below" icon={FiPlus} onClose={handleCloseAddProductModal} />
                     <form onSubmit={submitAddProductForm} className="flex-1 min-h-0 flex flex-col">
                         <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
-                            {rows.some(r => isLensCategory(r.category)) && (
-                                <div className="bg-[#FFFDF5] border border-amber-200/80 rounded-2xl p-4 mb-3">
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">
-                                        Product Code Suffix
-                                    </label>
-                                    <input
-                                        type="text"
-                                        className={`${inputCls} max-w-xs`}
-                                        placeholder="DO"
-                                        value={productCodeSuffix}
-                                        onChange={e => setProductCodeSuffix(e.target.value)}
-                                    />
-                                </div>
-                            )}
-
                             {rows.map((row, i) => {
                                 const isLens = isLensCategory(row.category);
                                 const isFrame = isFrameCategory(row.category);
@@ -585,7 +585,7 @@ export default function Inventory() {
                                             <FieldInput label="Code *">
                                                 <input type="text" value={row.productCode} className={inputCls} placeholder="e.g. PRD001" onChange={e => handleChange(i, "productCode", e.target.value)} />
                                             </FieldInput>
-                                            <FieldInput label="Name *">
+                                            <FieldInput label="Product Name *">
                                                 <input type="text" value={row.productName} className={inputCls} placeholder="Product name" onChange={e => handleChange(i, "productName", e.target.value)} />
                                             </FieldInput>
                                             <FieldInput label="Category *">
@@ -633,19 +633,35 @@ export default function Inventory() {
                                                 </FieldInput>
                                             </>)}
 
-                                            <FieldInput label="Price *">
-                                                <input type="number" value={row.price} className={inputCls} placeholder="0" onChange={e => handleChange(i, "price", e.target.value)} />
+                                            <FieldInput label="Buying Price (₹) *">
+                                                <input
+                                                    type="number"
+                                                    value={row.buyingPrice !== "" ? row.buyingPrice : row.price}
+                                                    className={inputCls}
+                                                    placeholder="e.g. 50"
+                                                    onChange={e => {
+                                                        handleChange(i, "buyingPrice", e.target.value);
+                                                        handleChange(i, "price", e.target.value);
+                                                    }}
+                                                />
                                             </FieldInput>
-                                            <FieldInput label="GST %">
-                                                <select value={row.gst} className={selectCls} onChange={e => handleChange(i, "gst", e.target.value)}>
-                                                    {settings?.gst?.map((p, idx) => <option key={idx} value={p}>{p}%</option>)}
-                                                </select>
+                                            <FieldInput label="Selling Price (₹) *">
+                                                <input
+                                                    type="number"
+                                                    value={row.sellingPrice}
+                                                    className={inputCls}
+                                                    placeholder="e.g. 90"
+                                                    onChange={e => handleChange(i, "sellingPrice", e.target.value)}
+                                                />
                                             </FieldInput>
-                                            <FieldInput label="HSN/SAC">
-                                                <input type="text" value={row.hsnSac} className={inputCls} placeholder="HSN code" onChange={e => handleChange(i, "hsnSac", e.target.value)} />
-                                            </FieldInput>
-                                            <FieldInput label="MRP *">
-                                                <input type="number" value={row.mrp} className={inputCls} placeholder="0" onChange={e => handleChange(i, "mrp", e.target.value)} />
+                                            <FieldInput label="MRP (₹) *">
+                                                <input
+                                                    type="number"
+                                                    value={row.mrp}
+                                                    className={inputCls}
+                                                    placeholder="e.g. 100"
+                                                    onChange={e => handleChange(i, "mrp", e.target.value)}
+                                                />
                                             </FieldInput>
                                             <FieldInput label="Discount (₹)">
                                                 <input type="number" value={row.discount} className={inputCls} placeholder="0" onChange={e => handleChange(i, "discount", e.target.value)} />
@@ -1750,7 +1766,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
 }
 
 // ─── InventoryTable ───────────────────────────────────────────────────────────
-function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, setKeyword, triggerSearch, setTriggerSearch }) {
+function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, setKeyword, triggerSearch, setTriggerSearch, refreshTrigger }) {
     const [data, setData] = useState([]);
     const [filteredData, setFilteredData] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
@@ -1771,6 +1787,15 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
     };
 
     const settings = useSelector((state) => state.settings.data);
+    const dispatch = useDispatch();
+    // Ensure settings (categories, GST) are loaded even if this component mounts independently
+    useEffect(() => { dispatch(fetchSettings()); }, [dispatch]);
+    const [vendors, setVendors] = useState([]);
+    useEffect(() => {
+        api.get("/api/vendor")
+            .then(res => { if (res.data?.success) setVendors(res.data.vendors || []); })
+            .catch(err => console.error("Failed to fetch vendors:", err));
+    }, []);
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
     const [totalPages, setTotalPages] = useState(1);
@@ -1790,6 +1815,9 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
         batchNumber: '',
         qty: '',
         costPrice: '',
+        buyingPrice: '',
+        sellingPrice: '',
+        mrp: '',
         remarks: ''
     });
 
@@ -1807,7 +1835,10 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
             setBatchSummary({ totalStock, allocatedQty, unallocatedQty });
             setBatchFormData(prev => ({
                 ...prev,
-                qty: unallocatedQty > 0 ? unallocatedQty : 0
+                qty: unallocatedQty > 0 ? unallocatedQty : 0,
+                buyingPrice: prev.buyingPrice !== '' ? prev.buyingPrice : (res?.data?.buyingPrice ?? ''),
+                sellingPrice: prev.sellingPrice !== '' ? prev.sellingPrice : (res?.data?.sellingPrice ?? ''),
+                mrp: prev.mrp !== '' ? prev.mrp : (res?.data?.mrp ?? '')
             }));
         } catch (err) {
             console.error("Failed to load product batches:", err);
@@ -1819,10 +1850,16 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
     const handleOpenBatchModal = (product) => {
         setBatchProduct(product);
         setBatchSummary({ totalStock: product.qty || 0, allocatedQty: 0, unallocatedQty: product.qty || 0 });
+        const bPrice = product.buyingPrice != null ? product.buyingPrice : (product.price || '');
+        const sPrice = product.sellingPrice != null ? product.sellingPrice : (product.price || '');
+        const mPrice = product.mrp != null ? product.mrp : '';
         setBatchFormData({
             batchNumber: '',
             qty: product.qty || 1,
-            costPrice: product.price || 0,
+            costPrice: bPrice,
+            buyingPrice: bPrice,
+            sellingPrice: sPrice,
+            mrp: mPrice,
             remarks: 'Manual batch allocation from Inventory'
         });
         setOpenBatchModal(true);
@@ -1845,15 +1882,30 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
 
         setAllocatingBatch(true);
         try {
+            const bPrice = batchFormData.buyingPrice !== '' ? Number(batchFormData.buyingPrice) : (Number(batchFormData.costPrice) || 0);
+            const sPrice = batchFormData.sellingPrice !== '' ? Number(batchFormData.sellingPrice) : 0;
+            const mPrice = batchFormData.mrp !== '' ? Number(batchFormData.mrp) : 0;
+
             const res = await allocateManualBatch({
                 productId: batchProduct._id,
                 batchNumber: batchFormData.batchNumber,
                 qty: reqQty,
-                costPrice: Number(batchFormData.costPrice) || 0,
+                costPrice: bPrice,
+                buyingPrice: bPrice,
+                sellingPrice: sPrice,
+                mrp: mPrice,
                 remarks: batchFormData.remarks
             });
             toast.success(res?.message || "Batch allocated successfully!");
-            setBatchFormData({ batchNumber: '', qty: 0, costPrice: batchProduct.price || 0, remarks: '' });
+            setBatchFormData({ 
+                batchNumber: '', 
+                qty: 0, 
+                costPrice: bPrice, 
+                buyingPrice: bPrice, 
+                sellingPrice: sPrice, 
+                mrp: mPrice, 
+                remarks: '' 
+            });
             fetchBatchesForSelectedProduct(batchProduct._id);
         } catch (err) {
             toast.error(err?.message || "Failed to allocate batch");
@@ -1930,6 +1982,17 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
 
     useEffect(() => { fetchProducts(1, false); }, []);
 
+    // Re-fetch when parent signals a change (product added/bulk-uploaded)
+    useEffect(() => {
+        if (refreshTrigger > 0) {
+            // Reset search state AND the quick-search filter so fresh data is visible
+            setIsSearching(false);
+            setFilteredData([]);
+            setGlobalFilter(""); // clear the quick search box
+            fetchProducts(1, false);
+        }
+    }, [refreshTrigger]);
+
     const handleLoadMore = () => {
         if (!hasMore || loadingMore) return;
         const nextPage = page + 1;
@@ -1951,6 +2014,7 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                 setData(prev => prev.filter(p => p._id !== product._id));
                 setFilteredData(prev => prev.filter(p => p._id !== product._id));
                 setSelectedRows(prev => { const n = { ...prev }; delete n[product._id]; return n; });
+                setTotalProducts(prev => Math.max(0, prev - 1));
                 Swal.fire({ icon: "success", title: "Deleted!", timer: 1500, showConfirmButton: false });
             }
         } catch (error) {
@@ -1979,13 +2043,15 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
             const res = await api.post("/api/digi/product/delete-bulk", { ids: idsToDelete });
             if (res.data.success) {
                 const deletedIdSet = new Set(idsToDelete);
+                const actualDeleted = res.data.deletedCount || idsToDelete.length;
                 setData(prev => prev.filter(p => !deletedIdSet.has(p._id)));
                 setFilteredData(prev => prev.filter(p => !deletedIdSet.has(p._id)));
                 setSelectedRows({});
+                setTotalProducts(prev => Math.max(0, prev - actualDeleted));
                 Swal.fire({
                     icon: "success",
                     title: "Deleted!",
-                    text: `${res.data.deletedCount || idsToDelete.length} product(s) deleted successfully.`,
+                    text: `${actualDeleted} product(s) deleted successfully.`,
                     timer: 2000,
                     showConfirmButton: false
                 });
@@ -1999,17 +2065,37 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
         }
     };
 
-    const emptyInventoryRow = { productCode: "", qty: "", expiry: "", price: "", gst: "0", total: "", mrp: "" /*, vendorId: "", vendorName: "" */ };
+    const emptyInventoryRow = {
+        productCode: "",
+        productName: "",
+        qty: "",
+        batchNumber: "",
+        expiry: "",
+        inwardDate: new Date().toISOString().split("T")[0],
+        buyingPrice: "",
+        sellingPrice: "",
+        price: "",
+        gst: "0",
+        total: "",
+        mrp: "",
+        vendorId: "",
+        vendorName: "",
+        remarks: ""
+    };
     const [inventoryRows, setInventoryRows] = useState([{ ...emptyInventoryRow }]);
+    const [submittingInventory, setSubmittingInventory] = useState(false);
 
     const updateRow = (index, field, value) => {
         setInventoryRows(prev => prev.map((row, i) => {
             if (i !== index) return row;
             const updatedRow = { ...row, [field]: field === "qty" ? Math.floor(Number(value)) : value };
+            if (field === "buyingPrice") {
+                updatedRow.price = value;
+            }
             const qty = Number(updatedRow.qty) || 0;
-            const price = Number(updatedRow.price) || 0;
+            const cost = Number(updatedRow.buyingPrice || updatedRow.price) || 0;
             const gst = Number(updatedRow.gst) || 0;
-            updatedRow.total = (qty * price * (1 + gst / 100)).toFixed(2);
+            updatedRow.total = (qty * cost * (1 + gst / 100)).toFixed(2);
             return updatedRow;
         }));
     };
@@ -2022,8 +2108,11 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
             const row = inventoryRows[i];
             if (!row.productCode?.trim()) return `Product Code is required (Row ${i + 1})`;
             if (!row.qty || Number(row.qty) <= 0) return `Quantity must be > 0 (Row ${i + 1})`;
-            if (row.price === "" || Number(row.price) < 0) return `Price must be > 0 (Row ${i + 1})`;
-            if (row.mrp === "" || Number(row.mrp) < 0) return `MRP must be > 0 (Row ${i + 1})`;
+            const buyingP = row.buyingPrice !== "" ? Number(row.buyingPrice) : Number(row.price);
+            if (isNaN(buyingP) || buyingP < 0) return `Buying Price must be >= 0 (Row ${i + 1})`;
+            const sellingP = row.sellingPrice !== "" ? Number(row.sellingPrice) : Number(row.price);
+            if (isNaN(sellingP) || sellingP < 0) return `Selling Price must be >= 0 (Row ${i + 1})`;
+            if (row.mrp === "" || Number(row.mrp) < 0) return `MRP must be >= 0 (Row ${i + 1})`;
         }
         return null;
     };
@@ -2032,17 +2121,64 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
         e.preventDefault();
         const err = validateInventoryRows();
         if (err) { Swal.fire({ icon: "error", title: "Validation Error", text: err }); return; }
+        setSubmittingInventory(true);
         try {
             const res = await api.post("/api/digi/product/add/inventory", { items: inventoryRows });
             if (res.data.success) {
-                Swal.fire({ icon: "success", title: "Success", text: "Inventory added successfully" });
+                // Real-time table state update
+                if (res.data.updated && Array.isArray(res.data.updated)) {
+                    const updatedMap = new Map(res.data.updated.map(u => [u.productCode, u]));
+                    setData(prev => prev.map(p => {
+                        const u = updatedMap.get(p.productCode);
+                        if (!u) return p;
+                        return {
+                            ...p,
+                            qty: u.qty,
+                            buyingPrice: u.buyingPrice,
+                            sellingPrice: u.sellingPrice,
+                            mrp: u.mrp,
+                            price: u.buyingPrice,
+                            vendor: u.vendor || p.vendor,
+                            expiry: u.expiry || p.expiry
+                        };
+                    }));
+                    setFilteredData(prev => prev.map(p => {
+                        const u = updatedMap.get(p.productCode);
+                        if (!u) return p;
+                        return {
+                            ...p,
+                            qty: u.qty,
+                            buyingPrice: u.buyingPrice,
+                            sellingPrice: u.sellingPrice,
+                            mrp: u.mrp,
+                            price: u.buyingPrice,
+                            vendor: u.vendor || p.vendor,
+                            expiry: u.expiry || p.expiry
+                        };
+                    }));
+                }
+
+                // Keep pagination and background metrics synced
+                fetchProducts(page, false, fetchLimit);
+
+                Swal.fire({
+                    icon: "success",
+                    title: "Inventory & Batch Created!",
+                    text: res.data.message || "Stock level updated and new batch created successfully."
+                });
                 setOpenInventoryModal(false);
                 setBulkStockProducts(null);
                 setInventoryRows([{ ...emptyInventoryRow }]);
                 clearSelection();
             }
         } catch (error) {
-            Swal.fire({ icon: "error", title: "Error", text: error.message || error.response?.data?.message || "Something went wrong" });
+            Swal.fire({
+                icon: "error",
+                title: "Error Adding Inventory",
+                text: error.response?.data?.message || error.message || "Something went wrong"
+            });
+        } finally {
+            setSubmittingInventory(false);
         }
     };
 
@@ -2076,9 +2212,18 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
         const preFilled = selectedProductsList.map(p => ({
             ...emptyInventoryRow,
             productCode: p.productCode || "",
+            productName: p.productName || "",
             mrp: p.mrp ? String(p.mrp) : "",
-            price: p.price ? String(p.price) : "",
+            buyingPrice: p.buyingPrice != null ? String(p.buyingPrice) : (p.price ? String(p.price) : ""),
+            sellingPrice: p.sellingPrice != null ? String(p.sellingPrice) : (p.price ? String(p.price) : ""),
+            price: p.buyingPrice != null ? String(p.buyingPrice) : (p.price ? String(p.price) : ""),
             gst: p.gst ? String(p.gst) : "0",
+            vendorId: p.vendor?.id || "",
+            vendorName: p.vendor?.name || "",
+            batchNumber: "",
+            inwardDate: new Date().toISOString().split("T")[0],
+            expiry: p.expiry ? new Date(p.expiry).toISOString().split("T")[0] : "",
+            remarks: "Bulk stock inward"
         }));
         setInventoryRows(preFilled.length > 0 ? preFilled : [{ ...emptyInventoryRow }]);
         setBulkStockProducts(selectedProductsList);
@@ -2102,6 +2247,8 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
         brand: { width: "95px", minWidth: "90px", maxWidth: "110px", align: "text-left", px: "px-2" },
         image: { width: "75px", minWidth: "75px", maxWidth: "80px", align: "text-center", px: "px-1" },
         qty: { width: "55px", minWidth: "55px", maxWidth: "60px", align: "text-center font-semibold", px: "px-1" },
+        buyingPrice: { width: "95px", minWidth: "95px", maxWidth: "105px", align: "text-center font-semibold text-amber-700", px: "px-1" },
+        sellingPrice: { width: "95px", minWidth: "95px", maxWidth: "105px", align: "text-center font-semibold text-emerald-700", px: "px-1" },
         mrp: { width: "70px", minWidth: "70px", maxWidth: "75px", align: "text-center", px: "px-1" },
         gst: { width: "58px", minWidth: "58px", maxWidth: "62px", align: "text-center", px: "px-1" },
         sph: { width: "55px", minWidth: "55px", maxWidth: "60px", align: "text-center", px: "px-1" },
@@ -2159,11 +2306,26 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                         </button>
                         <button onClick={e => {
                             e.stopPropagation();
-                            setInventoryRows([{ ...emptyInventoryRow, productCode: product.productCode, mrp: product.mrp ? String(product.mrp) : "", price: product.price ? String(product.price) : "", gst: product.gst ? String(product.gst) : "0" }]);
-                            setBulkStockProducts(null);
+                            setInventoryRows([{
+                                ...emptyInventoryRow,
+                                productCode: product.productCode || "",
+                                productName: product.productName || "",
+                                mrp: product.mrp ? String(product.mrp) : "",
+                                buyingPrice: product.buyingPrice != null ? String(product.buyingPrice) : (product.price ? String(product.price) : ""),
+                                sellingPrice: product.sellingPrice != null ? String(product.sellingPrice) : (product.price ? String(product.price) : ""),
+                                price: product.buyingPrice != null ? String(product.buyingPrice) : (product.price ? String(product.price) : ""),
+                                gst: product.gst ? String(product.gst) : "0",
+                                vendorId: product.vendor?.id || "",
+                                vendorName: product.vendor?.name || "",
+                                batchNumber: "",
+                                inwardDate: new Date().toISOString().split("T")[0],
+                                expiry: product.expiry ? new Date(product.expiry).toISOString().split("T")[0] : "",
+                                remarks: "Stock added via inventory"
+                            }]);
+                            setBulkStockProducts([product]);
                             setOpenInventoryModal(true);
                         }}
-                            className="p-1 rounded-lg hover:bg-emerald-50 text-emerald-500 transition" title="Add Stock">
+                            className="p-1 rounded-lg hover:bg-emerald-50 text-emerald-500 transition" title="Add Stock & Allocate Batch">
                             <FiShoppingCart size={13} />
                         </button>
                         <button onClick={e => {
@@ -2203,7 +2365,7 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
             ),
         },
         {
-            header: "Name",
+            header: "Product Name",
             accessorKey: "productName",
             cell: ({ getValue, row }) => (
                 <button
@@ -2262,6 +2424,22 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
             },
         },
         { header: "Qty", accessorKey: "qty", cell: ({ getValue }) => getValue() ?? 0 },
+        {
+            header: "Buying Price",
+            accessorKey: "buyingPrice",
+            cell: ({ row }) => {
+                const val = row.original.buyingPrice != null ? row.original.buyingPrice : (row.original.price ?? 0);
+                return `₹${val}`;
+            }
+        },
+        {
+            header: "Selling Price",
+            accessorKey: "sellingPrice",
+            cell: ({ row }) => {
+                const val = row.original.sellingPrice != null ? row.original.sellingPrice : (row.original.price ?? 0);
+                return `₹${val}`;
+            }
+        },
         { header: "MRP", accessorKey: "mrp", cell: ({ getValue }) => `₹${getValue() ?? 0}` },
         { header: "GST %", accessorKey: "gst", cell: ({ getValue }) => `${getValue() ?? 0}%` },
         { header: "SPH", accessorKey: "sph", cell: ({ getValue }) => getValue() || "—" },
@@ -2279,7 +2457,6 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
         { header: "Index", accessorKey: "index", cell: ({ getValue }) => getValue() || "—" },
         { header: "Coating", accessorKey: "coating", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
         { header: "Expiry", accessorKey: "expiry", cell: ({ getValue }) => getValue() ? new Date(getValue()).toLocaleDateString("en-IN") : "—" },
-        { header: "Price", accessorKey: "price", cell: ({ getValue }) => `₹${getValue() ?? 0}` },
         { header: "HSN/SAC", accessorKey: "hsnSac", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
         {
             header: "Delete", id: "delete",
@@ -2366,7 +2543,16 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                     <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={13} />
                     <input type="text" value={globalFilter ?? ""} onChange={e => setGlobalFilter(e.target.value)}
                         placeholder="Quick search..."
-                        className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-[#2980b9]/40 focus:ring-2 focus:ring-[#2980b9]/20 transition text-gray-600 placeholder:text-gray-300" />
+                        className="w-full pl-8 pr-7 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-[#2980b9]/40 focus:ring-2 focus:ring-[#2980b9]/20 transition text-gray-600 placeholder:text-gray-300" />
+                    {globalFilter && (
+                        <button
+                            onClick={() => setGlobalFilter("")}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+                            title="Clear search"
+                        >
+                            <FiX size={13} />
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -2445,7 +2631,10 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-4 border-t border-gray-100 bg-gray-50/50">
                 <div className="flex items-center gap-3 flex-wrap">
                     <span className="text-xs text-gray-500 font-medium">
-                        Showing <span className="font-bold text-gray-800">{data.length > 0 ? (page - 1) * fetchLimit + 1 : 0}</span> to <span className="font-bold text-gray-800">{Math.min(page * fetchLimit, totalProducts)}</span> of <span className="font-bold text-gray-800">{totalProducts}</span> products
+                        {isSearching
+                            ? <>Showing <span className="font-bold text-gray-800">{filteredData.length}</span> search results</>
+                            : <>Showing <span className="font-bold text-gray-800">{data.length > 0 ? (page - 1) * fetchLimit + 1 : 0}</span> to <span className="font-bold text-gray-800">{(page - 1) * fetchLimit + data.length}</span> of <span className="font-bold text-gray-800">{totalProducts}</span> products</>
+                        }
                     </span>
                     <div className="flex items-center gap-1.5 ml-2">
                         <span className="text-xs text-gray-400">Per page:</span>
@@ -2539,8 +2728,18 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
 
             {/* Modals */}
             {openEditProductModal && (
-                <EditProductModal product={selectedProduct} settings={settings}
-                    onClose={() => { setOpenEditProductModal(false); setSelectedProduct(null); }} />
+                <EditProductModal
+                    product={selectedProduct}
+                    settings={settings}
+                    onClose={() => { setOpenEditProductModal(false); setSelectedProduct(null); }}
+                    onSuccess={(updatedProduct) => {
+                        // Real-time update — no page refresh needed
+                        setData(prev => prev.map(p => p._id === updatedProduct._id ? { ...p, ...updatedProduct } : p));
+                        setFilteredData(prev => prev.map(p => p._id === updatedProduct._id ? { ...p, ...updatedProduct } : p));
+                        setOpenEditProductModal(false);
+                        setSelectedProduct(null);
+                    }}
+                />
             )}
 
             {openInventoryModal && (
@@ -2550,8 +2749,9 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                     addRow={addInventoryRow} removeRow={removeInventoryRow}
                     handleInventorySubmit={handleInventorySubmit}
                     settings={settings}
-                    // vendors={vendors}
+                    vendors={vendors}
                     bulkProducts={bulkStockProducts}
+                    isSubmitting={submittingInventory}
                 />
             )}
 
@@ -2601,37 +2801,79 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
 
 
 // ─── Edit Product Modal ───────────────────────────────────────────────────────
-function EditProductModal({ product, settings, onClose }) {
+function EditProductModal({ product, settings, onClose, onSuccess }) {
     const toInputDate = (v) => v ? new Date(v).toISOString().split("T")[0] : "";
 
     const [formData, setFormData] = useState({
         createdAt: "", productCode: "", productName: "", category: "", brand: "",
         color: "", size: "", type: "", shape: "", sph: "", cyl: "", index: "",
-        axis: "", coating: "", expiry: "", price: "", gst: "0", hsnSac: "", mrp: "", qty: "",
+        axis: "", coating: "", expiry: "", buyingPrice: "", sellingPrice: "", price: "", gst: "0", hsnSac: "", mrp: "", qty: "",
+        addition: "", material: "", dimensions: "",
+        vendorId: "", vendorName: "",
     });
     const [selectedImage, setSelectedImage] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
     const [saving, setSaving] = useState(false);
+    const [vendors, setVendors] = useState([]);
+
+    // Fetch vendors for the vendor dropdown
+    useEffect(() => {
+        api.get("/api/vendor")
+            .then(res => { if (res.data.success) setVendors(res.data.vendors || []); })
+            .catch(() => {});
+    }, []);
 
     useEffect(() => {
         if (product) {
+            const initialColor = product.color 
+                || (Array.isArray(product.colors) && product.colors.find(c => c?.color)?.color)
+                || (Array.isArray(product.colors) && product.colors[0]?.color)
+                || "";
             setFormData({
                 createdAt: toInputDate(product.createdAt), productCode: product.productCode || "",
                 productName: product.productName || "", category: product.category || "",
-                brand: product.brand || "", color: product.color || "", size: product.size || "",
+                brand: product.brand || "", color: initialColor, size: product.size || "",
                 type: product.type || "", shape: product.shape || "", sph: product.sph || "",
                 cyl: product.cyl || "", index: product.index || "", axis: product.axis || "",
                 coating: product.coating || "", expiry: toInputDate(product.expiry),
-                price: product.price || "", gst: product.gst || "0", hsnSac: product.hsnSac || "",
+                buyingPrice: product.buyingPrice != null ? product.buyingPrice : (product.price || ""),
+                sellingPrice: product.sellingPrice != null ? product.sellingPrice : (product.price || ""),
+                price: product.price || "", gst: product.gst ?? "0", hsnSac: product.hsnSac || "",
                 mrp: product.mrp || "", qty: product.qty || "",
-
-                addition: product.addition || "", material: product.material || "", dimensions: product.dimensions || ""
+                addition: product.addition || "", material: product.material || "", dimensions: product.dimensions || "",
+                // Pre-fill vendor
+                vendorId: product.vendor?.id || "",
+                vendorName: product.vendor?.name || "",
             });
+            // Reset image preview when switching products
+            setSelectedImage(null);
+            setImagePreview(null);
         }
     }, [product]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData(prev => ({
+            ...prev,
+            [name]: value,
+            ...(name === "buyingPrice" ? { price: value } : {}),
+            // When vendor dropdown changes, also update vendorName
+            ...(name === "vendorId"
+                ? { vendorName: vendors.find(v => v._id === value)?.name || value }
+                : {}),
+        }));
+    };
+
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error("File size must not exceed 5 MB");
+            e.target.value = "";
+            return;
+        }
+        setSelectedImage(file);
+        setImagePreview(URL.createObjectURL(file));
     };
 
     const handleSubmit = async (e) => {
@@ -2643,11 +2885,39 @@ function EditProductModal({ product, settings, onClose }) {
             dataToSend.append("productId", product._id);
             if (selectedImage instanceof File) dataToSend.append("image", selectedImage);
             const res = await api.put(`/api/digi/product`, dataToSend, { headers: { "Content-Type": "multipart/form-data" } });
-            if (res.data.success) { toast.success("Product updated successfully"); onClose(); }
-            else toast.error(res.data.message || "Update failed");
-        } catch (err) { toast.error("Something went wrong"); }
-        finally { setSaving(false); }
+            if (res.data.success) {
+                toast.success("Product updated successfully");
+                // Pass updated product back so parent can update state in-place
+                let updatedProduct = res.data.product || { ...product, ...formData };
+                if (formData.color) {
+                    const colorVal = formData.color.trim();
+                    updatedProduct = {
+                        ...updatedProduct,
+                        color: colorVal,
+                        colors: (Array.isArray(updatedProduct.colors) && updatedProduct.colors.length > 0)
+                            ? updatedProduct.colors.map((c, i) => i === 0 ? { ...c, color: colorVal } : c)
+                            : [{ color: colorVal, qty: Number(formData.qty) || 0, productColorImage: updatedProduct.image || "" }]
+                    };
+                }
+                if (onSuccess) onSuccess(updatedProduct);
+                else onClose();
+            } else {
+                toast.error(res.data.message || "Update failed");
+            }
+        } catch (err) {
+            toast.error(err?.response?.data?.message || "Something went wrong");
+        } finally {
+            setSaving(false);
+        }
     };
+
+    // Build category options: always include current value even if not in settings list
+    const categoryOptions = (() => {
+        const base = settings?.allCategories || [];
+        const current = formData.category;
+        if (current && !base.includes(current)) return [current, ...base];
+        return base;
+    })();
 
     const fields = [
         { name: "createdAt", label: "Date", type: "date" },
@@ -2664,14 +2934,13 @@ function EditProductModal({ product, settings, onClose }) {
         { name: "axis", label: "Axis", type: "text" },
         { name: "coating", label: "Coating", type: "text" },
         { name: "expiry", label: "Expiry", type: "date" },
-        { name: "price", label: "Price", type: "number" },
+        { name: "buyingPrice", label: "Buying Price (₹)", type: "number" },
+        { name: "sellingPrice", label: "Selling Price (₹)", type: "number" },
+        { name: "mrp", label: "MRP (₹)", type: "number" },
         { name: "hsnSac", label: "HSN/SAC", type: "text" },
-        { name: "mrp", label: "MRP", type: "number" },
-
         { name: "addition", label: "ADD.", type: "text" },
         { name: "material", label: "MATERIAL", type: "text" },
         { name: "dimensions", label: "DIMENSIONS", type: "text" },
-
         { name: "qty", label: "Quantity", type: "number" },
     ];
 
@@ -2688,38 +2957,62 @@ function EditProductModal({ product, settings, onClose }) {
                                     onChange={handleChange} className={inputCls} />
                             </FieldInput>
                         ))}
+
+                        {/* Category dropdown — always shows current value */}
                         <FieldInput label="Category">
                             <select name="category" value={formData.category} onChange={handleChange} className={selectCls}>
-                                <option value="">Select</option>
-                                {settings?.allCategories?.map((cat, idx) => <option key={idx} value={cat}>{cat}</option>)}
+                                <option value="">Select Category</option>
+                                {categoryOptions.map((cat, idx) => <option key={idx} value={cat}>{cat}</option>)}
                             </select>
                         </FieldInput>
+
+                        {/* GST dropdown */}
                         <FieldInput label="GST %">
                             <select name="gst" value={formData.gst} onChange={handleChange} className={selectCls}>
+                                <option value="0">0%</option>
                                 {settings?.gst?.map((p, idx) => <option key={idx} value={p}>{p}%</option>)}
                             </select>
                         </FieldInput>
+
+                        {/* Vendor dropdown */}
+                        <FieldInput label="Vendor">
+                            <select name="vendorId" value={formData.vendorId} onChange={handleChange} className={selectCls}>
+                                <option value="">No Vendor / Unknown</option>
+                                {vendors.map(v => (
+                                    <option key={v._id} value={v._id}>
+                                        {v.name}{v.firm ? ` — ${v.firm}` : ""}
+                                    </option>
+                                ))}
+                            </select>
+                        </FieldInput>
+
+                        {/* Product Image with live preview */}
                         <FieldInput label="Product Image (Max 5 MB)">
-                            <div className="flex items-center gap-2">
-                                {(() => {
-                                    const displayImg = getProductDisplayImage(product);
-                                    return displayImg && displayImg !== "/placeholder-product.png" && (
-                                        <button type="button" onClick={() => window.open(displayImg, "_blank")}
-                                            className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-500 transition flex-shrink-0" title="View Current Image">
-                                            <FiImage size={14} />
-                                        </button>
-                                    );
-                                })()}
-                                <input type="file" accept="image/*" onChange={e => {
-                                    const file = e.target.files[0];
-                                    if (file && file.size > 5 * 1024 * 1024) {
-                                        toast.error("File size must not exceed 5 MB");
-                                        e.target.value = "";
-                                        return;
-                                    }
-                                    setSelectedImage(file);
-                                }}
-                                    className={inputCls} />
+                            <div className="flex flex-col gap-2">
+                                {/* Preview: show newly selected image OR existing image */}
+                                {(imagePreview || (() => { const d = getProductDisplayImage(product); return d && d !== "/placeholder-product.png" ? d : null; })()) && (
+                                    <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 bg-gray-50 flex-shrink-0">
+                                        <img
+                                            src={imagePreview || getProductDisplayImage(product)}
+                                            alt="preview"
+                                            className="w-full h-full object-cover"
+                                        />
+                                        {imagePreview && (
+                                            <div className="absolute top-0.5 right-0.5 bg-green-500 text-white rounded-full p-0.5">
+                                                <FiCheckCircle size={8} />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleImageChange}
+                                    className={inputCls}
+                                />
+                                {imagePreview && (
+                                    <p className="text-[10px] text-green-600 font-medium">New image selected — will be uploaded on save</p>
+                                )}
                             </div>
                         </FieldInput>
                     </div>
@@ -2740,97 +3033,364 @@ function EditProductModal({ product, settings, onClose }) {
 
 
 // ─── Inventory Modal ──────────────────────────────────────────────────────────
-// bulkProducts: array of product objects (when opened from bulk selection), or null
-const InventoryModal = ({ open, onClose, inventoryRows, updateRow, addRow, removeRow, handleInventorySubmit, settings, vendors, bulkProducts }) => {
+// bulkProducts: array of product objects (when opened from bulk selection or single row), or null
+const InventoryModal = ({
+    open,
+    onClose,
+    inventoryRows,
+    updateRow,
+    addRow,
+    removeRow,
+    handleInventorySubmit,
+    settings,
+    vendors = [],
+    bulkProducts,
+    isSubmitting = false
+}) => {
     if (!open) return null;
+
+    const isSingle = Array.isArray(bulkProducts) && bulkProducts.length === 1;
+    const singleProduct = isSingle ? bulkProducts[0] : null;
+
+    // Calculate overall totals
+    const totalUnits = inventoryRows.reduce((sum, r) => sum + (Number(r.qty) || 0), 0);
+    const totalCost = inventoryRows.reduce((sum, r) => sum + (Number(r.total) || 0), 0);
 
     return (
         <Modal onClose={onClose} maxWidth="max-w-5xl">
             <ModalHeader
-                title="Add Inventory"
-                subtitle={bulkProducts
-                    ? `Bulk stock update · ${bulkProducts.length} product${bulkProducts.length > 1 ? "s" : ""} selected`
-                    : "Update stock levels"
+                title={isSingle ? "Add Stock & Inward Batch" : (bulkProducts?.length > 1 ? "Bulk Stock Inward & Batches" : "Add Inventory")}
+                subtitle={isSingle
+                    ? `Inward stock & assign batch pricing for ${singleProduct.productName || singleProduct.productCode}`
+                    : (bulkProducts?.length > 1
+                        ? `Create batches and inward stock for ${bulkProducts.length} selected products`
+                        : "Inward stock levels and create batches"
+                    )
                 }
                 icon={FiShoppingCart}
                 onClose={onClose}
             />
 
-
             <form onSubmit={handleInventorySubmit} className="flex-1 min-h-0 flex flex-col">
-                <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-3">
-                    {inventoryRows.map((row, index) => (
-                        <div key={index} className="bg-gray-50 rounded-2xl border border-gray-100 p-4">
-                            <div className="flex items-center justify-between mb-3">
-                                <span className="text-[10px] font-bold text-[#2980b9] uppercase tracking-widest">
-                                    Row #{index + 1}
-                                    {bulkProducts?.[index]?.productCode && (
-                                        <span className="ml-2 font-mono text-gray-400 normal-case font-normal">
-                                            — {bulkProducts[index].productCode}
-                                        </span>
+                <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+                    {/* Single Product Highlight Banner */}
+                    {isSingle && singleProduct && (
+                        <div className="bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-white rounded-2xl border border-blue-100/80 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs">
+                            <div className="flex items-center gap-3.5">
+                                <div className="w-12 h-12 rounded-xl bg-white border border-blue-200/60 shadow-xs flex items-center justify-center p-1 overflow-hidden shrink-0">
+                                    {singleProduct.images?.[0] ? (
+                                        <img src={singleProduct.images[0]} alt="" className="w-full h-full object-contain" />
+                                    ) : (
+                                        <FiPackage className="text-[#2980b9]" size={22} />
                                     )}
-                                </span>
-                                {inventoryRows.length > 1 && (
-                                    <button type="button" onClick={() => removeRow(index)}
-                                        className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 transition">
-                                        <FiTrash2 size={13} />
-                                    </button>
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-mono text-xs font-bold text-[#2980b9] bg-white px-2 py-0.5 rounded-md border border-blue-200">
+                                            {singleProduct.productCode}
+                                        </span>
+                                        {singleProduct.category && (
+                                            <span className="text-[11px] font-semibold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md">
+                                                {singleProduct.category}
+                                            </span>
+                                        )}
+                                        {singleProduct.brand && (
+                                            <span className="text-[11px] font-semibold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md">
+                                                {singleProduct.brand}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <h3 className="text-sm font-bold text-gray-900 mt-1">
+                                        {singleProduct.productName || "Product"}
+                                    </h3>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 self-stretch sm:self-auto justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-blue-100">
+                                <div className="text-right">
+                                    <span className="text-[10px] uppercase font-bold text-gray-400 block tracking-wider">Current Stock</span>
+                                    <span className="text-sm font-extrabold text-gray-800">{singleProduct.qty || 0} units</span>
+                                </div>
+                                {Number(inventoryRows[0]?.qty) > 0 && (
+                                    <>
+                                        <div className="text-gray-300 font-bold text-lg">➔</div>
+                                        <div className="text-right bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+                                            <span className="text-[10px] uppercase font-bold text-emerald-600 block tracking-wider">New Total Stock</span>
+                                            <span className="text-sm font-extrabold text-emerald-700">
+                                                {(Number(singleProduct.qty) || 0) + Number(inventoryRows[0]?.qty)} units
+                                                <span className="text-[11px] font-semibold text-emerald-600 ml-1">(+{inventoryRows[0]?.qty})</span>
+                                            </span>
+                                        </div>
+                                    </>
                                 )}
                             </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-3">
-                                <FieldInput label="Product Code">
-                                    <input type="text" value={row.productCode} onChange={e => updateRow(index, "productCode", e.target.value)}
-                                        className={inputCls} placeholder="Code" />
-                                </FieldInput>
-                                <FieldInput label="Quantity">
-                                    <input type="number" min="0" step="1" value={row.qty} onChange={e => updateRow(index, "qty", e.target.value)}
-                                        className={inputCls} placeholder="0" />
-                                </FieldInput>
-                                <FieldInput label="Expiry">
-                                    <input type="date" value={row.expiry} onChange={e => updateRow(index, "expiry", e.target.value)} className={inputCls} />
-                                </FieldInput>
-                                <FieldInput label="Price">
-                                    <input type="number" value={row.price} onChange={e => updateRow(index, "price", e.target.value)}
-                                        className={inputCls} placeholder="0" />
-                                </FieldInput>
-                                <FieldInput label="Tax %">
-                                    <select value={row.gst} onChange={e => updateRow(index, "gst", e.target.value)} className={selectCls}>
-                                        {settings?.gst?.map((g, idx) => <option key={idx} value={g}>{g}%</option>)}
-                                    </select>
-                                </FieldInput>
-                                <FieldInput label="Total">
-                                    <input type="number" value={row.total} readOnly className={`${inputCls} bg-[#2980b9]/10 text-emerald-600 font-semibold`} />
-                                </FieldInput>
-                                <FieldInput label="MRP">
-                                    <input type="number" value={row.mrp} onChange={e => updateRow(index, "mrp", e.target.value)}
-                                        className={inputCls} placeholder="0" />
-                                </FieldInput>
-                                {/* <FieldInput label="Vendor">
-                                    <select onChange={e => {
-                                        const vendorId = e.target.value || null;
-                                        const vendorName = e.target.options[e.target.selectedIndex].text;
-                                        updateRow(index, "vendorId", vendorId);
-                                        updateRow(index, "vendorName", vendorName);
-                                    }} className={selectCls}>
-                                        <option value="">Select</option>
-                                        {vendors?.map(v => <option key={v._id} value={v._id}>{v.name}</option>)}
-                                    </select>
-                                </FieldInput> */}
-                            </div>
                         </div>
-                    ))}
+                    )}
 
-                    <button type="button" onClick={addRow}
-                        className="w-full py-3 border-2 border-dashed border-[#2980b9]/40 hover:border-[#2980b9]/60 text-[#2980b9] hover:text-[#2980b9]/90 text-xs font-semibold rounded-2xl transition flex items-center justify-center gap-2">
-                        <FiPlus size={14} /> Add Row
-                    </button>
+                    {/* Inventory Rows */}
+                    {inventoryRows.map((row, index) => {
+                        const associatedProduct = bulkProducts?.[index] || (isSingle ? singleProduct : null);
+                        return (
+                            <div key={index} className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 hover:border-[#2980b9]/40 transition space-y-4">
+                                {/* Row Header */}
+                                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="w-6 h-6 rounded-lg bg-[#2980b9]/10 text-[#2980b9] text-xs font-bold flex items-center justify-center">
+                                            {index + 1}
+                                        </span>
+                                        {associatedProduct ? (
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-mono text-xs font-bold text-gray-800">
+                                                    {associatedProduct.productCode}
+                                                </span>
+                                                <span className="text-xs font-medium text-gray-600 truncate max-w-[200px] sm:max-w-md">
+                                                    {associatedProduct.productName}
+                                                </span>
+                                                <span className="text-[11px] text-gray-400">
+                                                    (Stock: {associatedProduct.qty || 0})
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <span className="text-xs font-semibold text-gray-500">Inward Item #{index + 1}</span>
+                                        )}
+                                    </div>
+
+                                    {inventoryRows.length > 1 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => removeRow(index)}
+                                            className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-500 transition"
+                                            title="Remove this item"
+                                        >
+                                            <FiTrash2 size={14} />
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Section 1: Batch & Quantity */}
+                                <div>
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                        <div className="w-1.5 h-3.5 bg-[#2980b9] rounded-full" />
+                                        <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                                            Batch Details & Quantity
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                                        {!associatedProduct && (
+                                            <FieldInput label="Product Code *">
+                                                <input
+                                                    type="text"
+                                                    value={row.productCode}
+                                                    onChange={e => updateRow(index, "productCode", e.target.value.toUpperCase())}
+                                                    className={inputCls}
+                                                    placeholder="e.g. PRD-101"
+                                                    required
+                                                />
+                                            </FieldInput>
+                                        )}
+                                        <FieldInput label="Batch Number">
+                                            <input
+                                                type="text"
+                                                value={row.batchNumber}
+                                                onChange={e => updateRow(index, "batchNumber", e.target.value.toUpperCase())}
+                                                className={inputCls}
+                                                placeholder="Auto-generate (e.g. BTCN1)"
+                                            />
+                                            <p className="text-[10px] text-gray-400 mt-1">Leave blank to auto-generate</p>
+                                        </FieldInput>
+                                        <FieldInput label="Inward Quantity *">
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                step="1"
+                                                value={row.qty}
+                                                onChange={e => updateRow(index, "qty", e.target.value)}
+                                                className={inputCls}
+                                                placeholder="Units to add"
+                                                required
+                                            />
+                                            <p className="text-[10px] text-gray-400 mt-1">Quantity added to stock</p>
+                                        </FieldInput>
+                                        <FieldInput label="Inward Date">
+                                            <input
+                                                type="date"
+                                                value={row.inwardDate}
+                                                onChange={e => updateRow(index, "inwardDate", e.target.value)}
+                                                className={inputCls}
+                                            />
+                                            <p className="text-[10px] text-gray-400 mt-1">Date received into inventory</p>
+                                        </FieldInput>
+                                    </div>
+                                </div>
+
+                                {/* Section 2: Batch Pricing & Costing */}
+                                <div>
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                        <div className="w-1.5 h-3.5 bg-emerald-500 rounded-full" />
+                                        <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                                            Batch Pricing & Valuation
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                                        <FieldInput label="Buying Price (₹) *">
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={row.buyingPrice !== undefined ? row.buyingPrice : row.price}
+                                                onChange={e => updateRow(index, "buyingPrice", e.target.value)}
+                                                className={inputCls}
+                                                placeholder="0.00"
+                                                required
+                                            />
+                                            <p className="text-[10px] text-gray-400 mt-1">Batch unit cost</p>
+                                        </FieldInput>
+                                        <FieldInput label="Selling Price (₹) *">
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={row.sellingPrice !== undefined ? row.sellingPrice : row.price}
+                                                onChange={e => updateRow(index, "sellingPrice", e.target.value)}
+                                                className={inputCls}
+                                                placeholder="0.00"
+                                                required
+                                            />
+                                            <p className="text-[10px] text-gray-400 mt-1">Batch unit price</p>
+                                        </FieldInput>
+                                        <FieldInput label="MRP (₹) *">
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={row.mrp}
+                                                onChange={e => updateRow(index, "mrp", e.target.value)}
+                                                className={inputCls}
+                                                placeholder="0.00"
+                                                required
+                                            />
+                                            <p className="text-[10px] text-gray-400 mt-1">Max retail price</p>
+                                        </FieldInput>
+                                        <FieldInput label="Tax / GST %">
+                                            <select
+                                                value={row.gst}
+                                                onChange={e => updateRow(index, "gst", e.target.value)}
+                                                className={selectCls}
+                                            >
+                                                {(settings?.gst && settings.gst.length > 0 ? settings.gst : [0, 5, 12, 18, 28]).map((g, idx) => (
+                                                    <option key={idx} value={g}>{g}%</option>
+                                                ))}
+                                            </select>
+                                            <p className="text-[10px] text-gray-400 mt-1">Applicable GST</p>
+                                        </FieldInput>
+                                        <FieldInput label="Total Batch Value">
+                                            <div className="flex items-center h-[38px] px-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 font-bold text-sm">
+                                                ₹{row.total || "0.00"}
+                                            </div>
+                                            <p className="text-[10px] text-emerald-600 mt-1">Qty × Cost + GST</p>
+                                        </FieldInput>
+                                    </div>
+                                </div>
+
+                                {/* Section 3: Vendor & Additional Details */}
+                                <div>
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                        <div className="w-1.5 h-3.5 bg-amber-500 rounded-full" />
+                                        <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                                            Vendor & Traceability
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                        <FieldInput label="Vendor">
+                                            <select
+                                                value={row.vendorId || ""}
+                                                onChange={e => {
+                                                    const vId = e.target.value || "";
+                                                    const vName = e.target.options[e.target.selectedIndex]?.text || "";
+                                                    updateRow(index, "vendorId", vId);
+                                                    updateRow(index, "vendorName", vId ? vName : "");
+                                                }}
+                                                className={selectCls}
+                                            >
+                                                <option value="">Select Vendor (Optional)</option>
+                                                {vendors?.map(v => (
+                                                    <option key={v._id || v.id} value={v._id || v.id}>
+                                                        {v.name || v.vendorName || v.companyName}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <p className="text-[10px] text-gray-400 mt-1">Source supplier/vendor</p>
+                                        </FieldInput>
+                                        <FieldInput label="Expiry Date">
+                                            <input
+                                                type="date"
+                                                value={row.expiry || ""}
+                                                onChange={e => updateRow(index, "expiry", e.target.value)}
+                                                className={inputCls}
+                                            />
+                                            <p className="text-[10px] text-gray-400 mt-1">Leave empty if not applicable</p>
+                                        </FieldInput>
+                                        <FieldInput label="Remarks / Invoice Ref">
+                                            <input
+                                                type="text"
+                                                value={row.remarks || ""}
+                                                onChange={e => updateRow(index, "remarks", e.target.value)}
+                                                className={inputCls}
+                                                placeholder="e.g. PO #123 / Inv #456 / Inward"
+                                            />
+                                            <p className="text-[10px] text-gray-400 mt-1">Reference note for this batch</p>
+                                        </FieldInput>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+
+                    {!isSingle && (
+                        <button
+                            type="button"
+                            onClick={addRow}
+                            className="w-full py-3 border-2 border-dashed border-[#2980b9]/40 hover:border-[#2980b9]/60 hover:bg-[#2980b9]/5 text-[#2980b9] text-xs font-semibold rounded-2xl transition flex items-center justify-center gap-2"
+                        >
+                            <FiPlus size={15} /> Add Another Product Row
+                        </button>
+                    )}
                 </div>
 
                 <ModalFooter>
-                    <button type="button" onClick={onClose}
-                        className="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition">Cancel</button>
-                    <button type="submit"
-                        className="px-5 py-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white text-xs font-semibold rounded-xl transition shadow-sm">Submit</button>
+                    <div className="flex-1 flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+                        <span>Items: <strong className="text-gray-800">{inventoryRows.length}</strong></span>
+                        <span>•</span>
+                        <span>Total Units: <strong className="text-gray-800">{totalUnits}</strong></span>
+                        <span>•</span>
+                        <span>Total Value: <strong className="text-emerald-600 font-bold">₹{totalCost.toFixed(2)}</strong></span>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        disabled={isSubmitting}
+                        className="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="px-5 py-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2 disabled:opacity-60"
+                    >
+                        {isSubmitting ? (
+                            <>
+                                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                <span>Processing Inward...</span>
+                            </>
+                        ) : (
+                            <>
+                                <FiShoppingCart size={14} />
+                                <span>Inward Stock & Create Batch</span>
+                            </>
+                        )}
+                    </button>
                 </ModalFooter>
             </form>
         </Modal>
@@ -2881,8 +3441,9 @@ const ProductDetailsHistoryModal = ({ product, onClose, onOpenEdit, onOpenBatche
 
     const curr = productDetails || product || {};
     const stockQty = Number(curr.qty || 0);
-    const buyingPrice = Number(curr.price || 0);
-    const sellingPrice = Number(curr.mrp || 0);
+    const buyingPrice = Number(curr.buyingPrice != null ? curr.buyingPrice : (curr.price || 0));
+    const sellingPrice = Number(curr.sellingPrice != null ? curr.sellingPrice : (curr.price || 0));
+    const mrp = Number(curr.mrp || 0);
     const profitMargin = sellingPrice - buyingPrice;
     const marginPercent = sellingPrice > 0 ? ((profitMargin / sellingPrice) * 100).toFixed(1) : 0;
     const totalReceivedUnits = receivingHistory.reduce((sum, item) => sum + Number(item.receivedQty || 0), 0);
@@ -2967,7 +3528,7 @@ const ProductDetailsHistoryModal = ({ product, onClose, onOpenEdit, onOpenBatche
             {/* Modal Body */}
             <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
                 {/* ── Summary KPI Cards ── */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
                     {/* Current Stock */}
                     <div className="p-3.5 bg-gradient-to-br from-blue-50/80 to-indigo-50/40 border border-blue-100/80 rounded-2xl">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700/80 block mb-1">
@@ -2989,13 +3550,23 @@ const ProductDetailsHistoryModal = ({ product, onClose, onOpenEdit, onOpenBatche
                         </div>
                     </div>
 
-                    {/* Selling Price (MRP) */}
+                    {/* Selling Price */}
                     <div className="p-3.5 bg-gradient-to-br from-emerald-50/80 to-teal-50/40 border border-emerald-100/80 rounded-2xl">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700/80 block mb-1">
-                            Selling Price (MRP)
+                            Selling Price
                         </span>
                         <div className="flex items-baseline gap-0.5">
                             <span className="text-xl font-extrabold text-emerald-900">₹{sellingPrice}</span>
+                        </div>
+                    </div>
+
+                    {/* MRP */}
+                    <div className="p-3.5 bg-gradient-to-br from-indigo-50/80 to-blue-50/40 border border-indigo-100/80 rounded-2xl">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700/80 block mb-1">
+                            MRP
+                        </span>
+                        <div className="flex items-baseline gap-0.5">
+                            <span className="text-xl font-extrabold text-indigo-900">₹{mrp}</span>
                         </div>
                     </div>
 
@@ -3129,9 +3700,11 @@ const ProductDetailsHistoryModal = ({ product, onClose, onOpenEdit, onOpenBatche
                                                     <th className="px-4 py-3 whitespace-nowrap">Received On</th>
                                                     <th className="px-4 py-3 whitespace-nowrap">Batch / Invoice #</th>
                                                     <th className="px-4 py-3 whitespace-nowrap">Vendor Name</th>
+                                                    <th className="px-4 py-3 text-center whitespace-nowrap">Batch Stock (Remaining)</th>
                                                     <th className="px-4 py-3 text-center whitespace-nowrap">Qty Received</th>
                                                     <th className="px-4 py-3 text-right whitespace-nowrap">Buying Price</th>
                                                     <th className="px-4 py-3 text-right whitespace-nowrap">Selling Price</th>
+                                                    <th className="px-4 py-3 text-right whitespace-nowrap">MRP</th>
                                                     <th className="px-4 py-3 whitespace-nowrap">Received By</th>
                                                     <th className="px-4 py-3 whitespace-nowrap">Received From</th>
                                                     <th className="px-4 py-3 text-center whitespace-nowrap">Condition</th>
@@ -3165,9 +3738,23 @@ const ProductDetailsHistoryModal = ({ product, onClose, onOpenEdit, onOpenBatche
                                                             {item.vendorName || "—"}
                                                         </td>
 
+                                                        {/* Batch Stock (Remaining) */}
+                                                        <td className="px-4 py-3 text-center whitespace-nowrap">
+                                                            <span className={`px-2.5 py-1 rounded-lg text-xs font-extrabold inline-flex items-center gap-1.5 ${
+                                                                (item.availableQty != null ? item.availableQty : item.receivedQty) > 0
+                                                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                                                    : "bg-red-50 text-red-600 border border-red-200"
+                                                            }`}>
+                                                                <span>{item.availableQty != null ? item.availableQty : item.receivedQty}</span>
+                                                                <span className="text-[10px] font-normal text-gray-500">
+                                                                    avail
+                                                                </span>
+                                                            </span>
+                                                        </td>
+
                                                         {/* Qty Received */}
                                                         <td className="px-4 py-3 text-center whitespace-nowrap">
-                                                            <span className="text-sm font-extrabold text-emerald-600">
+                                                            <span className="text-sm font-extrabold text-blue-800">
                                                                 {item.receivedQty}
                                                             </span>
                                                             {item.orderedQty && item.orderedQty !== item.receivedQty && (
@@ -3179,12 +3766,17 @@ const ProductDetailsHistoryModal = ({ product, onClose, onOpenEdit, onOpenBatche
 
                                                         {/* Buying Price */}
                                                         <td className="px-4 py-3 text-right whitespace-nowrap font-semibold text-amber-700">
-                                                            ₹{item.buyingPrice != null ? item.buyingPrice : "—"}
+                                                            ₹{item.buyingPrice != null ? item.buyingPrice : (curr.buyingPrice || "—")}
                                                         </td>
 
                                                         {/* Selling Price */}
-                                                        <td className="px-4 py-3 text-right whitespace-nowrap font-semibold text-gray-800">
-                                                            ₹{item.sellingPrice != null ? item.sellingPrice : "—"}
+                                                        <td className="px-4 py-3 text-right whitespace-nowrap font-semibold text-emerald-700">
+                                                            ₹{item.sellingPrice != null ? item.sellingPrice : (curr.sellingPrice || "—")}
+                                                        </td>
+
+                                                        {/* MRP */}
+                                                        <td className="px-4 py-3 text-right whitespace-nowrap font-semibold text-indigo-700">
+                                                            ₹{item.mrp != null ? item.mrp : (curr.mrp || "—")}
                                                         </td>
 
                                                         {/* Received By */}
@@ -3243,7 +3835,9 @@ const ProductDetailsHistoryModal = ({ product, onClose, onOpenEdit, onOpenBatche
                                                     <th className="px-4 py-3">Batch Number</th>
                                                     <th className="px-4 py-3 text-center">Available Qty</th>
                                                     <th className="px-4 py-3 text-center">Initial Qty</th>
-                                                    <th className="px-4 py-3 text-right">Cost Price (₹)</th>
+                                                    <th className="px-4 py-3 text-right">Buying Price (₹)</th>
+                                                    <th className="px-4 py-3 text-right">Selling Price (₹)</th>
+                                                    <th className="px-4 py-3 text-right">MRP (₹)</th>
                                                     <th className="px-4 py-3 text-center">Status</th>
                                                     <th className="px-4 py-3">Inward Date</th>
                                                     <th className="px-4 py-3">Remarks</th>
@@ -3263,8 +3857,14 @@ const ProductDetailsHistoryModal = ({ product, onClose, onOpenEdit, onOpenBatche
                                                         <td className="px-4 py-3 text-center text-gray-500 font-medium">
                                                             {b.initialQty}
                                                         </td>
-                                                        <td className="px-4 py-3 text-right font-semibold text-gray-800">
-                                                            ₹{b.costPrice || 0}
+                                                        <td className="px-4 py-3 text-right font-semibold text-amber-700">
+                                                            ₹{b.buyingPrice != null ? b.buyingPrice : (b.costPrice || curr.buyingPrice || curr.price || 0)}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right font-semibold text-emerald-700">
+                                                            ₹{b.sellingPrice != null ? b.sellingPrice : (curr.sellingPrice || curr.price || 0)}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right font-semibold text-indigo-700">
+                                                            ₹{b.mrp != null ? b.mrp : (curr.mrp || 0)}
                                                         </td>
                                                         <td className="px-4 py-3 text-center">
                                                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
@@ -5251,7 +5851,7 @@ const BatchManagementModal = ({ isOpen, onClose, product, batches, summary, load
                             </div>
                         </div>
                     ) : (
-                        <form onSubmit={onAllocateSubmit} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
+                        <form onSubmit={onAllocateSubmit} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
                             <div>
                                 <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Batch Number</label>
                                 <input
@@ -5279,14 +5879,36 @@ const BatchManagementModal = ({ isOpen, onClose, product, batches, summary, load
                                 />
                             </div>
                             <div>
-                                <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Cost Price (₹)</label>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Buying Price (₹)</label>
                                 <input
                                     type="number"
                                     min="0"
-                                    placeholder="Cost Price"
+                                    placeholder="Buying Price"
                                     className="w-full px-3 py-2 text-xs font-semibold bg-white border border-gray-200 rounded-xl outline-none focus:border-[#2980b9] focus:ring-1 focus:ring-[#2980b9]/30"
-                                    value={formData.costPrice}
-                                    onChange={e => setFormData(prev => ({ ...prev, costPrice: e.target.value }))}
+                                    value={formData.buyingPrice ?? formData.costPrice ?? ''}
+                                    onChange={e => setFormData(prev => ({ ...prev, buyingPrice: e.target.value, costPrice: e.target.value }))}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Selling Price (₹)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="Selling Price"
+                                    className="w-full px-3 py-2 text-xs font-semibold bg-white border border-gray-200 rounded-xl outline-none focus:border-[#2980b9] focus:ring-1 focus:ring-[#2980b9]/30"
+                                    value={formData.sellingPrice ?? ''}
+                                    onChange={e => setFormData(prev => ({ ...prev, sellingPrice: e.target.value }))}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">MRP (₹)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="MRP"
+                                    className="w-full px-3 py-2 text-xs font-semibold bg-white border border-gray-200 rounded-xl outline-none focus:border-[#2980b9] focus:ring-1 focus:ring-[#2980b9]/30"
+                                    value={formData.mrp ?? ''}
+                                    onChange={e => setFormData(prev => ({ ...prev, mrp: e.target.value }))}
                                 />
                             </div>
                             <div>
@@ -5299,7 +5921,7 @@ const BatchManagementModal = ({ isOpen, onClose, product, batches, summary, load
                                     onChange={e => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
                                 />
                             </div>
-                            <div className="sm:col-span-2 md:col-span-4 flex justify-end">
+                            <div className="col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-6 flex justify-end">
                                 <button
                                     type="submit"
                                     disabled={allocating || isUnallocatedEmpty}
@@ -5350,7 +5972,9 @@ const BatchManagementModal = ({ isOpen, onClose, product, batches, summary, load
                                         <th className="px-4 py-3">Batch Number</th>
                                         <th className="px-4 py-3 text-center">Available Qty</th>
                                         <th className="px-4 py-3 text-center">Initial Qty</th>
-                                        <th className="px-4 py-3 text-right">Cost Price</th>
+                                        <th className="px-4 py-3 text-right">Buying Price</th>
+                                        <th className="px-4 py-3 text-right">Selling Price</th>
+                                        <th className="px-4 py-3 text-right">MRP</th>
                                         <th className="px-4 py-3 text-center">Status</th>
                                         <th className="px-4 py-3">Inward Date</th>
                                         <th className="px-4 py-3">Remarks</th>
@@ -5366,7 +5990,9 @@ const BatchManagementModal = ({ isOpen, onClose, product, batches, summary, load
                                             </td>
                                             <td className="px-4 py-3 text-center font-bold text-emerald-600">{b.availableQty}</td>
                                             <td className="px-4 py-3 text-center text-gray-500">{b.initialQty}</td>
-                                            <td className="px-4 py-3 text-right font-semibold">₹{b.costPrice || 0}</td>
+                                            <td className="px-4 py-3 text-right font-semibold text-amber-700">₹{Number(b.buyingPrice) > 0 ? b.buyingPrice : (Number(b.costPrice) > 0 ? b.costPrice : (product.buyingPrice || product.price || 0))}</td>
+                                            <td className="px-4 py-3 text-right font-semibold text-emerald-700">₹{Number(b.sellingPrice) > 0 ? b.sellingPrice : (product.sellingPrice || product.price || 0)}</td>
+                                            <td className="px-4 py-3 text-right font-semibold text-indigo-700">₹{Number(b.mrp) > 0 ? b.mrp : (product.mrp || 0)}</td>
                                             <td className="px-4 py-3 text-center">
                                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${b.status === 'OPEN' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
                                                     {b.status}
