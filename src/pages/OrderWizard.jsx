@@ -2744,6 +2744,9 @@ const OrderWizard = () => {
                                             </th>
                                         )}
 
+                                        <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 min-w-[110px]">
+                                            Batch
+                                        </th>
                                         <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 min-w-[55px]">
                                             Qty
                                         </th>
