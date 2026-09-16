@@ -1,4 +1,5 @@
 import api from "../services/apiInstance";
+import { Icon } from "@iconify/react";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { fetchSettings } from "../store/slices/settingsSlice";
@@ -1916,6 +1917,10 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
 
     // ── Row selection state ───────────────────────────────────────────────────
     // Map of rowId (_id) → product object for selected rows
+    // ── Table View & Collapsible Column Section State (Zero Scroll Mode) ──────
+    const [expandedGroups, setExpandedGroups] = useState({ powers: false, specs: false });
+    const toggleGroup = (groupKey) => setExpandedGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }));
+
     const [selectedRows, setSelectedRows] = useState({});
     // Pre-filled products array for bulk modals
     const [bulkStockProducts, setBulkStockProducts] = useState(null);   // null = not open
@@ -2239,34 +2244,36 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
     // Column dimension and alignment metadata to keep compact fields from expanding
     const INVENTORY_COLUMN_META = {
         select: { width: "40px", minWidth: "40px", maxWidth: "40px", align: "text-center", px: "px-1" },
-        actions: { width: "135px", minWidth: "135px", maxWidth: "135px", align: "text-center", px: "px-1" },
-        createdAt: { width: "88px", minWidth: "88px", maxWidth: "92px", align: "text-center", px: "px-1.5" },
-        productCode: { width: "105px", minWidth: "105px", maxWidth: "115px", align: "text-center", px: "px-1.5" },
-        productName: { width: "220px", minWidth: "180px", maxWidth: "260px", align: "text-left", px: "px-2.5" },
-        category: { width: "105px", minWidth: "100px", maxWidth: "120px", align: "text-left", px: "px-2" },
-        brand: { width: "95px", minWidth: "90px", maxWidth: "110px", align: "text-left", px: "px-2" },
-        image: { width: "75px", minWidth: "75px", maxWidth: "80px", align: "text-center", px: "px-1" },
-        qty: { width: "55px", minWidth: "55px", maxWidth: "60px", align: "text-center font-semibold", px: "px-1" },
-        buyingPrice: { width: "95px", minWidth: "95px", maxWidth: "105px", align: "text-center font-semibold text-amber-700", px: "px-1" },
-        sellingPrice: { width: "95px", minWidth: "95px", maxWidth: "105px", align: "text-center font-semibold text-emerald-700", px: "px-1" },
-        mrp: { width: "70px", minWidth: "70px", maxWidth: "75px", align: "text-center", px: "px-1" },
-        gst: { width: "58px", minWidth: "58px", maxWidth: "62px", align: "text-center", px: "px-1" },
-        sph: { width: "55px", minWidth: "55px", maxWidth: "60px", align: "text-center", px: "px-1" },
-        cyl: { width: "55px", minWidth: "55px", maxWidth: "60px", align: "text-center", px: "px-1" },
-        axis: { width: "50px", minWidth: "50px", maxWidth: "55px", align: "text-center", px: "px-1" },
-        addition: { width: "52px", minWidth: "52px", maxWidth: "58px", align: "text-center", px: "px-1" },
-        dimensions: { width: "95px", minWidth: "95px", maxWidth: "105px", align: "text-center", px: "px-1.5" },
-        material: { width: "85px", minWidth: "85px", maxWidth: "95px", align: "text-center", px: "px-1.5" },
-        color: { width: "70px", minWidth: "70px", maxWidth: "80px", align: "text-center", px: "px-1" },
-        shape: { width: "80px", minWidth: "80px", maxWidth: "90px", align: "text-center", px: "px-1" },
-        size: { width: "55px", minWidth: "55px", maxWidth: "65px", align: "text-center", px: "px-1" },
-        type: { width: "70px", minWidth: "70px", maxWidth: "80px", align: "text-center", px: "px-1" },
-        index: { width: "58px", minWidth: "58px", maxWidth: "62px", align: "text-center", px: "px-1" },
-        coating: { width: "95px", minWidth: "95px", maxWidth: "105px", align: "text-center", px: "px-1.5" },
-        expiry: { width: "85px", minWidth: "85px", maxWidth: "90px", align: "text-center", px: "px-1.5" },
-        price: { width: "72px", minWidth: "72px", maxWidth: "78px", align: "text-center font-medium", px: "px-1" },
-        hsnSac: { width: "75px", minWidth: "75px", maxWidth: "85px", align: "text-center", px: "px-1" },
-        delete: { width: "48px", minWidth: "48px", maxWidth: "50px", align: "text-center", px: "px-1" },
+        actions: { width: "155px", minWidth: "155px", maxWidth: "160px", align: "text-center", px: "px-1" },
+        createdAt: { width: "85px", minWidth: "80px", maxWidth: "90px", align: "text-center font-medium text-gray-600 text-xs", px: "px-1.5" },
+        productCode: { width: "105px", minWidth: "100px", maxWidth: "115px", align: "text-center", px: "px-1.5" },
+        productName: { width: "200px", minWidth: "160px", maxWidth: "250px", align: "text-left font-bold text-gray-800", px: "px-2" },
+        category: { width: "110px", minWidth: "95px", maxWidth: "125px", align: "text-left font-semibold text-gray-700 uppercase text-[11px]", px: "px-2" },
+        brand: { width: "105px", minWidth: "90px", maxWidth: "120px", align: "text-left font-semibold text-gray-600 uppercase text-[11px]", px: "px-2" },
+        image: { width: "70px", minWidth: "65px", maxWidth: "75px", align: "text-center", px: "px-1" },
+        qty: { width: "55px", minWidth: "50px", maxWidth: "60px", align: "text-center font-bold text-gray-900", px: "px-1" },
+        buyingPrice: { width: "90px", minWidth: "80px", maxWidth: "100px", align: "text-center font-semibold text-amber-700", px: "px-1.5" },
+        sellingPrice: { width: "90px", minWidth: "80px", maxWidth: "100px", align: "text-center font-bold text-emerald-700", px: "px-1.5" },
+        mrp: { width: "70px", minWidth: "60px", maxWidth: "80px", align: "text-center font-medium text-gray-600", px: "px-1" },
+        gst: { width: "55px", minWidth: "50px", maxWidth: "60px", align: "text-center font-semibold text-blue-700", px: "px-1" },
+        powersSummary: { width: "125px", minWidth: "115px", maxWidth: "135px", align: "text-center font-mono font-medium text-amber-800 bg-amber-50/20", px: "px-2" },
+        specsSummary: { width: "140px", minWidth: "125px", maxWidth: "155px", align: "text-center font-medium text-gray-700 bg-blue-50/20", px: "px-2" },
+        sph: { width: "55px", minWidth: "50px", maxWidth: "65px", align: "text-center font-mono font-medium text-gray-700", px: "px-1" },
+        cyl: { width: "55px", minWidth: "50px", maxWidth: "65px", align: "text-center font-mono font-medium text-gray-700", px: "px-1" },
+        axis: { width: "50px", minWidth: "45px", maxWidth: "60px", align: "text-center font-mono font-medium text-gray-700", px: "px-1" },
+        addition: { width: "50px", minWidth: "45px", maxWidth: "60px", align: "text-center font-mono font-medium text-gray-700", px: "px-1" },
+        dimensions: { width: "100px", minWidth: "90px", maxWidth: "115px", align: "text-center font-medium text-gray-600", px: "px-1.5" },
+        material: { width: "90px", minWidth: "80px", maxWidth: "100px", align: "text-center font-medium text-gray-600", px: "px-1.5" },
+        color: { width: "75px", minWidth: "65px", maxWidth: "85px", align: "text-center font-medium text-gray-600", px: "px-1" },
+        shape: { width: "80px", minWidth: "70px", maxWidth: "90px", align: "text-center font-medium text-gray-600", px: "px-1" },
+        size: { width: "55px", minWidth: "50px", maxWidth: "60px", align: "text-center font-medium text-gray-600", px: "px-1" },
+        type: { width: "75px", minWidth: "65px", maxWidth: "85px", align: "text-center font-medium text-gray-600", px: "px-1" },
+        index: { width: "55px", minWidth: "50px", maxWidth: "60px", align: "text-center font-medium text-gray-600", px: "px-1" },
+        coating: { width: "95px", minWidth: "85px", maxWidth: "105px", align: "text-center font-medium text-gray-600", px: "px-1.5" },
+        expiry: { width: "80px", minWidth: "75px", maxWidth: "90px", align: "text-center font-medium text-gray-600", px: "px-1.5" },
+        price: { width: "75px", minWidth: "65px", maxWidth: "85px", align: "text-center font-medium text-gray-700", px: "px-1" },
+        hsnSac: { width: "75px", minWidth: "70px", maxWidth: "85px", align: "text-center font-mono text-gray-600", px: "px-1" },
+        delete: { width: "45px", minWidth: "40px", maxWidth: "50px", align: "text-center", px: "px-1" },
     };
 
     const columns = useMemo(() => [
@@ -2299,9 +2306,9 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
             cell: ({ row }) => {
                 const product = row.original;
                 return (
-                    <div className="flex items-center justify-center gap-0.5">
+                    <div className="flex items-center justify-center gap-1">
                         <button onClick={e => { e.stopPropagation(); setSelectedProduct(product); setOpenEditProductModal(true); }}
-                            className="p-1 rounded-lg hover:bg-[#2980b9]/10 text-[#2980b9] transition" title="Edit">
+                            className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition shadow-2xs" title="Edit Product">
                             <FiEdit2 size={13} />
                         </button>
                         <button onClick={e => {
@@ -2325,7 +2332,7 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                             setBulkStockProducts([product]);
                             setOpenInventoryModal(true);
                         }}
-                            className="p-1 rounded-lg hover:bg-emerald-50 text-emerald-500 transition" title="Add Stock & Allocate Batch">
+                            className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition shadow-2xs" title="Add Stock & Allocate Batch">
                             <FiShoppingCart size={13} />
                         </button>
                         <button onClick={e => {
@@ -2334,15 +2341,15 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                             setBarcodeProduct(product);
                             setOpenBarcodeModal(true);
                         }}
-                            className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 transition" title="Print Barcode">
+                            className="p-1.5 rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white transition shadow-2xs" title="Print Barcode">
                             <BsUpcScan size={13} />
                         </button>
                         <button onClick={e => { e.stopPropagation(); handleOpenProductDetailsModal(product); }}
-                            className="p-1 rounded-lg hover:bg-[#2980b9]/10 text-[#2980b9] transition" title="Product Details & Receiving History">
+                            className="p-1.5 rounded-lg bg-cyan-50 text-cyan-600 hover:bg-cyan-600 hover:text-white transition shadow-2xs" title="Product Details & Receiving History">
                             <FiInfo size={13} />
                         </button>
                         <button onClick={e => { e.stopPropagation(); handleOpenBatchModal(product); }}
-                            className="p-1 rounded-lg hover:bg-amber-50 text-amber-600 transition" title="Assign / View Batches">
+                            className="p-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white transition shadow-2xs" title="Assign / View Batches">
                             <FiLayers size={13} />
                         </button>
                     </div>
@@ -2442,22 +2449,79 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
         },
         { header: "MRP", accessorKey: "mrp", cell: ({ getValue }) => `₹${getValue() ?? 0}` },
         { header: "GST %", accessorKey: "gst", cell: ({ getValue }) => `${getValue() ?? 0}%` },
-        { header: "SPH", accessorKey: "sph", cell: ({ getValue }) => getValue() || "—" },
-        { header: "CYL", accessorKey: "cyl", cell: ({ getValue }) => getValue() || "—" },
-        { header: "Axis", accessorKey: "axis", cell: ({ getValue }) => getValue() || "—" },
 
-        { header: "Add.", accessorKey: "addition", cell: ({ getValue }) => getValue() || "—" },
-        { header: "Dimensions", accessorKey: "dimensions", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
-        { header: "Material", accessorKey: "material", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+        // ── Powers Section (Collapsible) ──────────────────────────────────────
+        ...(expandedGroups.powers ? [
+            { header: "SPH", accessorKey: "sph", cell: ({ getValue }) => getValue() || "—" },
+            { header: "CYL", accessorKey: "cyl", cell: ({ getValue }) => getValue() || "—" },
+            { header: "Axis", accessorKey: "axis", cell: ({ getValue }) => getValue() || "—" },
+            { header: "Add.", accessorKey: "addition", cell: ({ getValue }) => getValue() || "—" },
+        ] : [
+            {
+                header: () => (
+                    <button
+                        type="button"
+                        onClick={() => toggleGroup('powers')}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-white transition text-xs font-semibold cursor-pointer border border-white/20"
+                        title="Click to expand SPH, CYL, Axis, Add columns"
+                    >
+                        <span>Rx Powers</span>
+                        <Icon icon="mdi:chevron-down" className="text-sm" />
+                    </button>
+                ),
+                id: "powersSummary",
+                cell: ({ row }) => {
+                    const p = row.original;
+                    const hasP = p.sph || p.cyl || p.axis || p.addition;
+                    if (!hasP) return <span className="text-gray-300">—</span>;
+                    return (
+                        <span className="font-mono text-xs text-amber-800 font-semibold" title={`Sph: ${p.sph || '-'} | Cyl: ${p.cyl || '-'} | Axis: ${p.axis || '-'} | Add: ${p.addition || '-'}`}>
+                            {p.sph || '0'} / {p.cyl || '0'}
+                        </span>
+                    );
+                }
+            }
+        ]),
 
-        { header: "Color", accessorKey: "color", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
-        { header: "Shape", accessorKey: "shape", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
-        { header: "Size", accessorKey: "size", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
-        { header: "Type", accessorKey: "type", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
-        { header: "Index", accessorKey: "index", cell: ({ getValue }) => getValue() || "—" },
-        { header: "Coating", accessorKey: "coating", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
-        { header: "Expiry", accessorKey: "expiry", cell: ({ getValue }) => getValue() ? new Date(getValue()).toLocaleDateString("en-IN") : "—" },
-        { header: "HSN/SAC", accessorKey: "hsnSac", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+        // ── Specs & Details Section (Collapsible) ─────────────────────────────
+        ...(expandedGroups.specs ? [
+            { header: "Dimensions", accessorKey: "dimensions", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+            { header: "Material", accessorKey: "material", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+            { header: "Color", accessorKey: "color", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+            { header: "Shape", accessorKey: "shape", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+            { header: "Size", accessorKey: "size", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+            { header: "Type", accessorKey: "type", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+            { header: "Index", accessorKey: "index", cell: ({ getValue }) => getValue() || "—" },
+            { header: "Coating", accessorKey: "coating", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+            { header: "Expiry", accessorKey: "expiry", cell: ({ getValue }) => getValue() ? new Date(getValue()).toLocaleDateString("en-IN") : "—" },
+            { header: "HSN/SAC", accessorKey: "hsnSac", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+        ] : [
+            {
+                header: () => (
+                    <button
+                        type="button"
+                        onClick={() => toggleGroup('specs')}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-white transition text-xs font-semibold cursor-pointer border border-white/20"
+                        title="Click to expand Specs, Dimensions, Material, Coating & Expiry"
+                    >
+                        <span>Specs & Details</span>
+                        <Icon icon="mdi:chevron-down" className="text-sm" />
+                    </button>
+                ),
+                id: "specsSummary",
+                cell: ({ row }) => {
+                    const p = row.original;
+                    const parts = [p.dimensions, p.material, p.coating, p.expiry ? new Date(p.expiry).toLocaleDateString("en-IN") : null].filter(Boolean);
+                    if (parts.length === 0) return <span className="text-gray-300">—</span>;
+                    return (
+                        <span className="text-xs text-gray-700 font-medium truncate block" title={parts.join(" | ")}>
+                            {parts[0]}
+                        </span>
+                    );
+                }
+            }
+        ]),
+
         {
             header: "Delete", id: "delete",
             cell: ({ row }) => (
@@ -2470,7 +2534,7 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
             ),
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    ], [selectedRows]);
+    ], [selectedRows, expandedGroups]);
 
     const table = useReactTable({
         data: isSearching ? filteredData : data,
@@ -2556,14 +2620,86 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                 </div>
             </div>
 
-            {/* Table */}
-            <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+            {/* Table View Bar (Compact / Zero Scroll Mode & Section Toggles) */}
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-slate-50 border-t border-gray-100 text-xs">
+                <div className="flex items-center gap-2">
+                    <span className="text-gray-500 font-bold text-[11px] uppercase tracking-wide">TABLE VIEW:</span>
+                    <button
+                        type="button"
+                        onClick={() => setExpandedGroups({ powers: false, specs: false })}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                            !expandedGroups.powers && !expandedGroups.specs
+                                ? 'bg-erp-accent text-white shadow-sm ring-2 ring-erp-accent/30'
+                                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                        }`}
+                    >
+                        <Icon icon="mdi:view-compact-outline" className="text-sm" />
+                        Compact Mode (Zero Scroll)
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setExpandedGroups({ powers: true, specs: true })}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                            expandedGroups.powers && expandedGroups.specs
+                                ? 'bg-erp-accent text-white shadow-sm ring-2 ring-erp-accent/30'
+                                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                        }`}
+                    >
+                        <Icon icon="mdi:table-eye" className="text-sm" />
+                        Full Table (All Columns)
+                    </button>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                    <span className="text-gray-500 font-medium mr-1 hidden sm:inline">Toggle Sections:</span>
+                    <button
+                        type="button"
+                        onClick={() => toggleGroup('powers')}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all flex items-center gap-1 cursor-pointer ${
+                            expandedGroups.powers
+                                ? 'bg-blue-100 text-erp-accent border-erp-accent/40 font-semibold'
+                                : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                        }`}
+                        title="Expand / Collapse SPH, CYL, Axis, Add columns"
+                    >
+                        Powers {expandedGroups.powers ? '▴ (Expanded)' : '▸ (Collapsed)'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => toggleGroup('specs')}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all flex items-center gap-1 cursor-pointer ${
+                            expandedGroups.specs
+                                ? 'bg-blue-100 text-erp-accent border-erp-accent/40 font-semibold'
+                                : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                        }`}
+                        title="Expand / Collapse Dimensions, Material, Coating, Expiry"
+                    >
+                        Specs {expandedGroups.specs ? '▴ (Expanded)' : '▸ (Collapsed)'}
+                    </button>
+                </div>
+            </div>
+
+            {/* Table Container */}
+            <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)] min-h-[420px] pb-3 custom-scrollbar border-t border-gray-100">
                 <table className="w-max min-w-full text-sm border-collapse">
-                    <thead className="sticky top-0 z-10 bg-gray-200">
+                    <thead className="sticky top-0 z-30 shadow-sm">
                         {table.getHeaderGroups().map(hg => (
-                            <tr key={hg.id} className="bg-gray-200 border-b border-gray-100">
+                            <tr key={hg.id} className="bg-gradient-to-r from-erp-accent to-blue-600 text-white text-[11px] uppercase tracking-wider font-semibold">
                                 {hg.headers.map(h => {
                                     const colStyle = INVENTORY_COLUMN_META[h.column.id] || { width: "80px", minWidth: "60px", maxWidth: "120px", align: "text-center", px: "px-1.5" };
+                                    const isStickySelect = h.column.id === "select";
+                                    const isStickyActions = h.column.id === "actions";
+
+                                    let stickyClasses = "";
+                                    let stickyStyle = {};
+                                    if (isStickySelect) {
+                                        stickyClasses = "sticky left-0 z-40 bg-erp-accent border-r border-white/20";
+                                        stickyStyle = { left: 0 };
+                                    } else if (isStickyActions) {
+                                        stickyClasses = "sticky left-[40px] z-40 bg-erp-accent border-r border-white/20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)]";
+                                        stickyStyle = { left: "40px" };
+                                    }
+
                                     return (
                                         <th
                                             key={h.id}
@@ -2571,8 +2707,9 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                                                 width: colStyle.width,
                                                 minWidth: colStyle.minWidth,
                                                 maxWidth: colStyle.maxWidth,
+                                                ...stickyStyle,
                                             }}
-                                            className={`${colStyle.px} ${colStyle.align} py-2.5 text-xs font-semibold text-gray-800 whitespace-nowrap uppercase tracking-wider overflow-hidden text-ellipsis`}
+                                            className={`${colStyle.px} ${colStyle.align} py-3 font-semibold text-white whitespace-nowrap overflow-hidden text-ellipsis border-r border-white/20 ${stickyClasses}`}
                                         >
                                             {flexRender(h.column.columnDef.header, h.getContext())}
                                         </th>
@@ -2581,20 +2718,37 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                             </tr>
                         ))}
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-gray-100">
                         {table.getRowModel().rows.length === 0 && (
                             <tr><td colSpan={columns.length} className="py-14 text-center text-gray-400 text-sm">No products found</td></tr>
                         )}
-                        {table.getRowModel().rows.map(row => {
+                        {table.getRowModel().rows.map((row, rIdx) => {
                             const isChecked = !!selectedRows[row.original._id];
+                            const isEven = rIdx % 2 === 0;
+                            const rowBgClass = isChecked 
+                                ? "bg-blue-50/90 hover:bg-blue-100/90 shadow-[inset_3px_0_0_0_#2980b9]" 
+                                : (isEven ? "bg-white hover:bg-blue-50/40" : "bg-gray-50/30 hover:bg-blue-50/40");
+
                             return (
                                 <tr key={row.id}
-                                    className={`border-b border-gray-50 transition-colors cursor-pointer
-                                        ${isChecked ? "bg-blue-50/60 hover:bg-[#2980b9]/10" : "hover:bg-[#2980b9]/10"}`}
+                                    className={`transition-colors cursor-pointer group ${rowBgClass}`}
                                     onClick={() => handleOpenProductDetailsModal(row.original)}
                                 >
                                     {row.getVisibleCells().map(cell => {
                                         const colStyle = INVENTORY_COLUMN_META[cell.column.id] || { width: "80px", minWidth: "60px", maxWidth: "120px", align: "text-center", px: "px-1.5" };
+                                        const isStickySelect = cell.column.id === "select";
+                                        const isStickyActions = cell.column.id === "actions";
+
+                                        let stickyClasses = "";
+                                        let stickyStyle = {};
+                                        if (isStickySelect) {
+                                            stickyClasses = `sticky left-0 z-20 border-r border-gray-100 ${isChecked ? 'bg-blue-50' : (isEven ? 'bg-white group-hover:bg-blue-50/60' : 'bg-gray-50 group-hover:bg-blue-50/60')}`;
+                                            stickyStyle = { left: 0 };
+                                        } else if (isStickyActions) {
+                                            stickyClasses = `sticky left-[40px] z-20 border-r border-gray-200/80 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)] ${isChecked ? 'bg-blue-50' : (isEven ? 'bg-white group-hover:bg-blue-50/60' : 'bg-gray-50 group-hover:bg-blue-50/60')}`;
+                                            stickyStyle = { left: "40px" };
+                                        }
+
                                         return (
                                             <td
                                                 key={cell.id}
@@ -2602,8 +2756,9 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                                                     width: colStyle.width,
                                                     minWidth: colStyle.minWidth,
                                                     maxWidth: colStyle.maxWidth,
+                                                    ...stickyStyle,
                                                 }}
-                                                className={`${colStyle.px} ${colStyle.align} py-2 text-gray-700 whitespace-nowrap text-xs sm:text-sm overflow-hidden text-ellipsis`}
+                                                className={`${colStyle.px} ${colStyle.align} py-2.5 text-gray-700 whitespace-nowrap text-xs overflow-hidden text-ellipsis border-r border-gray-100/60 ${stickyClasses}`}
                                                 onClick={e => {
                                                     // Checkbox column toggles row selection without opening popup
                                                     if (cell.column.id === "select") {
