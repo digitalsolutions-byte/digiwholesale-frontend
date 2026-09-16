@@ -211,6 +211,14 @@ const OrderWizard = () => {
     const [fetchingOrder, setFetchingOrder] = useState(!!id);
     const [activeProductIndex, setActiveProductIndex] = useState(0);
     const [expandedProductIndices, setExpandedProductIndices] = useState([]);
+    const [expandedGroups, setExpandedGroups] = useState({
+        specs: false,
+        powers: false,
+        tax: false,
+    });
+    const toggleGroup = (groupKey) => {
+        setExpandedGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }));
+    };
     const [itemModalIndex, setItemModalIndex] = useState(null);
     const [activeCategories, setActiveCategories] = useState([]);
     const [uploadingItemImages, setUploadingItemImages] = useState({});
@@ -2577,101 +2585,234 @@ const OrderWizard = () => {
         <FieldArray name="products">
             {({ push, remove }) => (
                 <div className="w-full bg-white rounded-b-2xl">
-                    {/* Desktop Table View (>= md screens) */}
-                    <div className="hidden md:block w-full border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                    ﻿                    ﻿                    <div className="hidden md:block w-full border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                        {/* Quick View Controls Bar */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 bg-gradient-to-r from-slate-50 via-blue-50/30 to-slate-50 border-b border-gray-200">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                                    <Icon icon="mdi:table-cog" className="text-base text-erp-accent" />
+                                    Table View:
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setExpandedGroups({ specs: false, powers: false, tax: false })}
+                                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm ${
+                                        !expandedGroups.specs && !expandedGroups.powers && !expandedGroups.tax
+                                            ? 'bg-erp-accent text-white shadow-erp-accent/20 ring-2 ring-erp-accent/30'
+                                            : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                                    }`}
+                                >
+                                    <Icon icon="mdi:view-compact-outline" className="text-sm" />
+                                    Compact Mode (Zero Scroll)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setExpandedGroups({ specs: true, powers: true, tax: true })}
+                                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                                        expandedGroups.specs && expandedGroups.powers && expandedGroups.tax
+                                            ? 'bg-erp-accent text-white shadow-erp-accent/20 ring-2 ring-erp-accent/30'
+                                            : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                                    }`}
+                                >
+                                    <Icon icon="mdi:table-eye" className="text-sm" />
+                                    Full Table (All Columns)
+                                </button>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 text-xs">
+                                <span className="text-slate-500 text-[11px] font-medium mr-1 hidden sm:inline">Toggle Sections:</span>
+                                <button
+                                    type="button"
+                                    onClick={() => toggleGroup('specs')}
+                                    className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all flex items-center gap-1 ${
+                                        expandedGroups.specs
+                                            ? 'bg-blue-100 text-erp-accent border-erp-accent/40 font-semibold'
+                                            : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                                    }`}
+                                    title="Expand / Collapse Specs (Category, Availability, Vendor, Type)"
+                                >
+                                    Specs {expandedGroups.specs ? '▴ (Expanded)' : '▸ (Collapsed)'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => toggleGroup('powers')}
+                                    className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all flex items-center gap-1 ${
+                                        expandedGroups.powers
+                                            ? 'bg-blue-100 text-erp-accent border-erp-accent/40 font-semibold'
+                                            : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                                    }`}
+                                    title="Expand / Collapse Rx Power Columns (Sph, Cyl, Axis, Add)"
+                                >
+                                    Powers {expandedGroups.powers ? '▴ (Expanded)' : '▸ (Collapsed)'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => toggleGroup('tax')}
+                                    className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all flex items-center gap-1 ${
+                                        expandedGroups.tax
+                                            ? 'bg-blue-100 text-erp-accent border-erp-accent/40 font-semibold'
+                                            : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                                    }`}
+                                    title="Expand / Collapse Tax & Discount Columns"
+                                >
+                                    Tax & Disc {expandedGroups.tax ? '▴ (Expanded)' : '▸ (Collapsed)'}
+                                </button>
+                            </div>
+                        </div>
+
                         <div className="overflow-auto max-h-[60vh]">
-                            <table className="w-full min-w-max text-left border-collapse">
+                            <table className="w-full text-left border-collapse">
                                 <thead className="sticky top-0 z-10">
                                     <tr className="bg-gradient-to-r from-erp-accent to-blue-600 text-white text-[11px] uppercase tracking-wider">
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+                                        <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 min-w-[45px]">
                                             S. No.
                                         </th>
-                                        <th className="px-4 py-3.5 font-semibold whitespace-nowrap border-r border-white/20">
+                                        <th className="px-3 py-3 font-semibold whitespace-nowrap border-r border-white/20 min-w-[220px]">
                                             Particulars / Item
                                         </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            Category
-                                        </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            Availability
-                                        </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            Vendor
-                                        </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            Order Type
-                                        </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            Batch No.
-                                        </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+
+                                        {/* Specs Group Header */}
+                                        {expandedGroups.specs ? (
+                                            <>
+                                                <th className="px-3 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-blue-700/20">
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <span>Category</span>
+                                                        <button type="button" onClick={() => toggleGroup('specs')} className="p-0.5 rounded hover:bg-white/20 text-white/80" title="Collapse Specs Group">
+                                                            <Icon icon="mdi:chevron-left" className="text-xs" />
+                                                        </button>
+                                                    </div>
+                                                </th>
+                                                <th className="px-3 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-blue-700/20">
+                                                    Availability
+                                                </th>
+                                                <th className="px-3 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-blue-700/20">
+                                                    Vendor
+                                                </th>
+                                                <th className="px-3 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-blue-700/20">
+                                                    Order Type
+                                                </th>
+                                            </>
+                                        ) : (
+                                            <th className="px-3 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-blue-700/25 min-w-[180px]">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleGroup('specs')}
+                                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/15 hover:bg-white/25 text-white transition-all text-xs font-semibold cursor-pointer border border-white/20"
+                                                    title="Click to expand Category, Availability, Vendor & Type"
+                                                >
+                                                    <span>Specs & Vendor</span>
+                                                    <Icon icon="mdi:chevron-down" className="text-sm" />
+                                                </button>
+                                            </th>
+                                        )}
+
+                                        <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 min-w-[55px]">
                                             Qty
                                         </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            Sph.
-                                        </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            Cyl.
-                                        </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            Axis
-                                        </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            Add
-                                        </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+
+                                        {/* Powers Group Header */}
+                                        {expandedGroups.powers ? (
+                                            <>
+                                                <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-amber-600/25">
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <span>Sph.</span>
+                                                        <button type="button" onClick={() => toggleGroup('powers')} className="p-0.5 rounded hover:bg-white/20 text-white/80" title="Collapse Power Columns">
+                                                            <Icon icon="mdi:chevron-left" className="text-xs" />
+                                                        </button>
+                                                    </div>
+                                                </th>
+                                                <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-amber-600/25">
+                                                    Cyl.
+                                                </th>
+                                                <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-amber-600/25">
+                                                    Axis
+                                                </th>
+                                                <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-amber-600/25">
+                                                    Add
+                                                </th>
+                                            </>
+                                        ) : (
+                                            <th className="px-2.5 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-amber-600/25 min-w-[125px]">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleGroup('powers')}
+                                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/15 hover:bg-white/25 text-white transition-all text-xs font-semibold cursor-pointer border border-white/20"
+                                                    title="Click to expand Sph, Cyl, Axis, Add columns"
+                                                >
+                                                    <span>Rx Powers</span>
+                                                    <Icon icon="mdi:chevron-down" className="text-sm" />
+                                                </button>
+                                            </th>
+                                        )}
+
+                                        <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 min-w-[70px]">
                                             Unit
                                         </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+                                        <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 min-w-[80px]">
                                             Price
                                         </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            Disc
-                                        </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            GST %
-                                        </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            GST Amt
-                                        </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+
+                                        {/* Tax & Disc Group Header */}
+                                        {expandedGroups.tax ? (
+                                            <>
+                                                <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-emerald-700/25 min-w-[65px]">
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <span>Disc</span>
+                                                        <button type="button" onClick={() => toggleGroup('tax')} className="p-0.5 rounded hover:bg-white/20 text-white/80" title="Collapse Tax & Disc Columns">
+                                                            <Icon icon="mdi:chevron-left" className="text-xs" />
+                                                        </button>
+                                                    </div>
+                                                </th>
+                                                <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-emerald-700/25 min-w-[60px]">
+                                                    GST %
+                                                </th>
+                                                <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-emerald-700/25 min-w-[75px]">
+                                                    GST Amt
+                                                </th>
+                                            </>
+                                        ) : (
+                                            <th className="px-2.5 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-emerald-700/25 min-w-[110px]">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleGroup('tax')}
+                                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/15 hover:bg-white/25 text-white transition-all text-xs font-semibold cursor-pointer border border-white/20"
+                                                    title="Click to expand Discount and GST columns"
+                                                >
+                                                    <span>GST & Disc</span>
+                                                    <Icon icon="mdi:chevron-down" className="text-sm" />
+                                                </button>
+                                            </th>
+                                        )}
+
+                                        <th className="px-3 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 min-w-[95px]">
                                             Amount
                                         </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap">
+                                        <th className="px-2 py-3 font-semibold text-center whitespace-nowrap min-w-[80px]">
                                             Action
                                         </th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100">
+
+﻿                                <tbody className="divide-y divide-gray-100">
                                     {formik.values.products.map((product, index) => {
                                         const isActive = activeProductIndex === index;
-                                        const isExpanded = expandedProductIndices.includes(index);
                                         const isStock = product.orderType === 'stock';
 
                                         const categoryName = product.category || configs.category?.find(c => c._id === product.categoryId)?.name || '-';
-                                        const brandName = product.Brand || product.brand || configs.brand?.find(b => b._id === product.brandId)?.name || '-';
-                                        const catUpper = categoryName.toUpperCase();
-                                        const isLensItem = !catUpper || catUpper.includes('LENS') || catUpper.includes('GLASS') || catUpper.includes('RX') || product.orderType === 'rx';
-
-                                        const renderPowerField = (field) => {
-                                            if (product.powerMode === 'single') return product.powerTable[product.selectedSide]?.[field] || '';
-                                            return `${product.powerTable.R?.[field] || ''} / ${product.powerTable.L?.[field] || ''}`;
-                                        };
+                                        const vendorObj = configs.vendors?.find(v => (v._id && v._id === product.vendorId) || (v.vendorNumber && v.vendorNumber === product.vendorId));
+                                        const vendorName = vendorObj ? vendorObj.name : (product.vendor || product.vendorName || '');
 
                                         const renderEditablePowerCell = (field) => {
-                                            if (!isLensItem) return <span className="text-gray-300 font-normal italic">N/A</span>;
-                                            if (product.orderType === 'stock') {
-                                                const val = renderPowerField(field);
-                                                return val ? <span className="text-gray-700 font-semibold">{val}</span> : <span className="text-gray-300">—</span>;
-                                            }
+                                            const isSingleSide = product.powerTable?.singleEye;
+                                            const side = product.powerTable?.eyeSide || 'R';
 
-                                            if (product.powerMode === 'single') {
-                                                const side = product.selectedSide || 'R';
+                                            if (isSingleSide) {
                                                 return (
-                                                    <div className="flex justify-center" onClick={(e) => e.stopPropagation()}>
+                                                    <div className="flex items-center justify-center gap-1 min-w-[50px]" onClick={(e) => e.stopPropagation()}>
+                                                        <span className="text-[10px] font-bold text-erp-accent bg-blue-50 px-1 rounded">{side}</span>
                                                         <input
                                                             type="text"
-                                                            className="w-16 h-7 text-xs font-semibold text-center border border-gray-300 rounded-md outline-none focus:border-erp-accent focus:ring-1 focus:ring-erp-accent/20 bg-white"
+                                                            className="w-11 h-7 text-xs font-semibold text-center border border-gray-300 rounded-md outline-none focus:border-erp-accent focus:ring-1 focus:ring-erp-accent/20 bg-white"
                                                             value={product.powerTable[side]?.[field] || ''}
                                                             onChange={(e) => {
                                                                 const val = e.target.value;
@@ -2736,7 +2877,7 @@ const OrderWizard = () => {
                                                 >
                                                     {/* S. No. */}
                                                     <td className={`
-                                                    px-4 py-3 text-xs font-bold text-center
+                                                    px-2 py-3 text-xs font-bold text-center border-r border-gray-100 min-w-[45px]
                                                     ${product.orderType === 'rx'
                                                             ? 'bg-amber-100 text-amber-700'
                                                             : 'text-gray-600'
@@ -2746,7 +2887,7 @@ const OrderWizard = () => {
                                                     </td>
 
                                                     {/* Product Name */}
-                                                    <td className="px-3 py-2.5 min-w-[280px]">
+                                                    <td className="px-3 py-2 border-r border-gray-100 min-w-[220px]">
                                                         <SearchableSelect
                                                             name={`products.${index}.productName`}
                                                             value={{ value: product.productId || product.productName, label: product.productName || product.itemName || '' }}
@@ -2759,151 +2900,159 @@ const OrderWizard = () => {
                                                             renderOption={renderProductOption}
                                                             sx={{
                                                                 '& .MuiOutlinedInput-root': {
-                                                                    padding: '4px 8px !important',
+                                                                    padding: '2px 6px !important',
                                                                     fontSize: '0.8125rem',
-                                                                    borderRadius: '8px',
-                                                                    backgroundColor: 'white',
-                                                                    '&:hover': {
-                                                                        backgroundColor: '#f8fafc',
-                                                                    },
-                                                                    '&.Mui-focused': {
-                                                                        backgroundColor: 'white',
-                                                                    }
-                                                                },
-                                                                '& .MuiInputLabel-root': {
-                                                                    display: 'none',
                                                                 }
                                                             }}
+                                                            disabled={isReadOnly}
                                                         />
                                                     </td>
 
-                                                    {/* Category Select */}
-                                                    <td className="px-2 py-2 min-w-[130px]">
-                                                        <select
-                                                            className="w-full text-xs bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-medium text-gray-700 cursor-pointer"
-                                                            name={`products.${index}.categoryId`}
-                                                            value={
-                                                                product.categoryId ||
-                                                                (configs.category?.find(c => c.name?.toUpperCase() === (product.category || '').toUpperCase())?._id) ||
-                                                                product.category ||
-                                                                ''
-                                                            }
-                                                            onChange={(e) => {
-                                                                const cId = e.target.value;
-                                                                const cObj = configs.category?.find(c => c._id === cId || c.name === cId);
-                                                                formik.setFieldValue(`products.${index}.categoryId`, cId);
-                                                                formik.setFieldValue(`products.${index}.category`, cObj ? cObj.name : cId);
-                                                            }}
-                                                            disabled={isReadOnly}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            <option value="">Category</option>
-                                                            {(Array.isArray(configs.category) ? configs.category : []).map(c => (
-                                                                <option key={c._id || c.name} value={c._id}>{c.name}</option>
-                                                            ))}
-                                                            {product.category && !(configs.category || []).some(c => c._id === product.categoryId || c.name?.toUpperCase() === product.category?.toUpperCase()) && (
-                                                                <option value={product.category}>{product.category}</option>
-                                                            )}
-                                                        </select>
-                                                    </td>
+﻿                                                    {/* Specs Group (Category, Availability, Vendor, Order Type) */}
+                                                    {expandedGroups.specs ? (
+                                                        <>
+                                                            {/* Category Select */}
+                                                            <td className="px-2 py-2 border-r border-gray-100 min-w-[130px]">
+                                                                <select
+                                                                    className="w-full text-xs bg-white border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-medium text-gray-700 cursor-pointer disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                                                    name={`products.${index}.categoryId`}
+                                                                    value={
+                                                                        product.categoryId ||
+                                                                        configs.category?.find(c => c.name?.toUpperCase() === product.category?.toUpperCase())?._id ||
+                                                                        product.category ||
+                                                                        ''
+                                                                    }
+                                                                    onChange={(e) => {
+                                                                        const cId = e.target.value;
+                                                                        const cObj = configs.category?.find(c => c._id === cId || c.name === cId);
+                                                                        formik.setFieldValue(`products.${index}.categoryId`, cId);
+                                                                        formik.setFieldValue(`products.${index}.category`, cObj ? cObj.name : cId);
+                                                                    }}
+                                                                    disabled={isReadOnly}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    <option value="">Category</option>
+                                                                    {(Array.isArray(configs.category) ? configs.category : []).map(c => (
+                                                                        <option key={c._id || c.name} value={c._id}>{c.name}</option>
+                                                                    ))}
+                                                                    {product.category && !(configs.category || []).some(c => c._id === product.categoryId || c.name?.toUpperCase() === product.category?.toUpperCase()) && (
+                                                                        <option value={product.category}>{product.category}</option>
+                                                                    )}
+                                                                </select>
+                                                            </td>
 
-                                                    {/* Availability Select */}
-                                                    <td className="px-2 py-2 min-w-[135px]">
-                                                        <select
-                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-semibold text-gray-700 cursor-pointer disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-                                                            name={`products.${index}.availability`}
-                                                            value={product.orderType === 'rx' ? 'order' : ((product.availability === 'order-to-whom' || product.availability === 'order') ? 'order' : (product.availability || 'in-house'))}
-                                                            onChange={(e) => {
-                                                                const val = e.target.value;
-                                                                formik.setFieldValue(`products.${index}.availability`, val);
-                                                                if (val === 'in-house') {
-                                                                    formik.setFieldValue(`products.${index}.vendorId`, '');
-                                                                }
-                                                            }}
-                                                            disabled={product.orderType === 'rx' || isReadOnly}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            <option value="in-house">In-House</option>
-                                                            <option value="order">Order</option>
-                                                        </select>
-                                                    </td>
+                                                            {/* Availability Select */}
+                                                            <td className="px-2 py-2 border-r border-gray-100 min-w-[115px]">
+                                                                <select
+                                                                    className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-1.5 py-1.5 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-semibold text-gray-700 cursor-pointer disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                                                    name={`products.${index}.availability`}
+                                                                    value={product.orderType === 'rx' ? 'order' : ((product.availability === 'order-to-whom' || product.availability === 'order') ? 'order' : (product.availability || 'in-house'))}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value;
+                                                                        formik.setFieldValue(`products.${index}.availability`, val);
+                                                                        if (val === 'in-house') {
+                                                                            formik.setFieldValue(`products.${index}.vendorId`, '');
+                                                                        }
+                                                                    }}
+                                                                    disabled={product.orderType === 'rx' || isReadOnly}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    <option value="in-house">In-House</option>
+                                                                    <option value="order">Order</option>
+                                                                </select>
+                                                            </td>
 
-                                                    {/* Vendor Select */}
-                                                    <td className="px-2 py-2 min-w-[155px]">
-                                                        <select
-                                                            className={`w-full text-xs bg-white border rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-medium text-gray-700 cursor-pointer disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed ${
-                                                                (product.availability === 'order' || product.availability === 'order-to-whom' || product.orderType === 'rx') && !product.vendorId
-                                                                    ? 'border-amber-400 bg-amber-50/30'
-                                                                    : 'border-gray-200'
-                                                            }`}
-                                                            name={`products.${index}.vendorId`}
-                                                            value={product.vendorId || ''}
-                                                            onChange={(e) => {
-                                                                const vId = e.target.value;
-                                                                formik.setFieldValue(`products.${index}.vendorId`, vId);
-                                                            }}
-                                                            disabled={(product.availability !== 'order' && product.availability !== 'order-to-whom' && product.orderType !== 'rx') || isReadOnly}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            <option value="">{(product.availability === 'order' || product.availability === 'order-to-whom' || product.orderType === 'rx') ? 'Select Vendor *' : 'N/A (In-House)'}</option>
-                                                            {(Array.isArray(configs.vendors) ? configs.vendors : []).map(v => (
-                                                                <option key={v._id || v.vendorNumber} value={v._id || v.vendorNumber}>
-                                                                    {v.name}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    </td>
+                                                            {/* Vendor Select */}
+                                                            <td className="px-2 py-2 border-r border-gray-100 min-w-[140px]">
+                                                                <select
+                                                                    className={`w-full text-xs bg-white border rounded-lg px-2 py-1.5 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-medium text-gray-700 cursor-pointer disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed ${
+                                                                        (product.availability === 'order' || product.availability === 'order-to-whom' || product.orderType === 'rx') && !product.vendorId
+                                                                            ? 'border-amber-400 bg-amber-50/30'
+                                                                            : 'border-gray-200'
+                                                                    }`}
+                                                                    name={`products.${index}.vendorId`}
+                                                                    value={product.vendorId || ''}
+                                                                    onChange={(e) => {
+                                                                        const vId = e.target.value;
+                                                                        formik.setFieldValue(`products.${index}.vendorId`, vId);
+                                                                    }}
+                                                                    disabled={(product.availability !== 'order' && product.availability !== 'order-to-whom' && product.orderType !== 'rx') || isReadOnly}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    <option value="">{(product.availability === 'order' || product.availability === 'order-to-whom' || product.orderType === 'rx') ? 'Select Vendor *' : 'N/A (In-House)'}</option>
+                                                                    {(Array.isArray(configs.vendors) ? configs.vendors : []).map(v => (
+                                                                        <option key={v._id || v.vendorNumber} value={v._id || v.vendorNumber}>
+                                                                            {v.name}
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
+                                                            </td>
 
-                                                    {/* Order Type Select */}
-                                                    <td className="px-3 py-2.5 min-w-[100px]">
-                                                        <select
-                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all cursor-pointer font-medium text-gray-700"
-                                                            name={`products.${index}.orderType`}
-                                                            value={product.orderType || 'stock'}
-                                                            onChange={(e) => {
-                                                                const val = e.target.value;
-                                                                formik.handleChange(e);
-                                                                formik.setFieldValue(`products.${index}.productMode`, val);
-                                                                if (val === 'rx') {
-                                                                    formik.setFieldValue(`products.${index}.availability`, 'order');
-                                                                }
+                                                            {/* Order Type Select */}
+                                                            <td className="px-2 py-2 border-r border-gray-100 min-w-[90px]">
+                                                                <select
+                                                                    className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-1.5 py-1.5 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all cursor-pointer font-medium text-gray-700"
+                                                                    name={`products.${index}.orderType`}
+                                                                    value={product.orderType || 'stock'}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value;
+                                                                        formik.handleChange(e);
+                                                                        formik.setFieldValue(`products.${index}.productMode`, val);
+                                                                        if (val === 'rx') {
+                                                                            formik.setFieldValue(`products.${index}.availability`, 'order');
+                                                                        }
+                                                                    }}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    <option value="stock">Stock</option>
+                                                                    {(!product.category && !product.categoryId || product.category?.toUpperCase().includes('LENS') || (configs.category?.find(c => c._id === product.categoryId)?.name?.toUpperCase().includes('LENS'))) && <option value="rx">Rx</option>}
+                                                                </select>
+                                                            </td>
+                                                        </>
+                                                    ) : (
+                                                        <td
+                                                            className="px-2.5 py-2 cursor-pointer hover:bg-blue-50/50 transition-colors border-r border-gray-100"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                toggleGroup('specs');
                                                             }}
-                                                            onClick={(e) => e.stopPropagation()}
+                                                            title="Click to expand Category, Availability, Vendor & Order Type"
                                                         >
-                                                            <option value="stock">Stock</option>
-                                                            {(!product.category && !product.categoryId || product.category?.toUpperCase().includes('LENS') || (configs.category?.find(c => c._id === product.categoryId)?.name?.toUpperCase().includes('LENS'))) && <option value="rx">Rx</option>}
-                                                        </select>
-                                                    </td>
+                                                            <div className="flex flex-col gap-0.5 min-w-[170px] max-w-[190px]">
+                                                                <div className="flex items-center justify-between gap-1">
+                                                                    <span className="font-semibold text-slate-800 text-[11px] truncate max-w-[110px]" title={categoryName}>
+                                                                        {categoryName && categoryName !== '-' ? categoryName : <span className="text-amber-500 font-medium">Select Cat*</span>}
+                                                                    </span>
+                                                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                                                        product.orderType === 'rx' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                                                                    }`}>
+                                                                        {product.orderType || 'stock'}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex items-center justify-between gap-1 text-[11px]">
+                                                                    <span className="truncate max-w-[130px] text-gray-600 flex items-center gap-1">
+                                                                        <Icon icon="mdi:store-outline" className="text-xs text-gray-400 flex-shrink-0" />
+                                                                        {vendorName ? (
+                                                                            <span className="truncate font-medium text-slate-700">{vendorName}</span>
+                                                                        ) : (product.availability === 'order' || product.availability === 'order-to-whom' || product.orderType === 'rx') ? (
+                                                                            <span className="text-amber-600 font-semibold">Select Vendor*</span>
+                                                                        ) : (
+                                                                            <span className="text-gray-500">In-House</span>
+                                                                        )}
+                                                                    </span>
+                                                                    <span className="text-[10px] text-erp-accent font-semibold flex items-center gap-0.5 opacity-70 hover:opacity-100">
+                                                                        Edit <Icon icon="mdi:chevron-right" className="text-xs" />
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                    )}
 
-                                                    {/* Batch Select */}
-                                                    <td className="px-2 py-2 min-w-[130px]">
-                                                        <select
-                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all cursor-pointer font-medium text-gray-700 disabled:bg-gray-100 disabled:text-gray-400"
-                                                            name={`products.${index}.batchId`}
-                                                            value={product.batchId || ''}
-                                                            onChange={(e) => {
-                                                                const bId = e.target.value;
-                                                                const bObj = (product.availableBatches || []).find(b => b._id === bId);
-                                                                formik.setFieldValue(`products.${index}.batchId`, bId);
-                                                                formik.setFieldValue(`products.${index}.batchNumber`, bObj ? bObj.batchNumber : '');
-                                                            }}
-                                                            disabled={isReadOnly || product.orderType === 'rx'}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            <option value="">{product.availableBatches?.length ? "Auto (Oldest)" : "No Batch"}</option>
-                                                            {(product.availableBatches || []).map(b => (
-                                                                <option key={b._id} value={b._id}>
-                                                                    {b.batchNumber} ({b.availableQty} available)
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    </td>
-
-                                                    {/* Qty Input */}
-                                                    <td className="px-3 py-2.5 min-w-[80px]">
+﻿                                                    {/* Qty Input */}
+                                                    <td className="px-2 py-2 border-r border-gray-100 min-w-[55px] text-center">
                                                         <input
                                                             type="number"
-                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-semibold text-gray-800"
+                                                            className="w-14 h-8 text-xs text-center mx-auto bg-white border border-gray-200 rounded-lg px-1 py-1 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-bold text-gray-800"
                                                             name={`products.${index}.qty`}
                                                             value={product.qty}
                                                             onChange={formik.handleChange}
@@ -2911,24 +3060,72 @@ const OrderWizard = () => {
                                                         />
                                                     </td>
 
-                                                    {/* Power Fields */}
-                                                    <td className="px-2 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap min-w-[100px]">
-                                                        {renderEditablePowerCell('sph')}
-                                                    </td>
-                                                    <td className="px-2 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap min-w-[100px]">
-                                                        {renderEditablePowerCell('cyl')}
-                                                    </td>
-                                                    <td className="px-2 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap min-w-[100px]">
-                                                        {renderEditablePowerCell('axis')}
-                                                    </td>
-                                                    <td className="px-2 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap min-w-[100px]">
-                                                        {renderEditablePowerCell('add')}
-                                                    </td>
+                                                    {/* Powers Group (Sph, Cyl, Axis, Add) */}
+                                                    {expandedGroups.powers ? (
+                                                        <>
+                                                            <td className="px-1.5 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap border-r border-gray-100 min-w-[85px]">
+                                                                {renderEditablePowerCell('sph')}
+                                                            </td>
+                                                            <td className="px-1.5 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap border-r border-gray-100 min-w-[85px]">
+                                                                {renderEditablePowerCell('cyl')}
+                                                            </td>
+                                                            <td className="px-1.5 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap border-r border-gray-100 min-w-[85px]">
+                                                                {renderEditablePowerCell('axis')}
+                                                            </td>
+                                                            <td className="px-1.5 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap border-r border-gray-100 min-w-[85px]">
+                                                                {renderEditablePowerCell('add')}
+                                                            </td>
+                                                        </>
+                                                    ) : (
+                                                        <td
+                                                            className="px-2 py-2 cursor-pointer hover:bg-amber-50/40 transition-colors border-r border-gray-100 text-center"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                toggleGroup('powers');
+                                                            }}
+                                                            title="Click to expand Rx Power columns"
+                                                        >
+                                                            {product.orderType === 'rx' ? (() => {
+                                                                const rSph = product.powerTable?.R?.sph;
+                                                                const rCyl = product.powerTable?.R?.cyl;
+                                                                const lSph = product.powerTable?.L?.sph;
+                                                                const lCyl = product.powerTable?.L?.cyl;
+                                                                const hasPowers = rSph || rCyl || lSph || lCyl;
 
-                                                    {/* Unit */}
-                                                    <td className="px-3 py-2.5 min-w-[90px]">
+                                                                if (!hasPowers) {
+                                                                    return (
+                                                                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-semibold">
+                                                                            <Icon icon="mdi:plus-circle-outline" className="text-xs" /> Set Powers
+                                                                        </span>
+                                                                    );
+                                                                }
+
+                                                                return (
+                                                                    <div className="flex flex-col gap-0.5 text-[10px] font-semibold min-w-[115px]">
+                                                                        <div className="flex items-center justify-between px-1.5 py-0.5 rounded bg-amber-50/80 text-amber-900 border border-amber-200/60">
+                                                                            <span className="font-bold text-amber-700">R:</span>
+                                                                            <span>{rSph || '0.00'} / {rCyl || '0.00'}</span>
+                                                                            <span className="text-gray-400 text-[9px]">Ax:{product.powerTable?.R?.axis || '0'}</span>
+                                                                        </div>
+                                                                        <div className="flex items-center justify-between px-1.5 py-0.5 rounded bg-blue-50/80 text-blue-900 border border-blue-200/60">
+                                                                            <span className="font-bold text-blue-700">L:</span>
+                                                                            <span>{lSph || '0.00'} / {lCyl || '0.00'}</span>
+                                                                            <span className="text-gray-400 text-[9px]">Ax:{product.powerTable?.L?.axis || '0'}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })() : (
+                                                                <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-gray-100 text-gray-500 border border-gray-200/60">
+                                                                    <Icon icon="mdi:package-variant-closed" className="text-xs" /> Stock
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                    )}
+
+                                                    {/* Unit Select */}
+                                                    <td className="px-2 py-2 border-r border-gray-100 min-w-[70px] text-center">
                                                         <select
-                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-semibold text-gray-700 cursor-pointer"
+                                                            className="w-20 h-8 text-xs text-center mx-auto bg-white border border-gray-200 rounded-lg px-1 py-1 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-semibold text-gray-700 cursor-pointer"
                                                             name={`products.${index}.unit`}
                                                             value={product.unit || 'piece'}
                                                             onChange={formik.handleChange}
@@ -2941,10 +3138,10 @@ const OrderWizard = () => {
                                                     </td>
 
                                                     {/* Price Input */}
-                                                    <td className="px-3 py-2.5 min-w-[110px]">
+                                                    <td className="px-2 py-2 border-r border-gray-100 min-w-[80px] text-center">
                                                         <input
                                                             type="number"
-                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-semibold text-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                                            className="w-20 h-8 text-xs text-center mx-auto bg-white border border-gray-200 rounded-lg px-1.5 py-1 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-bold text-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
                                                             name={`products.${index}.price`}
                                                             value={product.price}
                                                             onChange={formik.handleChange}
@@ -2953,46 +3150,71 @@ const OrderWizard = () => {
                                                         />
                                                     </td>
 
-                                                    {/* Discount Input */}
-                                                    <td className="px-3 py-2.5 min-w-[90px]">
-                                                        <input
-                                                            type="number"
-                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-semibold text-gray-800"
-                                                            name={`products.${index}.discount`}
-                                                            value={product.discount}
-                                                            onChange={formik.handleChange}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        />
-                                                    </td>
-
-                                                    {/* GST % Input */}
-                                                    <td className="px-3 py-2.5 min-w-[90px]">
-                                                        <input
-                                                            type="number"
-                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-semibold text-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-                                                            name={`products.${index}.gstDetails.gstPercent`}
-                                                            value={product.gstDetails?.gstPercent}
-                                                            onChange={formik.handleChange}
-                                                            disabled={isStock || isReadOnly}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        />
-                                                    </td>
-
-                                                    {/* GST Amount */}
-                                                    <td className="px-4 py-3 text-xs font-semibold text-gray-700 text-center whitespace-nowrap min-w-[90px]">
-                                                        <span className="text-emerald-600">₹{gstAmt.toFixed(2)}</span>
-                                                    </td>
+                                                    {/* Tax & Discount Group (Disc, GST %, GST Amt) */}
+                                                    {expandedGroups.tax ? (
+                                                        <>
+                                                            <td className="px-2 py-2 border-r border-gray-100 min-w-[65px] text-center">
+                                                                <input
+                                                                    type="number"
+                                                                    className="w-16 h-8 text-xs text-center mx-auto bg-white border border-gray-200 rounded-lg px-1 py-1 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-bold text-gray-800"
+                                                                    name={`products.${index}.discount`}
+                                                                    value={product.discount}
+                                                                    onChange={formik.handleChange}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                />
+                                                            </td>
+                                                            <td className="px-2 py-2 border-r border-gray-100 min-w-[60px] text-center">
+                                                                <input
+                                                                    type="number"
+                                                                    className="w-14 h-8 text-xs text-center mx-auto bg-white border border-gray-200 rounded-lg px-1 py-1 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-bold text-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                                                    name={`products.${index}.gstDetails.gstPercent`}
+                                                                    value={product.gstDetails?.gstPercent}
+                                                                    onChange={formik.handleChange}
+                                                                    disabled={isStock || isReadOnly}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                />
+                                                            </td>
+                                                            <td className="px-2 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap border-r border-gray-100 min-w-[75px]">
+                                                                <span className="text-emerald-600">₹{gstAmt.toFixed(2)}</span>
+                                                            </td>
+                                                        </>
+                                                    ) : (
+                                                        <td
+                                                            className="px-2.5 py-2 cursor-pointer hover:bg-emerald-50/50 transition-colors border-r border-gray-100 text-center"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                toggleGroup('tax');
+                                                            }}
+                                                            title="Click to expand Discount and GST"
+                                                        >
+                                                            <div className="flex flex-col items-center justify-center gap-0.5 min-w-[100px] text-xs">
+                                                                <span className="text-emerald-700 font-bold flex items-center gap-1 text-[11px]">
+                                                                    <span className="text-[10px] font-normal text-gray-500">+{gstPercent}%:</span>
+                                                                    ₹{gstAmt.toFixed(2)}
+                                                                </span>
+                                                                {Number(product.discount) > 0 ? (
+                                                                    <span className="text-[10px] text-amber-600 font-semibold">
+                                                                        Disc: -₹{Number(product.discount).toFixed(2)}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
+                                                                        Disc: ₹0 <Icon icon="mdi:pencil-outline" className="text-[10px]" />
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    )}
 
                                                     {/* Total Amount */}
-                                                    <td className="px-4 py-3 text-center whitespace-nowrap min-w-[120px]">
-                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-blue-50 text-erp-accent font-bold text-sm">
+                                                    <td className="px-3 py-2 text-center whitespace-nowrap border-r border-gray-100 min-w-[95px]">
+                                                        <span className="inline-flex items-center px-2 py-1 rounded-lg bg-blue-50 text-erp-accent font-bold text-xs">
                                                             ₹{totalAmount.toFixed(2)}
                                                         </span>
                                                     </td>
 
                                                     {/* Actions */}
-                                                    <td className="px-4 py-3 text-center whitespace-nowrap min-w-[100px]">
-                                                        <div className="flex items-center justify-center gap-1.5">
+                                                    <td className="px-2 py-2 text-center whitespace-nowrap min-w-[80px]">
+                                                        <div className="flex items-center justify-center gap-1">
                                                             <button
                                                                 type="button"
                                                                 onClick={(e) => {
@@ -3000,9 +3222,9 @@ const OrderWizard = () => {
                                                                     setItemModalIndex(index);
                                                                 }}
                                                                 title="Configure Item Details / Prescription"
-                                                                className="p-2 rounded-lg bg-erp-accent/10 text-erp-accent hover:bg-erp-accent hover:text-white transition-all duration-200"
+                                                                className="p-1.5 rounded-lg bg-erp-accent/10 text-erp-accent hover:bg-erp-accent hover:text-white transition-all duration-200"
                                                             >
-                                                                <Icon icon="mdi:square-edit-outline" className="text-lg" />
+                                                                <Icon icon="mdi:square-edit-outline" className="text-base" />
                                                             </button>
                                                             <button
                                                                 type="button"
@@ -3012,9 +3234,9 @@ const OrderWizard = () => {
                                                                         setDeleteModalState({ isOpen: true, indexToRemove: index });
                                                                     }
                                                                 }}
-                                                                className="p-2 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition-all duration-200"
+                                                                className="p-1.5 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition-all duration-200"
                                                             >
-                                                                <Icon icon="mdi:trash-can-outline" className="text-lg" />
+                                                                <Icon icon="mdi:trash-can-outline" className="text-base" />
                                                             </button>
                                                         </div>
                                                     </td>
@@ -3026,6 +3248,7 @@ const OrderWizard = () => {
                             </table>
                         </div>
                     </div>
+
 
                     {/* Mobile Vertical Cards View (< md screens) */}
                     <div className="block md:hidden space-y-4">

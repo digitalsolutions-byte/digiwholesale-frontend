@@ -1,3 +1,4 @@
+import VendorTabNav from '../../components/vendor/VendorTabNav';
 import { useState } from "react";
 import { toast } from "react-toastify";
 import * as vendorService from "../../services/vendorService";
@@ -69,6 +70,7 @@ export default function AddVendor() {
 
     return (
         <div className="p-2 w-full h-full flex flex-col animate-in fade-in duration-500">
+            <VendorTabNav groupKey="DIRECTORY" />
             <div className="flex justify-between items-center mb-6">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">

@@ -88,23 +88,30 @@ const navItems = [
         label: 'Vendor',
         icon: 'lucide:truck',
         subItems: [
-            { label: 'Add Vendor', path: PATHS.VENDOR.ADD, page: 'ADD_VENDOR' },
-            { label: 'Vendor List', path: PATHS.VENDOR.LIST, page: 'VENDOR_LIST' },
-            // { label: 'Vendor Order', path: PATHS.VENDOR.ORDER, page: 'VENDOR_ORDER' },
-            { label: 'Purchase Orders', path: PATHS.VENDOR.PURCHASE_ITEMS, page: 'VENDOR_LIST' },
-
-            { label: 'Pending Inward', path: PATHS.VENDOR.PENDING_INWARD, page: 'VENDOR_LIST' },
-            { label: 'QC Pending', path: PATHS.VENDOR.QC_PENDING, page: 'VENDOR_LIST' },
-            // { label: 'Purchase QC done', path: PATHS.VENDOR.QC_LIST, page: 'VENDOR_LIST' },
-            { label: 'QC Passed', path: PATHS.VENDOR.QC_PASSED, page: 'VENDOR_LIST' },
-            { label: 'QC Failed (Awaiting Replacement)', path: PATHS.VENDOR.PURCHASE_RETURNS, page: 'VENDOR_LIST' },
-            // { label: 'Purchase Inwarded', path: PATHS.VENDOR.INWARD_LIST, page: 'VENDOR_LIST' },
-            { label: 'All Inwarded Items', path: PATHS.VENDOR.ALL_INWARDED_ITEMS, page: 'VENDOR_LIST' },
-            // { label: 'QC Failed Report', path: PATHS.VENDOR.QC_FAILED_REPORT, page: 'VENDOR_LIST' },
-
-            { label: 'Replacement Orders', path: PATHS.VENDOR.REPLACEMENT_ORDERS, page: 'VENDOR_LIST' },
-            { label: 'Damaged Items', path: PATHS.VENDOR.DAMAGED_ITEMS, page: 'VENDOR_LIST' },
-            { label: 'Shrinkage Items', path: PATHS.VENDOR.SHRINKAGE_ITEMS, page: 'VENDOR_LIST' },
+            {
+                label: 'Vendors Directory',
+                path: PATHS.VENDOR.LIST,
+                paths: [PATHS.VENDOR.LIST, PATHS.VENDOR.ADD],
+                page: 'VENDOR_LIST'
+            },
+            {
+                label: 'Purchases & Inward',
+                path: PATHS.VENDOR.PURCHASE_ITEMS,
+                paths: [PATHS.VENDOR.PURCHASE_ITEMS, PATHS.VENDOR.PENDING_INWARD, PATHS.VENDOR.ALL_INWARDED_ITEMS, PATHS.VENDOR.INWARD_LIST],
+                page: 'VENDOR_LIST'
+            },
+            {
+                label: 'Quality Control (QC)',
+                path: PATHS.VENDOR.QC_PENDING,
+                paths: [PATHS.VENDOR.QC_PENDING, PATHS.VENDOR.QC_PASSED, PATHS.VENDOR.PURCHASE_RETURNS, PATHS.VENDOR.QC_LIST, PATHS.VENDOR.QC_FAILED_REPORT],
+                page: 'VENDOR_LIST'
+            },
+            {
+                label: 'Replacements & Losses',
+                path: PATHS.VENDOR.REPLACEMENT_ORDERS,
+                paths: [PATHS.VENDOR.REPLACEMENT_ORDERS, PATHS.VENDOR.DAMAGED_ITEMS, PATHS.VENDOR.SHRINKAGE_ITEMS],
+                page: 'VENDOR_LIST'
+            },
         ],
     },
     // { label: 'Quality', icon: 'lucide:badge-check', path: PATHS.OPERATIONS.QC, page: 'QUALITY' },
@@ -223,7 +230,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
     const isParentActive = (item) => {
-        return item.subItems?.some(sub => sub.path === location.pathname);
+        return item.subItems?.some(sub => sub.path === location.pathname || (sub.paths && sub.paths.includes(location.pathname)));
     };
 
     const drawerWidth = 269;
@@ -367,7 +374,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                                         <Collapse in={isOpenSub} timeout="auto" unmountOnExit>
                                             <List component="div" disablePadding sx={{ ml: 2, borderLeft: '1px solid', borderColor: 'divider', my: 1 }}>
                                                 {item.subItems.map((sub) => {
-                                                    const isSubActive = location.pathname === sub.path;
+                                                    const isSubActive = location.pathname === sub.path || (sub.paths && sub.paths.includes(location.pathname));
                                                     return (
                                                         <ListItemButton
                                                             key={sub.path}
