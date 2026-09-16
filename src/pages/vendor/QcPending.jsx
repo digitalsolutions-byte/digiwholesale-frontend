@@ -1,3 +1,4 @@
+import VendorTabNav from '../../components/vendor/VendorTabNav';
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
@@ -159,6 +160,7 @@ const QcPending = () => {
 
     return (
         <div className="p-2 w-full h-full flex flex-col gap-4">
+            <VendorTabNav groupKey="QC" />
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
