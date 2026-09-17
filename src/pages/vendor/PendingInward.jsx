@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { getPendingInwardItems, createPurchaseInward } from '../../services/vendorOrderService';
+import { uploadMultipleDocuments } from '../../services/bucketService';
 import { toast } from 'react-toastify';
 
 const categoryIcon = {
@@ -25,6 +26,7 @@ const PendingInward = () => {
     const [vendorRefId, setVendorRefId] = useState('');
     const [remarks, setRemarks] = useState('');
     const [submittingInward, setSubmittingInward] = useState(false);
+    const [invoiceFiles, setInvoiceFiles] = useState([]);
 
     const [receivedBy, setReceivedBy]     = useState('');
     const [receivedOn, setReceivedOn]     = useState('');
@@ -60,6 +62,7 @@ const PendingInward = () => {
         setReceivedBy('');
         setReceivedOn(new Date().toISOString().split('T')[0]); // Default to today
         setReceivedFrom('');
+        setInvoiceFiles([]);
     };
 
     const handleSubmitInward = async () => {
@@ -76,12 +79,18 @@ const PendingInward = () => {
 
         setSubmittingInward(true);
         try {
+            let uploadedInvoices = [];
+            if (Array.isArray(invoiceFiles) && invoiceFiles.length > 0) {
+                uploadedInvoices = await uploadMultipleDocuments(invoiceFiles);
+            }
+
             const payload = {
                 purchaseOrderId: selectedItem.purchaseOrderId,
                 remarks: remarks || `Direct inward receipt for item ${selectedItem.itemName}`,
                 receivedBy:   receivedBy.trim()   || null,
                 receivedOn:   receivedOn          || new Date().toISOString().split('T')[0],
                 receivedFrom: receivedFrom.trim() || null,
+                invoices:     uploadedInvoices,
                 items: [{
                     itemId: selectedItem.itemId || selectedItem._id,
                     receivedQty: Number(receivedQty),
@@ -95,6 +104,7 @@ const PendingInward = () => {
             if (res.success) {
                 toast.success('Item inwarded successfully!');
                 setSelectedItem(null);
+                setInvoiceFiles([]);
                 fetchItems();
             } else {
                 toast.error(res.message || 'Failed to inward item');
@@ -434,6 +444,49 @@ const PendingInward = () => {
                                             className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]"
                                         />
                                     </div>
+                                </div>
+
+                                {/* Invoice / Challan Upload */}
+                                <div className="bg-[#eaf4fb]/40 border border-[#2980B9]/20 rounded-xl p-3.5 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                                            <Icon icon="lucide:paperclip" className="text-[#1F618D]" />
+                                            Invoices / Challans / Bills (Optional, max 5)
+                                        </label>
+                                        <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-gray-50 border border-[#2980B9]/30 text-[#1F618D] text-xs font-semibold rounded-lg cursor-pointer transition shadow-2xs">
+                                            <Icon icon="lucide:upload" className="text-xs" />
+                                            <span>Attach Files</span>
+                                            <input
+                                                type="file"
+                                                multiple
+                                                accept="application/pdf,image/*"
+                                                className="hidden"
+                                                onChange={e => {
+                                                    const newFiles = Array.from(e.target.files || []);
+                                                    setInvoiceFiles(prev => [...prev, ...newFiles].slice(0, 5));
+                                                    e.target.value = '';
+                                                }}
+                                            />
+                                        </label>
+                                    </div>
+                                    <p className="text-[11px] text-gray-400">Attach vendor purchase invoice PDFs, delivery challans, or bills for this inward receipt</p>
+                                    {invoiceFiles.length > 0 && (
+                                        <div className="flex flex-wrap gap-1.5 pt-1">
+                                            {invoiceFiles.map((f, fi) => (
+                                                <span key={fi} className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-blue-200 text-blue-800 text-[11px] font-medium rounded-lg shadow-2xs">
+                                                    <Icon icon="lucide:file-text" className="text-[#1F618D]" />
+                                                    <span className="truncate max-w-[150px]">{f.name}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setInvoiceFiles(prev => prev.filter((_, idx) => idx !== fi))}
+                                                        className="text-blue-400 hover:text-red-500 ml-1 font-bold text-sm leading-none"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
 
                             <div>

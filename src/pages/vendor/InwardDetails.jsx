@@ -244,6 +244,40 @@ const InwardDetails = () => {
                 </div>
             )}
 
+            {/* Attached Invoices / Challans / Bills */}
+            {Array.isArray(inward.invoices) && inward.invoices.length > 0 && (
+                <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+                    <span className="text-xs font-bold text-[#1F618D] uppercase tracking-wider flex items-center gap-1.5 mb-3">
+                        <Icon icon="lucide:file-text" className="text-sm text-[#2980B9]" />
+                        Attached Invoices & Challans ({inward.invoices.length})
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                        {inward.invoices.map((inv, idx) => (
+                            <a
+                                key={idx}
+                                href={inv.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-3 p-3 bg-gradient-to-r from-blue-50/70 to-indigo-50/50 hover:from-blue-100/70 hover:to-indigo-100/50 border border-blue-200/60 rounded-xl transition shadow-2xs group"
+                            >
+                                <div className="w-9 h-9 rounded-lg bg-blue-100 group-hover:bg-blue-200 text-[#1F618D] flex items-center justify-center shrink-0 transition">
+                                    <Icon icon={inv.mimetype?.includes('pdf') ? 'lucide:file-text' : 'lucide:image'} className="text-lg" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-bold text-gray-800 truncate group-hover:text-[#1F618D] transition">
+                                        {inv.originalName || `Invoice Document ${idx + 1}`}
+                                    </p>
+                                    <p className="text-[10px] text-gray-400 mt-0.5">
+                                        {inv.size ? `${(inv.size / 1024).toFixed(1)} KB • ` : ''}Click to view / download
+                                    </p>
+                                </div>
+                                <Icon icon="lucide:external-link" className="text-gray-400 group-hover:text-[#1F618D] text-xs shrink-0" />
+                            </a>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Items Table */}
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="p-4 border-b border-gray-100 bg-[#eaf4fb]/20">

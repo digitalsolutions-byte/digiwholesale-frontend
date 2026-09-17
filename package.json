@@ -17,7 +17,7 @@
     "@mui/x-date-pickers": "^8.27.0",
     "@reduxjs/toolkit": "^2.11.2",
     "@tanstack/react-table": "^8.21.3",
-    "axios": "^1.13.4",
+    "axios": "^1.20.0",
     "dayjs": "^1.11.19",
     "formik": "^2.4.9",
     "jsbarcode": "^3.12.3",
@@ -50,5 +50,8 @@
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
     "vite": "^7.2.4"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
   }
 }

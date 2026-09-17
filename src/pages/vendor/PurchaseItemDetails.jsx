@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { getPurchaseItemDetails, getVendorPurchaseOrders, updatePurchaseItem, deletePurchaseItem, createPurchaseInward, updateVendorRefIds, updatePurchaseReturnItemStatus, updateVendorPurchaseOrder } from '../../services/vendorOrderService';
+import { uploadMultipleDocuments } from '../../services/bucketService';
 import { toast } from 'react-toastify';
 import Swal from 'sweetalert2';
 import { PATHS } from '../../routes/paths';
@@ -72,6 +73,7 @@ const PurchaseItemDetails = () => {
     const [showInwardModal, setShowInwardModal] = useState(false);
     const [inwardRemarks, setInwardRemarks] = useState('');
     const [inwardItems, setInwardItems] = useState([]);
+    const [inwardInvoices, setInwardInvoices] = useState([]);
 
     // Edit Order Modal State
     const [showEditModal, setShowEditModal] = useState(false);
@@ -371,6 +373,7 @@ const PurchaseItemDetails = () => {
         setInwardReceivedBy('');
         setInwardReceivedOn(new Date().toISOString().split('T')[0]); // Default to today
         setInwardReceivedFrom('');
+        setInwardInvoices([]);
         setShowInwardModal(true);
     };
 
@@ -396,12 +399,18 @@ const PurchaseItemDetails = () => {
 
         setSubmittingInward(true);
         try {
+            let uploadedInvoices = [];
+            if (Array.isArray(inwardInvoices) && inwardInvoices.length > 0) {
+                uploadedInvoices = await uploadMultipleDocuments(inwardInvoices);
+            }
+
             const payload = {
                 purchaseOrderId: id,
                 remarks: inwardRemarks,
                 receivedBy:   inwardReceivedBy.trim()   || null,
                 receivedOn:   inwardReceivedOn          || new Date().toISOString().split('T')[0],
                 receivedFrom: inwardReceivedFrom.trim() || null,
+                invoices:     uploadedInvoices,
                 items: selectedItems.map(item => ({
                     itemId: item.itemId,
                     receivedQty: Number(item.receivedQty),
@@ -415,6 +424,7 @@ const PurchaseItemDetails = () => {
             if (response.success) {
                 toast.success('Items inwarded successfully!');
                 setShowInwardModal(false);
+                setInwardInvoices([]);
                 fetchDetails();
             } else {
                 toast.error(response.message || 'Failed to inward items');
@@ -770,6 +780,49 @@ const PurchaseItemDetails = () => {
                                         />
                                     </div>
                                 </div>
+                            </div>
+
+                            {/* Invoice / Challan Upload */}
+                            <div className="bg-[#eaf4fb]/40 border border-blue-200/60 rounded-xl p-4 space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                                        <Icon icon="lucide:paperclip" className="text-[#1F618D]" />
+                                        Invoices / Challans / Bills (Optional, max 5)
+                                    </label>
+                                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-gray-50 border border-[#2980B9]/30 text-[#1F618D] text-xs font-semibold rounded-lg cursor-pointer transition shadow-2xs">
+                                        <Icon icon="lucide:upload" className="text-xs" />
+                                        <span>Attach Files</span>
+                                        <input
+                                            type="file"
+                                            multiple
+                                            accept="application/pdf,image/*"
+                                            className="hidden"
+                                            onChange={e => {
+                                                const newFiles = Array.from(e.target.files || []);
+                                                setInwardInvoices(prev => [...prev, ...newFiles].slice(0, 5));
+                                                e.target.value = '';
+                                            }}
+                                        />
+                                    </label>
+                                </div>
+                                <p className="text-[11px] text-gray-400">Attach purchase invoices, delivery challans, or bills for this vendor purchase inward receipt</p>
+                                {inwardInvoices.length > 0 && (
+                                    <div className="flex flex-wrap gap-1.5 pt-1">
+                                        {inwardInvoices.map((f, fi) => (
+                                            <span key={fi} className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-blue-200 text-blue-800 text-[11px] font-medium rounded-lg shadow-2xs">
+                                                <Icon icon="lucide:file-text" className="text-[#1F618D]" />
+                                                <span className="truncate max-w-[160px]">{f.name}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setInwardInvoices(prev => prev.filter((_, idx) => idx !== fi))}
+                                                    className="text-blue-400 hover:text-red-500 ml-1 font-bold text-sm leading-none"
+                                                >
+                                                    ×
+                                                </button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Global Remarks */}

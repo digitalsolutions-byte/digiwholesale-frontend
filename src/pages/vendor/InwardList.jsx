@@ -63,13 +63,14 @@ const InwardList = () => {
                                 <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Items</th>
                                 <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Condition</th>
                                 <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Status</th>
+                                <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider text-center">Invoices</th>
                                 <th className="py-2.5 px-4 text-xs font-bold text-[#1F618D] uppercase tracking-wider">Inward Date</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="8" className="p-8 text-center text-gray-500">
+                                    <td colSpan="9" className="p-8 text-center text-gray-500">
                                         <div className="flex justify-center items-center gap-2">
                                             <Icon icon="lucide:loader-2" className="animate-spin text-xl text-erp-accent" />
                                             <span>Loading inward items...</span>
@@ -125,6 +126,16 @@ const InwardList = () => {
                                                 <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-700 rounded-full">
                                                     {inward.status || 'Pending'}
                                                 </span>
+                                            </td>
+                                            <td className="px-4 py-2 text-center" onClick={e => e.stopPropagation()}>
+                                                {Array.isArray(inward.invoices) && inward.invoices.length > 0 ? (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#1F618D] border border-blue-200">
+                                                        <Icon icon="lucide:paperclip" className="text-xs" />
+                                                        <span>{inward.invoices.length}</span>
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-300 text-xs">—</span>
+                                                )}
                                             </td>
                                             <td className="px-4 py-2 text-xs text-gray-500">
                                                 {new Date(inward.inwardDate || inward.createdAt).toLocaleDateString('en-IN')}

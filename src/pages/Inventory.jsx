@@ -20,11 +20,12 @@ import JsBarcode from "jsbarcode";
 import QRCode from "qrcode"; // npm install qrcode
 
 import * as XLSX from "xlsx";
-import { FiUpload, FiDownload, FiCheckCircle, FiAlertCircle, FiTrendingUp, FiTruck, FiUser, FiClock, FiFileText } from "react-icons/fi";
+import { FiUpload, FiDownload, FiCheckCircle, FiAlertCircle, FiTrendingUp, FiTruck, FiUser, FiClock, FiFileText, FiPaperclip } from "react-icons/fi";
 
 import { createPortal } from "react-dom";
 import { getProductDisplayImage } from "../utils/productUtils";
 import { getBatchesForProduct, allocateManualBatch } from "../services/batchService";
+import { uploadMultipleDocuments } from "../services/bucketService";
 
 const Modal = ({ children, onClose, maxWidth = "max-w-5xl" }) => {
     return createPortal(
@@ -257,7 +258,8 @@ export default function Inventory() {
         allocateBatch: true,
         batchNumber: "",
         batchQty: "",
-        batchRemarks: ""
+        batchRemarks: "",
+        invoices: []  // File[] — invoice/challan files for this product batch
     };
 
     const [rows, setRows] = useState([emptyRow]);
@@ -438,9 +440,20 @@ export default function Inventory() {
         if (errorMessage) { toast.error(errorMessage); return; }
         try {
             const formData = new FormData();
-            // Step 1: Clean products JSON (omit imageFile, previewUrl, and common image)
-            const sanitizedProducts = rows.map((product) => {
-                const { image, ...rest } = product;
+
+            // Step 1: Upload invoices per row (files → GCS urls)
+            const invoiceUploadResults = await Promise.all(
+                rows.map(async (product) => {
+                    if (Array.isArray(product.invoices) && product.invoices.length > 0) {
+                        return await uploadMultipleDocuments(product.invoices);
+                    }
+                    return [];
+                })
+            );
+
+            // Step 2: Clean products JSON (omit imageFile, previewUrl, invoices File objects)
+            const sanitizedProducts = rows.map((product, pIndex) => {
+                const { image, invoices: _invoiceFiles, ...rest } = product;
                 const buyingVal = Number(product.buyingPrice !== "" && product.buyingPrice != null ? product.buyingPrice : (product.price || 0));
                 const mrpVal = Number(product.mrp || 0);
                 const sellingVal = Number(product.sellingPrice !== "" && product.sellingPrice != null ? product.sellingPrice : (product.price || mrpVal));
@@ -461,12 +474,13 @@ export default function Inventory() {
                     batchNumber: product.batchNumber?.trim() || "",
                     batchQty: product.batchQty !== "" && product.batchQty !== null && product.batchQty !== undefined
                         ? Number(product.batchQty) : "",
-                    batchRemarks: product.batchRemarks?.trim() || ""
+                    batchRemarks: product.batchRemarks?.trim() || "",
+                    invoices: invoiceUploadResults[pIndex] || []
                 };
             });
             formData.append("products", JSON.stringify(sanitizedProducts));
 
-            // Step 2: Append color binary images using indexed keys: productColorImage_${pIndex}_${cIndex}
+            // Step 3: Append color binary images using indexed keys: productColorImage_${pIndex}_${cIndex}
             rows.forEach((product, pIndex) => {
                 if (Array.isArray(product.colors)) {
                     product.colors.forEach((colorItem, cIndex) => {
@@ -477,7 +491,7 @@ export default function Inventory() {
                 }
             });
 
-            // Step 3: Send POST request
+            // Step 4: Send POST request
             const res = await api.post("/api/digi/product", formData, { headers: { "Content-Type": "multipart/form-data" } });
             if (res.data.success) {
                 toast.success("Products added successfully");
@@ -708,7 +722,8 @@ export default function Inventory() {
                                                         </label>
                                                     </div>
                                                     {row.allocateBatch && (
-                                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                       <>
+                                                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                                             <FieldInput label="Batch Number">
                                                                 <input
                                                                     type="text"
@@ -739,7 +754,37 @@ export default function Inventory() {
                                                                 />
                                                             </FieldInput>
                                                         </div>
-                                                    )}
+                                                    {/* Invoice / Challan Upload */}
+                                                    <div className="mt-3">
+                                                            <label className="text-[10px] font-bold text-gray-600 uppercase tracking-wide block mb-1.5 flex items-center gap-1.5">
+                                                                <FiFileText size={11} className="text-[#2980b9]" /> Invoice / Challan (optional, max 5)
+                                                            </label>
+                                                            <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#eaf4fb] hover:bg-[#d5eaf6] border border-[#2980b9]/30 text-[#1F618D] text-[11px] font-semibold rounded-lg cursor-pointer transition">
+                                                                <FiUpload size={11} />
+                                                                Attach Files
+                                                                <input type="file" multiple accept="application/pdf,image/*" className="hidden"
+                                                                    onChange={e => {
+                                                                        const newFiles = Array.from(e.target.files || []);
+                                                                        handleChange(i, 'invoices', [...(row.invoices || []), ...newFiles].slice(0, 5));
+                                                                        e.target.value = '';
+                                                                    }}
+                                                                />
+                                                            </label>
+                                                            {(row.invoices || []).length > 0 && (
+                                                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                                                    {row.invoices.map((f, fi) => (
+                                                                        <span key={fi} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-medium rounded-full">
+                                                                            <FiFileText size={9} />
+                                                                            {f.name.length > 18 ? f.name.slice(0, 15) + '…' : f.name}
+                                                                            <button type="button" onClick={() => handleChange(i, 'invoices', row.invoices.filter((_, idx) => idx !== fi))} className="text-blue-400 hover:text-red-500 ml-0.5">×</button>
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        </>
+                                                        )}
+
                                                     {!row.allocateBatch && (
                                                         <p className="text-[11px] text-gray-400 mt-1">
                                                             No batch will be created. You can allocate batches later from the Inventory section.
@@ -2085,7 +2130,8 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
         mrp: "",
         vendorId: "",
         vendorName: "",
-        remarks: ""
+        remarks: "",
+        invoices: []  // File[] — invoice/challan files for this inward
     };
     const [inventoryRows, setInventoryRows] = useState([{ ...emptyInventoryRow }]);
     const [submittingInventory, setSubmittingInventory] = useState(false);
@@ -2128,7 +2174,19 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
         if (err) { Swal.fire({ icon: "error", title: "Validation Error", text: err }); return; }
         setSubmittingInventory(true);
         try {
-            const res = await api.post("/api/digi/product/add/inventory", { items: inventoryRows });
+            // Upload invoice files for each row (if any)
+            const itemsWithUploadedInvoices = await Promise.all(
+                inventoryRows.map(async (row) => {
+                    let uploadedInvoices = [];
+                    if (Array.isArray(row.invoices) && row.invoices.length > 0) {
+                        uploadedInvoices = await uploadMultipleDocuments(row.invoices);
+                    }
+                    const { invoices: _files, ...rest } = row;
+                    return { ...rest, invoices: uploadedInvoices };
+                })
+            );
+
+            const res = await api.post("/api/digi/product/add/inventory", { items: itemsWithUploadedInvoices });
             if (res.data.success) {
                 // Real-time table state update
                 if (res.data.updated && Array.isArray(res.data.updated)) {
@@ -3496,6 +3554,51 @@ const InventoryModal = ({
                                             <p className="text-[10px] text-gray-400 mt-1">Reference note for this batch</p>
                                         </FieldInput>
                                     </div>
+
+                                    {/* Invoice / Challan Upload */}
+                                    <div className="mt-3 pt-2.5 border-t border-gray-100">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                            <div>
+                                                <label className="text-[11px] font-bold text-gray-700 flex items-center gap-1.5">
+                                                    <FiPaperclip size={12} className="text-[#2980b9]" /> Invoice / Challan / Bill (Optional, max 5)
+                                                </label>
+                                                <p className="text-[10px] text-gray-400">Attach purchase invoices, bills, or delivery challans for this inward</p>
+                                            </div>
+                                            <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#eaf4fb] hover:bg-[#d5eaf6] border border-[#2980b9]/30 text-[#1F618D] text-xs font-semibold rounded-lg cursor-pointer transition self-start sm:self-auto">
+                                                <FiUpload size={12} />
+                                                <span>Attach Files</span>
+                                                <input
+                                                    type="file"
+                                                    multiple
+                                                    accept="application/pdf,image/*"
+                                                    className="hidden"
+                                                    onChange={e => {
+                                                        const newFiles = Array.from(e.target.files || []);
+                                                        const updated = [...(row.invoices || []), ...newFiles].slice(0, 5);
+                                                        updateRow(index, "invoices", updated);
+                                                        e.target.value = '';
+                                                    }}
+                                                />
+                                            </label>
+                                        </div>
+                                        {(row.invoices || []).length > 0 && (
+                                            <div className="flex flex-wrap gap-1.5 mt-2">
+                                                {row.invoices.map((f, fi) => (
+                                                    <span key={fi} className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 border border-blue-200 text-blue-800 text-[11px] font-medium rounded-lg">
+                                                        <FiFileText size={11} className="text-[#2980b9]" />
+                                                        <span className="truncate max-w-[160px]">{f.name}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => updateRow(index, "invoices", row.invoices.filter((_, idx) => idx !== fi))}
+                                                            className="text-blue-400 hover:text-red-500 ml-1 font-bold"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         );
@@ -3864,6 +3967,7 @@ const ProductDetailsHistoryModal = ({ product, onClose, onOpenEdit, onOpenBatche
                                                     <th className="px-4 py-3 whitespace-nowrap">Received From</th>
                                                     <th className="px-4 py-3 text-center whitespace-nowrap">Condition</th>
                                                     <th className="px-4 py-3 whitespace-nowrap">Remarks</th>
+                                                    <th className="px-4 py-3 text-center whitespace-nowrap">Invoices / Challans</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
@@ -3962,6 +4066,29 @@ const ProductDetailsHistoryModal = ({ product, onClose, onOpenEdit, onOpenBatche
                                                         <td className="px-4 py-3 text-gray-400 text-[11px] max-w-[150px] truncate" title={item.remarks}>
                                                             {item.remarks || "—"}
                                                         </td>
+
+                                                        {/* Invoices / Challans */}
+                                                        <td className="px-4 py-3 whitespace-nowrap text-center">
+                                                            {Array.isArray(item.invoices) && item.invoices.length > 0 ? (
+                                                                <div className="flex items-center justify-center gap-1 flex-wrap max-w-[160px] mx-auto">
+                                                                    {item.invoices.map((inv, invIdx) => (
+                                                                        <a
+                                                                            key={invIdx}
+                                                                            href={inv.url}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-[#1F618D] border border-blue-200 rounded-md text-[10px] font-semibold transition"
+                                                                            title={inv.originalName || `Invoice ${invIdx + 1}`}
+                                                                        >
+                                                                            <FiFileText size={10} className="text-[#2980b9]" />
+                                                                            <span className="truncate max-w-[70px]">{inv.originalName || `Inv ${invIdx + 1}`}</span>
+                                                                        </a>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-gray-300">—</span>
+                                                            )}
+                                                        </td>
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -3996,6 +4123,7 @@ const ProductDetailsHistoryModal = ({ product, onClose, onOpenEdit, onOpenBatche
                                                     <th className="px-4 py-3 text-center">Status</th>
                                                     <th className="px-4 py-3">Inward Date</th>
                                                     <th className="px-4 py-3">Remarks</th>
+                                                    <th className="px-4 py-3 text-center">Invoices</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
@@ -4033,6 +4161,27 @@ const ProductDetailsHistoryModal = ({ product, onClose, onOpenEdit, onOpenBatche
                                                         </td>
                                                         <td className="px-4 py-3 text-gray-400 text-[11px] max-w-[150px] truncate" title={b.remarks}>
                                                             {b.remarks || "—"}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center">
+                                                            {Array.isArray(b.invoices) && b.invoices.length > 0 ? (
+                                                                <div className="flex items-center justify-center gap-1 flex-wrap max-w-[140px] mx-auto">
+                                                                    {b.invoices.map((inv, invIdx) => (
+                                                                        <a
+                                                                            key={invIdx}
+                                                                            href={inv.url}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-[#1F618D] border border-blue-200 rounded-md text-[10px] font-semibold transition"
+                                                                            title={inv.originalName || `Invoice ${invIdx + 1}`}
+                                                                        >
+                                                                            <FiFileText size={10} className="text-[#2980b9]" />
+                                                                            <span className="truncate max-w-[60px]">{inv.originalName || `Inv ${invIdx + 1}`}</span>
+                                                                        </a>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-gray-300">—</span>
+                                                            )}
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -6133,6 +6282,7 @@ const BatchManagementModal = ({ isOpen, onClose, product, batches, summary, load
                                         <th className="px-4 py-3 text-center">Status</th>
                                         <th className="px-4 py-3">Inward Date</th>
                                         <th className="px-4 py-3">Remarks</th>
+                                        <th className="px-4 py-3 text-center">Invoices</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
@@ -6155,6 +6305,27 @@ const BatchManagementModal = ({ isOpen, onClose, product, batches, summary, load
                                             </td>
                                             <td className="px-4 py-3 text-gray-500 text-[11px]">{b.inwardDate ? new Date(b.inwardDate).toLocaleDateString('en-IN') : '—'}</td>
                                             <td className="px-4 py-3 text-gray-400 text-[11px] max-w-[150px] truncate" title={b.remarks}>{b.remarks || '—'}</td>
+                                            <td className="px-4 py-3 text-center">
+                                                {Array.isArray(b.invoices) && b.invoices.length > 0 ? (
+                                                    <div className="flex items-center justify-center gap-1 flex-wrap max-w-[140px] mx-auto">
+                                                        {b.invoices.map((inv, invIdx) => (
+                                                            <a
+                                                                key={invIdx}
+                                                                href={inv.url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-[#1F618D] border border-blue-200 rounded-md text-[10px] font-semibold transition"
+                                                                title={inv.originalName || `Invoice ${invIdx + 1}`}
+                                                            >
+                                                                <FiFileText size={10} className="text-[#2980b9]" />
+                                                                <span className="truncate max-w-[60px]">{inv.originalName || `Inv ${invIdx + 1}`}</span>
+                                                            </a>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-300">—</span>
+                                                )}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
