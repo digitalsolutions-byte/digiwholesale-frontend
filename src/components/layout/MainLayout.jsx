@@ -14,6 +14,7 @@ import {
     Tooltip
 } from '@mui/material';
 import GoBackButton from '../navigation/GoBackButton';
+import DemoAgreementModal from '../ui/DemoAgreementModal';
 
 const MainLayout = () => {
     const theme = useTheme();
@@ -128,6 +129,9 @@ const MainLayout = () => {
                     </Box>
                 </Container>
             </Box>
+
+            {/* Mandatory Confidential Demo Access Modal */}
+            <DemoAgreementModal />
 
             {/* Floating Action Button (New Order) */}
             <Tooltip title="Create New Order" placement="left">

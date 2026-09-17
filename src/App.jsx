@@ -7,6 +7,8 @@ import './App.css';
 
 import { PATHS, routesConfig, getFirstAllowedRoute } from './routes/config';
 import ProtectedRoute from './components/ProtectedRoute';
+import DemoAgreementModal from './components/ui/DemoAgreementModal';
+import DemoWatermark from './components/ui/DemoWatermark';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { ThemeProvider } from '@mui/material/styles';
@@ -142,6 +144,8 @@ function App() {
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
                     <BrowserRouter>
                         <FeatureFlagsProvider>
+                            <DemoAgreementModal />
+                            <DemoWatermark />
                             <div className="app-root min-h-screen bg-gray-50 text-gray-900 font-sans">
                                 <Routes>
                                     {renderRoutes(routesConfig)}

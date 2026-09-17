@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import { userCustomerLogin } from '../services/customerService';
 import { setCredentials } from '../store/slices/authSlice';
+import DemoAgreementModal from '../components/ui/DemoAgreementModal';
 import { PATHS } from '../routes/paths';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
@@ -48,8 +49,8 @@ const CustomerLogin = () => {
                         user: response.data.user,
                         token: response.data.tokens.accessToken
                     }));
-                    toast.success('Login Successful');
-                    navigate('/customer-portal', { replace: true });
+                    localStorage.removeItem('digioptics_demo_acknowledged');
+                    setShowDemoModal(true);
                 } else {
                     toast.error(response.message || 'Login failed');
                 }
@@ -60,6 +61,15 @@ const CustomerLogin = () => {
     });
 
     return (
+        <>
+            <DemoAgreementModal
+                forceOpen={showDemoModal}
+                onClose={() => {
+                    setShowDemoModal(false);
+                    toast.success('Login Successful');
+                    navigate('/customer-portal', { replace: true });
+                }}
+            />
         <Box sx={{
             minHeight: '100vh',
             display: 'flex',
@@ -214,6 +224,7 @@ const CustomerLogin = () => {
                 </Typography>
             </Container>
         </Box>
+        </>
     );
 };
 

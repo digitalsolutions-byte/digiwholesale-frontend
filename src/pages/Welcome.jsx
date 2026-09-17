@@ -6,6 +6,7 @@ import { PATHS } from '../routes/paths';
 import { getFirstAllowedRoute } from '../routes/config';
 import { useSelector } from 'react-redux';
 import { selectCurrentUser } from '../store/slices/authSlice';
+import DemoAgreementModal from '../components/ui/DemoAgreementModal';
 import {
     Box,
     Typography,
@@ -23,6 +24,11 @@ const Welcome = () => {
     const location = useLocation();
     const theme = useTheme();
     const user = useSelector(selectCurrentUser);
+
+    const [demoAccepted, setDemoAccepted] = useState(() => {
+        return localStorage.getItem('digioptics_demo_acknowledged') === 'true';
+    });
+
     const [message] = useState(() => {
         if (location.state?.from === 'register') return 'User Registered Successfully!';
         if (location.state?.from === 'customer-register') return 'Registration Complete!';
@@ -30,7 +36,10 @@ const Welcome = () => {
         return 'Welcome Back!';
     });
 
+    // Auto-redirect ONLY after demo agreement is accepted!
     useEffect(() => {
+        if (!demoAccepted) return; // Fail-safe: Wait until demo NDA popup is accepted if accessed directly
+
         const timer = setTimeout(() => {
             const redirectPath = location.state?.from === 'register'
                 ? PATHS.STAFF.LIST
@@ -41,7 +50,7 @@ const Welcome = () => {
         }, 3000);
 
         return () => clearTimeout(timer);
-    }, [navigate, location, user]);
+    }, [navigate, location, user, demoAccepted]);
 
     return (
         <Box
@@ -56,6 +65,14 @@ const Welcome = () => {
                 overflow: 'hidden'
             }}
         >
+            {/* Fail-safe Demo Non-Disclosure Popup if accessed directly without accepting */}
+            {!demoAccepted && (
+                <DemoAgreementModal
+                    forceOpen={!demoAccepted}
+                    onClose={() => setDemoAccepted(true)}
+                />
+            )}
+
             <Box
                 sx={{
                     position: 'absolute',
@@ -147,8 +164,7 @@ const Welcome = () => {
                                 Go to Home
                             </Button>
                         </Box>
-                    )
-                    }
+                    )}
 
                 </Paper>
             </Fade>
@@ -157,5 +173,3 @@ const Welcome = () => {
 };
 
 export default Welcome;
-
-

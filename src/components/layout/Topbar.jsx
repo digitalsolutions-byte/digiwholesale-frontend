@@ -166,6 +166,37 @@ const Topbar = ({ onMenuClick }) => {
             {/* ── Right: actions ────────────────────────────────────────── */}
             <Stack direction="row" alignItems="center" spacing={1}>
 
+                {/* Confidential Demo Access NDA Button */}
+                <Tooltip title="View Confidential Demo Access Agreement" placement="bottom">
+                    <Box
+                        onClick={() => window.dispatchEvent(new Event('open-demo-modal'))}
+                        sx={{
+                            px: 1.2,
+                            py: '4px',
+                            borderRadius: '10px',
+                            bgcolor: 'rgba(255, 193, 7, 0.2)',
+                            color: '#FFD54F',
+                            border: '1px solid rgba(255, 193, 7, 0.4)',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.8,
+                            transition: 'all .2s',
+                            '&:hover': {
+                                bgcolor: 'rgba(255, 193, 7, 0.35)',
+                                transform: 'scale(1.02)'
+                            }
+                        }}
+                    >
+                        <Icon icon="mdi:shield-lock-outline" style={{ fontSize: '15px' }} />
+                        <span>Demo NDA</span>
+                    </Box>
+                </Tooltip>
+
                 {/* Notifications */}
                 <Tooltip title="Notifications" placement="bottom">
                     <IconButton

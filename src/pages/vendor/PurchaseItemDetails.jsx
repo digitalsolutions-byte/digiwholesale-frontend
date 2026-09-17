@@ -849,8 +849,6 @@ const PurchaseItemDetails = () => {
                                                         className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition-all bg-white"
                                                     >
                                                         <option value="GOOD">GOOD</option>
-                                                        <option value="DAMAGED">DAMAGED</option>
-                                                        <option value="DEFECTIVE">DEFECTIVE</option>
                                                         <option value="PARTIAL">PARTIAL</option>
                                                     </select>
                                                 </div>
