@@ -20,7 +20,7 @@ import JsBarcode from "jsbarcode";
 import QRCode from "qrcode"; // npm install qrcode
 
 import * as XLSX from "xlsx";
-import { FiUpload, FiDownload, FiCheckCircle, FiAlertCircle, FiTrendingUp, FiTruck, FiUser, FiClock, FiFileText, FiPaperclip } from "react-icons/fi";
+import { FiUpload, FiDownload, FiCheckCircle, FiAlertCircle, FiAlertTriangle, FiTrendingUp, FiTruck, FiUser, FiClock, FiFileText, FiPaperclip } from "react-icons/fi";
 
 import { createPortal } from "react-dom";
 import { getProductDisplayImage } from "../utils/productUtils";
@@ -2971,6 +2971,7 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
             {openInventoryHistoryTableModal && (
                 <ProductDetailsHistoryModal
                     product={selectedProduct}
+                    vendors={vendors}
                     onClose={() => { setSelectedProduct(null); setOpenInventoryHistoryTableModal(false); }}
                     onOpenEdit={(prod) => {
                         setOpenInventoryHistoryTableModal(false);
@@ -3657,13 +3658,30 @@ const InventoryModal = ({
 
 
 // ─── Product Details & Receiving History Modal ─────────────────────────────────
-const ProductDetailsHistoryModal = ({ product, onClose, onOpenEdit, onOpenBatches }) => {
+const ProductDetailsHistoryModal = ({ product, vendors = [], onClose, onOpenEdit, onOpenBatches }) => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState("RECEIVING"); // 'RECEIVING' | 'BATCHES' | 'SPECS'
     const [productDetails, setProductDetails] = useState(product || null);
     const [receivingHistory, setReceivingHistory] = useState([]);
     const [batches, setBatches] = useState([]);
     const [historySearch, setHistorySearch] = useState("");
+
+    const getVendorDisplayName = useCallback((vendorObj, fallback) => {
+        if (!vendorObj && !fallback) return "—";
+        if (typeof vendorObj === "string") {
+            const found = vendors.find(v => (v._id || v.id) === vendorObj);
+            return found ? (found.vendorName || found.name || found.companyName) : vendorObj;
+        }
+        if (vendorObj && typeof vendorObj === "object") {
+            if (vendorObj.name) return vendorObj.name;
+            const targetId = (vendorObj.id?._id || vendorObj.id || vendorObj._id)?.toString();
+            if (targetId) {
+                const found = vendors.find(v => (v._id || v.id)?.toString() === targetId);
+                return found ? (found.vendorName || found.name || found.companyName) : "—";
+            }
+        }
+        return fallback || "—";
+    }, [vendors]);
 
     useEffect(() => {
         if (product?._id) {
@@ -3715,7 +3733,9 @@ const ProductDetailsHistoryModal = ({ product, onClose, onOpenEdit, onOpenBatche
             (item.invoiceNumber && item.invoiceNumber.toLowerCase().includes(q)) ||
             (item.orderNumber && item.orderNumber.toLowerCase().includes(q)) ||
             (item.receivedBy && item.receivedBy.toLowerCase().includes(q)) ||
-            (item.receivedFrom && item.receivedFrom.toLowerCase().includes(q))
+            (item.receivedFrom && item.receivedFrom.toLowerCase().includes(q)) ||
+            (item.failureReason && item.failureReason.toLowerCase().includes(q)) ||
+            (item.qcStatus && item.qcStatus.toLowerCase().includes(q))
         );
     }, [receivingHistory, historySearch]);
 
@@ -3857,8 +3877,8 @@ const ProductDetailsHistoryModal = ({ product, onClose, onOpenEdit, onOpenBatche
                         <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block mb-1">
                             Primary Vendor
                         </span>
-                        <span className="text-xs font-bold text-gray-800 block truncate" title={curr.vendor?.name || curr.vendorName || "—"}>
-                            {curr.vendor?.name || curr.vendorName || "—"}
+                        <span className="text-xs font-bold text-gray-800 block truncate" title={getVendorDisplayName(curr.vendor, curr.vendorName)}>
+                            {getVendorDisplayName(curr.vendor, curr.vendorName)}
                         </span>
                     </div>
                 </div>
@@ -3960,6 +3980,8 @@ const ProductDetailsHistoryModal = ({ product, onClose, onOpenEdit, onOpenBatche
                                                     <th className="px-4 py-3 whitespace-nowrap">Vendor Name</th>
                                                     <th className="px-4 py-3 text-center whitespace-nowrap">Batch Stock (Remaining)</th>
                                                     <th className="px-4 py-3 text-center whitespace-nowrap">Qty Received</th>
+                                                    <th className="px-4 py-3 text-center whitespace-nowrap">QC Passed</th>
+                                                    <th className="px-4 py-3 text-center whitespace-nowrap">QC Failed</th>
                                                     <th className="px-4 py-3 text-right whitespace-nowrap">Buying Price</th>
                                                     <th className="px-4 py-3 text-right whitespace-nowrap">Selling Price</th>
                                                     <th className="px-4 py-3 text-right whitespace-nowrap">MRP</th>
@@ -3994,7 +4016,7 @@ const ProductDetailsHistoryModal = ({ product, onClose, onOpenEdit, onOpenBatche
 
                                                         {/* Vendor Name */}
                                                         <td className="px-4 py-3 whitespace-nowrap font-bold text-gray-800">
-                                                            {item.vendorName || "—"}
+                                                            {item.vendorName && item.vendorName !== "—" ? item.vendorName : getVendorDisplayName(curr.vendor, "—")}
                                                         </td>
 
                                                         {/* Batch Stock (Remaining) */}
@@ -4020,6 +4042,41 @@ const ProductDetailsHistoryModal = ({ product, onClose, onOpenEdit, onOpenBatche
                                                                 <span className="text-[10px] text-gray-400 block">
                                                                     (Ord: {item.orderedQty})
                                                                 </span>
+                                                            )}
+                                                        </td>
+
+                                                        {/* QC Passed */}
+                                                        <td className="px-4 py-3 text-center whitespace-nowrap">
+                                                            {item.passedQty != null ? (
+                                                                <span className={`px-2 py-0.5 rounded-full text-xs font-bold inline-flex items-center gap-1 ${
+                                                                    Number(item.passedQty) > 0
+                                                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                                                        : "text-gray-400"
+                                                                }`}>
+                                                                    <FiCheckCircle size={11} className={Number(item.passedQty) > 0 ? "text-emerald-600" : "text-gray-400"} />
+                                                                    <span>{item.passedQty}</span>
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-gray-400 text-xs">—</span>
+                                                            )}
+                                                        </td>
+
+                                                        {/* QC Failed */}
+                                                        <td className="px-4 py-3 text-center whitespace-nowrap">
+                                                            {Number(item.failedQty || 0) > 0 ? (
+                                                                <div className="flex flex-col items-center">
+                                                                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-200 inline-flex items-center gap-1" title={item.failureReason || "QC Failed"}>
+                                                                        <FiAlertTriangle size={11} className="text-red-500" />
+                                                                        <span>{item.failedQty}</span>
+                                                                    </span>
+                                                                    {item.failureReason && (
+                                                                        <span className="text-[10px] text-red-500 block truncate max-w-[110px] mt-0.5" title={item.failureReason}>
+                                                                            {item.failureReason}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-gray-300 text-xs font-medium">0</span>
                                                             )}
                                                         </td>
 
