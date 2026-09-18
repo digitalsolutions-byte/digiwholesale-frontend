@@ -101,7 +101,7 @@ const navItems = [
                 page: 'VENDOR_LIST'
             },
             {
-                label: 'Quality Control (QC)',
+                label: 'Quality Check(QC)',
                 path: PATHS.VENDOR.QC_PENDING,
                 paths: [PATHS.VENDOR.QC_PENDING, PATHS.VENDOR.QC_PASSED, PATHS.VENDOR.PURCHASE_RETURNS, PATHS.VENDOR.QC_LIST, PATHS.VENDOR.QC_FAILED_REPORT],
                 page: 'VENDOR_LIST'

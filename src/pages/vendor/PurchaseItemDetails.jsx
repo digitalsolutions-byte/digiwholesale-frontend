@@ -363,7 +363,7 @@ const PurchaseItemDetails = () => {
                     expectedQty: item.qty || 1,
                     receivedQty: item.qty || 1,
                     condition: 'GOOD',
-                    vendorRefId: vendorId,
+                    vendorRefId: item.vendorRefId || subOrder.vendorRefId || orderDetails.vendorRefId || (orderDetails.vendor?.vendorNumber) || '',
                     remarks: '',
                 });
             });
