@@ -2792,6 +2792,12 @@ const OrderWizard = () => {
                                         <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
                                             Selling Price (₹)
                                         </th>
+                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-emerald-700/30">
+                                            Buying Price (₹)
+                                        </th>
+                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-amber-700/30">
+                                            MRP (₹)
+                                        </th>
 
                                         {/* Tax & Disc Group Header */}
                                         {expandedGroups.tax ? (
@@ -3248,6 +3254,32 @@ const OrderWizard = () => {
                                                             onClick={(e) => e.stopPropagation()}
                                                         />
                                                     </td>
+                                                    {/* Buying Price Input */}
+                                                    <td className="px-2 py-2 border-r border-gray-100 min-w-[80px] text-center bg-emerald-50/30">
+                                                        <input
+                                                            type="number"
+                                                            className="w-20 h-8 text-xs text-center mx-auto bg-white border border-emerald-200 rounded-lg px-1.5 py-1 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-400/20 transition-all font-bold text-emerald-800 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                                            name={`products.${index}.buyingPrice`}
+                                                            value={product.buyingPrice || 0}
+                                                            onChange={formik.handleChange}
+                                                            disabled={isReadOnly}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            placeholder="Buying ₹"
+                                                        />
+                                                    </td>
+                                                    {/* MRP Input */}
+                                                    <td className="px-2 py-2 border-r border-gray-100 min-w-[80px] text-center bg-amber-50/30">
+                                                        <input
+                                                            type="number"
+                                                            className="w-20 h-8 text-xs text-center mx-auto bg-white border border-amber-200 rounded-lg px-1.5 py-1 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-400/20 transition-all font-bold text-amber-800 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                                            name={`products.${index}.MRP`}
+                                                            value={product.MRP || 0}
+                                                            onChange={formik.handleChange}
+                                                            disabled={isReadOnly}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            placeholder="MRP ₹"
+                                                        />
+                                                    </td>
 
                                                     {/* Tax & Discount Group (Disc, GST %, GST Amt) */}
                                                     {expandedGroups.tax ? (
@@ -3672,6 +3704,37 @@ const OrderWizard = () => {
                                                     onChange={formik.handleChange}
                                                     disabled={product.orderType === 'stock' || isReadOnly}
                                                 />
+                                            </div>
+                                            {/* Buying Price & MRP Row */}
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-emerald-700 uppercase tracking-wider mb-1">
+                                                        Buying Price (₹)
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        className="w-full text-xs font-semibold text-center bg-emerald-50 border border-emerald-200 rounded-xl px-2 py-2.5 outline-none focus:border-emerald-500"
+                                                        name={`products.${index}.buyingPrice`}
+                                                        value={product.buyingPrice || 0}
+                                                        onChange={formik.handleChange}
+                                                        disabled={isReadOnly}
+                                                        placeholder="Vendor buying cost"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-amber-700 uppercase tracking-wider mb-1">
+                                                        MRP (₹)
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        className="w-full text-xs font-semibold text-center bg-amber-50 border border-amber-200 rounded-xl px-2 py-2.5 outline-none focus:border-amber-500"
+                                                        name={`products.${index}.MRP`}
+                                                        value={product.MRP || 0}
+                                                        onChange={formik.handleChange}
+                                                        disabled={isReadOnly}
+                                                        placeholder="Max retail price"
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
 

@@ -324,7 +324,7 @@ export default function VendorList() {
 
     const emptyRow = {
         isNewProduct: true, productId: null,
-        productCode: "", category: "LENS", productName: "", quantity: 1, price: "", mrp: "", gstPercent: "0", expectedDate: "",
+        productCode: "", category: "LENS", productName: "", quantity: 1, price: "", buyingPrice: "", sellingPrice: "", mrp: "", gstPercent: "0", expectedDate: "",
         sph: "", cyl: "", add: "",
         brand: "", color: "", size: "", shape: "", material: "", dimensions: "", unit: "PIECE", hsnSac: "",
         index: "", tint: "", coating: "", expiry: "", disposability: "", discountPercent: 0, discountAmount: 0, axis: 0
@@ -345,7 +345,9 @@ export default function VendorList() {
             productName: product.name || product.itemName || product.productName || "",
             productCode: product.code || product.productCode || "",
             category: product.category || "",
-            price: product.price || product.mrp || "",
+            price: product.buyingPrice || product.price || product.mrp || "",
+            buyingPrice: product.buyingPrice || product.price || "",
+            sellingPrice: product.sellingPrice || "",
             mrp: product.mrp || product.price || "",
             gstPercent: product.gst || product.gstPercent || "0",
             sph: product.sph || "",
@@ -466,6 +468,7 @@ export default function VendorList() {
                 const isLens = r.category && (r.category.toUpperCase() === 'LENS' || r.category.toUpperCase() === 'CONTACT_LENS');
                 const isContactLens = r.category && r.category.toUpperCase() === 'CONTACT_LENS';
 
+                const buyingPriceVal = Number(r.buyingPrice || r.price || 0);
                 const item = {
                     isNewProduct: r.isNewProduct ?? true,
                     orderType: r.orderType || "STOCK",
@@ -480,8 +483,10 @@ export default function VendorList() {
                     dimensions: r.dimensions || "",
                     unit: r.unit || "PIECE",
                     qty: Number(r.quantity),
-                    price: Number(r.price),
-                    mrp: Number(r.mrp || r.price),
+                    price: buyingPriceVal,
+                    buyingPrice: buyingPriceVal,
+                    sellingPrice: Number(r.sellingPrice || 0),
+                    mrp: Number(r.mrp || r.sellingPrice || r.price || 0),
                     gst: Number(r.gstPercent || 0),
                     hsnSac: r.hsnSac || "",
                     discountPercent: Number(r.discountPercent || 0),
@@ -967,7 +972,9 @@ export default function VendorList() {
                                                     <th className="px-3 py-3 text-left border-r border-sky-700">Product Name & Summary</th>
                                                     <th className="px-3 py-3 text-center w-20 border-r border-sky-700">QTY</th>
                                                     <th className="px-3 py-3 text-center w-20 border-r border-sky-700">Unit</th>
-                                                    <th className="px-3 py-3 text-center w-28 border-r border-sky-700">Unit Price (₹)</th>
+                                                    <th className="px-3 py-3 text-center w-28 border-r border-sky-700 bg-emerald-700">Buying Price (₹)</th>
+                                                    <th className="px-3 py-3 text-center w-28 border-r border-sky-700 bg-violet-700">Selling Price (₹)</th>
+                                                    <th className="px-3 py-3 text-center w-24 border-r border-sky-700 bg-amber-600">MRP (₹)</th>
                                                     <th className="px-3 py-3 text-center w-28 border-r border-sky-700 bg-sky-800">GST Breakdown</th>
                                                     <th className="px-3 py-3 text-right w-36 border-r border-sky-700 bg-sky-900">Total Incl. GST (₹)</th>
                                                     <th className="px-3 py-3 text-center w-28">Actions</th>
@@ -1031,9 +1038,17 @@ export default function VendorList() {
                                                                         <option value="SET">SET</option>
                                                                     </select>
                                                                 </td>
-                                                                <td className="px-2 py-2 border-r border-slate-200 bg-sky-50/20">
-                                                                    <input type="number" min="0" placeholder="0.00" value={row.price} onChange={e => handleChangeRow(index, "price", e.target.value)}
-                                                                        className="w-full bg-white border border-slate-200 focus:border-[#2980B9] rounded-lg px-2 py-1.5 text-xs font-extrabold text-slate-900 outline-none focus:ring-2 focus:ring-[#2980B9]/20 transition-all" />
+                                                                <td className="px-2 py-2 border-r border-slate-200 bg-emerald-50/40">
+                                                                    <input type="number" min="0" placeholder="0.00" value={row.buyingPrice} onChange={e => { handleChangeRow(index, "buyingPrice", e.target.value); handleChangeRow(index, "price", e.target.value); }}
+                                                                        className="w-full bg-white border border-emerald-200 focus:border-emerald-500 rounded-lg px-2 py-1.5 text-xs font-extrabold text-emerald-800 outline-none focus:ring-2 focus:ring-emerald-400/20 transition-all" />
+                                                                </td>
+                                                                <td className="px-2 py-2 border-r border-slate-200 bg-violet-50/30">
+                                                                    <input type="number" min="0" placeholder="0.00" value={row.sellingPrice} onChange={e => handleChangeRow(index, "sellingPrice", e.target.value)}
+                                                                        className="w-full bg-white border border-violet-200 focus:border-violet-500 rounded-lg px-2 py-1.5 text-xs font-extrabold text-violet-800 outline-none focus:ring-2 focus:ring-violet-400/20 transition-all" />
+                                                                </td>
+                                                                <td className="px-2 py-2 border-r border-slate-200 bg-amber-50/30">
+                                                                    <input type="number" min="0" placeholder="0.00" value={row.mrp} onChange={e => handleChangeRow(index, "mrp", e.target.value)}
+                                                                        className="w-full bg-white border border-amber-200 focus:border-amber-500 rounded-lg px-2 py-1.5 text-xs font-extrabold text-amber-800 outline-none focus:ring-2 focus:ring-amber-400/20 transition-all" />
                                                                 </td>
 
                                                                 {/* GST Breakdown Column */}
@@ -1185,48 +1200,71 @@ export default function VendorList() {
                                                                             </div>
 
                                                                             {/* 4. Pricing, GST Amount & Tax Breakdown */}
-                                                                            <div className="grid grid-cols-2 sm:grid-cols-7 gap-3 pt-2 border-t border-slate-100">
-                                                                                <div>
-                                                                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Brand Name</label>
-                                                                                    <input type="text" placeholder="e.g. RayBan" value={row.brand} onChange={e => handleChangeRow(index, "brand", e.target.value)}
-                                                                                        className="w-full mt-1 bg-slate-50 border border-slate-200 focus:border-[#2980B9] rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800 outline-none" />
-                                                                                </div>
-                                                                                <div>
-                                                                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Product Code</label>
-                                                                                    <input type="text" placeholder="e.g. RB3025" value={row.productCode} onChange={e => handleChangeRow(index, "productCode", e.target.value)}
-                                                                                        className="w-full mt-1 bg-slate-50 border border-slate-200 focus:border-[#2980B9] rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800 outline-none" />
-                                                                                </div>
-                                                                                <div>
-                                                                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">HSN/SAC Code</label>
-                                                                                    <input type="text" placeholder="e.g. 9001" value={row.hsnSac} onChange={e => handleChangeRow(index, "hsnSac", e.target.value)}
-                                                                                        className="w-full mt-1 bg-slate-50 border border-slate-200 focus:border-[#2980B9] rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800 outline-none" />
-                                                                                </div>
-                                                                                <div>
-                                                                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">MRP (₹)</label>
-                                                                                    <input type="number" placeholder="0.00" value={row.mrp} onChange={e => handleChangeRow(index, "mrp", e.target.value)}
-                                                                                        className="w-full mt-1 bg-slate-50 border border-slate-200 focus:border-[#2980B9] rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800 outline-none" />
-                                                                                </div>
-                                                                                <div>
-                                                                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">GST % Rate</label>
-                                                                                    <select value={row.gstPercent} onChange={e => handleChangeRow(index, "gstPercent", e.target.value)}
-                                                                                        className="w-full mt-1 bg-slate-50 border border-slate-200 focus:border-[#2980B9] rounded-lg px-2 py-1.5 text-xs font-bold text-slate-800 outline-none">
-                                                                                        <option value="0">0% GST</option>
-                                                                                        <option value="5">5% GST</option>
-                                                                                        <option value="12">12% GST</option>
-                                                                                        <option value="18">18% GST</option>
-                                                                                        <option value="28">28% GST</option>
-                                                                                    </select>
-                                                                                </div>
-                                                                                <div>
-                                                                                    <label className="text-[10px] font-bold uppercase tracking-wider text-[#2980B9]">GST Amount (₹)</label>
-                                                                                    <div className="w-full mt-1 bg-sky-50 border border-sky-200 rounded-lg px-2 py-1.5 text-xs font-black text-[#2980B9]">
-                                                                                        + ₹ {rowGstAmt.toFixed(2)}
+                                                                            <div className="pt-2 border-t border-slate-100 space-y-3">
+                                                                                <span className="text-[11px] font-extrabold text-[#2980B9] uppercase tracking-wide">Pricing & GST</span>
+                                                                                {/* Pricing row */}
+                                                                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                                                                    <div>
+                                                                                        <label className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Buying Price (₹) <span className="text-rose-400">*</span></label>
+                                                                                        <input type="number" placeholder="0.00" value={row.buyingPrice} onChange={e => { handleChangeRow(index, "buyingPrice", e.target.value); handleChangeRow(index, "price", e.target.value); }}
+                                                                                            className="w-full mt-1 bg-emerald-50 border border-emerald-200 focus:border-emerald-500 rounded-lg px-2 py-1.5 text-xs font-bold text-emerald-800 outline-none" />
+                                                                                        <p className="text-[9px] text-slate-400 mt-0.5 ml-1">Purchase rate from vendor</p>
+                                                                                    </div>
+                                                                                    <div>
+                                                                                        <label className="text-[10px] font-bold uppercase tracking-wider text-violet-700">Selling Price (₹)</label>
+                                                                                        <input type="number" placeholder="0.00" value={row.sellingPrice} onChange={e => handleChangeRow(index, "sellingPrice", e.target.value)}
+                                                                                            className="w-full mt-1 bg-violet-50 border border-violet-200 focus:border-violet-500 rounded-lg px-2 py-1.5 text-xs font-bold text-violet-800 outline-none" />
+                                                                                        <p className="text-[9px] text-slate-400 mt-0.5 ml-1">Intended selling to customer</p>
+                                                                                    </div>
+                                                                                    <div>
+                                                                                        <label className="text-[10px] font-bold uppercase tracking-wider text-amber-700">MRP (₹)</label>
+                                                                                        <input type="number" placeholder="0.00" value={row.mrp} onChange={e => handleChangeRow(index, "mrp", e.target.value)}
+                                                                                            className="w-full mt-1 bg-amber-50 border border-amber-200 focus:border-amber-500 rounded-lg px-2 py-1.5 text-xs font-bold text-amber-800 outline-none" />
+                                                                                        <p className="text-[9px] text-slate-400 mt-0.5 ml-1">Max retail / printed price</p>
                                                                                     </div>
                                                                                 </div>
-                                                                                <div>
-                                                                                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-900">Total Incl. GST</label>
-                                                                                    <div className="w-full mt-1 bg-slate-100 border border-slate-300 rounded-lg px-2 py-1.5 text-xs font-black text-slate-900">
-                                                                                        ₹ {rowTotalWithGst.toFixed(2)}
+                                                                                {/* GST, ID Fields row */}
+                                                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                                                                    <div>
+                                                                                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Brand Name</label>
+                                                                                        <input type="text" placeholder="e.g. RayBan" value={row.brand} onChange={e => handleChangeRow(index, "brand", e.target.value)}
+                                                                                            className="w-full mt-1 bg-slate-50 border border-slate-200 focus:border-[#2980B9] rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800 outline-none" />
+                                                                                    </div>
+                                                                                    <div>
+                                                                                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Product Code</label>
+                                                                                        <input type="text" placeholder="e.g. RB3025" value={row.productCode} onChange={e => handleChangeRow(index, "productCode", e.target.value)}
+                                                                                            className="w-full mt-1 bg-slate-50 border border-slate-200 focus:border-[#2980B9] rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800 outline-none" />
+                                                                                    </div>
+                                                                                    <div>
+                                                                                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">HSN/SAC Code</label>
+                                                                                        <input type="text" placeholder="e.g. 9001" value={row.hsnSac} onChange={e => handleChangeRow(index, "hsnSac", e.target.value)}
+                                                                                            className="w-full mt-1 bg-slate-50 border border-slate-200 focus:border-[#2980B9] rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800 outline-none" />
+                                                                                    </div>
+                                                                                    <div>
+                                                                                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">GST % Rate</label>
+                                                                                        <select value={row.gstPercent} onChange={e => handleChangeRow(index, "gstPercent", e.target.value)}
+                                                                                            className="w-full mt-1 bg-slate-50 border border-slate-200 focus:border-[#2980B9] rounded-lg px-2 py-1.5 text-xs font-bold text-slate-800 outline-none">
+                                                                                            <option value="0">0% GST</option>
+                                                                                            <option value="5">5% GST</option>
+                                                                                            <option value="12">12% GST</option>
+                                                                                            <option value="18">18% GST</option>
+                                                                                            <option value="28">28% GST</option>
+                                                                                        </select>
+                                                                                    </div>
+                                                                                </div>
+                                                                                {/* Calculated GST row */}
+                                                                                <div className="grid grid-cols-2 gap-3">
+                                                                                    <div>
+                                                                                        <label className="text-[10px] font-bold uppercase tracking-wider text-[#2980B9]">GST Amount (₹)</label>
+                                                                                        <div className="w-full mt-1 bg-sky-50 border border-sky-200 rounded-lg px-2 py-1.5 text-xs font-black text-[#2980B9]">
+                                                                                            + ₹ {rowGstAmt.toFixed(2)}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <div>
+                                                                                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-900">Total Incl. GST</label>
+                                                                                        <div className="w-full mt-1 bg-slate-100 border border-slate-300 rounded-lg px-2 py-1.5 text-xs font-black text-slate-900">
+                                                                                            ₹ {rowTotalWithGst.toFixed(2)}
+                                                                                        </div>
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
@@ -1249,11 +1287,13 @@ export default function VendorList() {
                                                     <th className="px-2.5 py-3 text-left min-w-[180px] border-r border-sky-700">Product Name</th>
                                                     <th className="px-2 py-3 text-center w-20 border-r border-sky-700 bg-sky-800">QTY</th>
                                                     <th className="px-2 py-3 text-center w-20 border-r border-sky-700">Unit</th>
-                                                    <th className="px-2 py-3 text-center w-24 border-r border-sky-700 bg-sky-800">Base Price (₹)</th>
-                                                    <th className="px-2 py-3 text-center w-24 border-r border-sky-700">Subtotal (₹)</th>
-                                                    <th className="px-2 py-3 text-center w-20 border-r border-sky-700 bg-sky-800">GST %</th>
-                                                    <th className="px-2 py-3 text-center w-28 border-r border-sky-700 bg-sky-800">GST Amt (₹)</th>
-                                                    <th className="px-2 py-3 text-center w-32 border-r border-sky-700 bg-sky-900">Total Incl. GST (₹)</th>
+                                                     <th className="px-2 py-3 text-center w-28 border-r border-sky-700 bg-emerald-700">Buying Price (₹)</th>
+                                                     <th className="px-2 py-3 text-center w-28 border-r border-sky-700 bg-violet-700">Selling Price (₹)</th>
+                                                     <th className="px-2 py-3 text-center w-24 border-r border-sky-700 bg-amber-600">MRP (₹)</th>
+                                                     <th className="px-2 py-3 text-center w-24 border-r border-sky-700">Subtotal (₹)</th>
+                                                     <th className="px-2 py-3 text-center w-20 border-r border-sky-700 bg-sky-800">GST %</th>
+                                                     <th className="px-2 py-3 text-center w-28 border-r border-sky-700 bg-sky-800">GST Amt (₹)</th>
+                                                     <th className="px-2 py-3 text-center w-32 border-r border-sky-700 bg-sky-900">Total Incl. GST (₹)</th>
                                                     <th className="px-2 py-3 text-center w-24 border-r border-sky-700">Prod Code</th>
                                                     <th className="px-2 py-3 text-center w-24 border-r border-sky-700">Brand</th>
                                                     <th className="px-2 py-3 text-center w-16 border-r border-sky-700">Sph</th>
@@ -1271,7 +1311,6 @@ export default function VendorList() {
                                                     <th className="px-2 py-3 text-center w-36 border-r border-sky-700 bg-sky-800">Item Expiry</th>
                                                     <th className="px-2 py-3 text-center w-24 border-r border-sky-700">Disp</th>
                                                     <th className="px-2 py-3 text-center w-24 border-r border-sky-700">HSN</th>
-                                                    <th className="px-2 py-3 text-center w-24 border-r border-sky-700">MRP (₹)</th>
                                                     <th className="px-2 py-3 text-center w-20 border-r border-sky-700">Disc %</th>
                                                     <th className="px-2 py-3 text-center w-24 border-r border-sky-700">Disc Amt</th>
                                                     <th className="px-2 py-3 text-center w-36 border-r border-sky-700">Exp. Date</th>
@@ -1281,7 +1320,7 @@ export default function VendorList() {
                                             <tbody className="divide-y divide-slate-200">
                                                 {activeRows.map((row, index) => {
                                                     const qty = Math.max(1, parseInt(row.quantity) || 1);
-                                                    const unitPrice = parseFloat(row.price) || 0;
+                                                    const unitPrice = parseFloat(row.buyingPrice || row.price) || 0;
                                                     const rowSubtotal = qty * unitPrice;
                                                     const gstPct = parseFloat(row.gstPercent) || 0;
                                                     const rowGstAmt = (rowSubtotal * gstPct) / 100;
@@ -1315,7 +1354,9 @@ export default function VendorList() {
                                                                     <option value="SET">SET</option>
                                                                 </select>
                                                             </td>
-                                                            <td className="px-1.5 py-1.5 border-r border-slate-200 bg-sky-50/20"><input type="number" min="0" placeholder="0.00" value={row.price} onChange={e => handleChangeRow(index, "price", e.target.value)} className={`${stdInput} font-bold text-slate-900`} /></td>
+                                                            <td className="px-1.5 py-1.5 border-r border-slate-200 bg-emerald-50/30"><input type="number" min="0" placeholder="0.00" value={row.buyingPrice} onChange={e => { handleChangeRow(index, "buyingPrice", e.target.value); handleChangeRow(index, "price", e.target.value); }} className={`${stdInput} font-bold text-emerald-800 border-emerald-200`} /></td>
+                                                            <td className="px-1.5 py-1.5 border-r border-slate-200 bg-violet-50/20"><input type="number" min="0" placeholder="0.00" value={row.sellingPrice} onChange={e => handleChangeRow(index, "sellingPrice", e.target.value)} className={`${stdInput} font-bold text-violet-800 border-violet-200`} /></td>
+                                                            <td className="px-1.5 py-1.5 border-r border-slate-200 bg-amber-50/20"><input type="number" min="0" placeholder="0.00" value={row.mrp} onChange={e => handleChangeRow(index, "mrp", e.target.value)} className={`${stdInput} font-bold text-amber-800 border-amber-200`} /></td>
                                                             
                                                             {/* Base Subtotal */}
                                                             <td className="px-2 py-1.5 border-r border-slate-200 text-right font-bold text-slate-700 bg-slate-50">₹ {rowSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
@@ -1358,7 +1399,6 @@ export default function VendorList() {
                                                             <td className="px-1.5 py-1.5 border-r border-slate-200 bg-sky-50/40"><input type="date" value={row.expiry} onChange={e => handleChangeRow(index, "expiry", e.target.value)} className={stdInput} /></td>
                                                             <td className="px-1.5 py-1.5 border-r border-slate-200"><input type="text" placeholder="Disp" value={row.disposability} onChange={e => handleChangeRow(index, "disposability", e.target.value)} className={stdInput} /></td>
                                                             <td className="px-1.5 py-1.5 border-r border-slate-200"><input type="text" placeholder="HSN" value={row.hsnSac} onChange={e => handleChangeRow(index, "hsnSac", e.target.value)} className={stdInput} /></td>
-                                                            <td className="px-1.5 py-1.5 border-r border-slate-200"><input type="number" placeholder="0.00" value={row.mrp} onChange={e => handleChangeRow(index, "mrp", e.target.value)} className={stdInput} /></td>
                                                             <td className="px-1.5 py-1.5 border-r border-slate-200"><input type="number" placeholder="0" value={row.discountPercent} onChange={e => handleChangeRow(index, "discountPercent", e.target.value)} className={`${stdInput} text-center`} /></td>
                                                             <td className="px-1.5 py-1.5 border-r border-slate-200"><input type="number" placeholder="0" value={row.discountAmount} onChange={e => handleChangeRow(index, "discountAmount", e.target.value)} className={`${stdInput} text-center`} /></td>
                                                             <td className="px-1.5 py-1.5 border-r border-slate-200"><input type="date" value={row.expectedDate} onChange={e => handleChangeRow(index, "expectedDate", e.target.value)} className={stdInput} /></td>

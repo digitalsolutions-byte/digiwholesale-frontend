@@ -1055,7 +1055,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
     const [form, setForm] = useState({
         productName: "", category: "", brand: "",
         coating: "", material: "", index: "",
-        price: "", mrp: "", gst: "12", hsnSac: "9001",
+        price: "", buyingPrice: "", sellingPrice: "", mrp: "", gst: "12", hsnSac: "9001",
         qty: "", discount: "0",
         vendorNumber: "", vendorName: "",
         prefix: "DO",
@@ -1075,7 +1075,11 @@ export function LensRangeModal({ settings, vendors, onClose }) {
     const handleFormChange = (e) => {
         const { name, value } = e.target;
         setForm(prev => {
-            const next = { ...prev, [name]: value };
+            const next = {
+                ...prev,
+                [name]: value,
+                ...(name === "buyingPrice" ? { price: value } : {}),
+            };
             if (name === "category") {
                 if (value && !isLensCat(value)) {
                     setCategoryError("Only Lens, Glass, or Contact Lens categories are allowed here.");
@@ -1231,7 +1235,11 @@ export function LensRangeModal({ settings, vendors, onClose }) {
                 return toast.error(`Row ${ri + 1}: Check SPH/CYL range — values must be valid multiples of their steps.`);
             combos.forEach(c => allCombos.push({
                 ...c, rowIndex: ri,
-                price: form.price, mrp: form.mrp, qty: form.qty
+                buyingPrice: form.buyingPrice,
+                sellingPrice: form.sellingPrice,
+                price: form.buyingPrice || form.price,
+                mrp: form.mrp,
+                qty: form.qty
             }));
         }
         if (allCombos.length === 0) return toast.error("No combinations generated. Fill at least one range row.");
@@ -1274,31 +1282,39 @@ export function LensRangeModal({ settings, vendors, onClose }) {
 
         for (let i = 0; i < previewRows.length; i++) {
             const r = previewRows[i];
-            if (!r.price || Number(r.price) <= 0) return toast.error(`Row ${i + 1}: Price must be > 0`);
+            const bPrice = r.buyingPrice !== "" && r.buyingPrice != null ? r.buyingPrice : r.price;
+            if (!bPrice || Number(bPrice) <= 0) return toast.error(`Row ${i + 1}: Buying Price must be > 0`);
+            if (!r.sellingPrice || Number(r.sellingPrice) <= 0) return toast.error(`Row ${i + 1}: Selling Price must be > 0`);
             if (!r.mrp || Number(r.mrp) <= 0) return toast.error(`Row ${i + 1}: MRP must be > 0`);
             if (!r.qty || Number(r.qty) <= 0) return toast.error(`Row ${i + 1}: Qty must be > 0`);
         }
 
-        const products = previewRows.map(({ sph, cyl, addition, price, mrp, qty }, i) => ({
-            productCode: `${i + 1}${form.prefix.trim().toUpperCase() || "DO"}`,
-            productName: form.productName.trim().toUpperCase(),
-            category: form.category.trim().toUpperCase(),
-            brand: form.brand,
-            coating: form.coating,
-            material: form.material,
-            addition: addition || "",
-            index: form.index,
-            sph,
-            cyl,
-            price: Number(price),
-            mrp: Number(mrp),
-            gst: Number(form.gst),
-            hsnSac: form.hsnSac,
-            qty: Number(qty),
-            discount: Number(form.discount) || 0,
-            vendorNumber: form.vendorNumber,
-            vendorName: form.vendorName,
-        }));
+        const products = previewRows.map(({ sph, cyl, addition, buyingPrice, sellingPrice, price, mrp, qty }, i) => {
+            const bVal = Number(buyingPrice !== "" && buyingPrice != null ? buyingPrice : (price || 0));
+            const sVal = Number(sellingPrice !== "" && sellingPrice != null ? sellingPrice : (mrp || 0));
+            return {
+                productCode: `${i + 1}${form.prefix.trim().toUpperCase() || "DO"}`,
+                productName: form.productName.trim().toUpperCase(),
+                category: form.category.trim().toUpperCase(),
+                brand: form.brand,
+                coating: form.coating,
+                material: form.material,
+                addition: addition || "",
+                index: form.index,
+                sph,
+                cyl,
+                price: bVal,
+                buyingPrice: bVal,
+                sellingPrice: sVal,
+                mrp: Number(mrp),
+                gst: Number(form.gst),
+                hsnSac: form.hsnSac,
+                qty: Number(qty),
+                discount: Number(form.discount) || 0,
+                vendorNumber: form.vendorNumber,
+                vendorName: form.vendorName,
+            };
+        });
 
         setSubmitting(true);
         try {
@@ -1446,9 +1462,10 @@ export function LensRangeModal({ settings, vendors, onClose }) {
                             Default Pricing
                             <span className="normal-case font-normal text-gray-400 ml-1">(editable per row in preview)</span>
                         </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
                             {[
-                                { label: "Price *", name: "price", type: "number", placeholder: "0" },
+                                { label: "Buying Price *", name: "buyingPrice", type: "number", placeholder: "0" },
+                                { label: "Selling Price *", name: "sellingPrice", type: "number", placeholder: "0" },
                                 { label: "MRP *", name: "mrp", type: "number", placeholder: "0" },
                                 { label: "HSN/SAC", name: "hsnSac", type: "text", placeholder: "9001" },
                                 { label: "Discount (₹)", name: "discount", type: "number", placeholder: "0" },
@@ -1671,7 +1688,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
                                         </span>
                                     )}
                                     <span className="normal-case font-normal text-gray-400 ml-1 text-[10px]">
-                                        (Price, MRP, Qty editable)
+                                        (Buying Price, Selling Price, MRP, Qty editable)
                                     </span>
                                 </h3>
                                 <div className="relative flex-shrink-0">
@@ -1698,7 +1715,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
                                 <table className="w-full text-xs border-collapse">
                                     <thead>
                                         <tr className="bg-gray-100 border-b border-gray-200">
-                                            {["#", "Code", "Product Name", "SPH", "CYL", "Addition", "Price ✎", "MRP ✎", "Qty ✎", ""].map(h => (
+                                            {["#", "Code", "Product Name", "SPH", "CYL", "Addition", "Buying Price ✎", "Selling Price ✎", "MRP ✎", "Qty ✎", ""].map(h => (
                                                 <th key={h} className="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">
                                                     {h}
                                                 </th>
@@ -1708,7 +1725,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
                                     <tbody>
                                         {filteredPreviewRows.length === 0 ? (
                                             <tr>
-                                                <td colSpan={9} className="px-4 py-8 text-center text-xs text-gray-400">
+                                                <td colSpan={11} className="px-4 py-8 text-center text-xs text-gray-400">
                                                     No rows match "
                                                     <span className="font-semibold text-gray-500">{previewSearch}</span>"
                                                 </td>
@@ -1735,22 +1752,40 @@ export function LensRangeModal({ settings, vendors, onClose }) {
                                                         </td>
                                                         <td className="px-2 py-1">
                                                             <input
-                                                                type="number" value={row.price}
-                                                                onChange={e => handlePreviewEdit(origIdx, "price", e.target.value)}
+                                                                type="number"
+                                                                value={row.buyingPrice !== undefined ? row.buyingPrice : (row.price || "")}
+                                                                onChange={e => {
+                                                                    handlePreviewEdit(origIdx, "buyingPrice", e.target.value);
+                                                                    handlePreviewEdit(origIdx, "price", e.target.value);
+                                                                }}
+                                                                placeholder="0"
                                                                 className="w-20 px-2 py-1 text-xs border border-orange-200 rounded-lg outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-100 bg-orange-50 text-gray-700 text-center"
                                                             />
                                                         </td>
                                                         <td className="px-2 py-1">
                                                             <input
-                                                                type="number" value={row.mrp}
+                                                                type="number"
+                                                                value={row.sellingPrice !== undefined ? row.sellingPrice : ""}
+                                                                onChange={e => handlePreviewEdit(origIdx, "sellingPrice", e.target.value)}
+                                                                placeholder="0"
+                                                                className="w-20 px-2 py-1 text-xs border border-orange-200 rounded-lg outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-100 bg-orange-50 text-gray-700 text-center"
+                                                            />
+                                                        </td>
+                                                        <td className="px-2 py-1">
+                                                            <input
+                                                                type="number"
+                                                                value={row.mrp}
                                                                 onChange={e => handlePreviewEdit(origIdx, "mrp", e.target.value)}
+                                                                placeholder="0"
                                                                 className="w-20 px-2 py-1 text-xs border border-orange-200 rounded-lg outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-100 bg-orange-50 text-gray-700 text-center"
                                                             />
                                                         </td>
                                                         <td className="px-2 py-1">
                                                             <input
-                                                                type="number" value={row.qty}
+                                                                type="number"
+                                                                value={row.qty}
                                                                 onChange={e => handlePreviewEdit(origIdx, "qty", e.target.value)}
+                                                                placeholder="1"
                                                                 className="w-16 px-2 py-1 text-xs border border-orange-200 rounded-lg outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-100 bg-orange-50 text-gray-700 text-center"
                                                             />
                                                         </td>
@@ -1774,7 +1809,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
                                 {previewSearch && filteredPreviewRows.length !== previewRows.length
                                     ? `Showing ${filteredPreviewRows.length} of ${previewRows.length} products — `
                                     : `Showing all ${previewRows.length} products — `}
-                                edit Price, MRP or Qty inline, or delete unwanted rows before submitting.
+                                edit Buying Price, Selling Price, MRP or Qty inline, or delete unwanted rows before submitting.
                             </p>
                         </div>
                     )}
