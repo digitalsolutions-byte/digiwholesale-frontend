@@ -26,6 +26,7 @@ import { createPortal } from "react-dom";
 import { getProductDisplayImage } from "../utils/productUtils";
 import { getBatchesForProduct, allocateManualBatch } from "../services/batchService";
 import { uploadMultipleDocuments } from "../services/bucketService";
+import LensMatrixModal from "../components/ui/LensMatrixModal";
 
 const Modal = ({ children, onClose, maxWidth = "max-w-5xl" }) => {
     return createPortal(
@@ -207,6 +208,7 @@ export default function Inventory() {
     const dispatch = useDispatch();
     const [showAddProductModal, setShowAddProductModal] = useState(false);
     const [showLensRangeModal, setShowLensRangeModal] = useState(false);
+    const [showLensMatrixModal, setShowLensMatrixModal] = useState(false);
     const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
     const [vendors, setVendors] = useState([]);
     const settings = useSelector((state) => state.settings.data);
@@ -289,6 +291,7 @@ export default function Inventory() {
     const handleCloseAddProductModal = () => {
         cleanupColorPreviews(rows);
         setShowAddProductModal(false);
+        triggerInventoryRefresh();
     };
 
     const LENS_FIELDS = ["sph", "cyl", "index", "axis", "coating", "expiry", "pairOrSingle"];
@@ -528,6 +531,10 @@ export default function Inventory() {
                         <button onClick={() => setShowLensRangeModal(true)}
                             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white border border-blue-300 hover:bg-blue-50 text-blue-600 text-xs font-semibold rounded-xl transition shadow-sm">
                             <FiPlus size={13} /> Lens Range
+                        </button>
+                        <button onClick={() => setShowLensMatrixModal(true)}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-xl transition shadow-sm">
+                            <FiGrid size={13} /> Lens Matrix & History
                         </button>
                     </div>
 
@@ -953,6 +960,15 @@ export default function Inventory() {
                     settings={settings}
                     vendors={vendors}
                     onClose={() => setShowLensRangeModal(false)}
+                    onSuccess={triggerInventoryRefresh}
+                />
+            )}
+
+            {showLensMatrixModal && (
+                <LensMatrixModal
+                    isOpen={showLensMatrixModal}
+                    onClose={() => setShowLensMatrixModal(false)}
+                    onRefreshInventory={triggerInventoryRefresh}
                 />
             )}
         </div>
@@ -1005,6 +1021,7 @@ const StepCell = ({ row, field, label, onRangeChange }) => {
             <input
                 type="number"
                 min="0.01"
+                max="4.00"
                 step="0.01"
                 placeholder="0.25"
                 value={row[field]}
@@ -1032,7 +1049,7 @@ const makeEmptyRangeRow = () => ({
     errors: {},
 });
 
-export function LensRangeModal({ settings, vendors, onClose }) {
+export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
     const DEFAULT_STEP = 0.25;
     const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -1099,11 +1116,41 @@ export function LensRangeModal({ settings, vendors, onClose }) {
             const errors = { ...row.errors };
 
             if (field === "sphStep" || field === "cylStep" || field === "addStep") {
-                if (value !== "" && !isPositiveStep(value)) {
-                    errors[field] = "Step must be > 0";
+                const num = parseFloat(value);
+                if (value !== "") {
+                    if (!isPositiveStep(value)) {
+                        errors[field] = "Step must be > 0";
+                    } else if (num > 4) {
+                        errors[field] = `Use decimal (e.g. 0.25, not ${value})`;
+                    } else {
+                        delete errors[field];
+                    }
                 } else {
                     delete errors[field];
                 }
+
+                // Re-validate associated range fields immediately with the new step
+                const newStep = parseFloat(value) || DEFAULT_STEP;
+                const relatedFields = field === "sphStep"
+                    ? ["sphFrom", "sphTo"]
+                    : field === "cylStep"
+                        ? ["cylFrom", "cylTo"]
+                        : ["additionFrom", "additionTo"];
+
+                for (const rf of relatedFields) {
+                    const rVal = row[rf];
+                    if (rVal !== "" && !isNaN(parseFloat(rVal))) {
+                        if (!isValidStep(rVal, newStep)) {
+                            const nearest = (Math.round(parseFloat(rVal) / newStep) * newStep).toFixed(2);
+                            errors[rf] = `Must be a multiple of ${newStep} (nearest: ${nearest})`;
+                        } else {
+                            delete errors[rf];
+                        }
+                    } else {
+                        delete errors[rf];
+                    }
+                }
+
                 return { ...row, [field]: value, errors };
             }
 
@@ -1324,6 +1371,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
             });
             if (res.data.success) {
                 toast.success(`${res.data.count} lens products created successfully.`);
+                if (onSuccess) onSuccess();
                 onClose();
             } else {
                 toast.error(res.data.message || "Upload failed.");
@@ -2288,15 +2336,22 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
         try {
             setLoading(true); setPage(1);
             const res = await api.post("/api/digi/product/search", { startDate: fromDate || undefined, endDate: toDate || undefined, keyword: keyword || undefined });
-            if (res.data.success) { setFilteredData(res.data.products || []); setIsSearching(true); }
-            else toast.info(res.data.message);
+            if (res.data.success) {
+                setFilteredData(res.data.products || []);
+                setIsSearching(true);
+            } else {
+                setFilteredData([]);
+                setIsSearching(true);
+                toast.info(res.data.message || "No products found matching your filter");
+            }
         } catch (err) { toast.error(err.response?.data?.message || "Search failed"); }
         finally { setLoading(false); }
     };
 
     const handleResetSearch = () => {
         setFromDate(""); setToDate(""); setKeyword("");
-        setFilteredData([]); setIsSearching(false); setPage(1);
+        setFilteredData([]); setIsSearching(false); setGlobalFilter(""); setPage(1);
+        fetchProducts(1, false);
     };
 
     useEffect(() => {
@@ -2813,7 +2868,30 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                         {table.getRowModel().rows.length === 0 && (
-                            <tr><td colSpan={columns.length} className="py-14 text-center text-gray-400 text-sm">No products found</td></tr>
+                            <tr>
+                                <td colSpan={columns.length} className="py-14 text-center text-gray-400 text-sm">
+                                    <div className="flex flex-col items-center justify-center gap-2.5">
+                                        <p className="font-medium text-gray-500">No products found</p>
+                                        {(isSearching || globalFilter || fromDate || toDate || keyword) ? (
+                                            <button
+                                                type="button"
+                                                onClick={handleResetSearch}
+                                                className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl text-xs font-bold transition shadow-xs"
+                                            >
+                                                Clear search filters & reload all
+                                            </button>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() => fetchProducts(1, false)}
+                                                className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition shadow-xs"
+                                            >
+                                                Reload Inventory
+                                            </button>
+                                        )}
+                                    </div>
+                                </td>
+                            </tr>
                         )}
                         {table.getRowModel().rows.map((row, rIdx) => {
                             const isChecked = !!selectedRows[row.original._id];

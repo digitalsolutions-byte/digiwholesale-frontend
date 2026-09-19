@@ -12,6 +12,7 @@ import {
 } from "react-icons/fi";
 import * as vendorService from "../../services/vendorService";
 import * as vendorOrderService from "../../services/vendorOrderService";
+import api from "../../services/apiInstance";
 import Swal from "sweetalert2";
 import { toast } from "react-toastify";
 import { hideLoader, showLoader } from "../../features/loader/loaderSlice";
