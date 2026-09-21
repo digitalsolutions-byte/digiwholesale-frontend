@@ -178,7 +178,11 @@ export default function RegisterTenant() {
 
         // WhatsApp Config
         utilityProvider: 'META',
-        promotionProvider: 'META'
+        promotionProvider: 'META',
+
+        // Demo Mode & Security Watermark Flags
+        demoMode: false,
+        demoExpiry: ''
     });
 
     const handleChange = (e) => {
@@ -253,7 +257,19 @@ export default function RegisterTenant() {
 
         setSubmitting(true);
         try {
-            const res = await registerTenant(formData);
+            const isDemoOn = Boolean(formData.demoMode);
+          const demoExpVal = formData.demoExpiry || null;
+          const payload = {
+              ...formData,
+              demoMode: isDemoOn,
+              demoExpiry: demoExpVal,
+              featureFlags: {
+                  ...(formData.featureFlags || {}),
+                  demoMode: isDemoOn,
+                  demoExpiry: demoExpVal
+              }
+          };
+          const res = await registerTenant(payload);
             if (res.success) {
                 toast.success(res.message || 'Wholesaler created successfully!');
                 navigate(PATHS.TENANTS.LIST);
@@ -384,7 +400,7 @@ export default function RegisterTenant() {
                             </div>
 
                             {/* Options */}
-                            <div className="flex items-center gap-6 pt-2">
+                            <div className="flex flex-wrap items-center gap-6 pt-2">
                                 <label className="flex items-center gap-2 cursor-pointer select-none">
                                     <input
                                         type="checkbox"
@@ -417,7 +433,39 @@ export default function RegisterTenant() {
                                     />
                                     <span className="text-xs font-medium text-slate-700">Has AI</span>
                                 </label>
+
+                                <label className="flex items-center gap-2 cursor-pointer select-none bg-amber-50 px-3 py-1 rounded-xl border border-amber-200 hover:bg-amber-100 transition-colors">
+                                    <input
+                                        type="checkbox"
+                                        name="demoMode"
+                                        checked={formData.demoMode || false}
+                                        onChange={handleChange}
+                                        className="w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-0 cursor-pointer"
+                                    />
+                                    <span className="text-xs font-bold text-amber-900">Demo Mode</span>
+                                </label>
                             </div>
+
+                            {formData.demoMode ? (
+                                <div className="p-3.5 bg-amber-50/70 rounded-xl border border-amber-200 space-y-2 mt-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[11px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                                            <Icon icon="lucide:clock-4" className="text-amber-700 text-sm" />
+                                            Demo Access Expiry Date & Time (Optional)
+                                        </label>
+                                        <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-200">
+                                            Logins Blocked After Expiry
+                                        </span>
+                                    </div>
+                                    <input
+                                        type="datetime-local"
+                                        name="demoExpiry"
+                                        value={formData.demoExpiry || ''}
+                                        onChange={handleChange}
+                                        className="w-full sm:w-auto px-3.5 py-2 bg-white border border-amber-300 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:border-[#2980B9]"
+                                    />
+                                </div>
+                            ) : null}
                         </div>
                     </div>
 

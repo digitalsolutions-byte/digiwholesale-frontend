@@ -21,7 +21,6 @@ import { setCredentials } from '../store/slices/authSlice';
 import { PATHS } from '../routes/paths';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
-import DemoAgreementModal from '../components/ui/DemoAgreementModal';
 
 // Assets
 import loginImage from '../assets/login-image.png';
@@ -30,8 +29,7 @@ import logo from '../assets/logo.png';
 
 const Login = () => {
     const [showPassword, setShowPassword] = useState(false);
-    const [showDemoModal, setShowDemoModal] = useState(false);
-    const dispatch = useDispatch();
+        const dispatch = useDispatch();
     const navigate = useNavigate();
     const theme = useTheme();
     const greeting = useMemo(() => {
@@ -61,7 +59,9 @@ const Login = () => {
                         refreshToken: response.data.tokens?.refreshToken
                     }));
                     localStorage.removeItem('digioptics_demo_acknowledged');
-                    setShowDemoModal(true);
+                    if (response.data?.tenant?.demoMode || response.data?.tenant?.featureFlags?.demoMode || response.data?.user?.demoMode) { localStorage.setItem('digioptics_demo_mode', 'true'); } else { localStorage.removeItem('digioptics_demo_mode'); }
+                    toast.success('Login Successful');
+                    navigate(PATHS.WELCOME, { state: { from: 'login' } });
                 } else {
                     toast.error(response.message || 'Login failed');
                 }
@@ -73,14 +73,7 @@ const Login = () => {
 
     return (
         <>
-            <DemoAgreementModal
-                forceOpen={showDemoModal}
-                onClose={() => {
-                    setShowDemoModal(false);
-                    toast.success('Login Successful');
-                    navigate(PATHS.WELCOME, { state: { from: 'login' } });
-                }}
-            />
+
         <Box sx={{
             minHeight: '100vh',
             display: 'flex',

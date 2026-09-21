@@ -163,12 +163,24 @@ export default function TenantList() {
                             const isSuspended = t.status === 'SUSPENDED';
                             const store = t.storeInformation || {};
                             const owner = t.owner || {};
+                            const isDemoMode = Boolean(t.demoMode || t.featureFlags?.demoMode);
+                            const demoExpiryDate = t.demoExpiry || t.featureFlags?.demoExpiry;
+                            const isDemoExpired = demoExpiryDate ? new Date() > new Date(demoExpiryDate) : false;
 
                             return (
                                 <div key={t._id} className="p-4 space-y-3 bg-white hover:bg-slate-50/50 transition-colors">
                                     <div className="flex items-start justify-between gap-2">
                                         <div>
-                                            <h3 className="font-bold text-slate-800 text-sm leading-snug">{store.storeName || 'N/A'}</h3>
+                                            <div className="flex items-center gap-2">
+                                                <h3 className="font-bold text-slate-800 text-sm leading-snug">{store.storeName || 'N/A'}</h3>
+                                                {isDemoMode && (
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black border ${
+                                                        isDemoExpired ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                                                    }`}>
+                                                        {isDemoExpired ? 'DEMO EXPIRED' : 'DEMO'}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <span className="font-mono text-[11px] text-[#2980B9] font-semibold block mt-0.5">{t.tenantId || 'N/A'}</span>
                                         </div>
                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold border flex-shrink-0 ${
@@ -282,13 +294,25 @@ export default function TenantList() {
                                     const isSuspended = t.status === 'SUSPENDED';
                                     const store = t.storeInformation || {};
                                     const owner = t.owner || {};
+                            const isDemoMode = Boolean(t.demoMode || t.featureFlags?.demoMode);
+                            const demoExpiryDate = t.demoExpiry || t.featureFlags?.demoExpiry;
+                            const isDemoExpired = demoExpiryDate ? new Date() > new Date(demoExpiryDate) : false;
                                     return (
                                         <tr key={t._id} className="hover:bg-slate-50/70 transition-colors">
                                             <td className="px-4 py-3.5 font-mono font-semibold text-[#2980B9]">
                                                 {t.tenantId || 'N/A'}
                                             </td>
                                             <td className="px-4 py-3.5">
-                                                <div className="font-bold text-slate-800">{store.storeName || 'N/A'}</div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="font-bold text-slate-800">{store.storeName || 'N/A'}</div>
+                                                    {isDemoMode && (
+                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black border ${
+                                                            isDemoExpired ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                                                        }`}>
+                                                            {isDemoExpired ? 'DEMO EXPIRED' : 'DEMO'}
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <div className="text-[11px] text-slate-400 truncate max-w-[200px]">{store.address || 'N/A'}</div>
                                             </td>
                                             <td className="px-4 py-3.5">

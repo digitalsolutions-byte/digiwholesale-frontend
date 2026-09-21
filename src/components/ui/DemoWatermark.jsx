@@ -1,35 +1,58 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Icon } from '@iconify/react';
 import { useSelector } from 'react-redux';
 import { selectCurrentUser, selectCurrentTenant } from '../../store/slices/authSlice';
+import { useFeatureFlags } from '../../context/FeatureFlagsContext';
 
 /**
  * DemoWatermark Component
  * 
- * Displays a non-obtrusive, highly visible security watermark overlay across the app.
- * Includes diagonal background text + floating interactive corner badge.
+ * Displays non-obtrusive, highly visible security watermark overlay across the app.
+ * Dynamically driven by tenant/user demoMode flag or demo account identifier.
  */
 const DemoWatermark = () => {
     const user = useSelector(selectCurrentUser);
     const tenant = useSelector(selectCurrentTenant);
+    const { flags } = useFeatureFlags();
+
+    const isDemoMode = Boolean(
+        user?.demoMode ||
+        user?.isDemo ||
+        user?.EmployeeType === 'DEMO' ||
+        tenant?.demoMode ||
+        tenant?.featureFlags?.demoMode ||
+        flags?.demoMode ||
+        (user?.username && user.username.toLowerCase().includes('demo')) ||
+        (user?.email && user.email.toLowerCase().includes('demo')) ||
+        (tenant?.storeInformation?.storeName && tenant.storeInformation.storeName.toLowerCase().includes('demo')) ||
+        localStorage.getItem('digioptics_demo_mode') === 'true'
+    );
+
+    const getExpiryDate = () => {
+        const val = user?.demoExpiry || tenant?.demoExpiry || tenant?.featureFlags?.demoExpiry || flags?.demoExpiry;
+        if (!val) return null;
+        const d = new Date(val);
+        return isNaN(d.getTime()) ? null : d;
+    };
+
+    const expiryDate = getExpiryDate();
+    const isExpired = expiryDate ? new Date() > expiryDate : false;
+
+    // Do not show watermark if demo mode is off or demo period has expired
+    if (!isDemoMode || isExpired) return null;
 
     // Retrieve active Unique Demo ID
-    const [demoId] = useState(() => {
-        if (user?.demoId || user?.demo_id || user?.uniqueDemoId) return user.demoId || user.demo_id || user.uniqueDemoId;
-        if (tenant?.demoId || tenant?.demo_id || tenant?.uniqueDemoId) return tenant.demoId || tenant.demo_id || tenant.uniqueDemoId;
-
-        const stored = localStorage.getItem('digioptics_unique_demo_id');
-        if (stored) return stored;
-
-        return 'DEMO-DIGI-ACCESS';
-    });
+    const demoId = user?.demoId || user?.demo_id || user?.uniqueDemoId ||
+                   tenant?.demoId || tenant?.demo_id || tenant?.uniqueDemoId ||
+                   localStorage.getItem('digioptics_unique_demo_id') ||
+                   'DEMO-DIGI-ACCESS';
 
     const watermarkText = `DIGIOPTICS DEMO • CONFIDENTIAL EVALUATION ONLY • ID: ${demoId} • `;
 
     return (
         <>
             {/* ── 1. Fullscreen Diagonal Background Watermark Grid ───────────────── */}
-            <div className="fixed inset-0 pointer-events-none select-none z-[9990] overflow-hidden opacity-[0.06] flex flex-col justify-between p-8 space-y-24">
+            <div className="fixed inset-0 pointer-events-none select-none z-[9990] overflow-hidden opacity-[0.25] flex flex-col justify-between p-8 space-y-24">
                 {Array.from({ length: 12 }).map((_, rowIdx) => (
                     <div
                         key={rowIdx}
@@ -49,7 +72,7 @@ const DemoWatermark = () => {
                 <button
                     type="button"
                     onClick={() => window.dispatchEvent(new Event('open-demo-modal'))}
-                    className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-erp-accent to-blue-600 text-white shadow-xl hover:shadow-2xl border border-white/40 backdrop-blur-md transition-all duration-200 hover:scale-105 cursor-pointer"
+                    className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#2980B9] to-blue-600 text-white shadow-xl hover:shadow-2xl border border-white/40 backdrop-blur-md transition-all duration-200 hover:scale-105 cursor-pointer"
                     title="DigiOptics Demo Active - Click to view Confidential NDA Agreement"
                 >
                     <span className="relative flex h-2 w-2">
@@ -58,7 +81,7 @@ const DemoWatermark = () => {
                     </span>
 
                     <Icon icon="mdi:shield-lock" className="text-base text-amber-300" />
-                    
+
                     <span className="text-[11px] font-black uppercase tracking-wider">
                         DIGIOPTICS DEMO <span className="opacity-75 font-mono text-[10px] hidden sm:inline">[{demoId}]</span>
                     </span>

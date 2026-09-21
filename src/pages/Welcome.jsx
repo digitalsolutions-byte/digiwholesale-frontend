@@ -5,8 +5,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { PATHS } from '../routes/paths';
 import { getFirstAllowedRoute } from '../routes/config';
 import { useSelector } from 'react-redux';
-import { selectCurrentUser } from '../store/slices/authSlice';
-import DemoAgreementModal from '../components/ui/DemoAgreementModal';
+import { selectCurrentUser, selectCurrentTenant } from '../store/slices/authSlice';
+import { useFeatureFlags } from '../context/FeatureFlagsContext';
 import {
     Box,
     Typography,
@@ -24,8 +24,13 @@ const Welcome = () => {
     const location = useLocation();
     const theme = useTheme();
     const user = useSelector(selectCurrentUser);
+    const tenant = useSelector(selectCurrentTenant);
+    const { flags } = useFeatureFlags();
+
+    const isDemoMode = Boolean(user?.demoMode || tenant?.demoMode || tenant?.featureFlags?.demoMode || flags?.demoMode);
 
     const [demoAccepted, setDemoAccepted] = useState(() => {
+        if (!isDemoMode) return true;
         return localStorage.getItem('digioptics_demo_acknowledged') === 'true';
     });
 
@@ -36,9 +41,23 @@ const Welcome = () => {
         return 'Welcome Back!';
     });
 
-    // Auto-redirect ONLY after demo agreement is accepted!
+    // Continuously check demo acceptance if demo mode is active
     useEffect(() => {
-        if (!demoAccepted) return; // Fail-safe: Wait until demo NDA popup is accepted if accessed directly
+        if (!isDemoMode) {
+            setDemoAccepted(true);
+            return;
+        }
+        const interval = setInterval(() => {
+            if (localStorage.getItem('digioptics_demo_acknowledged') === 'true') {
+                setDemoAccepted(true);
+            }
+        }, 300);
+        return () => clearInterval(interval);
+    }, [isDemoMode]);
+
+    // Auto-redirect ONLY after demo agreement is accepted or when demo mode is off
+    useEffect(() => {
+        if (isDemoMode && !demoAccepted) return;
 
         const timer = setTimeout(() => {
             const redirectPath = location.state?.from === 'register'
@@ -50,7 +69,7 @@ const Welcome = () => {
         }, 3000);
 
         return () => clearTimeout(timer);
-    }, [navigate, location, user, demoAccepted]);
+    }, [navigate, location, user, demoAccepted, isDemoMode]);
 
     return (
         <Box
@@ -65,14 +84,6 @@ const Welcome = () => {
                 overflow: 'hidden'
             }}
         >
-            {/* Fail-safe Demo Non-Disclosure Popup if accessed directly without accepting */}
-            {!demoAccepted && (
-                <DemoAgreementModal
-                    forceOpen={!demoAccepted}
-                    onClose={() => setDemoAccepted(true)}
-                />
-            )}
-
             <Box
                 sx={{
                     position: 'absolute',

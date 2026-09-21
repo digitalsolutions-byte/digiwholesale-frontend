@@ -5,6 +5,8 @@ import { getMyFeatureFlags } from '../services/featureFlagService';
 
 const defaultFlags = {
     ecomFramesSunglasses: false,
+    demoMode: false,
+    demoExpiry: null,
 };
 
 const getInitialFlags = () => {
