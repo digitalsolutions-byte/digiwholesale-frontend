@@ -532,10 +532,10 @@ export default function Inventory() {
                             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white border border-blue-300 hover:bg-blue-50 text-blue-600 text-xs font-semibold rounded-xl transition shadow-sm">
                             <FiPlus size={13} /> Lens Range
                         </button>
-                        <button onClick={() => setShowLensMatrixModal(true)}
+                        {/* <button onClick={() => setShowLensMatrixModal(true)}
                             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-xl transition shadow-sm">
                             <FiGrid size={13} /> Lens Matrix & History
-                        </button>
+                        </button> */}
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-end gap-3 w-full lg:w-auto">
