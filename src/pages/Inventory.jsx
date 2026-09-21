@@ -26,6 +26,7 @@ import { createPortal } from "react-dom";
 import { getProductDisplayImage } from "../utils/productUtils";
 import { getBatchesForProduct, allocateManualBatch } from "../services/batchService";
 import { uploadMultipleDocuments } from "../services/bucketService";
+import LensMatrixModal from "../components/ui/LensMatrixModal";
 
 const Modal = ({ children, onClose, maxWidth = "max-w-5xl" }) => {
     return createPortal(
@@ -207,6 +208,7 @@ export default function Inventory() {
     const dispatch = useDispatch();
     const [showAddProductModal, setShowAddProductModal] = useState(false);
     const [showLensRangeModal, setShowLensRangeModal] = useState(false);
+    const [showLensMatrixModal, setShowLensMatrixModal] = useState(false);
     const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
     const [vendors, setVendors] = useState([]);
     const settings = useSelector((state) => state.settings.data);
@@ -289,6 +291,7 @@ export default function Inventory() {
     const handleCloseAddProductModal = () => {
         cleanupColorPreviews(rows);
         setShowAddProductModal(false);
+        triggerInventoryRefresh();
     };
 
     const LENS_FIELDS = ["sph", "cyl", "index", "axis", "coating", "expiry", "pairOrSingle"];
@@ -529,6 +532,10 @@ export default function Inventory() {
                             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white border border-blue-300 hover:bg-blue-50 text-blue-600 text-xs font-semibold rounded-xl transition shadow-sm">
                             <FiPlus size={13} /> Lens Range
                         </button>
+                        {/* <button onClick={() => setShowLensMatrixModal(true)}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-xl transition shadow-sm">
+                            <FiGrid size={13} /> Lens Matrix & History
+                        </button> */}
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-end gap-3 w-full lg:w-auto">
@@ -953,6 +960,15 @@ export default function Inventory() {
                     settings={settings}
                     vendors={vendors}
                     onClose={() => setShowLensRangeModal(false)}
+                    onSuccess={triggerInventoryRefresh}
+                />
+            )}
+
+            {showLensMatrixModal && (
+                <LensMatrixModal
+                    isOpen={showLensMatrixModal}
+                    onClose={() => setShowLensMatrixModal(false)}
+                    onRefreshInventory={triggerInventoryRefresh}
                 />
             )}
         </div>
@@ -1005,6 +1021,7 @@ const StepCell = ({ row, field, label, onRangeChange }) => {
             <input
                 type="number"
                 min="0.01"
+                max="4.00"
                 step="0.01"
                 placeholder="0.25"
                 value={row[field]}
@@ -1032,7 +1049,7 @@ const makeEmptyRangeRow = () => ({
     errors: {},
 });
 
-export function LensRangeModal({ settings, vendors, onClose }) {
+export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
     const DEFAULT_STEP = 0.25;
     const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -1055,7 +1072,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
     const [form, setForm] = useState({
         productName: "", category: "", brand: "",
         coating: "", material: "", index: "",
-        price: "", mrp: "", gst: "12", hsnSac: "9001",
+        price: "", buyingPrice: "", sellingPrice: "", mrp: "", gst: "12", hsnSac: "9001",
         qty: "", discount: "0",
         vendorNumber: "", vendorName: "",
         prefix: "DO",
@@ -1075,7 +1092,11 @@ export function LensRangeModal({ settings, vendors, onClose }) {
     const handleFormChange = (e) => {
         const { name, value } = e.target;
         setForm(prev => {
-            const next = { ...prev, [name]: value };
+            const next = {
+                ...prev,
+                [name]: value,
+                ...(name === "buyingPrice" ? { price: value } : {}),
+            };
             if (name === "category") {
                 if (value && !isLensCat(value)) {
                     setCategoryError("Only Lens, Glass, or Contact Lens categories are allowed here.");
@@ -1095,11 +1116,41 @@ export function LensRangeModal({ settings, vendors, onClose }) {
             const errors = { ...row.errors };
 
             if (field === "sphStep" || field === "cylStep" || field === "addStep") {
-                if (value !== "" && !isPositiveStep(value)) {
-                    errors[field] = "Step must be > 0";
+                const num = parseFloat(value);
+                if (value !== "") {
+                    if (!isPositiveStep(value)) {
+                        errors[field] = "Step must be > 0";
+                    } else if (num > 4) {
+                        errors[field] = `Use decimal (e.g. 0.25, not ${value})`;
+                    } else {
+                        delete errors[field];
+                    }
                 } else {
                     delete errors[field];
                 }
+
+                // Re-validate associated range fields immediately with the new step
+                const newStep = parseFloat(value) || DEFAULT_STEP;
+                const relatedFields = field === "sphStep"
+                    ? ["sphFrom", "sphTo"]
+                    : field === "cylStep"
+                        ? ["cylFrom", "cylTo"]
+                        : ["additionFrom", "additionTo"];
+
+                for (const rf of relatedFields) {
+                    const rVal = row[rf];
+                    if (rVal !== "" && !isNaN(parseFloat(rVal))) {
+                        if (!isValidStep(rVal, newStep)) {
+                            const nearest = (Math.round(parseFloat(rVal) / newStep) * newStep).toFixed(2);
+                            errors[rf] = `Must be a multiple of ${newStep} (nearest: ${nearest})`;
+                        } else {
+                            delete errors[rf];
+                        }
+                    } else {
+                        delete errors[rf];
+                    }
+                }
+
                 return { ...row, [field]: value, errors };
             }
 
@@ -1231,7 +1282,11 @@ export function LensRangeModal({ settings, vendors, onClose }) {
                 return toast.error(`Row ${ri + 1}: Check SPH/CYL range — values must be valid multiples of their steps.`);
             combos.forEach(c => allCombos.push({
                 ...c, rowIndex: ri,
-                price: form.price, mrp: form.mrp, qty: form.qty
+                buyingPrice: form.buyingPrice,
+                sellingPrice: form.sellingPrice,
+                price: form.buyingPrice || form.price,
+                mrp: form.mrp,
+                qty: form.qty
             }));
         }
         if (allCombos.length === 0) return toast.error("No combinations generated. Fill at least one range row.");
@@ -1274,31 +1329,39 @@ export function LensRangeModal({ settings, vendors, onClose }) {
 
         for (let i = 0; i < previewRows.length; i++) {
             const r = previewRows[i];
-            if (!r.price || Number(r.price) <= 0) return toast.error(`Row ${i + 1}: Price must be > 0`);
+            const bPrice = r.buyingPrice !== "" && r.buyingPrice != null ? r.buyingPrice : r.price;
+            if (!bPrice || Number(bPrice) <= 0) return toast.error(`Row ${i + 1}: Buying Price must be > 0`);
+            if (!r.sellingPrice || Number(r.sellingPrice) <= 0) return toast.error(`Row ${i + 1}: Selling Price must be > 0`);
             if (!r.mrp || Number(r.mrp) <= 0) return toast.error(`Row ${i + 1}: MRP must be > 0`);
             if (!r.qty || Number(r.qty) <= 0) return toast.error(`Row ${i + 1}: Qty must be > 0`);
         }
 
-        const products = previewRows.map(({ sph, cyl, addition, price, mrp, qty }, i) => ({
-            productCode: `${i + 1}${form.prefix.trim().toUpperCase() || "DO"}`,
-            productName: form.productName.trim().toUpperCase(),
-            category: form.category.trim().toUpperCase(),
-            brand: form.brand,
-            coating: form.coating,
-            material: form.material,
-            addition: addition || "",
-            index: form.index,
-            sph,
-            cyl,
-            price: Number(price),
-            mrp: Number(mrp),
-            gst: Number(form.gst),
-            hsnSac: form.hsnSac,
-            qty: Number(qty),
-            discount: Number(form.discount) || 0,
-            vendorNumber: form.vendorNumber,
-            vendorName: form.vendorName,
-        }));
+        const products = previewRows.map(({ sph, cyl, addition, buyingPrice, sellingPrice, price, mrp, qty }, i) => {
+            const bVal = Number(buyingPrice !== "" && buyingPrice != null ? buyingPrice : (price || 0));
+            const sVal = Number(sellingPrice !== "" && sellingPrice != null ? sellingPrice : (mrp || 0));
+            return {
+                productCode: `${i + 1}${form.prefix.trim().toUpperCase() || "DO"}`,
+                productName: form.productName.trim().toUpperCase(),
+                category: form.category.trim().toUpperCase(),
+                brand: form.brand,
+                coating: form.coating,
+                material: form.material,
+                addition: addition || "",
+                index: form.index,
+                sph,
+                cyl,
+                price: bVal,
+                buyingPrice: bVal,
+                sellingPrice: sVal,
+                mrp: Number(mrp),
+                gst: Number(form.gst),
+                hsnSac: form.hsnSac,
+                qty: Number(qty),
+                discount: Number(form.discount) || 0,
+                vendorNumber: form.vendorNumber,
+                vendorName: form.vendorName,
+            };
+        });
 
         setSubmitting(true);
         try {
@@ -1308,6 +1371,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
             });
             if (res.data.success) {
                 toast.success(`${res.data.count} lens products created successfully.`);
+                if (onSuccess) onSuccess();
                 onClose();
             } else {
                 toast.error(res.data.message || "Upload failed.");
@@ -1446,9 +1510,10 @@ export function LensRangeModal({ settings, vendors, onClose }) {
                             Default Pricing
                             <span className="normal-case font-normal text-gray-400 ml-1">(editable per row in preview)</span>
                         </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
                             {[
-                                { label: "Price *", name: "price", type: "number", placeholder: "0" },
+                                { label: "Buying Price *", name: "buyingPrice", type: "number", placeholder: "0" },
+                                { label: "Selling Price *", name: "sellingPrice", type: "number", placeholder: "0" },
                                 { label: "MRP *", name: "mrp", type: "number", placeholder: "0" },
                                 { label: "HSN/SAC", name: "hsnSac", type: "text", placeholder: "9001" },
                                 { label: "Discount (₹)", name: "discount", type: "number", placeholder: "0" },
@@ -1671,7 +1736,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
                                         </span>
                                     )}
                                     <span className="normal-case font-normal text-gray-400 ml-1 text-[10px]">
-                                        (Price, MRP, Qty editable)
+                                        (Buying Price, Selling Price, MRP, Qty editable)
                                     </span>
                                 </h3>
                                 <div className="relative flex-shrink-0">
@@ -1698,7 +1763,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
                                 <table className="w-full text-xs border-collapse">
                                     <thead>
                                         <tr className="bg-gray-100 border-b border-gray-200">
-                                            {["#", "Code", "Product Name", "SPH", "CYL", "Addition", "Price ✎", "MRP ✎", "Qty ✎", ""].map(h => (
+                                            {["#", "Code", "Product Name", "SPH", "CYL", "Addition", "Buying Price ✎", "Selling Price ✎", "MRP ✎", "Qty ✎", ""].map(h => (
                                                 <th key={h} className="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">
                                                     {h}
                                                 </th>
@@ -1708,7 +1773,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
                                     <tbody>
                                         {filteredPreviewRows.length === 0 ? (
                                             <tr>
-                                                <td colSpan={9} className="px-4 py-8 text-center text-xs text-gray-400">
+                                                <td colSpan={11} className="px-4 py-8 text-center text-xs text-gray-400">
                                                     No rows match "
                                                     <span className="font-semibold text-gray-500">{previewSearch}</span>"
                                                 </td>
@@ -1735,22 +1800,40 @@ export function LensRangeModal({ settings, vendors, onClose }) {
                                                         </td>
                                                         <td className="px-2 py-1">
                                                             <input
-                                                                type="number" value={row.price}
-                                                                onChange={e => handlePreviewEdit(origIdx, "price", e.target.value)}
+                                                                type="number"
+                                                                value={row.buyingPrice !== undefined ? row.buyingPrice : (row.price || "")}
+                                                                onChange={e => {
+                                                                    handlePreviewEdit(origIdx, "buyingPrice", e.target.value);
+                                                                    handlePreviewEdit(origIdx, "price", e.target.value);
+                                                                }}
+                                                                placeholder="0"
                                                                 className="w-20 px-2 py-1 text-xs border border-orange-200 rounded-lg outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-100 bg-orange-50 text-gray-700 text-center"
                                                             />
                                                         </td>
                                                         <td className="px-2 py-1">
                                                             <input
-                                                                type="number" value={row.mrp}
+                                                                type="number"
+                                                                value={row.sellingPrice !== undefined ? row.sellingPrice : ""}
+                                                                onChange={e => handlePreviewEdit(origIdx, "sellingPrice", e.target.value)}
+                                                                placeholder="0"
+                                                                className="w-20 px-2 py-1 text-xs border border-orange-200 rounded-lg outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-100 bg-orange-50 text-gray-700 text-center"
+                                                            />
+                                                        </td>
+                                                        <td className="px-2 py-1">
+                                                            <input
+                                                                type="number"
+                                                                value={row.mrp}
                                                                 onChange={e => handlePreviewEdit(origIdx, "mrp", e.target.value)}
+                                                                placeholder="0"
                                                                 className="w-20 px-2 py-1 text-xs border border-orange-200 rounded-lg outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-100 bg-orange-50 text-gray-700 text-center"
                                                             />
                                                         </td>
                                                         <td className="px-2 py-1">
                                                             <input
-                                                                type="number" value={row.qty}
+                                                                type="number"
+                                                                value={row.qty}
                                                                 onChange={e => handlePreviewEdit(origIdx, "qty", e.target.value)}
+                                                                placeholder="1"
                                                                 className="w-16 px-2 py-1 text-xs border border-orange-200 rounded-lg outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-100 bg-orange-50 text-gray-700 text-center"
                                                             />
                                                         </td>
@@ -1774,7 +1857,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
                                 {previewSearch && filteredPreviewRows.length !== previewRows.length
                                     ? `Showing ${filteredPreviewRows.length} of ${previewRows.length} products — `
                                     : `Showing all ${previewRows.length} products — `}
-                                edit Price, MRP or Qty inline, or delete unwanted rows before submitting.
+                                edit Buying Price, Selling Price, MRP or Qty inline, or delete unwanted rows before submitting.
                             </p>
                         </div>
                     )}
@@ -2253,15 +2336,22 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
         try {
             setLoading(true); setPage(1);
             const res = await api.post("/api/digi/product/search", { startDate: fromDate || undefined, endDate: toDate || undefined, keyword: keyword || undefined });
-            if (res.data.success) { setFilteredData(res.data.products || []); setIsSearching(true); }
-            else toast.info(res.data.message);
+            if (res.data.success) {
+                setFilteredData(res.data.products || []);
+                setIsSearching(true);
+            } else {
+                setFilteredData([]);
+                setIsSearching(true);
+                toast.info(res.data.message || "No products found matching your filter");
+            }
         } catch (err) { toast.error(err.response?.data?.message || "Search failed"); }
         finally { setLoading(false); }
     };
 
     const handleResetSearch = () => {
         setFromDate(""); setToDate(""); setKeyword("");
-        setFilteredData([]); setIsSearching(false); setPage(1);
+        setFilteredData([]); setIsSearching(false); setGlobalFilter(""); setPage(1);
+        fetchProducts(1, false);
     };
 
     useEffect(() => {
@@ -2778,7 +2868,30 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                         {table.getRowModel().rows.length === 0 && (
-                            <tr><td colSpan={columns.length} className="py-14 text-center text-gray-400 text-sm">No products found</td></tr>
+                            <tr>
+                                <td colSpan={columns.length} className="py-14 text-center text-gray-400 text-sm">
+                                    <div className="flex flex-col items-center justify-center gap-2.5">
+                                        <p className="font-medium text-gray-500">No products found</p>
+                                        {(isSearching || globalFilter || fromDate || toDate || keyword) ? (
+                                            <button
+                                                type="button"
+                                                onClick={handleResetSearch}
+                                                className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl text-xs font-bold transition shadow-xs"
+                                            >
+                                                Clear search filters & reload all
+                                            </button>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() => fetchProducts(1, false)}
+                                                className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition shadow-xs"
+                                            >
+                                                Reload Inventory
+                                            </button>
+                                        )}
+                                    </div>
+                                </td>
+                            </tr>
                         )}
                         {table.getRowModel().rows.map((row, rIdx) => {
                             const isChecked = !!selectedRows[row.original._id];

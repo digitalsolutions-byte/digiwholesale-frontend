@@ -29,6 +29,8 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
         material: "",
         prefix: "DO",
         price: "",
+        buyingPrice: "",
+        sellingPrice: "",
         mrp: "",
         gst: "12",
         hsnSac: "9001",
@@ -93,6 +95,8 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                 material: "",
                 prefix: defaultPrefix,
                 price: "",
+                buyingPrice: "",
+                sellingPrice: "",
                 mrp: "",
                 gst: "12",
                 hsnSac: defaultHsn,
@@ -118,7 +122,11 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
     const handleFormChange = (e) => {
         const { name, value } = e.target;
         setForm(prev => {
-            const next = { ...prev, [name]: value };
+            const next = {
+                ...prev,
+                [name]: value,
+                ...(name === "buyingPrice" ? { price: value } : {}),
+            };
             if (name === "categoryId") {
                 const catObj = categories.find(c => c._id === value || c.name === value);
                 const cUpper = (catObj?.name || value || "").toUpperCase();
@@ -269,7 +277,9 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                         cyl: "0.00",
                         addition: "",
                         rowIndex: ri,
-                        price: form.price || 0,
+                        price: form.buyingPrice || form.price || 0,
+                        buyingPrice: form.buyingPrice || "",
+                        sellingPrice: form.sellingPrice || "",
                         mrp: form.mrp || 0,
                         qty: form.qty || 1
                     });
@@ -281,7 +291,11 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                 return toast.error("Row " + (ri + 1) + ": SPH/CYL range invalid. Check step multiples.");
             combos.forEach(c => allCombos.push({
                 ...c, rowIndex: ri,
-                price: form.price || 0, mrp: form.mrp || 0, qty: form.qty || 1
+                price: form.buyingPrice || form.price || 0,
+                buyingPrice: form.buyingPrice || "",
+                sellingPrice: form.sellingPrice || "",
+                mrp: form.mrp || 0,
+                qty: form.qty || 1
             }));
         }
         if (allCombos.length === 0) return toast.error("No combinations generated. Specify at least one SPH/CYL range.");
@@ -321,7 +335,9 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
 
         for (let i = 0; i < previewRows.length; i++) {
             const r = previewRows[i];
-            if (!r.price || Number(r.price) <= 0) return toast.error("Preview Row " + (i + 1) + ": Price must be > 0");
+            const bPrice = r.buyingPrice !== "" && r.buyingPrice != null ? r.buyingPrice : r.price;
+            if (!bPrice || Number(bPrice) <= 0) return toast.error("Preview Row " + (i + 1) + ": Buying Price must be > 0");
+            if (!r.sellingPrice || Number(r.sellingPrice) <= 0) return toast.error("Preview Row " + (i + 1) + ": Selling Price must be > 0");
             if (!r.mrp || Number(r.mrp) <= 0) return toast.error("Preview Row " + (i + 1) + ": MRP must be > 0");
             if (!r.qty || Number(r.qty) <= 0) return toast.error("Preview Row " + (i + 1) + ": Qty must be > 0");
         }
@@ -340,12 +356,15 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
 
         const chosenColor = form.color?.trim() || "BLACK";
 
-        const productsToCreate = previewRows.map(({ sph, cyl, addition, price, mrp, qty }, i) => {
+        const productsToCreate = previewRows.map(({ sph, cyl, addition, buyingPrice, sellingPrice, price, mrp, qty }, i) => {
             const hasPower = (sph && sph !== "0.00") || (cyl && cyl !== "0.00") || addition;
             const labelPower = hasPower ? ("SPH " + sph + " CYL " + cyl + (addition ? " ADD " + addition : "")) : (form.size ? "SIZE " + form.size : "");
             const generatedName = labelPower 
                 ? (form.productName.trim().toUpperCase() + " " + labelPower)
                 : form.productName.trim().toUpperCase();
+
+            const bVal = Number(buyingPrice !== "" && buyingPrice != null ? buyingPrice : (price || 0));
+            const sVal = Number(sellingPrice !== "" && sellingPrice != null ? sellingPrice : (mrp || 0));
 
             return {
                 productCode: "" + (i + 1) + (form.prefix.trim().toUpperCase() || "DO"),
@@ -368,7 +387,9 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                 color: chosenColor,
                 sph,
                 cyl,
-                price: Number(price),
+                price: bVal,
+                buyingPrice: bVal,
+                sellingPrice: sVal,
                 mrp: Number(mrp),
                 gst: Number(form.gst),
                 hsnSac: form.hsnSac,
@@ -397,11 +418,15 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                     const dbId = matchFromDb._id || matchFromDb.id || "";
                     
                     const isRxType = isLens;
+                    const bVal = Number(prod.buyingPrice != null ? prod.buyingPrice : (prod.price || 0));
+                    const sVal = Number(prod.sellingPrice != null ? prod.sellingPrice : (prod.mrp || 0));
 
                     return {
                         qty: Number(prod.qty),
                         unit: isFrameOrGlass ? 'piece' : 'pair',
-                        price: Number(prod.price),
+                        price: sVal > 0 ? sVal : Number(prod.price),
+                        buyingPrice: bVal,
+                        sellingPrice: sVal,
                         discount: 0,
                         brand: prod.brand,
                         Brand: prod.brand,
@@ -414,6 +439,7 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                         productCode: matchFromDb.productCode || prod.productCode,
                         code: matchFromDb.productCode || prod.productCode,
                         MRP: Number(prod.mrp),
+                        mrp: Number(prod.mrp),
                         HSNSAC: prod.hsnSac,
                         gstDetails: {
                             gstPercent: prod.gst.toString(),
@@ -736,10 +762,14 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                     {/* Defaults & Pricing */}
                     <div className="bg-gray-50/50 p-3 sm:p-4 rounded-xl border border-gray-100 space-y-3 sm:space-y-4">
                         <h3 className="text-[11px] font-black text-[#1F618D] uppercase tracking-wider">Default Pricing, Qty & Vendor</h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 sm:gap-4">
                             <div>
-                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Price *</label>
-                                <input name="price" type="number" className={inputCls} placeholder="0" value={form.price} onChange={handleFormChange} />
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Buying Price *</label>
+                                <input name="buyingPrice" type="number" className={inputCls} placeholder="0" value={form.buyingPrice} onChange={handleFormChange} />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Selling Price *</label>
+                                <input name="sellingPrice" type="number" className={inputCls} placeholder="0" value={form.sellingPrice} onChange={handleFormChange} />
                             </div>
                             <div>
                                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">MRP *</label>
@@ -937,9 +967,10 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                                             <th className="p-2 w-20">SPH</th>
                                             <th className="p-2 w-20">CYL</th>
                                             <th className="p-2 w-20">ADD</th>
-                                            <th className="p-2 w-24">Price</th>
-                                            <th className="p-2 w-24">MRP</th>
-                                            <th className="p-2 w-20">Qty</th>
+                                            <th className="p-2 w-20">Buying ✎</th>
+                                            <th className="p-2 w-20">Selling ✎</th>
+                                            <th className="p-2 w-20">MRP ✎</th>
+                                            <th className="p-2 w-16">Qty ✎</th>
                                             <th className="p-2 w-12 text-right">Action</th>
                                         </tr>
                                     </thead>
@@ -954,13 +985,43 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                                                 <td className="p-2 font-mono font-bold text-gray-700">{r.cyl}</td>
                                                 <td className="p-2 font-mono text-gray-500">{r.addition || "—"}</td>
                                                 <td className="p-2">
-                                                    <input type="number" className="w-16 px-1 py-0.5 border rounded text-xs" value={r.price} onChange={e => handlePreviewEdit(r._origIdx, "price", e.target.value)} />
+                                                    <input
+                                                        type="number"
+                                                        placeholder="0"
+                                                        className="w-16 px-1 py-0.5 border rounded text-xs"
+                                                        value={r.buyingPrice !== undefined ? r.buyingPrice : (r.price || "")}
+                                                        onChange={e => {
+                                                            handlePreviewEdit(r._origIdx, "buyingPrice", e.target.value);
+                                                            handlePreviewEdit(r._origIdx, "price", e.target.value);
+                                                        }}
+                                                    />
                                                 </td>
                                                 <td className="p-2">
-                                                    <input type="number" className="w-16 px-1 py-0.5 border rounded text-xs" value={r.mrp} onChange={e => handlePreviewEdit(r._origIdx, "mrp", e.target.value)} />
+                                                    <input
+                                                        type="number"
+                                                        placeholder="0"
+                                                        className="w-16 px-1 py-0.5 border rounded text-xs"
+                                                        value={r.sellingPrice !== undefined ? r.sellingPrice : ""}
+                                                        onChange={e => handlePreviewEdit(r._origIdx, "sellingPrice", e.target.value)}
+                                                    />
                                                 </td>
                                                 <td className="p-2">
-                                                    <input type="number" className="w-14 px-1 py-0.5 border rounded text-xs" value={r.qty} onChange={e => handlePreviewEdit(r._origIdx, "qty", e.target.value)} />
+                                                    <input
+                                                        type="number"
+                                                        placeholder="0"
+                                                        className="w-16 px-1 py-0.5 border rounded text-xs"
+                                                        value={r.mrp}
+                                                        onChange={e => handlePreviewEdit(r._origIdx, "mrp", e.target.value)}
+                                                    />
+                                                </td>
+                                                <td className="p-2">
+                                                    <input
+                                                        type="number"
+                                                        placeholder="1"
+                                                        className="w-14 px-1 py-0.5 border rounded text-xs"
+                                                        value={r.qty}
+                                                        onChange={e => handlePreviewEdit(r._origIdx, "qty", e.target.value)}
+                                                    />
                                                 </td>
                                                 <td className="p-2 text-right">
                                                     <button type="button" onClick={() => handlePreviewDeleteRow(r._origIdx)} className="text-red-500 hover:text-red-700">
@@ -999,10 +1060,27 @@ export default function OrderLensRangeModal({ isOpen, onClose, configs, onAddPro
                                                 <span className="text-[10px] font-bold text-gray-800 font-mono">{r.addition || "—"}</span>
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-3 gap-2">
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                             <div>
-                                                <label className="text-[8px] font-bold text-gray-400 block mb-0.5">Price</label>
-                                                <input type="number" className="w-full px-2 py-1.5 text-[11px] border border-gray-200 rounded-lg bg-white" value={r.price} onChange={e => handlePreviewEdit(r._origIdx, "price", e.target.value)} />
+                                                <label className="text-[8px] font-bold text-gray-400 block mb-0.5">Buying</label>
+                                                <input
+                                                    type="number"
+                                                    className="w-full px-2 py-1.5 text-[11px] border border-gray-200 rounded-lg bg-white"
+                                                    value={r.buyingPrice !== undefined ? r.buyingPrice : (r.price || "")}
+                                                    onChange={e => {
+                                                        handlePreviewEdit(r._origIdx, "buyingPrice", e.target.value);
+                                                        handlePreviewEdit(r._origIdx, "price", e.target.value);
+                                                    }}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[8px] font-bold text-gray-400 block mb-0.5">Selling</label>
+                                                <input
+                                                    type="number"
+                                                    className="w-full px-2 py-1.5 text-[11px] border border-gray-200 rounded-lg bg-white"
+                                                    value={r.sellingPrice !== undefined ? r.sellingPrice : ""}
+                                                    onChange={e => handlePreviewEdit(r._origIdx, "sellingPrice", e.target.value)}
+                                                />
                                             </div>
                                             <div>
                                                 <label className="text-[8px] font-bold text-gray-400 block mb-0.5">MRP</label>
