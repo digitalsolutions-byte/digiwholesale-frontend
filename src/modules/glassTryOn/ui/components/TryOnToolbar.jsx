@@ -11,6 +11,8 @@ export default function TryOnToolbar({
     setShowFaceMesh,
     poseInfo,
     onSaveSnapshot,
+    isFullscreen = false,
+    onToggleFullscreen,
 }) {
     const [isExpanded, setIsExpanded] = useState(false);
 
@@ -25,11 +27,26 @@ export default function TryOnToolbar({
                 </div>
 
                 <div className="flex items-center gap-2">
+                    {/* Fullscreen Button */}
+                    {onToggleFullscreen && (
+                        <button
+                            type="button"
+                            onClick={onToggleFullscreen}
+                            className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 transition-all flex items-center gap-1 cursor-pointer"
+                            title="Toggle Fullscreen Mode"
+                        >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0 0l-5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                            </svg>
+                            Fullscreen
+                        </button>
+                    )}
+
                     {/* Face Mesh Wireframe Toggle */}
                     <button
                         type="button"
                         onClick={() => setShowFaceMesh(!showFaceMesh)}
-                        className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 ${
+                        className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 cursor-pointer ${
                             showFaceMesh
                                 ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                                 : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-gray-200'
@@ -42,7 +59,7 @@ export default function TryOnToolbar({
                     <button
                         type="button"
                         onClick={resetTransforms}
-                        className="text-[11px] font-semibold text-gray-500 hover:text-indigo-600 px-2 py-1 rounded-md hover:bg-gray-100 transition-colors"
+                        className="text-[11px] font-semibold text-gray-500 hover:text-indigo-600 px-2 py-1 rounded-md hover:bg-gray-100 transition-colors cursor-pointer"
                     >
                         Reset Fit
                     </button>
@@ -50,7 +67,7 @@ export default function TryOnToolbar({
                     <button
                         type="button"
                         onClick={() => setIsExpanded(!isExpanded)}
-                        className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                        className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 cursor-pointer"
                     >
                         {isExpanded ? 'Fewer Controls' : 'Fine Tune'}
                         <svg

@@ -289,39 +289,67 @@ export function useGlassTryOn({ initialGlass = null, initialFaceUrl = null } = {
         filterRef.current.reset();
     }, []);
 
-    // Drag-to-position handlers on Canvas
-    const handleMouseDown = useCallback((e) => {
+    // Drag-to-position handlers on Canvas (Mouse & Touch supported)
+    const handleDragStart = useCallback((clientX, clientY) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const rect = canvas.getBoundingClientRect();
         setIsDragging(true);
         dragStartRef.current = {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top,
+            x: clientX - rect.left,
+            y: clientY - rect.top,
             initialOffsetX: transforms.offsetX,
             initialOffsetY: transforms.offsetY,
         };
     }, [transforms.offsetX, transforms.offsetY]);
 
-    const handleMouseMove = useCallback((e) => {
+    const handleDragMove = useCallback((clientX, clientY) => {
         if (!isDragging || !canvasRef.current) return;
-        const rect = canvasRef.current.getBoundingClientRect();
-        const currentX = e.clientX - rect.left;
-        const currentY = e.clientY - rect.top;
+        const canvas = canvasRef.current;
+        const rect = canvas.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
 
-        const dx = currentX - dragStartRef.current.x;
-        const dy = currentY - dragStartRef.current.y;
+        const currentX = clientX - rect.left;
+        const currentY = clientY - rect.top;
+
+        // Resolution scale ratio (internal canvas pixels vs display pixels)
+        const scaleX = (rendererRef.current?.width || 640) / rect.width;
+        const scaleY = (rendererRef.current?.height || 520) / rect.height;
+
+        const dx = (currentX - dragStartRef.current.x) * scaleX;
+        const dy = (currentY - dragStartRef.current.y) * scaleY;
 
         setTransforms((prev) => ({
             ...prev,
-            offsetX: Math.max(-100, Math.min(100, Math.round(dragStartRef.current.initialOffsetX + dx))),
-            offsetY: Math.max(-100, Math.min(100, Math.round(dragStartRef.current.initialOffsetY + dy))),
+            offsetX: Math.max(-120, Math.min(120, Math.round(dragStartRef.current.initialOffsetX + dx))),
+            offsetY: Math.max(-120, Math.min(120, Math.round(dragStartRef.current.initialOffsetY + dy))),
         }));
     }, [isDragging]);
+
+    const handleMouseDown = useCallback((e) => {
+        handleDragStart(e.clientX, e.clientY);
+    }, [handleDragStart]);
+
+    const handleMouseMove = useCallback((e) => {
+        handleDragMove(e.clientX, e.clientY);
+    }, [handleDragMove]);
 
     const handleMouseUp = useCallback(() => {
         setIsDragging(false);
     }, []);
+
+    // Touch event handlers for tablets & mobile
+    const handleTouchStart = useCallback((e) => {
+        if (e.touches?.[0]) {
+            handleDragStart(e.touches[0].clientX, e.touches[0].clientY);
+        }
+    }, [handleDragStart]);
+
+    const handleTouchMove = useCallback((e) => {
+        if (e.touches?.[0]) {
+            handleDragMove(e.touches[0].clientX, e.touches[0].clientY);
+        }
+    }, [handleDragMove]);
 
     // Wheel-to-zoom
     const handleWheel = useCallback((e) => {
@@ -361,6 +389,9 @@ export function useGlassTryOn({ initialGlass = null, initialFaceUrl = null } = {
             onMouseMove: handleMouseMove,
             onMouseUp: handleMouseUp,
             onMouseLeave: handleMouseUp,
+            onTouchStart: handleTouchStart,
+            onTouchMove: handleTouchMove,
+            onTouchEnd: handleMouseUp,
             onWheel: handleWheel,
         },
         isDragging,

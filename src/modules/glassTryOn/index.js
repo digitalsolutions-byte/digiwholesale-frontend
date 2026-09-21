@@ -7,6 +7,7 @@
 
 export { default as GlassTryOnPage } from './ui/pages/GlassTryOnPage';
 export { default as FaceShapeBadge } from './ui/components/FaceShapeBadge';
+export { default as TryOnDrawer } from './ui/components/TryOnDrawer';
 export * from './config/featureConfig';
 export * from './config/defaults';
 export * from './constants';

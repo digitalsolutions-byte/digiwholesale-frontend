@@ -8,6 +8,7 @@ import UploadImage from '../components/UploadImage';
 import TryOnToolbar from '../components/TryOnToolbar';
 import GlassCarousel from '../components/GlassCarousel';
 import FaceShapeBadge from '../components/FaceShapeBadge';
+import TryOnDrawer from '../components/TryOnDrawer';
 import SaveDialog from '../dialogs/SaveDialog';
 import UploadGlassDialog from '../dialogs/UploadGlassDialog';
 
@@ -19,6 +20,10 @@ export default function GlassTryOnPage({ apiAdapter }) {
     const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [recommendedFilter, setRecommendedFilter] = useState(null);
+
+    // Fullscreen & Drawer State
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(true);
 
     // Upgraded 2.5D Try-On Coordinator Hook
     const {
@@ -79,6 +84,50 @@ export default function GlassTryOnPage({ apiAdapter }) {
             isMounted = false;
         };
     }, [apiAdapter, setSelectedGlass]);
+
+    // Handle Fullscreen Toggle
+    const handleToggleFullscreen = () => {
+        setIsFullscreen((prev) => {
+            const next = !prev;
+            if (next) {
+                setIsDrawerOpen(true);
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen?.().catch(() => {});
+                }
+            } else {
+                if (document.fullscreenElement) {
+                    document.exitFullscreen?.().catch(() => {});
+                }
+            }
+            return next;
+        });
+    };
+
+    // Synchronize native fullscreen changes & Escape key
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            if (!document.fullscreenElement && isFullscreen) {
+                setIsFullscreen(false);
+            }
+        };
+
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && isFullscreen) {
+                if (document.fullscreenElement) {
+                    document.exitFullscreen?.().catch(() => {});
+                }
+                setIsFullscreen(false);
+            }
+        };
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isFullscreen]);
 
     // Handle adding custom uploaded glasses (Single or 3-Angles)
     const handleAddCustomGlass = (newGlass) => {
@@ -165,28 +214,43 @@ export default function GlassTryOnPage({ apiAdapter }) {
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                    {/* Fullscreen Button */}
+                    <button
+                        type="button"
+                        onClick={handleToggleFullscreen}
+                        className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                        title="Open Fullscreen Studio"
+                    >
+                        <svg className="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0 0l-5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                        </svg>
+                        Fullscreen
+                    </button>
+
                     <button
                         type="button"
                         onClick={() => setIsUploadModalOpen(true)}
-                        className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-indigo-200/80"
+                        className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-indigo-200/80 cursor-pointer"
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
                         </svg>
                         Upload Glasses
                     </button>
+
                     <button
                         type="button"
                         onClick={resetTransforms}
-                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-colors"
+                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                     >
                         Reset Alignment
                     </button>
+
                     <button
                         type="button"
                         onClick={handleOpenSaveDialog}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -209,6 +273,15 @@ export default function GlassTryOnPage({ apiAdapter }) {
                         cameraVideoRef={cameraVideoRef}
                         onStopCamera={stopCamera}
                         isDragging={isDragging}
+                        isFullscreen={isFullscreen}
+                        onToggleFullscreen={handleToggleFullscreen}
+                        isDrawerOpen={isDrawerOpen}
+                        onToggleDrawer={() => setIsDrawerOpen((prev) => !prev)}
+                        showFaceMesh={showFaceMesh}
+                        onToggleFaceMesh={() => setShowFaceMesh((prev) => !prev)}
+                        hideGlasses={hideGlasses}
+                        setHideGlasses={setHideGlasses}
+                        onSaveSnapshot={handleOpenSaveDialog}
                     />
 
                     {/* Calibration & 2.5D Tracking Toolbar */}
@@ -222,6 +295,8 @@ export default function GlassTryOnPage({ apiAdapter }) {
                         setShowFaceMesh={setShowFaceMesh}
                         poseInfo={poseInfo}
                         onSaveSnapshot={handleOpenSaveDialog}
+                        isFullscreen={isFullscreen}
+                        onToggleFullscreen={handleToggleFullscreen}
                     />
                 </div>
 
@@ -256,6 +331,38 @@ export default function GlassTryOnPage({ apiAdapter }) {
                     />
                 </div>
             </div>
+
+            {/* Fullscreen Mode Interactive Studio Drawer */}
+            {isFullscreen && (
+                <TryOnDrawer
+                    isOpen={isDrawerOpen}
+                    onClose={() => setIsDrawerOpen(false)}
+                    glasses={displayedGlasses}
+                    selectedGlass={selectedGlass}
+                    onSelectGlass={setSelectedGlass}
+                    isLoadingGlasses={isLoadingGlasses}
+                    recommendedFilter={recommendedFilter}
+                    onToggleRecommendedFilter={handleToggleRecommendedFilter}
+                    onOpenUploadGlassModal={() => setIsUploadModalOpen(true)}
+                    activeTab={activeTab}
+                    setActiveTab={setActiveTab}
+                    faceSourceUrl={faceSourceUrl}
+                    onSelectFace={handleSelectFace}
+                    onStartCamera={handleStartCamera}
+                    onStopCamera={stopCamera}
+                    isCameraActive={isCameraActive}
+                    transforms={transforms}
+                    updateTransform={updateTransform}
+                    resetTransforms={resetTransforms}
+                    hideGlasses={hideGlasses}
+                    setHideGlasses={setHideGlasses}
+                    showFaceMesh={showFaceMesh}
+                    setShowFaceMesh={setShowFaceMesh}
+                    poseInfo={poseInfo}
+                    faceShapeInfo={faceShapeInfo}
+                    onSaveSnapshot={handleOpenSaveDialog}
+                />
+            )}
 
             {/* Upload Custom Glasses Modal */}
             <UploadGlassDialog
