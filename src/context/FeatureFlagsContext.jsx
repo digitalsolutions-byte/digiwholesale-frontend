@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
-import { selectIsAuthenticated, selectCurrentUser } from '../store/slices/authSlice';
+import { selectIsAuthenticated, selectCurrentUser, selectCurrentTenant } from '../store/slices/authSlice';
+import { useMemo } from 'react';
 import { getMyFeatureFlags } from '../services/featureFlagService';
 
 const defaultFlags = {
@@ -30,6 +31,7 @@ const FeatureFlagsContext = createContext({
 export const FeatureFlagsProvider = ({ children }) => {
     const isAuthenticated = useSelector(selectIsAuthenticated);
     const user = useSelector(selectCurrentUser);
+    const tenant = useSelector(selectCurrentTenant);
 
     const isPlatformOwner = user?.EmployeeType === 'PLATFORM_OWNER';
     const shouldFetch = isAuthenticated && !isPlatformOwner;
@@ -76,8 +78,24 @@ export const FeatureFlagsProvider = ({ children }) => {
         fetchFlags();
     }, [fetchFlags]);
 
+    const combinedFlags = useMemo(() => {
+        if (isPlatformOwner) {
+            return {
+                ecomFramesSunglasses: true,
+                demoMode: true,
+                demoExpiry: null,
+            };
+        }
+        return {
+            ...defaultFlags,
+            ...(tenant?.featureFlags || {}),
+            ...(user?.tenant?.featureFlags || {}),
+            ...flags,
+        };
+    }, [isPlatformOwner, tenant, user, flags]);
+
     return (
-        <FeatureFlagsContext.Provider value={{ flags, loading, refreshFlags: fetchFlags }}>
+        <FeatureFlagsContext.Provider value={{ flags: combinedFlags, loading, refreshFlags: fetchFlags }}>
             {children}
         </FeatureFlagsContext.Provider>
     );

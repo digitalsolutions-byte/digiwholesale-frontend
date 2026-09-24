@@ -120,8 +120,8 @@ const navItems = [
         label: 'Ecommerce',
         icon: 'lucide:store',
         subItems: [
-            { label: 'Sunglasses', path: PATHS.ECOMMERCE.SUNGLASSES, page: 'INVENTORY' },
-            { label: 'Frames', path: PATHS.ECOMMERCE.FRAMES, page: 'INVENTORY' },
+            { label: 'Sunglasses', path: PATHS.ECOMMERCE.SUNGLASSES },
+            { label: 'Frames', path: PATHS.ECOMMERCE.FRAMES },
         ],
     },
     {
@@ -168,6 +168,14 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     const isSalesDept = deptName.includes('sales');
     const isFinanceDept = deptName.includes('finance');
 
+    const effectiveFlags = useMemo(() => {
+        return {
+            ...flags,
+            ...(tenant?.featureFlags || {}),
+            ...(user?.tenant?.featureFlags || {})
+        };
+    }, [flags, tenant, user]);
+
     const filteredNavItems = useMemo(() => {
         if (user?.EmployeeType === 'PLATFORM_OWNER') {
             return platformOwnerNavItems;
@@ -175,7 +183,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         return navItems
             .map(item => {
                 // Hide the Ecommerce group when the feature flag is disabled
-                if (item.label === 'Ecommerce' && !flags?.ecomFramesSunglasses) {
+                if (item.label === 'Ecommerce' && !effectiveFlags?.ecomFramesSunglasses) {
                     return null;
                 }
                 if (item.subItems) {
@@ -197,7 +205,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             })
             .filter(Boolean);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user, isSalesDept, isFinanceDept, flags]);  // re-filter whenever stored user, department, or feature flags change
+    }, [user, isSalesDept, isFinanceDept, effectiveFlags, hasPageAccess]);  // re-filter whenever stored user, department, or feature flags change
 
     useEffect(() => {
         const newOpenSubmenus = {};

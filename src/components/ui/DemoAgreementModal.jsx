@@ -103,6 +103,7 @@ const DemoAgreementModal = ({ forceOpen = false, onClose }) => {
         tenant?.storeInformation?.address || tenant?.address || (tenant?.city ? `${tenant.address || ''} ${tenant.city || ''}, ${tenant.state || ''}`.trim() : 'Registered Address')
     );
     const userEmail = user?.email || tenant?.owner?.email || tenant?.email || 'demo.user@digioptics.com';
+    const userMobile = user?.mobile || user?.phone || user?.phoneNumber || tenant?.owner?.mobile || tenant?.mobile || 'N/A';
 
     const [isEditingData, setIsEditingData] = useState(false);
 
@@ -259,8 +260,12 @@ const DemoAgreementModal = ({ forceOpen = false, onClose }) => {
                                 <span className="font-bold text-gray-900">{repName || 'N/A'}</span>
                             </div>
                             <div>
-                                <span className="text-gray-500 text-[10px] uppercase font-bold block">Organisation:</span>
+                                <span className="text-gray-500 text-[10px] uppercase font-bold block">Shop / Organisation:</span>
                                 <span className="font-bold text-gray-900">{orgName || 'N/A'}</span>
+                            </div>
+                            <div>
+                                <span className="text-gray-500 text-[10px] uppercase font-bold block">Phone Number:</span>
+                                <span className="font-bold text-gray-900 font-mono">{userMobile}</span>
                             </div>
                             <div>
                                 <span className="text-gray-500 text-[10px] uppercase font-bold block">Email address:</span>

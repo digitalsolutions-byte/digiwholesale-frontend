@@ -185,6 +185,8 @@ export default function TenantDetails() {
             utilityProvider: 'META',
             promotionProvider: 'META'
         },
+        demoMode: false,
+        demoExpiry: '',
         featureFlags: {
             demoMode: false,
             demoExpiry: ''
@@ -238,7 +240,10 @@ export default function TenantDetails() {
                             utilityProvider: t.whatsappConfig?.utilityProvider || 'META',
                             promotionProvider: t.whatsappConfig?.promotionProvider || 'META'
                         },
+                        demoMode: Boolean(t.demoMode || t.featureFlags?.demoMode),
+                        demoExpiry: t.demoExpiry || t.featureFlags?.demoExpiry || '',
                         featureFlags: {
+                            ecomFramesSunglasses: Boolean(t.featureFlags?.ecomFramesSunglasses),
                             demoMode: Boolean(t.demoMode || t.featureFlags?.demoMode),
                             demoExpiry: t.demoExpiry || t.featureFlags?.demoExpiry || ''
                         }
@@ -260,6 +265,28 @@ export default function TenantDetails() {
             [section]: {
                 ...prev[section],
                 [field]: value
+            }
+        }));
+    };
+
+    const handleDemoModeToggle = (checked) => {
+        setFormData(prev => ({
+            ...prev,
+            demoMode: checked,
+            featureFlags: {
+                ...(prev.featureFlags || {}),
+                demoMode: checked
+            }
+        }));
+    };
+
+    const handleDemoExpiryChange = (val) => {
+        setFormData(prev => ({
+            ...prev,
+            demoExpiry: val,
+            featureFlags: {
+                ...(prev.featureFlags || {}),
+                demoExpiry: val
             }
         }));
     };
@@ -495,15 +522,15 @@ export default function TenantDetails() {
                             <label className="flex items-center gap-2 cursor-pointer bg-amber-50 px-3 py-1 rounded-xl border border-amber-200 hover:bg-amber-100 transition-colors">
                                 <input
                                     type="checkbox"
-                                    checked={formData.featureFlags?.demoMode || false}
-                                    onChange={(e) => handleNestedChange('featureFlags', 'demoMode', e.target.checked)}
+                                    checked={Boolean(formData.demoMode || formData.featureFlags?.demoMode)}
+                                    onChange={(e) => handleDemoModeToggle(e.target.checked)}
                                     className="w-4 h-4 rounded text-amber-600 focus:ring-0 cursor-pointer"
                                 />
                                 <span className="text-xs font-bold text-amber-900">Demo Mode</span>
                             </label>
                         </div>
 
-                        {formData.featureFlags?.demoMode ? (
+                        {Boolean(formData.demoMode || formData.featureFlags?.demoMode) ? (
                             <div className="p-3.5 bg-amber-50/80 rounded-xl border border-amber-200 space-y-2">
                                 <div className="flex items-center justify-between">
                                     <label className="text-[11px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
@@ -519,7 +546,7 @@ export default function TenantDetails() {
                                 <input
                                     type="datetime-local"
                                     value={formData.featureFlags?.demoExpiry ? new Date(new Date(formData.featureFlags.demoExpiry).getTime() - new Date(formData.featureFlags.demoExpiry).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''}
-                                    onChange={(e) => handleNestedChange('featureFlags', 'demoExpiry', e.target.value ? new Date(e.target.value).toISOString() : '')}
+                                    onChange={(e) => handleDemoExpiryChange(e.target.value ? new Date(e.target.value).toISOString() : '')}
                                     className="w-full sm:w-auto px-3.5 py-2 bg-white border border-amber-300 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:border-[#2980B9]"
                                 />
                                 <p className="text-[10px] text-amber-700 font-medium">
@@ -750,7 +777,7 @@ export default function TenantDetails() {
                             <Icon icon="lucide:shield-lock" className="text-[#2980B9] text-lg" />
                             Demo Mode & Watermark Access
                         </h2>
-                        {formData.featureFlags?.demoMode && (
+                        {Boolean(formData.demoMode || formData.featureFlags?.demoMode) && (
                             <span className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border ${
                                 formData.featureFlags?.demoExpiry && new Date() > new Date(formData.featureFlags.demoExpiry)
                                     ? 'bg-red-50 text-red-700 border-red-200'
@@ -765,8 +792,8 @@ export default function TenantDetails() {
                         <label className="flex items-start gap-3 cursor-pointer select-none">
                             <input
                                 type="checkbox"
-                                checked={formData.featureFlags?.demoMode || false}
-                                onChange={(e) => handleNestedChange('featureFlags', 'demoMode', e.target.checked)}
+                                checked={Boolean(formData.demoMode || formData.featureFlags?.demoMode)}
+                                onChange={(e) => handleDemoModeToggle(e.target.checked)}
                                 className="mt-0.5 w-4 h-4 rounded text-[#2980B9] focus:ring-[#2980B9]"
                             />
                             <div>
@@ -775,7 +802,7 @@ export default function TenantDetails() {
                             </div>
                         </label>
 
-                        {formData.featureFlags?.demoMode && (
+                        {Boolean(formData.demoMode || formData.featureFlags?.demoMode) && (
                             <div className="p-4 bg-amber-50/50 rounded-xl border border-amber-200/70 space-y-2">
                                 <label className="text-[11px] font-bold text-gray-700 uppercase block">
                                     Demo Access Expiry Date & Time (Optional)
@@ -783,7 +810,7 @@ export default function TenantDetails() {
                                 <input
                                     type="datetime-local"
                                     value={formData.featureFlags?.demoExpiry ? new Date(new Date(formData.featureFlags.demoExpiry).getTime() - new Date(formData.featureFlags.demoExpiry).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''}
-                                    onChange={(e) => handleNestedChange('featureFlags', 'demoExpiry', e.target.value ? new Date(e.target.value).toISOString() : '')}
+                                    onChange={(e) => handleDemoExpiryChange(e.target.value ? new Date(e.target.value).toISOString() : '')}
                                     className="px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs font-semibold outline-none focus:border-[#2980B9]"
                                 />
                                 <p className="text-[10px] text-gray-500 font-medium">Logins for this wholesaler will be blocked automatically after this timestamp.</p>

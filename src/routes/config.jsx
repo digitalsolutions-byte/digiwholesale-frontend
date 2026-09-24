@@ -86,7 +86,8 @@ const FeatureFlagRoute = ({ flag, element }) => {
             </div>
         );
     }
-    return flags[flag] ? element : <Navigate to="/" replace />;
+    const isEnabled = Boolean(flags[flag]);
+    return isEnabled ? element : <Navigate to="/" replace />;
 };
 
 export { PATHS };
