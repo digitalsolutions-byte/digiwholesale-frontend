@@ -32,6 +32,7 @@ export const PATHS = {
     CUSTOMER_CARE: {
         NEW_ORDER: '/new-order',
         ALL_ORDERS: '/orders/all',
+        RETAILER_ORDERS: '/orders/retailer-orders',
         RX_ORDERS: '/orders/rx',
         PENDING_ORDERS: '/orders/pending',
         ORDER_STATUS: '/orders/status',
@@ -138,5 +139,10 @@ export const PATHS = {
         // CHEQUES: '/accounting/cheques',
         // AGING: '/accounting/aging-report',
     },
-    SETTINGS: '/settings'
+    SETTINGS: '/settings',
+
+    // EXTERNAL / CROSS-PLATFORM MODULE
+    EXTERNAL: {
+        RETAILER_ORDERS: '/external/retailer-orders',
+    },
 };

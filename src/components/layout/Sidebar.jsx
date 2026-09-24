@@ -44,6 +44,7 @@ const navItems = [
         subItems: [
             { label: 'New Order', path: PATHS.CUSTOMER_CARE.NEW_ORDER, page: 'NEW_ORDER', isBold: true },
             { label: 'All Orders', path: PATHS.CUSTOMER_CARE.ALL_ORDERS, page: 'ALL_ORDERS' },
+            { label: 'Retailer Orders', path: PATHS.CUSTOMER_CARE.RETAILER_ORDERS, page: 'ALL_ORDERS' },
             { label: 'Draft Orders', path: PATHS.CUSTOMER_CARE.DRAFT_ORDERS, page: 'ALL_ORDERS' },
             { label: 'RX Orders', path: PATHS.CUSTOMER_CARE.RX_ORDERS, page: 'ALL_ORDERS' },
             { label: 'Processing Orders', path: PATHS.CUSTOMER_CARE.PENDING_ORDERS, page: 'PENDING_ORDERS' },

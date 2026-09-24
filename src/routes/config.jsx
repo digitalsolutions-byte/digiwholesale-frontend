@@ -54,6 +54,7 @@ import RegisterTenant from '../pages/tenants/RegisterTenant';
 import TenantList from '../pages/tenants/TenantList';
 import TenantDetails from '../pages/tenants/TenantDetails';
 import WholesalerSettings from '../pages/owner/WholesalerSettings';
+import IncomingRetailerOrders from '../pages/IncomingRetailerOrders';
 
 import ChartOfAccounts from '../pages/accounting/ChartOfAccounts';
 import CustomerLedgers from '../pages/accounting/CustomerLedgers';
@@ -123,6 +124,7 @@ const CUSTOMER_MODULE = [
 const CUSTOMER_CARE_MODULE = [
     { path: PATHS.CUSTOMER_CARE.NEW_ORDER, element: OrderWizard, page: 'NEW_ORDER' },
     { path: PATHS.CUSTOMER_CARE.ALL_ORDERS, element: AllOrdersList, page: 'ALL_ORDERS' },
+    { path: PATHS.CUSTOMER_CARE.RETAILER_ORDERS, element: IncomingRetailerOrders, page: 'ALL_ORDERS' },
     { path: PATHS.CUSTOMER_CARE.DRAFT_ORDERS, element: DraftOrders, page: 'ALL_ORDERS' },
     { path: PATHS.CUSTOMER_CARE.RX_ORDERS, element: RxOrders, page: 'ALL_ORDERS' },
     { path: PATHS.CUSTOMER_CARE.PENDING_ORDERS, element: AllOrdersList, page: 'PENDING_ORDERS', props: { isPendingOnly: true, defaultStatus: 'Processing' } },
@@ -211,6 +213,14 @@ const TENANTS_MODULE = [
     { path: PATHS.TENANTS.SETTINGS, element: WholesalerSettings },
 ];
 
+
+const EXTERNAL_MODULE = [
+    {
+        path: PATHS.EXTERNAL?.RETAILER_ORDERS || '/external/retailer-orders',
+        element: IncomingRetailerOrders,
+    },
+];
+
 // ── Full config ───────────────────────────────────────────────────────────────
 const ACCOUNTING_MODULE = [
     { path: PATHS.ACCOUNTING.COA, element: ChartOfAccounts },
@@ -269,6 +279,7 @@ export const routesConfig = [
                     ...REPORTS_MODULE,
                     ...TENANTS_MODULE,
                     ...ACCOUNTING_MODULE,
+                    ...EXTERNAL_MODULE,
                     {
                         path: PATHS.ECOMMERCE.SUNGLASSES,
                         element: FeatureFlagRoute,
