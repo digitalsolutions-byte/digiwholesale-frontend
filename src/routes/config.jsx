@@ -54,6 +54,7 @@ import RegisterTenant from '../pages/tenants/RegisterTenant';
 import TenantList from '../pages/tenants/TenantList';
 import TenantDetails from '../pages/tenants/TenantDetails';
 import WholesalerSettings from '../pages/owner/WholesalerSettings';
+import IncomingRetailerOrders from '../pages/IncomingRetailerOrders';
 
 import ChartOfAccounts from '../pages/accounting/ChartOfAccounts';
 import CustomerLedgers from '../pages/accounting/CustomerLedgers';
@@ -92,18 +93,6 @@ const FeatureFlagRoute = ({ flag, element }) => {
 
 export { PATHS };
 
-/**
- * Route configuration.
- *
- * `page` — the pageAccess[] key that ProtectedRoute checks against
- *           user.pageAccess[].  If absent the route is open to all
- *           authenticated users.
- *
- * NO `requiredPermission` (old user.permissions{} system).
- * NO SUPERADMIN bypass anywhere.
- * Access is determined ONLY by user.pageAccess[].
- */
-
 import CustomerProfile from '../pages/CustomerProfile';
 
 // ── Staff ─────────────────────────────────────────────────────────────────────
@@ -124,6 +113,7 @@ const CUSTOMER_MODULE = [
 const CUSTOMER_CARE_MODULE = [
     { path: PATHS.CUSTOMER_CARE.NEW_ORDER, element: OrderWizard, page: 'NEW_ORDER' },
     { path: PATHS.CUSTOMER_CARE.ALL_ORDERS, element: AllOrdersList, page: 'ALL_ORDERS' },
+    { path: PATHS.CUSTOMER_CARE.RETAILER_ORDERS, element: IncomingRetailerOrders, page: 'ALL_ORDERS' },
     { path: PATHS.CUSTOMER_CARE.DRAFT_ORDERS, element: DraftOrders, page: 'ALL_ORDERS' },
     { path: PATHS.CUSTOMER_CARE.RX_ORDERS, element: RxOrders, page: 'ALL_ORDERS' },
     { path: PATHS.CUSTOMER_CARE.PENDING_ORDERS, element: AllOrdersList, page: 'PENDING_ORDERS', props: { isPendingOnly: true, defaultStatus: 'Processing' } },
@@ -131,8 +121,6 @@ const CUSTOMER_CARE_MODULE = [
     { path: PATHS.CUSTOMER_CARE.VIEW_ORDERS, element: PlaceholderPage, page: 'ALL_ORDERS', props: { title: 'View Orders' } },
     { path: PATHS.CUSTOMER_CARE.UPGRADE_ORDERS, element: PlaceholderPage, page: 'ALL_ORDERS', props: { title: 'Upgrade Orders' } },
     { path: PATHS.CUSTOMER_CARE.UPDATE_CUSTOMERS, element: CustomerList, page: 'CUSTOMER_LIST' },
-    // Edit / view a specific order — no page key: open to any authenticated
-    // user who holds the URL (backend still validates ownership)
     { path: PATHS.CUSTOMER_CARE.EDIT_ORDER, element: OrderWizard },
     { path: PATHS.CUSTOMER_CARE.ORDER_DETAILS, element: OrderDetails },
 ];
@@ -212,6 +200,14 @@ const TENANTS_MODULE = [
     { path: PATHS.TENANTS.SETTINGS, element: WholesalerSettings },
 ];
 
+
+const EXTERNAL_MODULE = [
+    {
+        path: PATHS.EXTERNAL?.RETAILER_ORDERS || '/external/retailer-orders',
+        element: IncomingRetailerOrders,
+    },
+];
+
 // ── Full config ───────────────────────────────────────────────────────────────
 const ACCOUNTING_MODULE = [
     { path: PATHS.ACCOUNTING.COA, element: ChartOfAccounts },
@@ -270,6 +266,7 @@ export const routesConfig = [
                     ...REPORTS_MODULE,
                     ...TENANTS_MODULE,
                     ...ACCOUNTING_MODULE,
+                    ...EXTERNAL_MODULE,
                     {
                         path: PATHS.ECOMMERCE.SUNGLASSES,
                         element: FeatureFlagRoute,

@@ -317,7 +317,8 @@ const OrderWizard = () => {
         dimensions: '',
         Brand: '',
         MRP: 0,
-        HSNSAC: ''
+        HSNSAC: '',
+        disposability: ''
     };
 
     // Initial Form Values
@@ -1396,6 +1397,7 @@ const OrderWizard = () => {
             formik.setFieldValue(`${prefix}productCode`, rawProd.productCode || rawProd.code || '');
             formik.setFieldValue(`${prefix}HSNSAC`, rawProd.hsnSac || rawProd.HSNSAC || '');
             formik.setFieldValue(`${prefix}expiry`, rawProd.expiry || '');
+            formik.setFieldValue(`${prefix}disposability`, rawProd.disposability || '');
 
             // Map lens-specific fields with resolveIndex
             const idxVal = resolveIndex(rawProd.index, configs.index || []);
@@ -1481,6 +1483,7 @@ const OrderWizard = () => {
                     set('image', fullDisplayImg !== "/placeholder-product.png" ? fullDisplayImg : '');
                     set('HSNSAC', fullProd.hsnSac || fullProd.HSNSAC || '');
                     set('expiry', fullProd.expiry || '');
+                    set('disposability', fullProd.disposability || '');
                     set('coating', fullProd.coating || '');
                     set('treatment', fullProd.treatment || '');
                     set('tint', fullProd.tint || '');

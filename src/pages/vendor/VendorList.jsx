@@ -461,6 +461,11 @@ export default function VendorList() {
             if (!r.quantity || Number(r.quantity) <= 0) { toast.error(`Row ${i + 1}: Quantity must be greater than 0`); return; }
             if (!r.price || Number(r.price) <= 0) { toast.error(`Row ${i + 1}: Price must be greater than 0`); return; }
             if (!r.expectedDate) { toast.error(`Row ${i + 1}: Expected Date is required`); return; }
+            if (r.category?.toUpperCase() === 'CONTACT_LENS') {
+                if (!r.coating?.trim()) { toast.error(`Row ${i + 1}: Coating is required for Contact Lens`); return; }
+                if (!r.disposability?.trim()) { toast.error(`Row ${i + 1}: Disposability is required for Contact Lens`); return; }
+                if (!r.expiry) { toast.error(`Row ${i + 1}: Expiry Date is required for Contact Lens`); return; }
+            }
         }
         try {
             dispatch(showLoader());
@@ -900,8 +905,8 @@ export default function VendorList() {
             {/* ── Purchase Order Modal ── */}
             {/* ── Purchase Order Modal ── */}
             {showOrderModal && createPortal(
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-2 sm:p-4 animate-fadeIn transition-all duration-300">
-                    <div className="bg-white w-full max-w-[96vw] xl:max-w-[94vw] 2xl:max-w-[1600px] h-[93vh] max-h-[93vh] rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-200">
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-2 sm:p-4 animate-fadeIn transition-all duration-300 overflow-hidden">
+                    <div className="bg-white w-full max-w-[min(1600px,calc(100vw-1rem))] sm:max-w-[min(1600px,calc(100vw-2rem))] h-[93vh] max-h-[93vh] rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-200">
 
                         {/* Modal Header Bar */}
                         <div className="flex items-center justify-between px-6 py-4 bg-[#2980B9] text-white flex-shrink-0 shadow-md">
@@ -960,7 +965,7 @@ export default function VendorList() {
                         </div>
 
                         {/* Modal Main Content Container */}
-                        <div className="flex-1 overflow-y-auto p-4 bg-slate-100/70 custom-scrollbar">
+                        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 bg-slate-100/70 custom-scrollbar">
                             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col">
                                 <div className="overflow-x-auto custom-scrollbar">
                                     {orderViewMode === 'smart' ? (
@@ -1095,8 +1100,8 @@ export default function VendorList() {
                                                             {/* EXPANDABLE SPECIFICATIONS DRAWER CARD */}
                                                             {isExpanded && (
                                                                 <tr className="bg-gradient-to-r from-sky-50/90 via-slate-50 to-sky-50/90 border-b-2 border-[#2980B9]/30">
-                                                                    <td colSpan={9} className="p-4">
-                                                                        <div className="bg-white rounded-xl p-4 border border-sky-200 shadow-sm space-y-4">
+                                                                    <td colSpan={11} className="p-0">
+                                                                        <div className="w-full bg-white border-t border-sky-200 shadow-sm space-y-4 px-5 py-4">
                                                                             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                                                                                 <span className="text-xs font-extrabold uppercase tracking-wider text-[#2980B9] flex items-center gap-1.5">
                                                                                     <Icon icon="mdi:tune-vertical" /> All Product Fields & Specs ({row.category})
@@ -1110,27 +1115,27 @@ export default function VendorList() {
                                                                                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mt-1.5">
                                                                                     <div>
                                                                                         <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Sph (Spherical)</label>
-                                                                                        <input type="text" placeholder="e.g. -2.25" value={row.sph} onChange={e => handleChangeRow(index, "sph", e.target.value)}
+                                                                                        <input type="number" step="0.25" placeholder="e.g. -2.25" value={row.sph} onChange={e => handleChangeRow(index, "sph", e.target.value)}
                                                                                             className="w-full mt-1 bg-slate-50 border border-slate-200 focus:border-[#2980B9] rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800 outline-none" />
                                                                                     </div>
                                                                                     <div>
                                                                                         <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cyl (Cylinder)</label>
-                                                                                        <input type="text" placeholder="e.g. -0.75" value={row.cyl} onChange={e => handleChangeRow(index, "cyl", e.target.value)}
+                                                                                        <input type="number" step="0.25" placeholder="e.g. -0.75" value={row.cyl} onChange={e => handleChangeRow(index, "cyl", e.target.value)}
                                                                                             className="w-full mt-1 bg-slate-50 border border-slate-200 focus:border-[#2980B9] rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800 outline-none" />
                                                                                     </div>
                                                                                     <div>
                                                                                         <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Axis</label>
-                                                                                        <input type="text" placeholder="e.g. 90" value={row.axis} onChange={e => handleChangeRow(index, "axis", e.target.value)}
+                                                                                        <input type="number" step="1" min="0" max="180" placeholder="e.g. 90" value={row.axis} onChange={e => handleChangeRow(index, "axis", e.target.value)}
                                                                                             className="w-full mt-1 bg-slate-50 border border-slate-200 focus:border-[#2980B9] rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800 outline-none" />
                                                                                     </div>
                                                                                     <div>
                                                                                         <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Add (Addition)</label>
-                                                                                        <input type="text" placeholder="e.g. +2.00" value={row.add} onChange={e => handleChangeRow(index, "add", e.target.value)}
+                                                                                        <input type="number" step="0.25" min="0" placeholder="e.g. 2.00" value={row.add} onChange={e => handleChangeRow(index, "add", e.target.value)}
                                                                                             className="w-full mt-1 bg-slate-50 border border-slate-200 focus:border-[#2980B9] rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800 outline-none" />
                                                                                     </div>
                                                                                     <div>
                                                                                         <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Index</label>
-                                                                                        <input type="text" placeholder="e.g. 1.56" value={row.index} onChange={e => handleChangeRow(index, "index", e.target.value)}
+                                                                                        <input type="number" step="0.01" min="1" max="2" placeholder="e.g. 1.56" value={row.index} onChange={e => handleChangeRow(index, "index", e.target.value)}
                                                                                             className="w-full mt-1 bg-slate-50 border border-slate-200 focus:border-[#2980B9] rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800 outline-none" />
                                                                                     </div>
                                                                                     <div>
@@ -1139,9 +1144,9 @@ export default function VendorList() {
                                                                                             className="w-full mt-1 bg-slate-50 border border-slate-200 focus:border-[#2980B9] rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800 outline-none" />
                                                                                     </div>
                                                                                     <div>
-                                                                                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Coating</label>
+                                                                                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Coating{row.category?.toUpperCase() === 'CONTACT_LENS' && <span className="text-rose-500"> *</span>}</label>
                                                                                         <input type="text" placeholder="e.g. HMC/ARC" value={row.coating} onChange={e => handleChangeRow(index, "coating", e.target.value)}
-                                                                                            className="w-full mt-1 bg-slate-50 border border-slate-200 focus:border-[#2980B9] rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800 outline-none" />
+                                                                                            className={`w-full mt-1 bg-slate-50 border focus:border-[#2980B9] rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800 outline-none ${row.category?.toUpperCase() === 'CONTACT_LENS' && !row.coating?.trim() ? 'border-rose-400' : 'border-slate-200'}`} />
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
@@ -1176,9 +1181,9 @@ export default function VendorList() {
                                                                                             className="w-full mt-1 bg-slate-50 border border-slate-200 focus:border-[#2980B9] rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800 outline-none" />
                                                                                     </div>
                                                                                     <div>
-                                                                                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Disposability</label>
+                                                                                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Disposability{row.category?.toUpperCase() === 'CONTACT_LENS' && <span className="text-rose-500"> *</span>}</label>
                                                                                         <input type="text" placeholder="Daily / Monthly" value={row.disposability} onChange={e => handleChangeRow(index, "disposability", e.target.value)}
-                                                                                            className="w-full mt-1 bg-slate-50 border border-slate-200 focus:border-[#2980B9] rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800 outline-none" />
+                                                                                            className={`w-full mt-1 bg-slate-50 border focus:border-[#2980B9] rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800 outline-none ${row.category?.toUpperCase() === 'CONTACT_LENS' && !row.disposability?.trim() ? 'border-rose-400' : 'border-slate-200'}`} />
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
@@ -1188,9 +1193,9 @@ export default function VendorList() {
                                                                                 <span className="text-[11px] font-extrabold text-[#2980B9] uppercase tracking-wide">Dates & Expiry Tracking</span>
                                                                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-1.5">
                                                                                     <div>
-                                                                                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Item Expiry Date</label>
+                                                                                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Item Expiry Date{row.category?.toUpperCase() === 'CONTACT_LENS' && <span className="text-rose-500"> *</span>}</label>
                                                                                         <input type="date" value={row.expiry} onChange={e => handleChangeRow(index, "expiry", e.target.value)}
-                                                                                            className="w-full mt-1 bg-slate-50 border border-slate-200 focus:border-[#2980B9] rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 outline-none" />
+                                                                                            className={`w-full mt-1 bg-slate-50 border focus:border-[#2980B9] rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 outline-none ${row.category?.toUpperCase() === 'CONTACT_LENS' && !row.expiry ? 'border-rose-400' : 'border-slate-200'}`} />
                                                                                     </div>
                                                                                     <div>
                                                                                         <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Expected Delivery Date</label>
@@ -1385,11 +1390,11 @@ export default function VendorList() {
 
                                                             <td className="px-1.5 py-1.5 border-r border-slate-200"><input type="text" placeholder="Code" value={row.productCode} onChange={e => handleChangeRow(index, "productCode", e.target.value)} className={stdInput} /></td>
                                                             <td className="px-1.5 py-1.5 border-r border-slate-200"><input type="text" placeholder="Brand" value={row.brand} onChange={e => handleChangeRow(index, "brand", e.target.value)} className={stdInput} /></td>
-                                                            <td className="px-1.5 py-1.5 border-r border-slate-200"><input type="text" placeholder="Sph" value={row.sph} onChange={e => handleChangeRow(index, "sph", e.target.value)} className={stdInput} /></td>
-                                                            <td className="px-1.5 py-1.5 border-r border-slate-200"><input type="text" placeholder="Cyl" value={row.cyl} onChange={e => handleChangeRow(index, "cyl", e.target.value)} className={stdInput} /></td>
-                                                            <td className="px-1.5 py-1.5 border-r border-slate-200"><input type="text" placeholder="Axis" value={row.axis} onChange={e => handleChangeRow(index, "axis", e.target.value)} className={stdInput} /></td>
-                                                            <td className="px-1.5 py-1.5 border-r border-slate-200"><input type="text" placeholder="Add" value={row.add} onChange={e => handleChangeRow(index, "add", e.target.value)} className={stdInput} /></td>
-                                                            <td className="px-1.5 py-1.5 border-r border-slate-200"><input type="text" placeholder="Idx" value={row.index} onChange={e => handleChangeRow(index, "index", e.target.value)} className={stdInput} /></td>
+                                                            <td className="px-1.5 py-1.5 border-r border-slate-200"><input type="number" step="0.25" placeholder="Sph" value={row.sph} onChange={e => handleChangeRow(index, "sph", e.target.value)} className={stdInput} /></td>
+                                                            <td className="px-1.5 py-1.5 border-r border-slate-200"><input type="number" step="0.25" placeholder="Cyl" value={row.cyl} onChange={e => handleChangeRow(index, "cyl", e.target.value)} className={stdInput} /></td>
+                                                            <td className="px-1.5 py-1.5 border-r border-slate-200"><input type="number" step="1" min="0" max="180" placeholder="Axis" value={row.axis} onChange={e => handleChangeRow(index, "axis", e.target.value)} className={stdInput} /></td>
+                                                            <td className="px-1.5 py-1.5 border-r border-slate-200"><input type="number" step="0.25" min="0" placeholder="Add" value={row.add} onChange={e => handleChangeRow(index, "add", e.target.value)} className={stdInput} /></td>
+                                                            <td className="px-1.5 py-1.5 border-r border-slate-200"><input type="number" step="0.01" min="1" max="2" placeholder="Idx" value={row.index} onChange={e => handleChangeRow(index, "index", e.target.value)} className={stdInput} /></td>
                                                             <td className="px-1.5 py-1.5 border-r border-slate-200"><input type="text" placeholder="Tint" value={row.tint} onChange={e => handleChangeRow(index, "tint", e.target.value)} className={stdInput} /></td>
                                                             <td className="px-1.5 py-1.5 border-r border-slate-200"><input type="text" placeholder="Coating" value={row.coating} onChange={e => handleChangeRow(index, "coating", e.target.value)} className={stdInput} /></td>
                                                             <td className="px-1.5 py-1.5 border-r border-slate-200"><input type="text" placeholder="Color" value={row.color} onChange={e => handleChangeRow(index, "color", e.target.value)} className={stdInput} /></td>

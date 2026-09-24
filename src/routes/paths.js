@@ -32,6 +32,7 @@ export const PATHS = {
     CUSTOMER_CARE: {
         NEW_ORDER: '/new-order',
         ALL_ORDERS: '/orders/all',
+        RETAILER_ORDERS: '/orders/retailer-orders',
         RX_ORDERS: '/orders/rx',
         PENDING_ORDERS: '/orders/pending',
         ORDER_STATUS: '/orders/status',
@@ -129,14 +130,16 @@ export const PATHS = {
     },
         // ACCOUNTING & PAYMENTS MODULE
     ACCOUNTING: {
-        // COA: '/accounting/chart-of-accounts',
         CUSTOMER_LEDGERS: '/accounting/customer-ledgers',
         CUSTOMER_STATEMENT: '/accounting/customer-statement/:customerId',
         VENDOR_LEDGERS: '/accounting/vendor-ledgers',
         VENDOR_STATEMENT: '/accounting/vendor-statement/:vendorId',
         PAYMENTS: '/accounting/payments',
-        // CHEQUES: '/accounting/cheques',
-        // AGING: '/accounting/aging-report',
     },
-    SETTINGS: '/settings'
+    SETTINGS: '/settings',
+
+    // EXTERNAL / CROSS-PLATFORM MODULE
+    EXTERNAL: {
+        RETAILER_ORDERS: '/external/retailer-orders',
+    },
 };

@@ -252,7 +252,7 @@ export default function Inventory() {
     const emptyRow = {
         id: uuidv4(), date: "", productCode: "", productName: "", category: "",
         brand: "", color: "", size: "", type: "", shape: "", sph: "", cyl: "",
-        index: "", axis: "", addition: "", coating: "", expiry: "", pairOrSingle: "Single",
+        index: "", axis: "", addition: "", coating: "", disposability: "", expiry: "", pairOrSingle: "Single",
         price: "", buyingPrice: "", sellingPrice: "", gst: "0", hsnSac: "", mrp: "", discount: "0", qty: "", vendor: "",
         material: "", dimensions: "",
         colors: [createEmptyColor()],
@@ -294,8 +294,9 @@ export default function Inventory() {
         triggerInventoryRefresh();
     };
 
-    const LENS_FIELDS = ["sph", "cyl", "index", "axis", "coating", "expiry", "pairOrSingle"];
+    const LENS_FIELDS = ["sph", "cyl", "index", "axis", "coating", "disposability", "expiry", "pairOrSingle"];
     const isLensCategory = (v) => Boolean(v && (v.toLowerCase().includes("lens") || v.toLowerCase().includes("glass") || v.toLowerCase().includes("contact lens")));
+    const isContactLens = (v) => Boolean(v && v.trim().toUpperCase().replace(/[\s_]+/g, "_") === "CONTACT_LENS");
     const isFrameCategory = (v) => Boolean(v && v.toLowerCase().includes("frame"));
     const isRequireImageCategory = (v) => Boolean(v && (v.toLowerCase().includes("frame") || v.toLowerCase().includes("sunglass")));
 
@@ -432,6 +433,11 @@ export default function Inventory() {
                         return `Valid quantity (> 0) is required for color "${c.color}" (Product #${i + 1})`;
                     }
                 }
+            }
+            if (isContactLens(row.category)) {
+                if (!row.coating?.trim()) return `Coating is required for Contact Lens (Row ${i + 1})`;
+                if (!row.disposability?.trim()) return `Disposability is required for Contact Lens (Row ${i + 1})`;
+                if (!row.expiry) return `Expiry Date is required for Contact Lens (Row ${i + 1})`;
             }
         }
         return null;
@@ -587,6 +593,7 @@ export default function Inventory() {
                         <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
                             {rows.map((row, i) => {
                                 const isLens = isLensCategory(row.category);
+                                const isContactLensRow = isContactLens(row.category);
                                 const isFrame = isFrameCategory(row.category);
 
                                 return (
@@ -638,15 +645,18 @@ export default function Inventory() {
 
 
                                             {isLens && (<>
-                                                <FieldInput label="SPH"><input type="text" value={row.sph} className={inputCls} onChange={e => handleChange(i, "sph", e.target.value)} /></FieldInput>
-                                                <FieldInput label="CYL"><input type="text" value={row.cyl} className={inputCls} onChange={e => handleChange(i, "cyl", e.target.value)} /></FieldInput>
-                                                <FieldInput label="Index"><input type="text" value={row.index} className={inputCls} onChange={e => handleChange(i, "index", e.target.value)} /></FieldInput>
-                                                <FieldInput label="Axis"><input type="text" value={row.axis} className={inputCls} onChange={e => handleChange(i, "axis", e.target.value)} /></FieldInput>
+                                                <FieldInput label="SPH"><input type="number" step="0.01" value={row.sph} className={inputCls} onChange={e => handleChange(i, "sph", e.target.value)} /></FieldInput>
+                                                <FieldInput label="CYL"><input type="number" step="0.01" value={row.cyl} className={inputCls} onChange={e => handleChange(i, "cyl", e.target.value)} /></FieldInput>
+                                                <FieldInput label="Index"><input type="number" step="0.01" value={row.index} className={inputCls} onChange={e => handleChange(i, "index", e.target.value)} /></FieldInput>
+                                                <FieldInput label="Axis"><input type="number" step="1" value={row.axis} className={inputCls} onChange={e => handleChange(i, "axis", e.target.value)} /></FieldInput>
 
-                                                <FieldInput label="Addition"><input type="text" value={row.addition} className={inputCls} onChange={e => handleChange(i, "addition", e.target.value)} /></FieldInput>
+                                                <FieldInput label="Addition"><input type="number" step="0.01" value={row.addition} className={inputCls} onChange={e => handleChange(i, "addition", e.target.value)} /></FieldInput>
 
-                                                <FieldInput label="Coating"><input type="text" value={row.coating} className={inputCls} onChange={e => handleChange(i, "coating", e.target.value)} /></FieldInput>
-                                                <FieldInput label="Expiry"><input type="date" value={row.expiry} className={inputCls} onChange={e => handleChange(i, "expiry", e.target.value)} /></FieldInput>
+                                                <FieldInput label={isContactLensRow ? "Coating *" : "Coating"}><input type="text" value={row.coating} className={inputCls} onChange={e => handleChange(i, "coating", e.target.value)} /></FieldInput>
+                                                {isContactLensRow && (
+                                                    <FieldInput label="Disposability *"><input type="text" placeholder="Daily / Monthly" value={row.disposability} className={inputCls} onChange={e => handleChange(i, "disposability", e.target.value)} /></FieldInput>
+                                                )}
+                                                <FieldInput label={isContactLensRow ? "Expiry *" : "Expiry"}><input type="date" value={row.expiry} className={inputCls} onChange={e => handleChange(i, "expiry", e.target.value)} /></FieldInput>
                                                 <FieldInput label="Pair / Single">
                                                     <select value={row.pairOrSingle || "Single"} className={selectCls} onChange={e => handleChange(i, "pairOrSingle", e.target.value)}>
                                                         <option value="Single">Single</option>
@@ -699,6 +709,15 @@ export default function Inventory() {
                                                             {v.vendorName || v.name || v.companyName}
                                                         </option>
                                                     ))}
+                                                </select>
+                                            </FieldInput>
+                                            <FieldInput label="HSN / SAC Code">
+                                                <input type="text" value={row.hsnSac} className={inputCls} placeholder="e.g. 9001" onChange={e => handleChange(i, "hsnSac", e.target.value)} />
+                                            </FieldInput>
+                                            <FieldInput label="GST %">
+                                                <select value={row.gst} className={selectCls} onChange={e => handleChange(i, "gst", e.target.value)}>
+                                                    <option value="0">0%</option>
+                                                    {(settings?.gst && settings.gst.length > 0 ? settings.gst : [5, 12, 18, 28]).map((p, idx) => <option key={idx} value={p}>{p}%</option>)}
                                                 </select>
                                             </FieldInput>
 
@@ -800,7 +819,7 @@ export default function Inventory() {
                                                 </div>
                                             </div>
 
-                                            {isRequireImageCategory(row.category) && (
+                                            {(isRequireImageCategory(row.category) || row.category) && (
                                                 <div className="col-span-full mt-3 pt-3 border-t border-gray-200/80">
                                                     <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-2xs space-y-3">
                                                         <div className="flex items-center justify-between pb-2 border-b border-gray-100">
@@ -810,7 +829,7 @@ export default function Inventory() {
                                                                     Colors & Variants
                                                                 </label>
                                                                 <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full font-medium hidden sm:inline-block">
-                                                                    Color, stock quantity & color-specific image
+                                                                    {isRequireImageCategory(row.category) ? "Color, stock quantity & color-specific image" : "Optional — add color variants if applicable"}
                                                                 </span>
                                                             </div>
                                                             <span className="text-[10px] text-gray-500 font-semibold bg-gray-100/80 px-2.5 py-1 rounded-lg">
@@ -2213,6 +2232,8 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
         mrp: "",
         vendorId: "",
         vendorName: "",
+        coating: "",
+        disposability: "",
         remarks: "",
         invoices: []  // File[] — invoice/challan files for this inward
     };
@@ -2237,6 +2258,12 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
     const addInventoryRow = () => setInventoryRows(prev => [...prev, { ...emptyInventoryRow }]);
     const removeInventoryRow = (index) => setInventoryRows(prev => prev.length === 1 ? prev : prev.filter((_, i) => i !== index));
 
+    const isContactLens = (cat) => {
+        if (!cat) return false;
+        const c = cat.trim().toUpperCase().replace(/[\s_]+/g, " ");
+        return c === "CONTACT LENS" || c === "CONTACT_LENS";
+    };
+
     const validateInventoryRows = () => {
         for (let i = 0; i < inventoryRows.length; i++) {
             const row = inventoryRows[i];
@@ -2247,6 +2274,16 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
             const sellingP = row.sellingPrice !== "" ? Number(row.sellingPrice) : Number(row.price);
             if (isNaN(sellingP) || sellingP < 0) return `Selling Price must be >= 0 (Row ${i + 1})`;
             if (row.mrp === "" || Number(row.mrp) < 0) return `MRP must be >= 0 (Row ${i + 1})`;
+
+            // Contact Lens: coating, disposability, expiry are required
+            const productCategory = row.category ||
+                (bulkProducts?.[i]?.category) ||
+                "";
+            if (isContactLens(productCategory)) {
+                if (!row.coating?.trim())       return `Coating is required for Contact Lens (Row ${i + 1})`;
+                if (!row.disposability?.trim()) return `Disposability is required for Contact Lens (Row ${i + 1})`;
+                if (!row.expiry)                return `Expiry Date is required for Contact Lens (Row ${i + 1})`;
+            }
         }
         return null;
     };
@@ -3134,7 +3171,7 @@ function EditProductModal({ product, settings, onClose, onSuccess }) {
     const [formData, setFormData] = useState({
         createdAt: "", productCode: "", productName: "", category: "", brand: "",
         color: "", size: "", type: "", shape: "", sph: "", cyl: "", index: "",
-        axis: "", coating: "", expiry: "", buyingPrice: "", sellingPrice: "", price: "", gst: "0", hsnSac: "", mrp: "", qty: "",
+        axis: "", coating: "", disposability: "", expiry: "", buyingPrice: "", sellingPrice: "", price: "", gst: "0", hsnSac: "", mrp: "", qty: "",
         addition: "", material: "", dimensions: "",
         vendorId: "", vendorName: "",
     });
@@ -3145,10 +3182,21 @@ function EditProductModal({ product, settings, onClose, onSuccess }) {
 
     // Fetch vendors for the vendor dropdown
     useEffect(() => {
-        api.get("/api/vendor")
+        api.get("/api/vendor", { params: { page: 1, limit: 1000 } })
             .then(res => { if (res.data.success) setVendors(res.data.vendors || []); })
             .catch(() => {});
     }, []);
+    useEffect(() => {
+        if (!vendors.length) return;
+        if (formData.vendorId) {
+            const byId = vendors.find(v => v._id?.toString() === formData.vendorId?.toString());
+            if (byId) { setFormData(prev => ({ ...prev, vendorName: byId.name || prev.vendorName })); return; }
+        }
+        if (!formData.vendorId && formData.vendorName) {
+            const byName = vendors.find(v => (v.name || "").toUpperCase() === (formData.vendorName || "").toUpperCase());
+            if (byName) setFormData(prev => ({ ...prev, vendorId: byName._id?.toString() || "" }));
+        }
+    }, [vendors]);
 
     useEffect(() => {
         if (product) {
@@ -3162,15 +3210,15 @@ function EditProductModal({ product, settings, onClose, onSuccess }) {
                 brand: product.brand || "", color: initialColor, size: product.size || "",
                 type: product.type || "", shape: product.shape || "", sph: product.sph || "",
                 cyl: product.cyl || "", index: product.index || "", axis: product.axis || "",
-                coating: product.coating || "", expiry: toInputDate(product.expiry),
+                coating: product.coating || "", disposability: product.disposability || "", expiry: toInputDate(product.expiry),
                 buyingPrice: product.buyingPrice != null ? product.buyingPrice : (product.price || ""),
                 sellingPrice: product.sellingPrice != null ? product.sellingPrice : (product.price || ""),
                 price: product.price || "", gst: product.gst ?? "0", hsnSac: product.hsnSac || "",
                 mrp: product.mrp || "", qty: product.qty || "",
                 addition: product.addition || "", material: product.material || "", dimensions: product.dimensions || "",
                 // Pre-fill vendor
-                vendorId: product.vendor?.id || "",
-                vendorName: product.vendor?.name || "",
+                vendorId: (product.vendor?.id ?? product.vendor?._id ?? "")?.toString() || "",
+                vendorName: product.vendor?.name || product.vendorName || "",
             });
             // Reset image preview when switching products
             setSelectedImage(null);
@@ -3207,6 +3255,11 @@ function EditProductModal({ product, settings, onClose, onSuccess }) {
         e.preventDefault();
         setSaving(true);
         try {
+            if (isEditContactLens) {
+                if (!formData.coating?.trim()) { toast.error("Coating is required for Contact Lens"); setSaving(false); return; }
+                if (!formData.disposability?.trim()) { toast.error("Disposability is required for Contact Lens"); setSaving(false); return; }
+                if (!formData.expiry) { toast.error("Expiry Date is required for Contact Lens"); setSaving(false); return; }
+            }
             const dataToSend = new FormData();
             Object.keys(formData).forEach(key => dataToSend.append(key, formData[key]));
             dataToSend.append("productId", product._id);
@@ -3246,6 +3299,8 @@ function EditProductModal({ product, settings, onClose, onSuccess }) {
         return base;
     })();
 
+    const isEditContactLens = Boolean(formData.category && formData.category.trim().toUpperCase().replace(/[\s_]+/g, "_") === "CONTACT_LENS");
+
     const fields = [
         { name: "createdAt", label: "Date", type: "date" },
         { name: "productCode", label: "Product Code", type: "text" },
@@ -3259,8 +3314,9 @@ function EditProductModal({ product, settings, onClose, onSuccess }) {
         { name: "cyl", label: "CYL", type: "text" },
         { name: "index", label: "Index", type: "text" },
         { name: "axis", label: "Axis", type: "text" },
-        { name: "coating", label: "Coating", type: "text" },
-        { name: "expiry", label: "Expiry", type: "date" },
+        { name: "coating", label: isEditContactLens ? "Coating *" : "Coating", type: "text", required: isEditContactLens },
+        { name: "disposability", label: isEditContactLens ? "Disposability *" : "Disposability", type: "text", required: isEditContactLens },
+        { name: "expiry", label: isEditContactLens ? "Expiry *" : "Expiry", type: "date", required: isEditContactLens },
         { name: "buyingPrice", label: "Buying Price (₹)", type: "number" },
         { name: "sellingPrice", label: "Selling Price (₹)", type: "number" },
         { name: "mrp", label: "MRP (₹)", type: "number" },
@@ -3281,7 +3337,7 @@ function EditProductModal({ product, settings, onClose, onSuccess }) {
                         {fields.map(f => (
                             <FieldInput key={f.name} label={f.label}>
                                 <input name={f.name} type={f.type} value={formData[f.name]}
-                                    onChange={handleChange} className={inputCls} />
+                                    onChange={handleChange} className={inputCls} required={f.required || false} />
                             </FieldInput>
                         ))}
 
@@ -3303,10 +3359,10 @@ function EditProductModal({ product, settings, onClose, onSuccess }) {
 
                         {/* Vendor dropdown */}
                         <FieldInput label="Vendor">
-                            <select name="vendorId" value={formData.vendorId} onChange={handleChange} className={selectCls}>
+                            <select name="vendorId" value={formData.vendorId?.toString() || ""} onChange={handleChange} className={selectCls}>
                                 <option value="">No Vendor / Unknown</option>
                                 {vendors.map(v => (
-                                    <option key={v._id} value={v._id}>
+                                    <option key={v._id?.toString()} value={v._id?.toString()}>
                                         {v.name}{v.firm ? ` — ${v.firm}` : ""}
                                     </option>
                                 ))}
@@ -3648,14 +3704,17 @@ const InventoryModal = ({
                                             </select>
                                             <p className="text-[10px] text-gray-400 mt-1">Source supplier/vendor</p>
                                         </FieldInput>
-                                        <FieldInput label="Expiry Date">
+                                        <FieldInput label={isContactLens(associatedProduct?.category || row.category) ? "Expiry Date *" : "Expiry Date"}>
                                             <input
                                                 type="date"
                                                 value={row.expiry || ""}
                                                 onChange={e => updateRow(index, "expiry", e.target.value)}
-                                                className={inputCls}
+                                                className={`${inputCls} ${isContactLens(associatedProduct?.category || row.category) && !row.expiry ? "border-red-400 ring-1 ring-red-300" : ""}`}
+                                                required={isContactLens(associatedProduct?.category || row.category)}
                                             />
-                                            <p className="text-[10px] text-gray-400 mt-1">Leave empty if not applicable</p>
+                                            <p className={`text-[10px] mt-1 ${isContactLens(associatedProduct?.category || row.category) ? "text-red-500" : "text-gray-400"}`}>
+                                                {isContactLens(associatedProduct?.category || row.category) ? "Required for Contact Lens" : "Leave empty if not applicable"}
+                                            </p>
                                         </FieldInput>
                                         <FieldInput label="Remarks / Invoice Ref">
                                             <input
@@ -3668,6 +3727,42 @@ const InventoryModal = ({
                                             <p className="text-[10px] text-gray-400 mt-1">Reference note for this batch</p>
                                         </FieldInput>
                                     </div>
+
+                                    {/* Contact Lens Required Fields: Coating & Disposability */}
+                                    {isContactLens(associatedProduct?.category || row.category) && (
+                                        <div className="mt-3 pt-3 border-t border-orange-100">
+                                            <div className="flex items-center gap-1.5 mb-2">
+                                                <div className="w-1.5 h-3.5 bg-orange-500 rounded-full" />
+                                                <span className="text-[11px] font-bold text-orange-600 uppercase tracking-wider">
+                                                    Contact Lens Details (Required)
+                                                </span>
+                                            </div>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <FieldInput label="Coating *">
+                                                    <input
+                                                        type="text"
+                                                        value={row.coating || ""}
+                                                        onChange={e => updateRow(index, "coating", e.target.value)}
+                                                        className={`${inputCls} ${!row.coating?.trim() ? "border-red-400 ring-1 ring-red-300" : "border-green-400"}`}
+                                                        placeholder="e.g. UV Coating, Anti-Reflective"
+                                                        required
+                                                    />
+                                                    <p className="text-[10px] text-red-500 mt-1">Required for Contact Lens</p>
+                                                </FieldInput>
+                                                <FieldInput label="Disposability *">
+                                                    <input
+                                                        type="text"
+                                                        value={row.disposability || ""}
+                                                        onChange={e => updateRow(index, "disposability", e.target.value)}
+                                                        className={`${inputCls} ${!row.disposability?.trim() ? "border-red-400 ring-1 ring-red-300" : "border-green-400"}`}
+                                                        placeholder="e.g. Daily, Monthly, Yearly"
+                                                        required
+                                                    />
+                                                    <p className="text-[10px] text-red-500 mt-1">Required for Contact Lens</p>
+                                                </FieldInput>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* Invoice / Challan Upload */}
                                     <div className="mt-3 pt-2.5 border-t border-gray-100">

@@ -31,6 +31,9 @@ const BuyProduct = () => {
         mrp: '',
         buyingPrice: '',
         sellingPrice: '',
+        coating: '',
+        disposability: '',
+        expiry: '',
     });
 
     // ── Vendor Select State ──
@@ -152,6 +155,12 @@ const BuyProduct = () => {
             return;
         }
 
+        if (form.category?.toUpperCase() === 'CONTACT_LENS') {
+            if (!form.coating.trim()) { toast.error('Coating is required for Contact Lens'); return; }
+            if (!form.disposability.trim()) { toast.error('Disposability is required for Contact Lens'); return; }
+            if (!form.expiry) { toast.error('Expiry Date is required for Contact Lens'); return; }
+        }
+
         try {
             setSubmitting(true);
             const payload = {
@@ -168,6 +177,9 @@ const BuyProduct = () => {
                 mrp: form.mrp ? Number(form.mrp) : undefined,
                 buyingPrice: form.buyingPrice ? Number(form.buyingPrice) : undefined,
                 sellingPrice: form.sellingPrice ? Number(form.sellingPrice) : undefined,
+                coating: form.coating || undefined,
+                disposability: form.disposability || undefined,
+                expiry: form.expiry || undefined,
             };
 
             const data = await vendorProposalService.createProposal(payload);
@@ -360,7 +372,11 @@ const BuyProduct = () => {
                                 value={form.category}
                                 onChange={(e) => {
                                     const newCat = e.target.value;
-                                    setForm(p => ({ ...p, category: newCat }));
+                                    setForm(p => ({
+                                        ...p,
+                                        category: newCat,
+                                        ...(newCat?.toUpperCase() !== 'CONTACT_LENS' ? { coating: '', disposability: '', expiry: '' } : {}),
+                                    }));
                                     if (productSearch) {
                                         handleSearchProducts(productSearch, newCat);
                                     }
@@ -400,6 +416,40 @@ const BuyProduct = () => {
                             </select>
                         </div>
                     </div>
+
+                    {form.category?.toUpperCase() === 'CONTACT_LENS' && (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 mt-1 border-t border-rose-100 bg-rose-50/40 rounded-xl p-3">
+                            <div>
+                                <label className="text-xs font-bold text-rose-700 block mb-1">Coating <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. HMC / ARC"
+                                    value={form.coating}
+                                    onChange={(e) => setForm(p => ({ ...p, coating: e.target.value }))}
+                                    className={`w-full px-3.5 py-2.5 bg-white border rounded-xl text-xs font-semibold text-gray-800 outline-none focus:border-rose-400 ${!form.coating.trim() ? 'border-rose-300' : 'border-gray-200'}`}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-rose-700 block mb-1">Disposability <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text"
+                                    placeholder="Daily / Monthly / Yearly"
+                                    value={form.disposability}
+                                    onChange={(e) => setForm(p => ({ ...p, disposability: e.target.value }))}
+                                    className={`w-full px-3.5 py-2.5 bg-white border rounded-xl text-xs font-semibold text-gray-800 outline-none focus:border-rose-400 ${!form.disposability.trim() ? 'border-rose-300' : 'border-gray-200'}`}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-rose-700 block mb-1">Expiry Date <span className="text-red-500">*</span></label>
+                                <input
+                                    type="date"
+                                    value={form.expiry}
+                                    onChange={(e) => setForm(p => ({ ...p, expiry: e.target.value }))}
+                                    className={`w-full px-3.5 py-2.5 bg-white border rounded-xl text-xs font-semibold text-gray-800 outline-none focus:border-rose-400 ${!form.expiry ? 'border-rose-300' : 'border-gray-200'}`}
+                                />
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* 2. Requirement Details */}
