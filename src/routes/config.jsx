@@ -92,18 +92,6 @@ const FeatureFlagRoute = ({ flag, element }) => {
 
 export { PATHS };
 
-/**
- * Route configuration.
- *
- * `page` — the pageAccess[] key that ProtectedRoute checks against
- *           user.pageAccess[].  If absent the route is open to all
- *           authenticated users.
- *
- * NO `requiredPermission` (old user.permissions{} system).
- * NO SUPERADMIN bypass anywhere.
- * Access is determined ONLY by user.pageAccess[].
- */
-
 import CustomerProfile from '../pages/CustomerProfile';
 
 // ── Staff ─────────────────────────────────────────────────────────────────────
@@ -132,8 +120,6 @@ const CUSTOMER_CARE_MODULE = [
     { path: PATHS.CUSTOMER_CARE.VIEW_ORDERS, element: PlaceholderPage, page: 'ALL_ORDERS', props: { title: 'View Orders' } },
     { path: PATHS.CUSTOMER_CARE.UPGRADE_ORDERS, element: PlaceholderPage, page: 'ALL_ORDERS', props: { title: 'Upgrade Orders' } },
     { path: PATHS.CUSTOMER_CARE.UPDATE_CUSTOMERS, element: CustomerList, page: 'CUSTOMER_LIST' },
-    // Edit / view a specific order — no page key: open to any authenticated
-    // user who holds the URL (backend still validates ownership)
     { path: PATHS.CUSTOMER_CARE.EDIT_ORDER, element: OrderWizard },
     { path: PATHS.CUSTOMER_CARE.ORDER_DETAILS, element: OrderDetails },
 ];
