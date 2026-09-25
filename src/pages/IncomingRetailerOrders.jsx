@@ -125,7 +125,7 @@ function RetailerOrderStatusModal({ order, onClose, onSuccess }) {
             // await updateRetailerOrderStatus(order._id, selectedStatus, cancelReason);
             // toast.success(`Order #${order.orderNumber} updated to ${selectedStatus}`);
             // onSuccess();
-            // onClose();
+            onClose();
         } catch (err) {
             toast.error(err.message || 'Failed to update order status');
         } finally {
@@ -507,9 +507,27 @@ export default function IncomingRetailerOrders() {
                                             ? order.items.reduce((sum, it) => sum + (Number(it.qty || it.quantity) || 1), 0)
                                             : 0;
 
-                                        const grandTotal = Number(order.grossTotal || order.netPayableTotal || order.subtotal || 0);
-                                        const advanceVal = Number(order.advanceAmount || 0);
-                                        const dueVal = Math.max(0, grandTotal - advanceVal);
+                                        const subtotal = Number(order.subtotal || 0);
+                                        const totalGst = Number(order.totalGst || 0);
+                                        const grossTotal = Number(order.grossTotal != null ? order.grossTotal : (subtotal + totalGst));
+                                        const shippingCharges = Number(order.shippingCharges || 0);
+                                        const otherCharges = Number(order.otherCharges || 0);
+                                        const advanceAmount = Number(order.advanceAmount || 0);
+                                        const shippingAndOther = shippingCharges + otherCharges;
+
+                                        // grossTotalWithCharges represents the amount before advance deduction
+                                        const grossTotalWithCharges = Number(
+                                            order.grossTotalWithCharges != null && Number(order.grossTotalWithCharges) > 0
+                                                ? order.grossTotalWithCharges
+                                                : (grossTotal + shippingAndOther)
+                                        );
+
+                                        // netPayableTotal is the actual order / payable amount
+                                        const netPayableTotal = Number(
+                                            order.netPayableTotal != null && Number(order.netPayableTotal) >= 0
+                                                ? order.netPayableTotal
+                                                : Math.max(0, grossTotalWithCharges - advanceAmount)
+                                        );
 
                                         const cfg = STATUS_CONFIG[order.status] || {
                                             label: order.status || 'Submitted',
@@ -596,12 +614,21 @@ export default function IncomingRetailerOrders() {
                                                     <td className="px-6 py-2 text-center border-r border-gray-50">
                                                         <div className="flex flex-col items-center">
                                                             <span className="text-sm font-black text-gray-800 tracking-tight">
-                                                                ₹{grandTotal.toFixed(2)}
+                                                                ₹{netPayableTotal.toFixed(2)}
                                                             </span>
-                                                            {advanceVal > 0 && (
-                                                                <span className="text-[10px] font-bold text-emerald-600">
-                                                                    Adv: ₹{advanceVal.toFixed(2)} | Due: ₹{dueVal.toFixed(2)}
+                                                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">
+                                                                Net Payable
+                                                            </span>
+                                                            {advanceAmount > 0 ? (
+                                                                <span className="text-[10px] font-semibold text-emerald-600 mt-0.5">
+                                                                    Adv: ₹{advanceAmount.toFixed(2)} | Gross: ₹{grossTotalWithCharges.toFixed(2)}
                                                                 </span>
+                                                            ) : (
+                                                                shippingAndOther > 0 && (
+                                                                    <span className="text-[10px] font-medium text-gray-500 mt-0.5">
+                                                                        Gross: ₹{grossTotalWithCharges.toFixed(2)}
+                                                                    </span>
+                                                                )
                                                             )}
                                                         </div>
                                                     </td>
@@ -811,27 +838,57 @@ export default function IncomingRetailerOrders() {
                                                                             )}
                                                                         </div>
 
-                                                                        <div className="space-y-1.5 min-w-[220px] border-t md:border-t-0 md:border-l border-gray-200 md:pl-6 pt-3 md:pt-0">
+                                                                        <div className="space-y-2 min-w-[260px] border-t md:border-t-0 md:border-l border-gray-200 md:pl-6 pt-3 md:pt-0">
                                                                             <span className="text-[10px] font-black uppercase text-gray-400 block tracking-wider">
-                                                                                Financial Summary
+                                                                                Financial Breakdown
                                                                             </span>
-                                                                            <div className="flex justify-between text-gray-600">
-                                                                                <span>Subtotal:</span>
-                                                                                <span className="font-bold">₹{Number(order.subtotal || 0).toFixed(2)}</span>
+
+                                                                            <div className="flex justify-between text-xs text-gray-600">
+                                                                                <span>Subtotal</span>
+                                                                                <span className="font-semibold text-gray-800">₹{subtotal.toFixed(2)}</span>
                                                                             </div>
-                                                                            <div className="flex justify-between text-gray-600">
-                                                                                <span>Total GST:</span>
-                                                                                <span className="font-bold">₹{Number(order.totalGst || 0).toFixed(2)}</span>
+
+                                                                            <div className="flex justify-between text-xs text-gray-600">
+                                                                                <span>Total GST</span>
+                                                                                <span className="font-semibold text-gray-800">₹{totalGst.toFixed(2)}</span>
                                                                             </div>
-                                                                            {Number(order.shippingCharges || 0) > 0 && (
-                                                                                <div className="flex justify-between text-gray-600">
-                                                                                    <span>Shipping:</span>
-                                                                                    <span className="font-bold">₹{Number(order.shippingCharges).toFixed(2)}</span>
+
+                                                                            <div className="flex justify-between text-xs text-gray-700 font-bold pt-1 border-t border-dashed border-gray-200">
+                                                                                <span>Gross Total</span>
+                                                                                <span>₹{grossTotal.toFixed(2)}</span>
+                                                                            </div>
+
+                                                                            {shippingAndOther > 0 && (
+                                                                                <div className="space-y-1 pt-1 border-t border-gray-100">
+                                                                                    {shippingCharges > 0 && (
+                                                                                        <div className="flex justify-between text-xs text-gray-600">
+                                                                                            <span>+ Shipping Charges</span>
+                                                                                            <span className="font-semibold text-gray-700">+ ₹{shippingCharges.toFixed(2)}</span>
+                                                                                        </div>
+                                                                                    )}
+                                                                                    {otherCharges > 0 && (
+                                                                                        <div className="flex justify-between text-xs text-gray-600">
+                                                                                            <span>+ Other Charges</span>
+                                                                                            <span className="font-semibold text-gray-700">+ ₹{otherCharges.toFixed(2)}</span>
+                                                                                        </div>
+                                                                                    )}
+                                                                                    <div className="flex justify-between text-[11px] text-gray-500 font-medium">
+                                                                                        <span>Gross with Charges</span>
+                                                                                        <span>₹{grossTotalWithCharges.toFixed(2)}</span>
+                                                                                    </div>
                                                                                 </div>
                                                                             )}
-                                                                            <div className="flex justify-between text-gray-800 font-black text-sm pt-1 border-t border-gray-200">
-                                                                                <span>Gross Total:</span>
-                                                                                <span className="text-erp-accent">₹{grandTotal.toFixed(2)}</span>
+
+                                                                            {advanceAmount > 0 && (
+                                                                                <div className="flex justify-between text-xs text-emerald-600 font-semibold pt-1 border-t border-dashed border-gray-200">
+                                                                                    <span>- Advance Paid</span>
+                                                                                    <span>- ₹{advanceAmount.toFixed(2)}</span>
+                                                                                </div>
+                                                                            )}
+
+                                                                            <div className="flex justify-between text-gray-900 font-black text-sm pt-2 border-t-2 border-gray-300">
+                                                                                <span>Net Payable</span>
+                                                                                <span className="text-erp-accent text-base">₹{netPayableTotal.toFixed(2)}</span>
                                                                             </div>
                                                                         </div>
                                                                     </div>
