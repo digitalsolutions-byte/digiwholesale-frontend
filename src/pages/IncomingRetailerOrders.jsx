@@ -122,10 +122,10 @@ function RetailerOrderStatusModal({ order, onClose, onSuccess }) {
 
         setSaving(true);
         try {
-            await updateRetailerOrderStatus(order._id, selectedStatus, cancelReason);
-            toast.success(`Order #${order.orderNumber} updated to ${selectedStatus}`);
-            onSuccess();
-            onClose();
+            // await updateRetailerOrderStatus(order._id, selectedStatus, cancelReason);
+            // toast.success(`Order #${order.orderNumber} updated to ${selectedStatus}`);
+            // onSuccess();
+            // onClose();
         } catch (err) {
             toast.error(err.message || 'Failed to update order status');
         } finally {
@@ -259,7 +259,7 @@ function RetailerOrderStatusModal({ order, onClose, onSuccess }) {
                     {nextTransitions.length > 0 && (
                         <button
                             type="button"
-                            onClick={handleSave}
+                            // onClick={handleSave}
                             disabled={saving || !selectedStatus || (selectedStatus === 'Cancelled' && !cancelReason.trim())}
                             className="px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-wider bg-erp-accent hover:bg-blue-700 text-white shadow-md shadow-blue-200 transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center gap-2"
                         >
