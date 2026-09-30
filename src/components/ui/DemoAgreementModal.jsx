@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import { useSelector } from 'react-redux';
-import { selectCurrentUser, selectCurrentTenant } from '../../store/slices/authSlice';
-import { useFeatureFlags } from '../../context/FeatureFlagsContext';
+import { selectCurrentUser, selectCurrentTenant, selectIsAuthenticated } from '../../store/slices/authSlice';
+
 
 /**
  * DemoAgreementModal Component
@@ -11,25 +11,21 @@ import { useFeatureFlags } from '../../context/FeatureFlagsContext';
  * Appears before any protected content access when Demo Mode is active.
  */
 const DemoAgreementModal = ({ forceOpen = false, onClose }) => {
+    const isAuthenticated = useSelector(selectIsAuthenticated);
     const user = useSelector(selectCurrentUser);
     const tenant = useSelector(selectCurrentTenant);
-    const { flags } = useFeatureFlags();
 
-    const isDemoMode = Boolean(
+    // Show only for authenticated non-PLATFORM_OWNER employees
+    // when either the employee OR their tenant has demoMode: true
+    const isPlatformOwner = user?.EmployeeType === 'PLATFORM_OWNER';
+    const isDemoMode = isAuthenticated && !isPlatformOwner && Boolean(
         user?.demoMode ||
-        user?.isDemo ||
-        user?.EmployeeType === 'DEMO' ||
         tenant?.demoMode ||
-        tenant?.featureFlags?.demoMode ||
-        flags?.demoMode ||
-        (user?.username && user.username.toLowerCase().includes('demo')) ||
-        (user?.email && user.email.toLowerCase().includes('demo')) ||
-        (tenant?.storeInformation?.storeName && tenant.storeInformation.storeName.toLowerCase().includes('demo')) ||
-        localStorage.getItem('digioptics_demo_mode') === 'true'
+        tenant?.featureFlags?.demoMode
     );
 
     const getExpiryDate = () => {
-        const val = user?.demoExpiry || tenant?.demoExpiry || tenant?.featureFlags?.demoExpiry || flags?.demoExpiry;
+        const val = user?.demoExpiry;
         if (!val) return null;
         const d = new Date(val);
         return isNaN(d.getTime()) ? null : d;
@@ -37,6 +33,7 @@ const DemoAgreementModal = ({ forceOpen = false, onClose }) => {
 
     const expiryDate = getExpiryDate();
     const isExpired = expiryDate ? new Date() > expiryDate : false;
+
 
     // Track acceptance state in localStorage
     const [accepted, setAccepted] = useState(() => {
@@ -58,12 +55,15 @@ const DemoAgreementModal = ({ forceOpen = false, onClose }) => {
         }
     }, [forceOpen, isDemoMode, isExpired, user, tenant]);
 
-    // Synchronize forceOpen prop & window custom event
+    // Synchronize forceOpen prop & window custom event — only open if demo mode is active
     useEffect(() => {
-        const handleCustomOpen = () => setModalOpen(true);
+        const handleCustomOpen = () => {
+            if (isDemoMode && !isExpired) setModalOpen(true);
+        };
         window.addEventListener('open-demo-modal', handleCustomOpen);
         return () => window.removeEventListener('open-demo-modal', handleCustomOpen);
-    }, []);
+    }, [isDemoMode, isExpired]);
+
 
     // Live Date & Time formatting
     const [currentDateTime, setCurrentDateTime] = useState('');

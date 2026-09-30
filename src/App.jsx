@@ -123,8 +123,9 @@ function App() {
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
                     <BrowserRouter>
                         <FeatureFlagsProvider>
-                            <DemoAgreementModal />
-                            <DemoWatermark />
+                            {/* Demo features only render for authenticated users — never on login page */}
+                            {isAuthenticated && <DemoAgreementModal />}
+                            {isAuthenticated && <DemoWatermark />}
                             <div className="app-root min-h-screen bg-gray-50 text-gray-900 font-sans">
                                 <Routes>
                                     {renderRoutes(routesConfig)}

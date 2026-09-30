@@ -80,9 +80,10 @@ export const FeatureFlagsProvider = ({ children }) => {
 
     const combinedFlags = useMemo(() => {
         if (isPlatformOwner) {
+            // PLATFORM_OWNER has full feature access but NEVER demo mode
             return {
                 ecomFramesSunglasses: true,
-                demoMode: true,
+                demoMode: false,
                 demoExpiry: null,
             };
         }

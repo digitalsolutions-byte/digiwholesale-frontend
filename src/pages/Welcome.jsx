@@ -5,8 +5,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { PATHS } from '../routes/paths';
 import { getFirstAllowedRoute } from '../routes/config';
 import { useSelector } from 'react-redux';
-import { selectCurrentUser, selectCurrentTenant } from '../store/slices/authSlice';
-import { useFeatureFlags } from '../context/FeatureFlagsContext';
+import { selectCurrentUser, selectCurrentTenant, selectIsAuthenticated } from '../store/slices/authSlice';
+
 import {
     Box,
     Typography,
@@ -23,11 +23,18 @@ const Welcome = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const theme = useTheme();
+    const isAuthenticated = useSelector(selectIsAuthenticated);
     const user = useSelector(selectCurrentUser);
     const tenant = useSelector(selectCurrentTenant);
-    const { flags } = useFeatureFlags();
 
-    const isDemoMode = Boolean(user?.demoMode || tenant?.demoMode || tenant?.featureFlags?.demoMode || flags?.demoMode);
+    // Show only for authenticated non-PLATFORM_OWNER employees
+    // when either the employee OR their tenant has demoMode: true
+    const isPlatformOwner = user?.EmployeeType === 'PLATFORM_OWNER';
+    const isDemoMode = isAuthenticated && !isPlatformOwner && Boolean(
+        user?.demoMode ||
+        tenant?.demoMode ||
+        tenant?.featureFlags?.demoMode
+    );
 
     const [demoAccepted, setDemoAccepted] = useState(() => {
         if (!isDemoMode) return true;

@@ -1,35 +1,25 @@
 import React from 'react';
 import { Icon } from '@iconify/react';
 import { useSelector } from 'react-redux';
-import { selectCurrentUser, selectCurrentTenant } from '../../store/slices/authSlice';
-import { useFeatureFlags } from '../../context/FeatureFlagsContext';
+import { selectCurrentUser, selectCurrentTenant, selectIsAuthenticated } from '../../store/slices/authSlice';
 
-/**
- * DemoWatermark Component
- * 
- * Displays dynamic security watermark overlay across the app containing user details:
- * User Name, Shop/Store Name, Mobile/Phone Number, Demo ID & Security Evaluation Message.
- */
+
 const DemoWatermark = () => {
+    const isAuthenticated = useSelector(selectIsAuthenticated);
     const user = useSelector(selectCurrentUser);
     const tenant = useSelector(selectCurrentTenant);
-    const { flags } = useFeatureFlags();
 
-    const isDemoMode = Boolean(
+    // Show only for authenticated non-PLATFORM_OWNER employees
+    // when either the employee OR their tenant has demoMode: true
+    const isPlatformOwner = user?.EmployeeType === 'PLATFORM_OWNER';
+    const isDemoMode = isAuthenticated && !isPlatformOwner && Boolean(
         user?.demoMode ||
-        user?.isDemo ||
-        user?.EmployeeType === 'DEMO' ||
         tenant?.demoMode ||
-        tenant?.featureFlags?.demoMode ||
-        flags?.demoMode ||
-        (user?.username && user.username.toLowerCase().includes('demo')) ||
-        (user?.email && user.email.toLowerCase().includes('demo')) ||
-        (tenant?.storeInformation?.storeName && tenant.storeInformation.storeName.toLowerCase().includes('demo')) ||
-        localStorage.getItem('digioptics_demo_mode') === 'true'
+        tenant?.featureFlags?.demoMode
     );
 
     const getExpiryDate = () => {
-        const val = user?.demoExpiry || tenant?.demoExpiry || tenant?.featureFlags?.demoExpiry || flags?.demoExpiry;
+        const val = user?.demoExpiry;
         if (!val) return null;
         const d = new Date(val);
         return isNaN(d.getTime()) ? null : d;
