@@ -450,15 +450,7 @@ export default function TenantDetails() {
                                 className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold outline-none focus:border-[#2980B9]"
                             />
                         </div>
-                        <div>
-                            <label className="text-[11px] font-bold text-gray-500 uppercase block mb-1">Commission %</label>
-                            <input
-                                type="number"
-                                value={formData.storeInformation.commissionPercentage}
-                                onChange={(e) => handleNestedChange('storeInformation', 'commissionPercentage', Number(e.target.value))}
-                                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold outline-none focus:border-[#2980B9]"
-                            />
-                        </div>
+
                         <div>
                             <label className="text-[11px] font-bold text-gray-500 uppercase block mb-1">Expiry Date</label>
                             <input

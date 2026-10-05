@@ -12,8 +12,7 @@ export default function PlatformOwnerDashboard() {
     const [stats, setStats] = useState({
         total: 0,
         active: 0,
-        suspended: 0,
-        avgCommission: 0
+        suspended: 0
     });
 
     useEffect(() => {
@@ -27,13 +26,11 @@ export default function PlatformOwnerDashboard() {
                     
                     const activeCount = list.filter(t => t.status === 'ACTIVE').length;
                     const suspendedCount = list.filter(t => t.status === 'SUSPENDED').length;
-                    const commSum = list.reduce((acc, t) => acc + (t.storeInformation?.commissionPercentage || 0), 0);
                     
                     setStats({
                         total: res.data?.pagination?.totalRecords || list.length,
                         active: activeCount,
                         suspended: suspendedCount,
-                        avgCommission: list.length > 0 ? (commSum / list.length).toFixed(1) : 0
                     });
                 }
             } catch (error) {
@@ -103,7 +100,7 @@ export default function PlatformOwnerDashboard() {
             </div>
 
             {/* Clean Minimal Metric Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-100 shadow-xs space-y-1.5 sm:space-y-2 overflow-hidden">
                     <div className="flex items-center justify-between gap-1 text-slate-400">
                         <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500 truncate">Total Wholesalers</span>
@@ -135,17 +132,6 @@ export default function PlatformOwnerDashboard() {
                     </div>
                     <div className="text-xl sm:text-2xl font-bold text-rose-600">{stats.suspended}</div>
                     <span className="text-[10px] sm:text-[11px] text-slate-400 font-medium block truncate">Blocked from access</span>
-                </div>
-
-                <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-100 shadow-xs space-y-1.5 sm:space-y-2 overflow-hidden">
-                    <div className="flex items-center justify-between gap-1 text-slate-400">
-                        <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500 truncate">Avg Commission</span>
-                        <div className="p-1.5 sm:p-2 bg-slate-100 text-[#2980B9] rounded-xl flex-shrink-0">
-                            <Icon icon="lucide:percent" className="text-base sm:text-lg" />
-                        </div>
-                    </div>
-                    <div className="text-xl sm:text-2xl font-bold text-slate-800">{stats.avgCommission}%</div>
-                    <span className="text-[10px] sm:text-[11px] text-slate-400 font-medium block truncate">Platform revenue share</span>
                 </div>
             </div>
 
@@ -204,12 +190,11 @@ export default function PlatformOwnerDashboard() {
                                             <span className="text-[11px] text-slate-400 block truncate">{owner.email || ''}</span>
                                         </div>
                                         <div className="space-y-0.5">
-                                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Plan & Comm.</span>
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Plan</span>
                                             <div className="flex items-center gap-1.5 mt-0.5">
                                                 <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                                                     {t.subscription?.planType || 'PRO'}
                                                 </span>
-                                                <span className="font-semibold text-slate-700 text-xs">{store.commissionPercentage || 0}%</span>
                                             </div>
                                         </div>
                                     </div>
@@ -265,7 +250,6 @@ export default function PlatformOwnerDashboard() {
                             <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase tracking-wider">
                                 <th className="py-3.5 px-4">Wholesaler Name</th>
                                 <th className="py-3.5 px-4">Owner Info</th>
-                                <th className="py-3.5 px-4">Commission</th>
                                 <th className="py-3.5 px-4">Plan Type</th>
                                 <th className="py-3.5 px-4">Expiry Date</th>
                                 <th className="py-3.5 px-4">Status</th>
@@ -275,13 +259,13 @@ export default function PlatformOwnerDashboard() {
                         <tbody className="divide-y divide-slate-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="7" className="p-8 text-center text-slate-400 font-medium">
+                                    <td colSpan="6" className="p-8 text-center text-slate-400 font-medium">
                                         Loading platform data...
                                     </td>
                                 </tr>
                             ) : tenants.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" className="p-10 text-center text-slate-400 font-medium">
+                                    <td colSpan="6" className="p-10 text-center text-slate-400 font-medium">
                                         No wholesalers registered yet. Click "+ Create Wholesaler" to register your first tenant!
                                     </td>
                                 </tr>
@@ -300,9 +284,6 @@ export default function PlatformOwnerDashboard() {
                                             <td className="px-4 py-3.5">
                                                 <div className="font-semibold text-slate-700">{owner.ownerName || 'N/A'}</div>
                                                 <div className="text-[11px] text-slate-400">{owner.email}</div>
-                                            </td>
-                                            <td className="px-4 py-3.5 font-semibold text-slate-700">
-                                                {store.commissionPercentage || 0}%
                                             </td>
                                             <td className="px-4 py-3.5">
                                                 <span className="px-2.5 py-1 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">

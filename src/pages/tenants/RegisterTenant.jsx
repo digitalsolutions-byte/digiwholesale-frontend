@@ -147,7 +147,6 @@ export default function RegisterTenant() {
         storeName: '',
         address: '',
         storeTiming: '10 AM – 8 PM',
-        commissionPercentage: 5,
         expiryDate: '2027-12-31',
         emailApi: '',
         showAds: false,
@@ -245,8 +244,8 @@ export default function RegisterTenant() {
             return;
         }
 
-        if (!formData.gstCertificate && !formData.panCard && !formData.aadhaarCard && !formData.storeLogo) {
-            toast.error('Please upload at least one document or logo (GST, PAN, or Aadhaar Card).');
+        if (!formData.gstCertificate && !(formData.panCard && formData.aadhaarCard)) {
+            toast.error('Please upload either GST Certificate OR both PAN Card & Aadhaar Card.');
             return;
         }
 
@@ -360,31 +359,16 @@ export default function RegisterTenant() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">COMMISSION (%) *</label>
+                                    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">EXPIRY DATE *</label>
                                     <input
-                                        type="number"
-                                        name="commissionPercentage"
-                                        value={formData.commissionPercentage}
+                                        type="date"
+                                        name="expiryDate"
+                                        value={formData.expiryDate}
                                         onChange={handleChange}
-                                        min="0"
-                                        max="100"
-                                        placeholder="% 0"
-                                        className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all"
+                                        className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all cursor-pointer"
                                         required
                                     />
                                 </div>
-                            </div>
-
-                            <div>
-                                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">EXPIRY DATE *</label>
-                                <input
-                                    type="date"
-                                    name="expiryDate"
-                                    value={formData.expiryDate}
-                                    onChange={handleChange}
-                                    className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all cursor-pointer"
-                                    required
-                                />
                             </div>
 
                             <div>
@@ -401,38 +385,23 @@ export default function RegisterTenant() {
 
                             {/* Options */}
                             <div className="flex flex-wrap items-center gap-6 pt-2">
-                                <label className="flex items-center gap-2 cursor-pointer select-none">
-                                    <input
-                                        type="checkbox"
-                                        name="showAds"
-                                        checked={formData.showAds}
-                                        onChange={handleChange}
-                                        className="w-4 h-4 rounded border-slate-300 text-[#2980B9] focus:ring-0"
-                                    />
-                                    <span className="text-xs font-medium text-slate-700">Show Ads</span>
-                                </label>
-
-                                <label className="flex items-center gap-2 cursor-pointer select-none">
-                                    <input
-                                        type="checkbox"
-                                        name="hasGST"
-                                        checked={formData.hasGST}
-                                        onChange={handleChange}
-                                        className="w-4 h-4 rounded border-slate-300 text-[#2980B9] focus:ring-0"
-                                    />
-                                    <span className="text-xs font-medium text-slate-700">Has GST</span>
-                                </label>
-
-                                <label className="flex items-center gap-2 cursor-pointer select-none">
-                                    <input
-                                        type="checkbox"
-                                        name="hasAI"
-                                        checked={formData.hasAI}
-                                        onChange={handleChange}
-                                        className="w-4 h-4 rounded border-slate-300 text-[#2980B9] focus:ring-0"
-                                    />
-                                    <span className="text-xs font-medium text-slate-700">Has AI</span>
-                                </label>
+                                {/* TODO: Show Ads, Has GST, Has AI — stored but no active logic yet; hidden until implemented */}
+                                {false && (
+                                    <>
+                                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                                            <input type="checkbox" name="showAds" checked={formData.showAds} onChange={handleChange} className="w-4 h-4 rounded border-slate-300 text-[#2980B9] focus:ring-0" />
+                                            <span className="text-xs font-medium text-slate-700">Show Ads</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                                            <input type="checkbox" name="hasGST" checked={formData.hasGST} onChange={handleChange} className="w-4 h-4 rounded border-slate-300 text-[#2980B9] focus:ring-0" />
+                                            <span className="text-xs font-medium text-slate-700">Has GST</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                                            <input type="checkbox" name="hasAI" checked={formData.hasAI} onChange={handleChange} className="w-4 h-4 rounded border-slate-300 text-[#2980B9] focus:ring-0" />
+                                            <span className="text-xs font-medium text-slate-700">Has AI</span>
+                                        </label>
+                                    </>
+                                )}
 
                                 <label className="flex items-center gap-2 cursor-pointer select-none bg-amber-50 px-3 py-1 rounded-xl border border-amber-200 hover:bg-amber-100 transition-colors">
                                     <input
@@ -534,50 +503,34 @@ export default function RegisterTenant() {
                             </div>
                         </div>
 
-                        {/* Loyalty & Referral Sub-card */}
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3 mt-2">
-                            <div className="flex items-center gap-2">
-                                <Icon icon="lucide:star" className="text-[#2980B9] text-sm" />
-                                <h3 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">LOYALTY & REFERRAL</h3>
-                            </div>
-                            <div className="grid grid-cols-3 gap-3">
-                                <div>
-                                    <label className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">RS / POINT</label>
-                                    <input
-                                        type="number"
-                                        name="rsPerPoint"
-                                        value={formData.rsPerPoint}
-                                        onChange={handleChange}
-                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 outline-none text-center"
-                                    />
+                        {/* TODO: Loyalty & Referral — stored & sent in login response but no auto-calculation logic yet; hidden until implemented */}
+                        {false && (
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3 mt-2">
+                                <div className="flex items-center gap-2">
+                                    <Icon icon="lucide:star" className="text-[#2980B9] text-sm" />
+                                    <h3 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">LOYALTY &amp; REFERRAL</h3>
                                 </div>
-                                <div>
-                                    <label className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">POINT VALUE</label>
-                                    <input
-                                        type="number"
-                                        name="pointValue"
-                                        value={formData.pointValue}
-                                        onChange={handleChange}
-                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 outline-none text-center"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">REFER PTS</label>
-                                    <input
-                                        type="number"
-                                        name="referPoints"
-                                        value={formData.referPoints}
-                                        onChange={handleChange}
-                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 outline-none text-center"
-                                    />
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div>
+                                        <label className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">RS / POINT</label>
+                                        <input type="number" name="rsPerPoint" value={formData.rsPerPoint} onChange={handleChange} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 outline-none text-center" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">POINT VALUE</label>
+                                        <input type="number" name="pointValue" value={formData.pointValue} onChange={handleChange} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 outline-none text-center" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">REFER PTS</label>
+                                        <input type="number" name="referPoints" value={formData.referPoints} onChange={handleChange} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 outline-none text-center" />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
                     </div>
 
                 </div>
 
-                {/* BOTTOM SECTION: Documents, Plan Cards & WhatsApp Config */}
+                {/* BOTTOM SECTION: Documents, Plan & WhatsApp Cards in one row */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
                     {/* 3. Logo & Documents */}
@@ -623,7 +576,7 @@ export default function RegisterTenant() {
                         />
 
                         <p className="text-[10px] text-slate-400 font-medium pt-1">
-                            * At least one of GST / PAN / Aadhar required
+                            * GST Certificate <span className="font-bold">OR</span> both PAN Card &amp; Aadhaar Card required
                         </p>
                     </div>
 
@@ -762,73 +715,31 @@ export default function RegisterTenant() {
                         )}
                     </div>
 
-                    {/* 5. WhatsApp Config */}
+                    {/* WhatsApp Integration */}
                     <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-100 shadow-xs space-y-5">
                         <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
                             <Icon icon="lucide:message-square" className="text-[#2980B9] text-xl" />
                             <h2 className="text-sm font-bold text-slate-800">WhatsApp Integration</h2>
                         </div>
-
-                        {/* Utility Messages Provider */}
                         <div className="space-y-2">
                             <label className="text-[10px] font-semibold text-slate-400 uppercase block">UTILITY MESSAGES PROVIDER</label>
                             <div className="grid grid-cols-2 gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData(p => ({ ...p, utilityProvider: 'META' }))}
-                                    className={`py-3 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${
-                                        formData.utilityProvider === 'META'
-                                            ? 'bg-[#2980B9] text-white shadow-xs'
-                                            : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
-                                    }`}
-                                >
-                                    <Icon icon="logos:whatsapp-icon" className="text-sm flex-shrink-0" />
-                                    <span>META</span>
+                                <button type="button" onClick={() => setFormData(p => ({ ...p, utilityProvider: 'META' }))} className={`py-3 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${formData.utilityProvider === 'META' ? 'bg-[#2980B9] text-white shadow-xs' : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'}`}>
+                                    <Icon icon="logos:whatsapp-icon" className="text-sm flex-shrink-0" /><span>META</span>
                                 </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData(p => ({ ...p, utilityProvider: 'NON_META' }))}
-                                    className={`py-3 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${
-                                        formData.utilityProvider === 'NON_META'
-                                            ? 'bg-[#2980B9] text-white shadow-xs'
-                                            : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
-                                    }`}
-                                >
-                                    <Icon icon="lucide:link" className="text-sm flex-shrink-0" />
-                                    <span>NON_META</span>
+                                <button type="button" onClick={() => setFormData(p => ({ ...p, utilityProvider: 'NON_META' }))} className={`py-3 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${formData.utilityProvider === 'NON_META' ? 'bg-[#2980B9] text-white shadow-xs' : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'}`}>
+                                    <Icon icon="lucide:link" className="text-sm flex-shrink-0" /><span>NON_META</span>
                                 </button>
                             </div>
                         </div>
-
-                        {/* Promotion Messages Provider */}
                         <div className="space-y-2">
                             <label className="text-[10px] font-semibold text-slate-400 uppercase block">PROMOTION MESSAGES PROVIDER</label>
                             <div className="grid grid-cols-2 gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData(p => ({ ...p, promotionProvider: 'META' }))}
-                                    className={`py-3 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${
-                                        formData.promotionProvider === 'META'
-                                            ? 'bg-[#2980B9] text-white shadow-xs'
-                                            : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
-                                    }`}
-                                >
-                                    <Icon icon="logos:whatsapp-icon" className="text-sm flex-shrink-0" />
-                                    <span>META</span>
+                                <button type="button" onClick={() => setFormData(p => ({ ...p, promotionProvider: 'META' }))} className={`py-3 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${formData.promotionProvider === 'META' ? 'bg-[#2980B9] text-white shadow-xs' : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'}`}>
+                                    <Icon icon="logos:whatsapp-icon" className="text-sm flex-shrink-0" /><span>META</span>
                                 </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData(p => ({ ...p, promotionProvider: 'NON_META' }))}
-                                    className={`py-3 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${
-                                        formData.promotionProvider === 'NON_META'
-                                            ? 'bg-[#2980B9] text-white shadow-xs'
-                                            : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
-                                    }`}
-                                >
-                                    <Icon icon="lucide:link" className="text-sm flex-shrink-0" />
-                                    <span>NON_META</span>
+                                <button type="button" onClick={() => setFormData(p => ({ ...p, promotionProvider: 'NON_META' }))} className={`py-3 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${formData.promotionProvider === 'NON_META' ? 'bg-[#2980B9] text-white shadow-xs' : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'}`}>
+                                    <Icon icon="lucide:link" className="text-sm flex-shrink-0" /><span>NON_META</span>
                                 </button>
                             </div>
                         </div>
