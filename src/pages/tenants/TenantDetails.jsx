@@ -151,7 +151,6 @@ export default function TenantDetails() {
             storeName: '',
             address: '',
             storeTiming: '10 AM – 8 PM',
-            commissionPercentage: 5,
             expiryDate: '',
             emailApi: '',
             showAds: false,
@@ -206,7 +205,6 @@ export default function TenantDetails() {
                             storeName: t.storeInformation?.storeName || '',
                             address: t.storeInformation?.address || '',
                             storeTiming: t.storeInformation?.storeTiming || '10 AM – 8 PM',
-                            commissionPercentage: t.storeInformation?.commissionPercentage ?? 5,
                             expiryDate: t.storeInformation?.expiryDate ? t.storeInformation.expiryDate.split('T')[0] : '',
                             emailApi: t.storeInformation?.emailApi || '',
                             showAds: !!t.storeInformation?.showAds,
@@ -483,33 +481,38 @@ export default function TenantDetails() {
 
                     <div className="pt-3 border-t border-gray-100 space-y-3">
                         <div className="flex flex-wrap items-center gap-6">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={formData.storeInformation.hasGST}
-                                    onChange={(e) => handleNestedChange('storeInformation', 'hasGST', e.target.checked)}
-                                    className="w-4 h-4 rounded text-[#2980B9] focus:ring-[#2980B9]"
-                                />
-                                <span className="text-xs font-bold text-gray-700">GST Invoice Enabled</span>
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={formData.storeInformation.showAds}
-                                    onChange={(e) => handleNestedChange('storeInformation', 'showAds', e.target.checked)}
-                                    className="w-4 h-4 rounded text-[#2980B9] focus:ring-[#2980B9]"
-                                />
-                                <span className="text-xs font-bold text-gray-700">Show Ads / Banner</span>
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={formData.storeInformation.hasAI}
-                                    onChange={(e) => handleNestedChange('storeInformation', 'hasAI', e.target.checked)}
-                                    className="w-4 h-4 rounded text-[#2980B9] focus:ring-[#2980B9]"
-                                />
-                                <span className="text-xs font-bold text-gray-700">AI Features Enabled</span>
-                            </label>
+                            {/* TODO: Show Ads, Has GST, Has AI — hidden to match Register Wholesaler page */}
+                            {false && (
+                                <>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.storeInformation.hasGST}
+                                            onChange={(e) => handleNestedChange('storeInformation', 'hasGST', e.target.checked)}
+                                            className="w-4 h-4 rounded text-[#2980B9] focus:ring-[#2980B9]"
+                                        />
+                                        <span className="text-xs font-bold text-gray-700">GST Invoice Enabled</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.storeInformation.showAds}
+                                            onChange={(e) => handleNestedChange('storeInformation', 'showAds', e.target.checked)}
+                                            className="w-4 h-4 rounded text-[#2980B9] focus:ring-[#2980B9]"
+                                        />
+                                        <span className="text-xs font-bold text-gray-700">Show Ads / Banner</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.storeInformation.hasAI}
+                                            onChange={(e) => handleNestedChange('storeInformation', 'hasAI', e.target.checked)}
+                                            className="w-4 h-4 rounded text-[#2980B9] focus:ring-[#2980B9]"
+                                        />
+                                        <span className="text-xs font-bold text-gray-700">AI Features Enabled</span>
+                                    </label>
+                                </>
+                            )}
 
                             <label className="flex items-center gap-2 cursor-pointer bg-amber-50 px-3 py-1 rounded-xl border border-amber-200 hover:bg-amber-100 transition-colors">
                                 <input
@@ -589,42 +592,44 @@ export default function TenantDetails() {
                     </div>
                 </div>
 
-                {/* Loyalty & Referral Program Rules */}
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
-                    <h2 className="text-sm font-black uppercase tracking-wider text-gray-700 flex items-center gap-2 border-b pb-3 border-gray-100">
-                        <Icon icon="lucide:gift" className="text-[#2980B9] text-lg" />
-                        Loyalty &amp; Referral Rules
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label className="text-[11px] font-bold text-gray-500 uppercase block mb-1">Spend Per 1 Point (₹)</label>
-                            <input
-                                type="number"
-                                value={formData.loyalty.rsPerPoint}
-                                onChange={(e) => handleNestedChange('loyalty', 'rsPerPoint', Number(e.target.value))}
-                                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold outline-none focus:border-[#2980B9]"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-[11px] font-bold text-gray-500 uppercase block mb-1">Point Redeem Value (₹)</label>
-                            <input
-                                type="number"
-                                value={formData.loyalty.pointValue}
-                                onChange={(e) => handleNestedChange('loyalty', 'pointValue', Number(e.target.value))}
-                                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold outline-none focus:border-[#2980B9]"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-[11px] font-bold text-gray-500 uppercase block mb-1">Referral Bonus Points</label>
-                            <input
-                                type="number"
-                                value={formData.loyalty.referPoints}
-                                onChange={(e) => handleNestedChange('loyalty', 'referPoints', Number(e.target.value))}
-                                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold outline-none focus:border-[#2980B9]"
-                            />
+                {/* TODO: Loyalty & Referral Program Rules — hidden to match Register Wholesaler page */}
+                {false && (
+                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                        <h2 className="text-sm font-black uppercase tracking-wider text-gray-700 flex items-center gap-2 border-b pb-3 border-gray-100">
+                            <Icon icon="lucide:gift" className="text-[#2980B9] text-lg" />
+                            Loyalty &amp; Referral Rules
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label className="text-[11px] font-bold text-gray-500 uppercase block mb-1">Spend Per 1 Point (₹)</label>
+                                <input
+                                    type="number"
+                                    value={formData.loyalty.rsPerPoint}
+                                    onChange={(e) => handleNestedChange('loyalty', 'rsPerPoint', Number(e.target.value))}
+                                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold outline-none focus:border-[#2980B9]"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[11px] font-bold text-gray-500 uppercase block mb-1">Point Redeem Value (₹)</label>
+                                <input
+                                    type="number"
+                                    value={formData.loyalty.pointValue}
+                                    onChange={(e) => handleNestedChange('loyalty', 'pointValue', Number(e.target.value))}
+                                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold outline-none focus:border-[#2980B9]"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[11px] font-bold text-gray-500 uppercase block mb-1">Referral Bonus Points</label>
+                                <input
+                                    type="number"
+                                    value={formData.loyalty.referPoints}
+                                    onChange={(e) => handleNestedChange('loyalty', 'referPoints', Number(e.target.value))}
+                                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold outline-none focus:border-[#2980B9]"
+                                />
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
 
                 {/* KYC & Documents */}
                 <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
