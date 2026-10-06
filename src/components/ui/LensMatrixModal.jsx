@@ -129,69 +129,66 @@ export default function LensMatrixModal({ isOpen, onClose, onRefreshInventory })
 
     if (!isOpen) return null;
 
-    // ── 1. Export Excel Matrix (Generates 3 Sheets for Pricing: Selling, Buying, MRP) ──
+    // ── 1. Export Excel (Flat list: one row per product so ALL combinations are exported) ──
     const handleExportExcel = () => {
-        if (!matrixData || !matrixData.sphValues || !matrixData.cylValues) {
+        if (!matrixData || !matrixData.products || matrixData.products.length === 0) {
             return toast.error("Please select a valid lens product with power combinations first.");
         }
 
-        const { sphValues, cylValues, matrix, productName } = matrixData;
-
-        const buildAoaForType = (type) => {
-            const headerRow = ["SPH \\ CYL", ...cylValues.map(c => Number(c))];
-            const aoa = [headerRow];
-
-            sphValues.forEach(sph => {
-                const row = [Number(sph)];
-                cylValues.forEach(cyl => {
-                    const key = `${parseFloat(sph).toFixed(2)}_${parseFloat(cyl).toFixed(2)}`;
-                    const item = matrix[key];
-
-                    if (!item) {
-                        row.push("");
-                    } else if (type === "qty") {
-                        row.push(item.qty ?? 0);
-                    } else if (type === "buyingPrice") {
-                        row.push(item.buyingPrice ?? item.price ?? 0);
-                    } else if (type === "sellingPrice") {
-                        row.push(item.sellingPrice ?? item.price ?? 0);
-                    } else if (type === "mrp") {
-                        row.push(item.mrp ?? 0);
-                    } else {
-                        row.push(item.price ?? 0);
-                    }
-                });
-                aoa.push(row);
-            });
-            return aoa;
-        };
+        const { products: allProducts, productName } = matrixData;
 
         const wb = XLSX.utils.book_new();
 
         if (action === "UPDATE_PRICE") {
-            // Generate 3 separate sheets so Buying, Selling, and MRP can be clearly defined
-            const wsSell = XLSX.utils.aoa_to_sheet(buildAoaForType("sellingPrice"));
-            wsSell["!cols"] = [{ wch: 12 }, ...cylValues.map(() => ({ wch: 10 }))];
-            XLSX.utils.book_append_sheet(wb, wsSell, "Selling Price");
+            // Flat list with all 3 price columns — edit values and re-upload
+            const header = ["Product Code", "SPH", "CYL", "Addition", "Selling Price", "Buying Price", "MRP"];
+            const rows = allProducts.map(p => [
+                p.productCode || "",
+                p.sph !== undefined && p.sph !== "" ? Number(p.sph) : "",
+                p.cyl !== undefined && p.cyl !== "" ? Number(p.cyl) : "",
+                p.addition || "",
+                p.sellingPrice ?? p.price ?? 0,
+                p.buyingPrice ?? p.price ?? 0,
+                p.mrp ?? 0,
+            ]);
+            const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+            ws["!cols"] = [{ wch: 18 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 10 }];
+            XLSX.utils.book_append_sheet(wb, ws, "Prices");
 
-            const wsBuy = XLSX.utils.aoa_to_sheet(buildAoaForType("buyingPrice"));
-            wsBuy["!cols"] = [{ wch: 12 }, ...cylValues.map(() => ({ wch: 10 }))];
-            XLSX.utils.book_append_sheet(wb, wsBuy, "Buying Price");
+        } else if (action === "UPDATE_QTY") {
+            // Flat list with stock qty column
+            const header = ["Product Code", "SPH", "CYL", "Addition", "Stock Quantity"];
+            const rows = allProducts.map(p => [
+                p.productCode || "",
+                p.sph !== undefined && p.sph !== "" ? Number(p.sph) : "",
+                p.cyl !== undefined && p.cyl !== "" ? Number(p.cyl) : "",
+                p.addition || "",
+                p.qty ?? 0,
+            ]);
+            const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+            ws["!cols"] = [{ wch: 18 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 14 }];
+            XLSX.utils.book_append_sheet(wb, ws, "Stock Quantity");
 
-            const wsMrp = XLSX.utils.aoa_to_sheet(buildAoaForType("mrp"));
-            wsMrp["!cols"] = [{ wch: 12 }, ...cylValues.map(() => ({ wch: 10 }))];
-            XLSX.utils.book_append_sheet(wb, wsMrp, "MRP");
         } else {
-            const ws = XLSX.utils.aoa_to_sheet(buildAoaForType("qty"));
-            ws["!cols"] = [{ wch: 12 }, ...cylValues.map(() => ({ wch: 10 }))];
-            XLSX.utils.book_append_sheet(wb, ws, action === "UPDATE_QTY" ? "Stock Quantity" : "Delete Combinations");
+            // DELETE: flat list — set Delete column to 1 to delete that combination
+            const header = ["Product Code", "SPH", "CYL", "Addition", "Delete (1=delete, 0=keep)"];
+            const rows = allProducts.map(p => [
+                p.productCode || "",
+                p.sph !== undefined && p.sph !== "" ? Number(p.sph) : "",
+                p.cyl !== undefined && p.cyl !== "" ? Number(p.cyl) : "",
+                p.addition || "",
+                0,
+            ]);
+            const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+            ws["!cols"] = [{ wch: 18 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 26 }];
+            XLSX.utils.book_append_sheet(wb, ws, "Delete Combinations");
         }
 
         const actionTag = action === "UPDATE_QTY" ? "Quantity" : action === "UPDATE_PRICE" ? "Pricing" : "Delete";
-        const filename = `${productName.replace(/\s+/g, "_")}_${actionTag}_Matrix.xlsx`;
+        const filename = `${productName.replace(/\s+/g, "_")}_${actionTag}_${allProducts.length}pcs.xlsx`;
         XLSX.writeFile(wb, filename);
 
-        toast.success(`Excel matrix exported with dedicated price sheets for "${productName}"`);
+        toast.success(`Exported ${allProducts.length} products for "${productName}" — edit and re-upload to apply.`);
     };
 
     // ── 2. Parse Uploaded Excel File (Supports Multi-Sheet & Combined Formats) ──
@@ -217,103 +214,131 @@ export default function LensMatrixModal({ isOpen, onClose, onRefreshInventory })
                     throw new Error("No sheets found in the uploaded workbook.");
                 }
 
+                // Key: productCode or sph_cyl → update object
                 const updatesMap = {};
                 const parsedSheets = [];
                 let totalValidRows = 0;
-                let totalCylCols = 0;
 
                 workbook.SheetNames.forEach(sheetName => {
                     const worksheet = workbook.Sheets[sheetName];
                     const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
                     if (!rawData || rawData.length < 2) return;
 
-                    const lowerSheet = sheetName.toLowerCase();
-                    const isSellSheet = /sell/i.test(lowerSheet);
-                    const isBuySheet = /buy/i.test(lowerSheet);
-                    const isMrpSheet = /mrp/i.test(lowerSheet);
-                    const isQtySheet = /qty|stock/i.test(lowerSheet);
-
                     parsedSheets.push(sheetName);
+                    const headerRow = rawData[0].map(h => String(h).toLowerCase().trim());
 
-                    // Row 0 has CYL values starting from index 1
-                    const cylHeaders = rawData[0].slice(1).map(val => {
-                        const parsed = parseFloat(String(val).replace(/\+/g, "").trim());
-                        return isNaN(parsed) ? null : parsed.toFixed(2);
-                    });
+                    // ── Detect flat-list format by looking for a "product code" header ──
+                    const isFlatList = headerRow.some(h => h.includes("product") || h.includes("code"));
 
-                    totalCylCols = Math.max(totalCylCols, cylHeaders.filter(Boolean).length);
+                    if (isFlatList) {
+                        // ── NEW FLAT FORMAT: Product Code | SPH | CYL | Addition | prices... ──
+                        const colCode = headerRow.findIndex(h => h.includes("product") || h.includes("code"));
+                        const colSph = headerRow.findIndex(h => h === "sph");
+                        const colCyl = headerRow.findIndex(h => h === "cyl");
+                        const colAdd = headerRow.findIndex(h => h.includes("add"));
+                        const colSell = headerRow.findIndex(h => h.includes("sell"));
+                        const colBuy = headerRow.findIndex(h => h.includes("buy"));
+                        const colMrp = headerRow.findIndex(h => h === "mrp");
+                        const colQty = headerRow.findIndex(h => h.includes("stock") || h.includes("qty") || h.includes("quantity"));
+                        const colDel = headerRow.findIndex(h => h.includes("delete"));
 
-                    for (let r = 1; r < rawData.length; r++) {
-                        const row = rawData[r];
-                        if (!row || row.length === 0) continue;
+                        for (let r = 1; r < rawData.length; r++) {
+                            const row = rawData[r];
+                            if (!row || row.every(c => c === "" || c === undefined)) continue;
 
-                        const rawSph = row[0];
-                        if (rawSph === "" || rawSph === undefined || rawSph === null) continue;
+                            const productCode = colCode >= 0 ? String(row[colCode] || "").trim() : "";
+                            const rawSph = colSph >= 0 ? row[colSph] : "";
+                            const rawCyl = colCyl >= 0 ? row[colCyl] : "";
+                            const addition = colAdd >= 0 ? String(row[colAdd] || "").trim() : "";
 
-                        const parsedSph = parseFloat(String(rawSph).replace(/\+/g, "").trim());
-                        if (isNaN(parsedSph)) continue;
+                            const parsedSph = parseFloat(String(rawSph).replace(/\+/g, "").trim());
+                            const parsedCyl = parseFloat(String(rawCyl).replace(/\+/g, "").trim());
 
-                        const sph = parsedSph.toFixed(2);
-                        totalValidRows++;
+                            if (!productCode && isNaN(parsedSph) && isNaN(parsedCyl)) continue;
 
-                        for (let c = 0; c < cylHeaders.length; c++) {
-                            const cyl = cylHeaders[c];
-                            if (cyl === null) continue;
+                            const sph = !isNaN(parsedSph) ? parsedSph.toFixed(2) : "";
+                            const cyl = !isNaN(parsedCyl) ? parsedCyl.toFixed(2) : "";
 
-                            const rawVal = row[c + 1];
-                            if (rawVal === "" || rawVal === undefined || rawVal === null) continue;
-
-                            const key = `${sph}_${cyl}`;
+                            // Key by productCode first (most precise), fallback to sph_cyl
+                            const key = productCode || `${sph}_${cyl}_${addition}`;
                             if (!updatesMap[key]) {
-                                updatesMap[key] = { sph, cyl };
+                                updatesMap[key] = { productCode, sph, cyl, addition };
                             }
 
-                            const strVal = String(rawVal).trim();
+                            totalValidRows++;
 
-                            // Check if slash or comma format: "buy/sell/mrp" e.g. "80/100/150"
-                            if (strVal.includes("/") || strVal.includes(",")) {
-                                const parts = strVal.split(/[/,]/).map(p => parseFloat(p.trim())).filter(p => !isNaN(p));
-                                if (parts.length >= 3) {
-                                    updatesMap[key].buyingPrice = parts[0];
-                                    updatesMap[key].sellingPrice = parts[1];
-                                    updatesMap[key].mrp = parts[2];
-                                } else if (parts.length === 2) {
-                                    updatesMap[key].buyingPrice = parts[0];
-                                    updatesMap[key].sellingPrice = parts[1];
-                                } else if (parts.length === 1) {
-                                    updatesMap[key].value = parts[0];
-                                }
-                            } else {
-                                const numVal = parseFloat(strVal);
+                            // Extract prices / qty / delete flag
+                            if (colDel >= 0) {
+                                const delVal = Number(row[colDel]);
+                                updatesMap[key].isDelete = delVal === 1;
+                            }
+                            if (colSell >= 0 && row[colSell] !== "" && !isNaN(Number(row[colSell]))) {
+                                updatesMap[key].sellingPrice = Math.max(0, Number(row[colSell]));
+                            }
+                            if (colBuy >= 0 && row[colBuy] !== "" && !isNaN(Number(row[colBuy]))) {
+                                updatesMap[key].buyingPrice = Math.max(0, Number(row[colBuy]));
+                            }
+                            if (colMrp >= 0 && row[colMrp] !== "" && !isNaN(Number(row[colMrp]))) {
+                                updatesMap[key].mrp = Math.max(0, Number(row[colMrp]));
+                            }
+                            if (colQty >= 0 && row[colQty] !== "" && !isNaN(Number(row[colQty]))) {
+                                updatesMap[key].value = Math.max(0, Math.round(Number(row[colQty])));
+                            }
+
+                            // Derive value for fallback matching
+                            if (updatesMap[key].value === undefined) {
+                                updatesMap[key].value = updatesMap[key].sellingPrice ?? updatesMap[key].buyingPrice ?? updatesMap[key].mrp ?? 0;
+                            }
+                        }
+
+                    } else {
+                        // ── LEGACY SPH×CYL GRID FORMAT (backward-compatible) ──
+                        const lowerSheet = sheetName.toLowerCase();
+                        const isSellSheet = /sell/i.test(lowerSheet);
+                        const isBuySheet = /buy/i.test(lowerSheet);
+                        const isMrpSheet = /mrp/i.test(lowerSheet);
+                        const isQtySheet = /qty|stock/i.test(lowerSheet);
+
+                        const cylHeaders = rawData[0].slice(1).map(val => {
+                            const parsed = parseFloat(String(val).replace(/\+/g, "").trim());
+                            return isNaN(parsed) ? null : parsed.toFixed(2);
+                        });
+
+                        for (let r = 1; r < rawData.length; r++) {
+                            const row = rawData[r];
+                            if (!row || row.length === 0) continue;
+
+                            const rawSph = row[0];
+                            if (rawSph === "" || rawSph === undefined || rawSph === null) continue;
+                            const parsedSph = parseFloat(String(rawSph).replace(/\+/g, "").trim());
+                            if (isNaN(parsedSph)) continue;
+
+                            const sph = parsedSph.toFixed(2);
+                            totalValidRows++;
+
+                            for (let c = 0; c < cylHeaders.length; c++) {
+                                const cyl = cylHeaders[c];
+                                if (cyl === null) continue;
+                                const rawVal = row[c + 1];
+                                if (rawVal === "" || rawVal === undefined || rawVal === null) continue;
+
+                                const key = `${sph}_${cyl}`;
+                                if (!updatesMap[key]) updatesMap[key] = { sph, cyl };
+
+                                const numVal = parseFloat(String(rawVal).trim());
                                 if (!isNaN(numVal)) {
-                                    if (isSellSheet) {
-                                        updatesMap[key].sellingPrice = numVal;
-                                    } else if (isBuySheet) {
-                                        updatesMap[key].buyingPrice = numVal;
-                                    } else if (isMrpSheet) {
-                                        updatesMap[key].mrp = numVal;
-                                    } else if (isQtySheet) {
-                                        updatesMap[key].value = numVal;
-                                    } else {
-                                        // Generic sheet: fallback to action/priceType
-                                        updatesMap[key].value = numVal;
-                                        if (action === "UPDATE_PRICE") {
-                                            if (priceType === "buyingPrice") updatesMap[key].buyingPrice = numVal;
-                                            else if (priceType === "sellingPrice") updatesMap[key].sellingPrice = numVal;
-                                            else if (priceType === "mrp") updatesMap[key].mrp = numVal;
-                                            else if (priceType === "all") {
-                                                updatesMap[key].buyingPrice = numVal;
-                                                updatesMap[key].sellingPrice = numVal;
-                                                updatesMap[key].mrp = numVal;
-                                            }
-                                        }
-                                    }
+                                    if (isSellSheet) updatesMap[key].sellingPrice = numVal;
+                                    else if (isBuySheet) updatesMap[key].buyingPrice = numVal;
+                                    else if (isMrpSheet) updatesMap[key].mrp = numVal;
+                                    else if (isQtySheet) updatesMap[key].value = numVal;
+                                    else updatesMap[key].value = numVal;
                                 }
                             }
                         }
                     }
                 });
 
+                // Ensure .value is always set for backward compatibility with backend
                 Object.values(updatesMap).forEach(item => {
                     if (item.value === undefined) {
                         item.value = item.sellingPrice ?? item.buyingPrice ?? item.mrp ?? 0;
@@ -321,22 +346,21 @@ export default function LensMatrixModal({ isOpen, onClose, onRefreshInventory })
                 });
 
                 const updatesList = Object.values(updatesMap);
-
                 if (updatesList.length === 0) {
-                    throw new Error("No numeric power cells found in the matrix.");
+                    throw new Error("No valid product rows found in the uploaded file.");
                 }
 
                 setMatrixDimensions({
                     sheets: parsedSheets,
-                    sphRows: Math.round(totalValidRows / Math.max(1, parsedSheets.length)),
-                    cylCols: totalCylCols,
+                    sphRows: totalValidRows,
+                    cylCols: 0,
                     totalCells: updatesList.length,
                 });
 
                 setParsedUpdates(updatesList);
             } catch (err) {
-                console.error("Matrix Parse Error:", err);
-                setParseError(err.message || "Failed to parse Excel matrix");
+                console.error("Parse Error:", err);
+                setParseError(err.message || "Failed to parse uploaded file");
                 setParsedUpdates([]);
                 setMatrixDimensions(null);
             } finally {
@@ -655,7 +679,7 @@ export default function LensMatrixModal({ isOpen, onClose, onRefreshInventory })
                                                 <div className="flex items-center gap-2">
                                                     <FiCheckCircle className="text-emerald-500" size={16} />
                                                     <span className="text-xs font-bold text-gray-800">
-                                                        Parsed {matrixDimensions.totalCells} combinations across {matrixDimensions.sphRows} SPH rows × {matrixDimensions.cylCols} CYL columns
+                                                        ✓ Parsed {matrixDimensions.totalCells} products from {matrixDimensions.sheets?.length || 1} sheet(s) — ready to apply
                                                         {matrixDimensions.sheets?.length > 1 && (
                                                             <span className="text-[11px] text-[#2980b9] font-semibold block sm:inline sm:ml-2">
                                                                 (Sheets: {matrixDimensions.sheets.join(", ")})
