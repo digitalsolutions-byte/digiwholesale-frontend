@@ -2,12 +2,18 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Card, Typography, Button, Grid, Chip, IconButton,
   TextField, Table, TableHead, TableRow, TableCell, TableBody,
-  Paper, CircularProgress, Divider, Alert
+  TableContainer, Paper, CircularProgress, Divider, Alert,
+  LinearProgress, Tabs, Tab, Tooltip
 } from '@mui/material';
 import { Icon } from '@iconify/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { getCustomerStatement, adjustDueFromAdvance, downloadPaymentReceipt, sendPaymentDueReminder } from '../../services/accountingService';
+import {
+  getCustomerStatement,
+  adjustDueFromAdvance,
+  downloadPaymentReceipt,
+  sendPaymentDueReminder
+} from '../../services/accountingService';
 import CustomerPaymentModal from './CustomerPaymentModal';
 
 const formatAddress = (addr) => {
@@ -26,6 +32,27 @@ const formatAddress = (addr) => {
   return '';
 };
 
+const getStatusBadge = (status) => {
+  switch ((status || '').toUpperCase()) {
+    case 'DELIVERED':
+    case 'COMPLETED':
+      return { bg: '#DEF7EC', text: '#03543F', border: '#BCF0DA' };
+    case 'DISPATCHED':
+      return { bg: '#E1EFFE', text: '#1E429F', border: '#B4C6FC' };
+    case 'READYTODISPATCH':
+      return { bg: '#E1F8F7', text: '#067A75', border: '#AFECE7' };
+    case 'PROCESSING':
+    case 'QC':
+      return { bg: '#FEF08A', text: '#854D0E', border: '#FDE047' };
+    case 'SUBMITTED':
+      return { bg: '#F3E8FF', text: '#6B21A8', border: '#E9D5FF' };
+    case 'CANCELLED':
+      return { bg: '#FEE2E2', text: '#991B1B', border: '#FCA5A5' };
+    default:
+      return { bg: '#F3F4F6', text: '#374151', border: '#E5E7EB' };
+  }
+};
+
 const CustomerKhataStatement = () => {
   const { customerId } = useParams();
   const navigate = useNavigate();
@@ -33,23 +60,32 @@ const CustomerKhataStatement = () => {
   const [adjusting, setAdjusting] = useState(false);
   const [summary, setSummary] = useState({});
   const [transactions, setTransactions] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [monthlyBreakdown, setMonthlyBreakdown] = useState([]);
   const [filters, setFilters] = useState({ startDate: '', endDate: '' });
+  const [activeTab, setActiveTab] = useState(0);
+
+  // Payment Modal state
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [selectedOrderForPayment, setSelectedOrderForPayment] = useState(null);
+
   const [downloadingReceiptId, setDownloadingReceiptId] = useState(null);
   const [sendingReminder, setSendingReminder] = useState(false);
   const [notApproved, setNotApproved] = useState(false);
   const [statementError, setStatementError] = useState(null);
 
-  const fetchStatement = async () => {
+  const fetchStatement = async (customFilters = filters) => {
     try {
       setLoading(true);
       setNotApproved(false);
       setStatementError(null);
-      const res = await getCustomerStatement(customerId, filters);
+      const res = await getCustomerStatement(customerId, customFilters);
       setSummary(res.data?.summary || {});
       const rawTxns = res.data?.transactions || [];
       const sorted = [...rawTxns].sort((a, b) => new Date(b.transactionDate || b.createdAt) - new Date(a.transactionDate || a.createdAt));
       setTransactions(sorted);
+      setOrders(res.data?.orders || []);
+      setMonthlyBreakdown(res.data?.monthlyBreakdown || []);
     } catch (err) {
       const isUnapproved = err.response?.data?.errorCode === 'CUSTOMER_NOT_APPROVED';
       setNotApproved(isUnapproved);
@@ -62,19 +98,46 @@ const CustomerKhataStatement = () => {
   };
 
   useEffect(() => {
-    if (customerId) { fetchStatement(); }
+    if (customerId) {
+      fetchStatement();
+    }
   }, [customerId]);
 
   const stats = summary.statistics || {};
   const master = summary.ledgerMaster || {};
   const cust = summary.customer || {};
+
   const creditLimit = Number(master.creditLimit || 0);
   const creditUsed = Number(master.creditUsed || 0);
   const advanceAmount = Number(master.advanceAmount || 0);
   const availableCredit = Number(master.availableCredit !== undefined ? master.availableCredit : Math.max(0, creditLimit - creditUsed));
+  const creditPercentage = Number(master.creditPercentage !== undefined ? master.creditPercentage : (creditLimit > 0 ? ((creditUsed / creditLimit) * 100).toFixed(1) : 0));
+  const creditStatus = master.creditStatus || (creditLimit > 0 && creditUsed >= creditLimit ? 'EXCEEDED' : (creditLimit > 0 && creditUsed >= 0.8 * creditLimit ? 'WARNING_20_PERCENT' : 'HEALTHY'));
+  const exceededAmount = Number(master.exceededAmount || (creditUsed > creditLimit ? creditUsed - creditLimit : 0));
+  const is20PercentAlert = master.is20PercentAlert || creditStatus === 'WARNING_20_PERCENT';
+  const isExceededAlert = master.isExceededAlert || creditStatus === 'EXCEEDED';
+  const isGST = Boolean(cust.isGSTRegistered);
+
   const maxAdjustable = Math.min(creditUsed, advanceAmount);
 
-  // ── Bulletproof Dedicated Print Engine (Zero CSS / Layout clipping) ──────────
+  const handleOpenPartPayment = (ord) => {
+    setSelectedOrderForPayment(ord);
+    setPaymentModalOpen(true);
+  };
+
+  const handleFilterMonth = (monthKey) => {
+    if (!monthKey) return;
+    const [yr, mo] = monthKey.split('-').map(Number);
+    const start = new Date(yr, mo - 1, 1).toISOString().split('T')[0];
+    const end = new Date(yr, mo, 0).toISOString().split('T')[0];
+    const newFilters = { startDate: start, endDate: end };
+    setFilters(newFilters);
+    fetchStatement(newFilters);
+    setActiveTab(0);
+    toast.info(`Filtered transactions for ${monthKey}`);
+  };
+
+  // Print Engine
   const handlePrint = () => {
     const printWindow = window.open('', '_blank', 'width=950,height=800');
     if (!printWindow) {
@@ -86,330 +149,97 @@ const CustomerKhataStatement = () => {
     const ownerName = cust.ownerName || '—';
     const mobile = cust.mobile || '—';
     const email = cust.email || '—';
-    const gstin = cust.gstin || 'Unregistered';
+    const gstin = cust.gstin || cust.gstNumber || cust.GSTNo || 'N/A';
     const addr = formatAddress(cust.address);
-    const ledgerCode = master.ledgerCode || '—';
-    const periodText = filters.startDate ? `${filters.startDate} to ${filters.endDate || 'Present'}` : 'Full History';
-    const printDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-
+    const ledgerCode = master.ledgerCode || 'LEDGER';
     const totalDebit = Number(stats.totalDebit || 0).toLocaleString('en-IN');
     const totalCredit = Number(stats.totalCredit || 0).toLocaleString('en-IN');
-    const netBalanceText = creditUsed > 0
-      ? `₹${creditUsed.toLocaleString('en-IN')} (Due / Receivable)`
-      : advanceAmount > 0
-      ? `₹${advanceAmount.toLocaleString('en-IN')} (Advance Balance)`
-      : '₹0.00 (Settled)';
 
-    const rowsHtml = transactions.length === 0
-      ? '<tr><td colspan="7" style="padding:20px;text-align:center;color:#64748b;">No transactions recorded for this period.</td></tr>'
-      : transactions.map((t, idx) => {
-          const isDebit = Number(t.debit || 0) > 0;
-          const isCredit = Number(t.credit || 0) > 0;
-          const rb = Number(t.runningBalance || 0);
-          const rbText = rb > 0
-            ? `<span style="color:#b91c1c;font-weight:700;">₹${rb.toLocaleString('en-IN')} (Due)</span>`
-            : rb < 0
-            ? `<span style="color:#15803d;font-weight:700;">₹${Math.abs(rb).toLocaleString('en-IN')} (Adv)</span>`
-            : '<span style="color:#64748b;">₹0.00</span>';
-
-          return `
-            <tr style="background-color: ${idx % 2 === 1 ? '#f8fafc' : '#ffffff'};">
-              <td style="padding:6px 8px;text-align:center;color:#64748b;font-size:10px;">${idx + 1}</td>
-              <td style="padding:6px 8px;white-space:nowrap;font-size:10.5px;">${new Date(t.transactionDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
-              <td style="padding:6px 8px;font-family:monospace;font-weight:700;font-size:10.5px;">${t.referenceNumber || '—'}</td>
-              <td style="padding:6px 8px;font-size:10.5px;color:#334155;">${t.narration || '—'}</td>
-              <td style="padding:6px 8px;text-align:right;font-size:10.5px;${isDebit ? 'color:#b91c1c;font-weight:700;' : 'color:#94a3b8;'}">${isDebit ? '₹' + Number(t.debit).toLocaleString('en-IN') : '—'}</td>
-              <td style="padding:6px 8px;text-align:right;font-size:10.5px;${isCredit ? 'color:#15803d;font-weight:700;' : 'color:#94a3b8;'}">${isCredit ? '₹' + Number(t.credit).toLocaleString('en-IN') : '—'}</td>
-              <td style="padding:6px 8px;text-align:right;font-size:10.5px;">${rbText}</td>
-            </tr>
-          `;
-        }).join('');
+    const rowsHtml = transactions
+      .map((t, idx) => {
+        const d = t.transactionDate ? new Date(t.transactionDate).toLocaleDateString('en-IN') : '—';
+        const debit = t.debit > 0 ? `₹${Number(t.debit).toLocaleString('en-IN')}` : '—';
+        const credit = t.credit > 0 ? `₹${Number(t.credit).toLocaleString('en-IN')}` : '—';
+        const bal = t.runningBalance > 0
+          ? `₹${Number(t.runningBalance).toLocaleString('en-IN')} (Due)`
+          : t.runningBalance < 0
+          ? `₹${Number(Math.abs(t.runningBalance)).toLocaleString('en-IN')} (Adv)`
+          : '₹0';
+        return `
+          <tr>
+            <td>${idx + 1}</td>
+            <td>${d}</td>
+            <td style="font-family:monospace;font-weight:600;">${t.referenceNumber || t.voucherId || '—'}</td>
+            <td>${t.description || t.voucherType || '—'}</td>
+            <td style="text-align:right;color:#b91c1c;font-weight:600;">${debit}</td>
+            <td style="text-align:right;color:#15803d;font-weight:600;">${credit}</td>
+            <td style="text-align:right;font-weight:700;">${bal}</td>
+          </tr>
+        `;
+      })
+      .join('');
 
     const html = `
       <!DOCTYPE html>
       <html>
       <head>
-        <meta charset="utf-8" />
-        <title>Statement - ${customerName}</title>
+        <title>Customer Ledger Statement - ${customerName}</title>
         <style>
-          @page {
-            size: A4 portrait;
-            margin: 10mm 10mm 12mm 10mm;
-          }
-          * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          body {
-            background: #ffffff;
-            color: #0f172a;
-            padding: 16px;
-            font-size: 11px;
-          }
-          .header-bar {
-            border-bottom: 2.5px solid #0284c7;
-            padding-bottom: 12px;
-            margin-bottom: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-          }
-          .brand-title {
-            font-size: 24px;
-            font-weight: 900;
-            color: #0f172a;
-            letter-spacing: -0.5px;
-          }
-          .brand-title span {
-            color: #0284c7;
-          }
-          .company-details {
-            font-size: 10.5px;
-            color: #475569;
-            margin-top: 3px;
-            line-height: 1.4;
-          }
-          .doc-header {
-            text-align: right;
-          }
-          .doc-title {
-            font-size: 18px;
-            font-weight: 800;
-            color: #0284c7;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-          }
-          .doc-meta {
-            font-size: 10.5px;
-            color: #64748b;
-            margin-top: 3px;
-          }
-          .grid-2 {
-            display: grid;
-            grid-template-columns: 1.2fr 1fr;
-            gap: 12px;
-            margin-bottom: 16px;
-          }
-          .info-box {
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            padding: 10px 12px;
-            background: #f8fafc;
-          }
-          .box-title {
-            font-size: 10px;
-            font-weight: 800;
-            color: #0284c7;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-            letter-spacing: 0.5px;
-          }
-          .kpi-row {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-            margin-bottom: 16px;
-            text-align: center;
-          }
-          .kpi-card {
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            padding: 8px;
-            background: #f8fafc;
-          }
-          .kpi-card.highlight {
-            background: ${creditUsed > 0 ? '#fee2e2' : '#f0fdf4'};
-            border-color: ${creditUsed > 0 ? '#fca5a5' : '#86efac'};
-          }
-          .kpi-card-title {
-            font-size: 9px;
-            font-weight: 700;
-            color: #64748b;
-            text-transform: uppercase;
-          }
-          .kpi-card-val {
-            font-size: 12.5px;
-            font-weight: 800;
-            margin-top: 2px;
-            color: #0f172a;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 16px;
-            page-break-inside: auto;
-          }
-          tr {
-            page-break-inside: avoid;
-            page-break-after: auto;
-          }
-          th, td {
-            border: 1px solid #cbd5e1;
-            padding: 6px 8px;
-            text-align: left;
-            font-size: 10.5px;
-          }
-          th {
-            background: #f1f5f9;
-            font-weight: 700;
-            color: #1e293b;
-            text-transform: uppercase;
-            font-size: 10px;
-          }
-          tfoot tr {
-            background: #f1f5f9;
-            font-weight: 700;
-          }
-          .terms-grid {
-            display: grid;
-            grid-template-columns: 1.4fr 1fr;
-            gap: 16px;
-            margin-top: 16px;
-            border-top: 1px solid #cbd5e1;
-            padding-top: 12px;
-            page-break-inside: avoid;
-          }
-          .terms-title {
-            font-size: 10px;
-            font-weight: 800;
-            color: #475569;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-          }
-          .terms-list {
-            margin: 0;
-            padding-left: 14px;
-            font-size: 9.5px;
-            color: #64748b;
-            line-height: 1.4;
-          }
-          .sign-box {
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            align-items: flex-end;
-            min-height: 65px;
-          }
-          .sign-line {
-            border-top: 1px solid #94a3b8;
-            width: 160px;
-            text-align: center;
-            padding-top: 3px;
-            font-size: 9.5px;
-            color: #64748b;
-          }
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; color: #1e293b; padding: 24px; }
+          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0284c7; padding-bottom: 12px; margin-bottom: 16px; }
+          .title { font-size: 20px; font-weight: 800; color: #0f172a; }
+          .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+          .info-box { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; font-size: 11px; line-height: 1.6; }
+          .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+          .kpi-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; font-size: 11px; }
+          table { width: 100%; border-collapse: collapse; font-size: 11px; }
+          th { background: #f8fafc; text-align: left; padding: 8px; border-bottom: 1px solid #cbd5e1; font-weight: 700; color: #475569; }
+          td { padding: 8px; border-bottom: 1px solid #f1f5f9; }
         </style>
       </head>
       <body>
-        <!-- Header -->
-        <div class="header-bar">
+        <div class="header">
           <div>
-            <div class="brand-title">Digi<span>Optics</span> Wholesale</div>
-            <div class="company-details">
-              WeWork Eldeco Centre, Block A, Shivalik Colony, Malviya Nagar, New Delhi 110017<br />
-              <strong>GSTIN:</strong> GST9876543210 &nbsp;|&nbsp; <strong>Phone:</strong> +91 9650560526 &nbsp;|&nbsp; <strong>Email:</strong> billing@digioptics.com
-            </div>
+            <div class="title">${customerName}</div>
+            <div style="color: #64748b; font-size: 11px;">Customer Ledger Statement & Audit Report</div>
           </div>
-          <div class="doc-header">
-            <div class="doc-title">Statement of Account</div>
-            <div class="doc-meta"><strong>Date:</strong> ${printDate}</div>
-            <div class="doc-meta"><strong>Period:</strong> ${periodText}</div>
+          <div style="text-align: right; font-size: 11px; color: #64748b;">
+            Generated on: ${new Date().toLocaleDateString('en-IN')}
           </div>
         </div>
 
-        <!-- Customer & Khata Summary Grid -->
         <div class="grid-2">
           <div class="info-box">
-            <div class="box-title">Customer / Billed To</div>
-            <div style="font-size: 13px; font-weight: 800; color: #0f172a;">${customerName}</div>
-            <div style="margin-top: 2px;"><strong>Contact Person:</strong> ${ownerName}</div>
-            <div><strong>Mobile:</strong> ${mobile} &nbsp;|&nbsp; <strong>Email:</strong> ${email}</div>
-            <div><strong>GSTIN:</strong> ${gstin}</div>
-            ${addr ? `<div style="color: #64748b; margin-top: 2px;"><strong>Address:</strong> ${addr}</div>` : ''}
+            <div style="font-weight: 700; color: #0284c7; margin-bottom: 4px;">CUSTOMER DETAILS</div>
+            <div><strong>${customerName}</strong> (Owner: ${ownerName})</div>
+            <div>Mobile: ${mobile} | Email: ${email}</div>
+            <div>Address: ${addr || '—'}</div>
+            <div>Tax Status: <strong>${isGST ? `GST Registered (${gstin})` : 'Non-GST Customer'}</strong></div>
           </div>
-
           <div class="info-box">
-            <div class="box-title">Ledger / Account Summary</div>
-            <div><strong>Ledger Code:</strong> <span style="font-family: monospace; font-weight: 700;">${ledgerCode}</span></div>
-            <div><strong>Credit Limit:</strong> ₹${creditLimit.toLocaleString('en-IN')} &nbsp;|&nbsp; <strong>Terms:</strong> ${master.creditDays || 30} Days</div>
-            <div><strong>Available Credit:</strong> ₹${availableCredit.toLocaleString('en-IN')}</div>
-            <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #cbd5e1; display: flex; justify-content: space-between;">
-              <strong>Account Position:</strong>
-              <span style="font-weight: 800; color: ${creditUsed > 0 ? '#b91c1c' : advanceAmount > 0 ? '#15803d' : '#334155'};">
-                ${netBalanceText}
-              </span>
-            </div>
+            <div style="font-weight: 700; color: #0284c7; margin-bottom: 4px;">CREDIT TERMS & LIMIT</div>
+            <div>Ledger Code: <strong>${ledgerCode}</strong></div>
+            <div>Credit Limit: <strong>₹${creditLimit.toLocaleString('en-IN')}</strong> (${master.creditDays || 30} Days Window)</div>
+            <div>Limit Utilized: <strong>${creditPercentage}%</strong> (Available: ₹${availableCredit.toLocaleString('en-IN')})</div>
+            <div>Current Position: <strong>${creditUsed > 0 ? `₹${creditUsed.toLocaleString('en-IN')} (Due)` : `₹${advanceAmount.toLocaleString('en-IN')} (Advance)`}</strong></div>
           </div>
         </div>
 
-        <!-- KPI Summary Cards -->
         <div class="kpi-row">
-          <div class="kpi-card">
-            <div class="kpi-card-title">Total Invoiced (Debit)</div>
-            <div class="kpi-card-val">₹${totalDebit}</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-card-title">Total Received (Credit)</div>
-            <div class="kpi-card-val" style="color: #15803d;">₹${totalCredit}</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-card-title">Advance Balance</div>
-            <div class="kpi-card-val" style="color: #0284c7;">₹${advanceAmount.toLocaleString('en-IN')}</div>
-          </div>
-          <div class="kpi-card highlight">
-            <div class="kpi-card-title" style="color: ${creditUsed > 0 ? '#991b1b' : '#166534'};">Net Closing Balance</div>
-            <div class="kpi-card-val" style="color: ${creditUsed > 0 ? '#b91c1c' : '#15803d'}; font-weight: 900;">
-              ${creditUsed > 0 ? '₹' + creditUsed.toLocaleString('en-IN') + ' (Due)' : advanceAmount > 0 ? '₹' + advanceAmount.toLocaleString('en-IN') + ' (Adv)' : '₹0.00'}
-            </div>
-          </div>
+          <div class="kpi-card"><div>Total Invoiced</div><div style="font-weight:700;font-size:13px;color:#b91c1c;">₹${totalDebit}</div></div>
+          <div class="kpi-card"><div>Total Collected</div><div style="font-weight:700;font-size:13px;color:#15803d;">₹${totalCredit}</div></div>
+          <div class="kpi-card"><div>Advance Available</div><div style="font-weight:700;font-size:13px;color:#0284c7;">₹${advanceAmount.toLocaleString('en-IN')}</div></div>
+          <div class="kpi-card"><div>Closing Due Balance</div><div style="font-weight:700;font-size:13px;color:${creditUsed > 0 ? '#b91c1c' : '#15803d'};">₹${creditUsed.toLocaleString('en-IN')}</div></div>
         </div>
 
-        <!-- Statement Table -->
         <table>
           <thead>
             <tr>
-              <th style="text-align: center; width: 35px;">#</th>
-              <th style="width: 75px;">Date</th>
-              <th style="width: 130px;">Ref / Voucher No.</th>
-              <th>Particulars / Narration</th>
-              <th style="text-align: right; width: 85px;">Debit (₹)</th>
-              <th style="text-align: right; width: 85px;">Credit (₹)</th>
-              <th style="text-align: right; width: 110px;">Balance (₹)</th>
+              <th>#</th><th>Date</th><th>Ref No.</th><th>Particulars</th><th style="text-align:right;">Debit (₹)</th><th style="text-align:right;">Credit (₹)</th><th style="text-align:right;">Balance</th>
             </tr>
           </thead>
-          <tbody>
-            ${rowsHtml}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colspan="4" style="text-align: right; text-transform: uppercase;">Period Totals:</td>
-              <td style="text-align: right; color: #b91c1c;">₹${totalDebit}</td>
-              <td style="text-align: right; color: #15803d;">₹${totalCredit}</td>
-              <td style="text-align: right; color: #0f172a;">${creditUsed > 0 ? '₹' + creditUsed.toLocaleString('en-IN') + ' (Due)' : advanceAmount > 0 ? '₹' + advanceAmount.toLocaleString('en-IN') + ' (Adv)' : '₹0.00'}</td>
-            </tr>
-          </tfoot>
+          <tbody>${rowsHtml}</tbody>
         </table>
-
-        <!-- Terms & Signatory -->
-        <div class="terms-grid">
-          <div>
-            <div class="terms-title">Terms & Conditions:</div>
-            <ul class="terms-list">
-              <li>This is a computer-generated financial statement and requires no physical signature.</li>
-              <li>Please verify all invoice and payment entries. Report any discrepancy within 7 days.</li>
-              <li>Interest @18% p.a. is applicable on invoices overdue beyond the agreed credit period.</li>
-              <li>All payments must be made strictly via RTGS/NEFT/UPI/Cheque in favor of DigiOptics Wholesale.</li>
-            </ul>
-          </div>
-          <div class="sign-box">
-            <div style="font-weight: 800; color: #0f172a;">For DigiOptics Wholesale</div>
-            <div class="sign-line">Authorized Signatory</div>
-          </div>
-        </div>
       </body>
       </html>
     `;
@@ -442,7 +272,7 @@ const CustomerKhataStatement = () => {
     try {
       setAdjusting(true);
       const res = await adjustDueFromAdvance({ customerId, amount: maxAdjustable });
-      toast.success(res.message || (`₹${maxAdjustable.toLocaleString()} adjusted successfully from Advance!`));
+      toast.success(res.message || `₹${maxAdjustable.toLocaleString()} adjusted successfully from Advance!`);
       await fetchStatement();
     } catch (err) {
       toast.error(err.message || 'Failed to adjust advance');
@@ -458,14 +288,14 @@ const CustomerKhataStatement = () => {
     }
     const customerTitle = cust.shopName || cust.ownerName || 'Customer';
     const confirmed = window.confirm(
-      `Send WhatsApp & Email payment due reminder for ₹${creditUsed.toLocaleString('en-IN')} to ${customerTitle}?`
+      `Send payment reminder for ₹${creditUsed.toLocaleString('en-IN')} to ${customerTitle}?`
     );
     if (!confirmed) return;
 
     try {
       setSendingReminder(true);
       const res = await sendPaymentDueReminder({ partyId: customerId, entityType: 'Customer' });
-      toast.success(res.message || 'Payment due reminder sent via WhatsApp & Email!');
+      toast.success(res.message || 'Payment due reminder sent successfully!');
     } catch (err) {
       toast.error(err.message || 'Failed to send payment due reminder');
     } finally {
@@ -474,40 +304,54 @@ const CustomerKhataStatement = () => {
   };
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1300, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 1320, mx: 'auto' }}>
       {/* Top Header Bar */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: { xs: 'flex-start', md: 'center' },
+          flexDirection: { xs: 'column', md: 'row' },
+          mb: 3,
+          gap: 2
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Button
             variant="outlined"
             onClick={() => navigate('/accounting/customer-ledgers')}
-            startIcon={<Icon icon="lucide:arrow-left" />}
-            sx={{ borderRadius: '8px', textTransform: 'none', color: '#0284C7', borderColor: '#BAE6FD' }}
+            startIcon={<Icon icon="lucide:arrow-left" fontSize={16} />}
+            sx={{
+              borderRadius: '8px',
+              textTransform: 'none',
+              color: '#475569',
+              borderColor: '#CBD5E1',
+              fontWeight: 600,
+              fontSize: '0.8125rem'
+            }}
           >
-            Back to Customer Ledgers
+            Back
           </Button>
           <Box>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Icon icon="lucide:file-spreadsheet" className="text-[#0284C7]" />
+            <Typography variant="h5" sx={{ fontWeight: 700, color: '#0F172A', letterSpacing: '-0.02em' }}>
               Customer Ledger Statement
             </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Complete ledger transactions, debits, credits, and live balance history
+            <Typography variant="body2" sx={{ color: '#64748B' }}>
+              Ledger transactions, live balance history, order status & part-payment records
             </Typography>
           </Box>
         </Box>
 
-        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', width: { xs: '100%', md: 'auto' } }}>
           {maxAdjustable > 0 && (
             <Button
               variant="outlined"
               color="secondary"
               disabled={adjusting}
               onClick={handleAutoAdjustAdvance}
-              startIcon={adjusting ? <CircularProgress size={16} color="inherit" /> : <Icon icon="lucide:zap" />}
-              sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}
+              sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, fontSize: '0.8125rem' }}
             >
-              Auto-Adjust Advance (₹{maxAdjustable.toLocaleString()})
+              {adjusting ? 'Adjusting...' : `Auto-Adjust (₹${maxAdjustable.toLocaleString()})`}
             </Button>
           )}
 
@@ -517,145 +361,216 @@ const CustomerKhataStatement = () => {
               color="warning"
               disabled={sendingReminder}
               onClick={handleSendDueReminder}
-              startIcon={sendingReminder ? <CircularProgress size={16} color="inherit" /> : <Icon icon="logos:whatsapp-icon" />}
-              sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}
+              sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, fontSize: '0.8125rem' }}
             >
-              {sendingReminder ? 'Sending...' : 'Send Due Reminder (WhatsApp)'}
+              {sendingReminder ? 'Sending...' : 'Send Reminder'}
             </Button>
           )}
 
           <Button
             variant="contained"
             color="success"
-            onClick={() => setPaymentModalOpen(true)}
-            startIcon={<Icon icon="lucide:circle-plus" />}
-            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}
+            onClick={() => {
+              setSelectedOrderForPayment(null);
+              setPaymentModalOpen(true);
+            }}
+            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, fontSize: '0.8125rem' }}
           >
             Receive Payment
           </Button>
 
           <Button
-            variant="contained"
+            variant="outlined"
             onClick={handlePrint}
-            startIcon={<Icon icon="lucide:printer" />}
             sx={{
               borderRadius: '8px',
               textTransform: 'none',
-              fontWeight: 700,
-              backgroundColor: '#0284C7',
-              '&:hover': { backgroundColor: '#0369A1' },
-              boxShadow: '0 2px 8px rgba(2,132,199,0.25)'
+              fontWeight: 600,
+              color: '#475569',
+              borderColor: '#CBD5E1',
+              fontSize: '0.8125rem'
             }}
           >
-            Print Statement
+            Print
           </Button>
         </Box>
       </Box>
 
-      {/* Unapproved Customer Notice Banner */}
-      {notApproved && (
-        <Alert
-          severity="warning"
-          variant="filled"
-          sx={{ mb: 3, borderRadius: '12px', fontWeight: 600, boxShadow: '0 2px 8px rgba(245,158,11,0.2)' }}
-          action={
-            <Button
-              color="inherit"
-              size="small"
-              onClick={() => navigate('/accounting/customer-ledgers')}
-              sx={{ fontWeight: 700, textTransform: 'none' }}
-            >
-              Back to Khatas
-            </Button>
-          }
-        >
-          {statementError || 'Customer Registration Incomplete: This customer has not yet received final Sales Head registration approval. Accounting ledgers and financial statements are restricted to approved active customers only.'}
-        </Alert>
-      )}
-
-      {/* General Statement Error Banner */}
-      {statementError && !notApproved && (
+      {/* Credit Limit Alert Banners */}
+      {isExceededAlert && (
         <Alert
           severity="error"
-          sx={{ mb: 3, borderRadius: '12px', fontWeight: 600 }}
+          variant="outlined"
+          sx={{
+            mb: 2.5,
+            borderRadius: '10px',
+            backgroundColor: '#FEF2F2',
+            borderColor: '#FCA5A5',
+            fontWeight: 500
+          }}
           action={
             <Button
-              color="inherit"
+              color="error"
               size="small"
-              onClick={fetchStatement}
-              sx={{ fontWeight: 700, textTransform: 'none' }}
+              variant="contained"
+              onClick={() => {
+                setSelectedOrderForPayment(null);
+                setPaymentModalOpen(true);
+              }}
+              sx={{ fontWeight: 600, textTransform: 'none', borderRadius: '6px' }}
             >
-              Retry
+              Collect Due Now
             </Button>
           }
         >
-          {statementError}
+          Credit Limit Exceeded: Customer has utilized ₹{creditUsed.toLocaleString()} which exceeds the sanctioned limit of ₹{creditLimit.toLocaleString()} by ₹{exceededAmount.toLocaleString()}.
         </Alert>
       )}
 
-      {/* Customer & Khata Summary Header Card */}
+      {is20PercentAlert && !isExceededAlert && (
+        <Alert
+          severity="warning"
+          variant="outlined"
+          sx={{
+            mb: 2.5,
+            borderRadius: '10px',
+            backgroundColor: '#FFFBEB',
+            borderColor: '#FDE68A',
+            fontWeight: 500
+          }}
+        >
+          20% Threshold Warning: Customer has reached {creditPercentage}% credit limit usage. Only ₹{availableCredit.toLocaleString()} limit remaining.
+        </Alert>
+      )}
+
+      {/* Customer Profile Card */}
       {summary.customer && (
-        <Card sx={{ p: 3, mb: 3, borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+        <Card
+          elevation={0}
+          sx={{
+            p: { xs: 2, sm: 3 },
+            mb: 3,
+            borderRadius: '10px',
+            border: '1px solid #E2E8F0',
+            backgroundColor: '#FFFFFF'
+          }}
+        >
           <Grid container spacing={3} alignItems="center">
             <Grid item xs={12} md={7}>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#0F172A' }}>
-                {summary.customer?.shopName || summary.customer?.ownerName}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                <Typography variant="h5" sx={{ fontWeight: 700, color: '#0F172A' }}>
+                  {summary.customer?.shopName || summary.customer?.ownerName}
+                </Typography>
+                {isGST ? (
+                  <Chip
+                    label={`GST (${cust.gstin || cust.gstNumber || 'Registered'})`}
+                    size="small"
+                    sx={{
+                      backgroundColor: '#ECFDF5',
+                      color: '#065F46',
+                      border: '1px solid #A7F3D0',
+                      fontWeight: 600,
+                      fontSize: '0.75rem'
+                    }}
+                  />
+                ) : (
+                  <Chip
+                    label="Non-GST Customer"
+                    size="small"
+                    sx={{
+                      backgroundColor: '#F8FAFC',
+                      color: '#64748B',
+                      border: '1px solid #E2E8F0',
+                      fontWeight: 600,
+                      fontSize: '0.75rem'
+                    }}
+                  />
+                )}
+              </Box>
+
+              <Typography variant="body2" sx={{ color: '#64748B', mt: 0.5 }}>
+                Owner: <strong>{summary.customer?.ownerName || '—'}</strong> | Mobile: <strong>{summary.customer?.mobile || '—'}</strong> | Email: <strong>{summary.customer?.email || '—'}</strong>
               </Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
-                Owner: <strong>{summary.customer?.ownerName || '—'}</strong> | Mobile: <strong>{summary.customer?.mobile || '—'}</strong>
-              </Typography>
-              {summary.customer?.gstin && (
-                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
-                  GSTIN: {summary.customer?.gstin}
+              {summary.customer?.address && (
+                <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', mt: 0.25 }}>
+                  Address: {formatAddress(summary.customer?.address)}
                 </Typography>
               )}
-              <Box sx={{ display: 'flex', gap: 2, mt: 1.5, flexWrap: 'wrap' }}>
-                <Chip
-                  label={`Ledger: ${master.ledgerCode || '—'}`}
-                  size="small"
-                  variant="outlined"
-                  sx={{ fontFamily: 'monospace', fontWeight: 600 }}
+
+              {/* Credit Limit & Utilization */}
+              <Box sx={{ mt: 2, p: 2, backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.75, flexWrap: 'wrap', gap: 1 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600, color: '#475569' }}>
+                    Credit Limit: <strong>₹{creditLimit.toLocaleString()}</strong> ({master.creditDays || 30} Days Window)
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontWeight: 600,
+                      color: creditStatus === 'EXCEEDED' ? '#DC2626' : creditStatus === 'WARNING_20_PERCENT' ? '#D97706' : '#16A34A'
+                    }}
+                  >
+                    {creditStatus === 'EXCEEDED'
+                      ? `Exceeded (${creditPercentage}% used)`
+                      : creditStatus === 'WARNING_20_PERCENT'
+                      ? `20% Warning (${creditPercentage}% used)`
+                      : `Safe (${creditPercentage}% used)`}
+                  </Typography>
+                </Box>
+                <LinearProgress
+                  variant="determinate"
+                  value={Math.min(100, creditPercentage)}
+                  sx={{
+                    height: 6,
+                    borderRadius: 3,
+                    backgroundColor: '#E2E8F0',
+                    '& .MuiLinearProgress-bar': {
+                      backgroundColor: creditStatus === 'EXCEEDED' ? '#EF4444' : creditStatus === 'WARNING_20_PERCENT' ? '#F59E0B' : '#10B981'
+                    }
+                  }}
                 />
-                <Chip
-                  label={`Credit Limit: ₹${creditLimit.toLocaleString()}`}
-                  size="small"
-                  color="primary"
-                  variant="outlined"
-                />
-                <Chip
-                  label={`Terms: ${master.creditDays || 30} Days`}
-                  size="small"
-                  variant="outlined"
-                />
-                <Typography variant="caption" sx={{ alignSelf: 'center', color: 'text.secondary' }}>
-                  Available Limit: ₹{availableCredit.toLocaleString()}
-                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                  <Typography variant="caption" sx={{ color: '#64748B', fontSize: '0.72rem' }}>
+                    Credit Used: ₹{creditUsed.toLocaleString()}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#0284C7', fontWeight: 600, fontSize: '0.72rem' }}>
+                    Available Limit: ₹{availableCredit.toLocaleString()}
+                  </Typography>
+                </Box>
               </Box>
             </Grid>
 
             <Grid item xs={12} md={5} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
-              <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase', fontWeight: 700 }}>
-                Current Account Position
+              <Typography variant="caption" sx={{ color: '#64748B', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.04em' }}>
+                CURRENT NET POSITION
               </Typography>
               <Typography
                 variant="h4"
                 sx={{
-                  fontWeight: 900,
-                  color: creditUsed > 0 ? '#EF4444' : advanceAmount > 0 ? '#10B981' : '#6B7280',
-                  mt: 0.5
+                  fontWeight: 700,
+                  color: creditUsed > 0 ? '#E11D48' : advanceAmount > 0 ? '#059669' : '#64748B',
+                  mt: 0.5,
+                  fontSize: { xs: '1.75rem', sm: '2.1rem' }
                 }}
               >
                 {creditUsed > 0
-                  ? (`₹${creditUsed.toLocaleString()} (Due)`)
+                  ? `₹${creditUsed.toLocaleString()} (Due)`
                   : advanceAmount > 0
-                  ? (`₹${advanceAmount.toLocaleString()} (Advance)`)
+                  ? `₹${advanceAmount.toLocaleString()} (Advance)`
                   : '₹0 (Settled)'}
               </Typography>
               <Chip
                 size="small"
-                label={creditUsed > 0 ? 'Payment Due (Receivable)' : advanceAmount > 0 ? 'Advance Balance Available' : 'Account Settled'}
-                color={creditUsed > 0 ? 'error' : advanceAmount > 0 ? 'success' : 'default'}
-                sx={{ mt: 1, fontWeight: 700 }}
+                label={creditUsed > 0 ? 'Pending Payment Due' : advanceAmount > 0 ? 'Advance Credit Available' : 'All Clear / Settled'}
+                sx={{
+                  mt: 1,
+                  fontWeight: 600,
+                  fontSize: '0.75rem',
+                  backgroundColor: creditUsed > 0 ? '#FEF2F2' : advanceAmount > 0 ? '#ECFDF5' : '#F8FAFC',
+                  color: creditUsed > 0 ? '#991B1B' : advanceAmount > 0 ? '#065F46' : '#64748B',
+                  border: '1px solid',
+                  borderColor: creditUsed > 0 ? '#FECDD3' : advanceAmount > 0 ? '#A7F3D0' : '#E2E8F0'
+                }}
               />
             </Grid>
           </Grid>
@@ -663,195 +578,489 @@ const CustomerKhataStatement = () => {
       )}
 
       {/* 4 Financial Stat Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
+      <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={3}>
-          <Paper elevation={0} sx={{ p: 2, borderRadius: '12px', border: '1px solid #FECDD3', backgroundColor: '#FFF1F2' }}>
-            <Typography variant="caption" sx={{ color: '#E11D48', fontWeight: 700 }}>Credit Used (Receivable)</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 800, color: '#E11D48' }}>
+          <Paper elevation={0} sx={{ p: 2, borderRadius: '10px', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF' }}>
+            <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 600 }}>Total Credit Due</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#E11D48', mt: 0.25 }}>
               ₹{creditUsed.toLocaleString()}
             </Typography>
           </Paper>
         </Grid>
         <Grid item xs={6} sm={3}>
-          <Paper elevation={0} sx={{ p: 2, borderRadius: '12px', border: '1px solid #E2E8F0', backgroundColor: '#F8FAFC' }}>
-            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700 }}>Total Invoiced (Debit)</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 800, color: '#0F172A' }}>
+          <Paper elevation={0} sx={{ p: 2, borderRadius: '10px', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF' }}>
+            <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 600 }}>Total Invoiced</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#0F172A', mt: 0.25 }}>
               ₹{Number(stats.totalDebit || 0).toLocaleString()}
             </Typography>
           </Paper>
         </Grid>
         <Grid item xs={6} sm={3}>
-          <Paper elevation={0} sx={{ p: 2, borderRadius: '12px', border: '1px solid #A7F3D0', backgroundColor: '#ECFDF5' }}>
-            <Typography variant="caption" sx={{ color: '#059669', fontWeight: 700 }}>Total Received (Credit)</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 800, color: '#059669' }}>
+          <Paper elevation={0} sx={{ p: 2, borderRadius: '10px', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF' }}>
+            <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 600 }}>Total Received</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#059669', mt: 0.25 }}>
               ₹{Number(stats.totalCredit || 0).toLocaleString()}
             </Typography>
           </Paper>
         </Grid>
         <Grid item xs={6} sm={3}>
-          <Paper elevation={0} sx={{ p: 2, borderRadius: '12px', border: '1px solid #BAE6FD', backgroundColor: '#F0F9FF' }}>
-            <Typography variant="caption" sx={{ color: '#0284C7', fontWeight: 700 }}>Advance Available (Jama)</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 800, color: '#0284C7' }}>
+          <Paper elevation={0} sx={{ p: 2, borderRadius: '10px', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF' }}>
+            <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 600 }}>Advance Available</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#0284C7', mt: 0.25 }}>
               ₹{advanceAmount.toLocaleString()}
             </Typography>
           </Paper>
         </Grid>
       </Grid>
 
-      {/* Date Filters Card */}
-      <Card sx={{ p: 2, mb: 3, borderRadius: '12px', border: '1px solid #E2E8F0' }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={3}>
-            <TextField
-              type="date"
-              size="small"
-              label="From Date"
-              InputLabelProps={{ shrink: true }}
-              value={filters.startDate}
-              onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-              fullWidth
-            />
-          </Grid>
-          <Grid item xs={12} sm={3}>
-            <TextField
-              type="date"
-              size="small"
-              label="To Date"
-              InputLabelProps={{ shrink: true }}
-              value={filters.endDate}
-              onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-              fullWidth
-            />
-          </Grid>
-          <Grid item xs={12} sm={3}>
-            <Button
-              variant="contained"
-              onClick={fetchStatement}
-              startIcon={<Icon icon="lucide:filter" />}
-              fullWidth
-              sx={{ borderRadius: '8px', textTransform: 'none', height: 40, backgroundColor: '#0284C7', '&:hover': { backgroundColor: '#0369A1' } }}
-            >
-              Apply Filter
-            </Button>
-          </Grid>
-        </Grid>
+      {/* Tabs */}
+      <Card elevation={0} sx={{ mb: 3, borderRadius: '10px', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF' }}>
+        <Tabs
+          value={activeTab}
+          onChange={(e, val) => setActiveTab(val)}
+          sx={{ px: 2, borderBottom: '1px solid #E2E8F0' }}
+        >
+          <Tab
+            label={`Ledger Statement (${transactions.length})`}
+            sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.85rem' }}
+          />
+          <Tab
+            label={`Orders & Part Payments (${orders.length})`}
+            sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.85rem' }}
+          />
+          <Tab
+            label={`Monthly View (${monthlyBreakdown.length})`}
+            sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.85rem' }}
+          />
+        </Tabs>
       </Card>
 
-      {/* Interactive Transactions Table */}
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
-      ) : transactions.length === 0 ? (
-        <Card sx={{ p: 4, textAlign: 'center', borderRadius: '12px' }}>
-          <Typography variant="body1" sx={{ color: 'text.secondary' }}>
-            No transactions found for this customer khata in selected date range.
-          </Typography>
-        </Card>
-      ) : (
-        <Paper variant="outlined" sx={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #E2E8F0' }}>
-          <Table>
-            <TableHead sx={{ backgroundColor: '#F8FAFC' }}>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Reference No.</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Narration / Details</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700 }}>Debit (₹)</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700 }}>Credit (₹)</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700 }}>Running Balance (₹)</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700, width: 130 }}>Action / Receipt</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {transactions.map((txn, idx) => {
-                const isDebit = Number(txn.debit || 0) > 0;
-                const isCredit = Number(txn.credit || 0) > 0;
-                const rb = Number(txn.runningBalance || 0);
+      {/* TAB 0: Ledger Transactions */}
+      {activeTab === 0 && (
+        <Box>
+          {/* Date Filter Bar */}
+          <Card elevation={0} sx={{ p: 2, mb: 3, borderRadius: '10px', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF' }}>
+            <Grid container spacing={1.5} alignItems="center">
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  type="date"
+                  label="From Date"
+                  size="small"
+                  value={filters.startDate}
+                  onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                  fullWidth
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  type="date"
+                  label="To Date"
+                  size="small"
+                  value={filters.endDate}
+                  onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                  fullWidth
+                />
+              </Grid>
+              <Grid item xs={6} sm={2}>
+                <Button
+                  variant="contained"
+                  onClick={() => fetchStatement(filters)}
+                  fullWidth
+                  sx={{ borderRadius: '8px', textTransform: 'none', height: 40, backgroundColor: '#0284C7', fontWeight: 600 }}
+                >
+                  Apply
+                </Button>
+              </Grid>
+              <Grid item xs={6} sm={2}>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    const clear = { startDate: '', endDate: '' };
+                    setFilters(clear);
+                    fetchStatement(clear);
+                  }}
+                  fullWidth
+                  sx={{ borderRadius: '8px', textTransform: 'none', height: 40, color: '#64748B', borderColor: '#CBD5E1', fontWeight: 600 }}
+                >
+                  Clear
+                </Button>
+              </Grid>
+            </Grid>
+          </Card>
 
-                return (
-                  <TableRow key={txn._id || idx} hover>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                      {new Date(txn.transactionDate).toLocaleDateString('en-IN')}
-                    </TableCell>
-                    <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600 }}>
-                      {txn.referenceNumber || '—'}
-                    </TableCell>
-                    <TableCell sx={{ maxWidth: 320, color: 'text.secondary', fontSize: '0.85rem' }}>
-                      {txn.narration || '—'}
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: isDebit ? 700 : 400, color: isDebit ? '#E11D48' : 'text.secondary' }}>
-                      {isDebit ? (`₹${Number(txn.debit).toLocaleString()}`) : '—'}
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: isCredit ? 700 : 400, color: isCredit ? '#059669' : 'text.secondary' }}>
-                      {isCredit ? (`₹${Number(txn.credit).toLocaleString()}`) : '—'}
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>
-                      {rb > 0 ? (
-                        <span style={{ color: '#EF4444' }}>{`₹${rb.toLocaleString()} (Due)`}</span>
-                      ) : rb < 0 ? (
-                        <span style={{ color: '#059669' }}>{`₹${Math.abs(rb).toLocaleString()} (Adv)`}</span>
-                      ) : (
-                        <span style={{ color: '#6B7280' }}>₹0</span>
-                      )}
-                    </TableCell>
-                    <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
-                      {(isCredit || txn.voucherType === 'Receipt' || (txn.referenceNumber && txn.referenceNumber.startsWith('CPAY'))) ? (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          disabled={downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id)}
-                          onClick={() => handleDownloadReceipt(txn)}
-                          startIcon={
-                            downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id) ? (
-                              <CircularProgress size={13} color="inherit" />
-                            ) : (
-                              <Icon icon="lucide:file-text" />
-                            )
-                          }
-                          sx={{
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            textTransform: 'none',
-                            borderRadius: '8px',
-                            py: 0.4,
-                            px: 1.2,
-                            borderColor: '#0284C7',
-                            color: '#0284C7',
-                            '&:hover': {
-                              backgroundColor: '#E0F2FE',
-                              borderColor: '#0369A1',
-                            }
-                          }}
-                        >
-                          Receipt PDF
-                        </Button>
-                      ) : (
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>—</Typography>
-                      )}
-                    </TableCell>
+          {/* Table */}
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+              <CircularProgress size={32} />
+            </Box>
+          ) : transactions.length === 0 ? (
+            <Card elevation={0} sx={{ p: 4, textAlign: 'center', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+              <Typography variant="body2" sx={{ color: '#64748B' }}>
+                No transactions found for this customer ledger in the selected date range.
+              </Typography>
+            </Card>
+          ) : (
+            <TableContainer
+              component={Paper}
+              elevation={0}
+              sx={{
+                borderRadius: '10px',
+                border: '1px solid #E2E8F0',
+                overflowX: 'auto',
+                width: '100%'
+              }}
+            >
+              <Table sx={{ minWidth: 850 }}>
+                <TableHead sx={{ backgroundColor: '#F8FAFC' }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Date</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Ref / Voucher</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Particulars</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Order Status</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Debit (₹)</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Credit (₹)</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Balance</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Receipt</TableCell>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Paper>
+                </TableHead>
+                <TableBody>
+                  {transactions.map((txn, idx) => {
+                    const isDebit = Number(txn.debit) > 0;
+                    const isCredit = Number(txn.credit) > 0;
+                    const rb = Number(txn.runningBalance || 0);
+                    const orderBadge = getStatusBadge(txn.orderStatus);
+
+                    return (
+                      <TableRow key={txn._id || idx} hover>
+                        <TableCell sx={{ whiteSpace: 'nowrap', fontSize: '0.8125rem', color: '#475569' }}>
+                          {txn.transactionDate ? new Date(txn.transactionDate).toLocaleDateString('en-IN') : '—'}
+                        </TableCell>
+                        <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.8125rem', color: '#0F172A' }}>
+                          {txn.referenceNumber || txn.voucherId || '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8125rem', color: '#0F172A' }}>
+                            {txn.description || txn.voucherType || 'Transaction'}
+                          </Typography>
+                          {txn.partPaymentPercentage && (
+                            <Typography variant="caption" sx={{ color: '#059669', fontWeight: 600, display: 'block', mt: 0.25 }}>
+                              {txn.partPaymentPercentage}% Part Payment
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {txn.orderStatus ? (
+                            <Chip
+                              size="small"
+                              label={txn.orderStatus}
+                              sx={{
+                                backgroundColor: orderBadge.bg,
+                                color: orderBadge.text,
+                                fontWeight: 600,
+                                fontSize: '0.7rem',
+                                height: 20
+                              }}
+                            />
+                          ) : (
+                            <Typography variant="caption" sx={{ color: '#94A3B8' }}>—</Typography>
+                          )}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: isDebit ? 700 : 400, color: isDebit ? '#E11D48' : '#64748B', fontSize: '0.8125rem' }}>
+                          {isDebit ? `₹${Number(txn.debit).toLocaleString()}` : '—'}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: isCredit ? 700 : 400, color: isCredit ? '#059669' : '#64748B', fontSize: '0.8125rem' }}>
+                          {isCredit ? `₹${Number(txn.credit).toLocaleString()}` : '—'}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.8125rem' }}>
+                          {rb > 0 ? (
+                            <span style={{ color: '#EF4444' }}>{`₹${rb.toLocaleString()} (Due)`}</span>
+                          ) : rb < 0 ? (
+                            <span style={{ color: '#059669' }}>{`₹${Math.abs(rb).toLocaleString()} (Adv)`}</span>
+                          ) : (
+                            <span style={{ color: '#64748B' }}>₹0</span>
+                          )}
+                        </TableCell>
+                        <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
+                          {(isCredit || txn.voucherType === 'Receipt' || (txn.referenceNumber && txn.referenceNumber.startsWith('CPAY'))) ? (
+                            <Button
+                              size="small"
+                              variant="text"
+                              onClick={() => handleDownloadReceipt(txn)}
+                              disabled={downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id)}
+                              sx={{ textTransform: 'none', fontSize: '0.75rem', fontWeight: 600, color: '#0284C7', py: 0.25 }}
+                            >
+                              Download
+                            </Button>
+                          ) : (
+                            <Typography variant="caption" sx={{ color: '#CBD5E1' }}>—</Typography>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Box>
+      )}
+
+      {/* TAB 1: Orders & Part Payment Tracking */}
+      {activeTab === 1 && (
+        <Box>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0F172A' }}>
+              Part Payment & Order Breakdown Tracking
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#64748B' }}>
+              Track order-level advance, installment payments, and outstanding balances
+            </Typography>
+          </Box>
+
+          {orders.length === 0 ? (
+            <Card elevation={0} sx={{ p: 4, textAlign: 'center', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+              <Typography variant="body2" sx={{ color: '#64748B' }}>
+                No bulk orders found for this customer.
+              </Typography>
+            </Card>
+          ) : (
+            <TableContainer
+              component={Paper}
+              elevation={0}
+              sx={{
+                borderRadius: '10px',
+                border: '1px solid #E2E8F0',
+                overflowX: 'auto',
+                width: '100%'
+              }}
+            >
+              <Table sx={{ minWidth: 900 }}>
+                <TableHead sx={{ backgroundColor: '#F8FAFC' }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Order #</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Date</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Status</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Tax Type</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Order Total</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Paid Amount</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Due Balance</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Part Payment Status</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Action</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {orders.map((ord) => {
+                    const badge = getStatusBadge(ord.orderStatus);
+                    const grandTotal = Number(ord.grandTotal || 0);
+                    const paid = Number(ord.paidAmount || 0);
+                    const due = Number(ord.balanceDue || 0);
+                    const pct = grandTotal > 0 ? Math.min(100, Math.round((paid / grandTotal) * 100)) : 0;
+                    const isFullyPaid = due <= 0;
+                    const isPartPaid = paid > 0 && due > 0;
+
+                    return (
+                      <TableRow key={ord.orderId || ord._id} hover>
+                        <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600, color: '#0284C7', fontSize: '0.8125rem' }}>
+                          {ord.orderNumber}
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap', fontSize: '0.8125rem', color: '#475569' }}>
+                          {ord.orderDate ? new Date(ord.orderDate).toLocaleDateString('en-IN') : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={ord.orderStatus || 'Submitted'}
+                            sx={{
+                              backgroundColor: badge.bg,
+                              color: badge.text,
+                              fontWeight: 600,
+                              fontSize: '0.7rem',
+                              height: 20
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={ord.hasGST ? 'GST' : 'Non-GST'}
+                            sx={{
+                              backgroundColor: ord.hasGST ? '#ECFDF5' : '#F8FAFC',
+                              color: ord.hasGST ? '#065F46' : '#64748B',
+                              border: '1px solid',
+                              borderColor: ord.hasGST ? '#A7F3D0' : '#E2E8F0',
+                              fontSize: '0.7rem',
+                              height: 20
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.8125rem' }}>
+                          ₹{grandTotal.toLocaleString()}
+                        </TableCell>
+                        <TableCell align="right" sx={{ color: '#059669', fontWeight: 600, fontSize: '0.8125rem' }}>
+                          ₹{paid.toLocaleString()}
+                        </TableCell>
+                        <TableCell align="right" sx={{ color: due > 0 ? '#E11D48' : '#64748B', fontWeight: 700, fontSize: '0.8125rem' }}>
+                          {due > 0 ? `₹${due.toLocaleString()}` : 'Settled'}
+                        </TableCell>
+                        <TableCell sx={{ minWidth: 150 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{ width: '100%', mr: 1 }}>
+                              <LinearProgress
+                                variant="determinate"
+                                value={pct}
+                                sx={{
+                                  height: 5,
+                                  borderRadius: 3,
+                                  backgroundColor: '#E2E8F0',
+                                  '& .MuiLinearProgress-bar': {
+                                    backgroundColor: isFullyPaid ? '#10B981' : isPartPaid ? '#F59E0B' : '#94A3B8'
+                                  }
+                                }}
+                              />
+                            </Box>
+                            <Typography variant="caption" sx={{ minWidth: 35, fontWeight: 600, color: '#475569', fontSize: '0.7rem' }}>
+                              {pct}%
+                            </Typography>
+                          </Box>
+                          <Typography variant="caption" sx={{ color: '#64748B', fontSize: '0.7rem' }}>
+                            {isFullyPaid ? 'Fully Paid' : isPartPaid ? 'Part Payment' : 'Unpaid'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          {due > 0 ? (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="success"
+                              onClick={() => handleOpenPartPayment(ord)}
+                              sx={{
+                                textTransform: 'none',
+                                fontWeight: 600,
+                                fontSize: '0.75rem',
+                                borderRadius: '6px',
+                                px: 1,
+                                py: 0.25
+                              }}
+                            >
+                              Pay Due
+                            </Button>
+                          ) : (
+                            <Typography variant="caption" sx={{ color: '#059669', fontWeight: 600 }}>Cleared</Typography>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Box>
+      )}
+
+      {/* TAB 2: Monthly Breakdown View */}
+      {activeTab === 2 && (
+        <Box>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0F172A' }}>
+              Monthly Accounting & Invoicing View
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#64748B' }}>
+              Summary of monthly debits (sales invoices) vs credits (receipts)
+            </Typography>
+          </Box>
+
+          {monthlyBreakdown.length === 0 ? (
+            <Card elevation={0} sx={{ p: 4, textAlign: 'center', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+              <Typography variant="body2" sx={{ color: '#64748B' }}>
+                No monthly transactions recorded yet.
+              </Typography>
+            </Card>
+          ) : (
+            <TableContainer
+              component={Paper}
+              elevation={0}
+              sx={{
+                borderRadius: '10px',
+                border: '1px solid #E2E8F0',
+                overflowX: 'auto',
+                width: '100%'
+              }}
+            >
+              <Table sx={{ minWidth: 750 }}>
+                <TableHead sx={{ backgroundColor: '#F8FAFC' }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Month & Year</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Invoiced Sales (Debit ₹)</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Collections Received (Credit ₹)</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Net Monthly Movement (₹)</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Transactions</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Action</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {monthlyBreakdown.map((mb) => {
+                    const isNetPositive = mb.netMovement > 0;
+                    return (
+                      <TableRow key={mb.month} hover>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.8125rem', color: '#0F172A' }}>
+                          {mb.monthLabel || mb.month}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600, color: '#E11D48', fontSize: '0.8125rem' }}>
+                          ₹{Number(mb.totalDebit || 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600, color: '#059669', fontSize: '0.8125rem' }}>
+                          ₹{Number(mb.totalCredit || 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: isNetPositive ? '#E11D48' : '#059669', fontSize: '0.8125rem' }}>
+                          {isNetPositive
+                            ? `+₹${mb.netMovement.toLocaleString()} (Added)`
+                            : `-₹${Math.abs(mb.netMovement).toLocaleString()} (Cleared)`}
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip size="small" label={`${mb.transactionsCount} txns`} sx={{ fontSize: '0.7rem', height: 20 }} />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Button
+                            size="small"
+                            variant="text"
+                            onClick={() => handleFilterMonth(mb.month)}
+                            sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.75rem', color: '#0284C7' }}
+                          >
+                            View Month
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Box>
       )}
 
       {/* Payment Modal */}
       {paymentModalOpen && (
         <CustomerPaymentModal
           open={paymentModalOpen}
-          onClose={() => setPaymentModalOpen(false)}
+          onClose={() => {
+            setPaymentModalOpen(false);
+            setSelectedOrderForPayment(null);
+          }}
           customer={{
             _id: customerId,
-            shopName: summary.customer?.shopName,
-            ownerName: summary.customer?.ownerName,
-            mobile: summary.customer?.mobile,
+            shopName: cust.shopName,
+            ownerName: cust.ownerName,
+            mobile: cust.mobile,
             creditLimit,
             creditUsed,
             advanceAmount,
-            currentBalance: master.currentBalance
+            isGSTRegistered: isGST
           }}
+          initialOrder={selectedOrderForPayment}
           onSuccess={() => fetchStatement()}
         />
       )}

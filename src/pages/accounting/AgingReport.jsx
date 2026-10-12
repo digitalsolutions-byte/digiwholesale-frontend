@@ -80,7 +80,7 @@ const AgingReport = () => {
           onChange={(e, val) => setEntityType(val)}
           sx={{ px: 2, pt: 1 }}
         >
-          <Tab value="Customer" label="Accounts Receivable (Customer Udhari Aging)" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab value="Customer" label="Accounts Receivable (Customer Aging)" sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab value="Vendor" label="Accounts Payable (Vendor Payout Aging)" sx={{ textTransform: 'none', fontWeight: 600 }} />
         </Tabs>
       </Card>
@@ -171,7 +171,7 @@ const AgingReport = () => {
                 <TableCell align="right" sx={{ fontWeight: 700, color: '#D97706' }}>61 - 90 Days (₹)</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700, color: '#E11D48' }}>90+ Days (₹)</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700 }}>Total Due (₹)</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700 }}>Khata</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 700 }}>Statement</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

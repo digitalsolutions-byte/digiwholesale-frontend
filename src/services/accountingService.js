@@ -196,3 +196,12 @@ export const resendPaymentReceipt = async (paymentId, channel = 'both') => {
   }
 };
 
+
+export const getCustomerOrdersForLedger = async (customerId) => {
+  try {
+    const response = await api.get(`/api/v1/ledgers/customer/${customerId}/orders`);
+    return response.data;
+  } catch (error) {
+    throw handleServiceError(error, 'Failed to fetch customer orders for ledger');
+  }
+};
