@@ -3,7 +3,7 @@ import {
   Box, Card, Typography, Button, Grid, Chip, IconButton,
   TextField, Table, TableHead, TableRow, TableCell, TableBody,
   TableContainer, Paper, CircularProgress, Divider, Alert,
-  LinearProgress, Tabs, Tab, Tooltip
+  LinearProgress, Tabs, Tab, Tooltip, Collapse
 } from '@mui/material';
 import { Icon } from '@iconify/react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -69,6 +69,8 @@ const CustomerKhataStatement = () => {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedOrderForPayment, setSelectedOrderForPayment] = useState(null);
 
+  const [expandedRowId, setExpandedRowId] = useState(null);
+  const toggleExpandRow = (id) => setExpandedRowId((prev) => (prev === id ? null : id));
   const [downloadingReceiptId, setDownloadingReceiptId] = useState(null);
   const [sendingReminder, setSendingReminder] = useState(false);
   const [notApproved, setNotApproved] = useState(false);
@@ -163,8 +165,8 @@ const CustomerKhataStatement = () => {
         const bal = t.runningBalance > 0
           ? `₹${Number(t.runningBalance).toLocaleString('en-IN')} (Due)`
           : t.runningBalance < 0
-          ? `₹${Number(Math.abs(t.runningBalance)).toLocaleString('en-IN')} (Adv)`
-          : '₹0';
+            ? `₹${Number(Math.abs(t.runningBalance)).toLocaleString('en-IN')} (Adv)`
+            : '₹0';
         return `
           <tr>
             <td>${idx + 1}</td>
@@ -513,8 +515,8 @@ const CustomerKhataStatement = () => {
                     {creditStatus === 'EXCEEDED'
                       ? `Exceeded (${creditPercentage}% used)`
                       : creditStatus === 'WARNING_20_PERCENT'
-                      ? `20% Warning (${creditPercentage}% used)`
-                      : `Safe (${creditPercentage}% used)`}
+                        ? `20% Warning (${creditPercentage}% used)`
+                        : `Safe (${creditPercentage}% used)`}
                   </Typography>
                 </Box>
                 <LinearProgress
@@ -556,8 +558,8 @@ const CustomerKhataStatement = () => {
                 {creditUsed > 0
                   ? `₹${creditUsed.toLocaleString()} (Due)`
                   : advanceAmount > 0
-                  ? `₹${advanceAmount.toLocaleString()} (Advance)`
-                  : '₹0 (Settled)'}
+                    ? `₹${advanceAmount.toLocaleString()} (Advance)`
+                    : '₹0 (Settled)'}
               </Typography>
               <Chip
                 size="small"
@@ -712,92 +714,188 @@ const CustomerKhataStatement = () => {
                 width: '100%'
               }}
             >
-              <Table sx={{ minWidth: 850 }}>
+              <Table sx={{ minWidth: 950 }}>
                 <TableHead sx={{ backgroundColor: '#F8FAFC' }}>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Date</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Ref / Voucher</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Particulars</TableCell>
+                    <TableCell sx={{ width: 44, p: 0.5, textAlign: 'center' }} />
+                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Order Date</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Ref / Order #</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Sales Person / User</TableCell>
                     <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Order Status</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Debit (₹)</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Credit (₹)</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Balance</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Order Total (₹)</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Payment Received (₹)</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Remaining Due (₹)</TableCell>
                     <TableCell align="center" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Receipt</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {transactions.map((txn, idx) => {
-                    const isDebit = Number(txn.debit) > 0;
-                    const isCredit = Number(txn.credit) > 0;
-                    const rb = Number(txn.runningBalance || 0);
+                    const rowKey = txn._id || txn.voucherId || txn.referenceNumber || idx;
+                    const isOrder = Boolean(txn.orderGrandTotal != null || txn.orderStatus || (txn.referenceNumber && txn.referenceNumber.startsWith('BO-')) || txn.voucherType === 'Sales Invoice');
+                    const orderTotal = Number(txn.orderGrandTotal != null ? txn.orderGrandTotal : txn.debit || 0);
+                    const paidAmount = Number(txn.orderPaidAmount != null ? txn.orderPaidAmount : txn.credit || 0);
+                    const dueAmount = Number(txn.orderBalanceDue != null ? txn.orderBalanceDue : Math.max(0, orderTotal - paidAmount));
                     const orderBadge = getStatusBadge(txn.orderStatus);
+                    const paymentsList = Array.isArray(txn.orderPayments) ? txn.orderPayments : [];
+                    const hasParts = paymentsList.length > 0;
+                    const isExpanded = expandedRowId === rowKey;
 
                     return (
-                      <TableRow key={txn._id || idx} hover>
-                        <TableCell sx={{ whiteSpace: 'nowrap', fontSize: '0.8125rem', color: '#475569' }}>
-                          {txn.transactionDate ? new Date(txn.transactionDate).toLocaleDateString('en-IN') : '—'}
-                        </TableCell>
-                        <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.8125rem', color: '#0F172A' }}>
-                          {txn.referenceNumber || txn.voucherId || '—'}
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8125rem', color: '#0F172A' }}>
-                            {txn.description || txn.voucherType || 'Transaction'}
-                          </Typography>
-                          {txn.partPaymentPercentage && (
-                            <Typography variant="caption" sx={{ color: '#059669', fontWeight: 600, display: 'block', mt: 0.25 }}>
-                              {txn.partPaymentPercentage}% Part Payment
+                      <React.Fragment key={rowKey}>
+                        <TableRow hover sx={{ backgroundColor: isExpanded ? '#F0F9FF' : 'inherit' }}>
+                          <TableCell sx={{ width: 44, p: 0.5, textAlign: 'center' }}>
+                            {hasParts ? (
+                              <IconButton
+                                size="small"
+                                onClick={() => toggleExpandRow(rowKey)}
+                                sx={{ color: isExpanded ? '#0284C7' : '#64748B', p: 0.5 }}
+                                title={isExpanded ? 'Hide payment installments' : 'View payment installments'}
+                              >
+                                <Icon icon={isExpanded ? 'solar:alt-arrow-down-bold' : 'solar:alt-arrow-right-bold'} width={16} />
+                              </IconButton>
+                            ) : null}
+                          </TableCell>
+                          <TableCell sx={{ whiteSpace: 'nowrap', fontSize: '0.8125rem', color: '#475569' }}>
+                            {txn.orderDate || txn.transactionDate ? new Date(txn.orderDate || txn.transactionDate).toLocaleDateString('en-IN') : '—'}
+                          </TableCell>
+                          <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.8125rem', color: '#0F172A' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                              <span>{txn.referenceNumber || txn.voucherId || '—'}</span>
+                              {hasParts && (
+                                <Chip
+                                  size="small"
+                                  label={`${paymentsList.length} ${paymentsList.length === 1 ? 'Payment' : 'Payments'}`}
+                                  onClick={() => toggleExpandRow(rowKey)}
+                                  sx={{
+                                    height: 18,
+                                    fontSize: '0.65rem',
+                                    fontWeight: 600,
+                                    backgroundColor: isExpanded ? '#BAE6FD' : '#E0F2FE',
+                                    color: '#0369A1',
+                                    cursor: 'pointer'
+                                  }}
+                                />
+                              )}
+                            </Box>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8125rem', color: '#0F172A' }}>
+                              {txn.createdByName || 'Sales Staff'}
                             </Typography>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {txn.orderStatus ? (
-                            <Chip
-                              size="small"
-                              label={txn.orderStatus}
-                              sx={{
-                                backgroundColor: orderBadge.bg,
-                                color: orderBadge.text,
-                                fontWeight: 600,
-                                fontSize: '0.7rem',
-                                height: 20
-                              }}
-                            />
-                          ) : (
-                            <Typography variant="caption" sx={{ color: '#94A3B8' }}>—</Typography>
-                          )}
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: isDebit ? 700 : 400, color: isDebit ? '#E11D48' : '#64748B', fontSize: '0.8125rem' }}>
-                          {isDebit ? `₹${Number(txn.debit).toLocaleString()}` : '—'}
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: isCredit ? 700 : 400, color: isCredit ? '#059669' : '#64748B', fontSize: '0.8125rem' }}>
-                          {isCredit ? `₹${Number(txn.credit).toLocaleString()}` : '—'}
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.8125rem' }}>
-                          {rb > 0 ? (
-                            <span style={{ color: '#EF4444' }}>{`₹${rb.toLocaleString()} (Due)`}</span>
-                          ) : rb < 0 ? (
-                            <span style={{ color: '#059669' }}>{`₹${Math.abs(rb).toLocaleString()} (Adv)`}</span>
-                          ) : (
-                            <span style={{ color: '#64748B' }}>₹0</span>
-                          )}
-                        </TableCell>
-                        <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
-                          {(isCredit || txn.voucherType === 'Receipt' || (txn.referenceNumber && txn.referenceNumber.startsWith('CPAY'))) ? (
-                            <Button
-                              size="small"
-                              variant="text"
-                              onClick={() => handleDownloadReceipt(txn)}
-                              disabled={downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id)}
-                              sx={{ textTransform: 'none', fontSize: '0.75rem', fontWeight: 600, color: '#0284C7', py: 0.25 }}
-                            >
-                              Download
-                            </Button>
-                          ) : (
-                            <Typography variant="caption" sx={{ color: '#CBD5E1' }}>—</Typography>
-                          )}
-                        </TableCell>
-                      </TableRow>
+                          </TableCell>
+                          <TableCell>
+                            {txn.orderStatus ? (
+                              <Chip
+                                size="small"
+                                label={txn.orderStatus}
+                                sx={{
+                                  backgroundColor: orderBadge.bg,
+                                  color: orderBadge.text,
+                                  fontWeight: 600,
+                                  fontSize: '0.7rem',
+                                  height: 20
+                                }}
+                              />
+                            ) : (
+                              <Typography variant="caption" sx={{ color: '#94A3B8' }}>—</Typography>
+                            )}
+                          </TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 600, color: '#0F172A', fontSize: '0.8125rem' }}>
+                            {orderTotal > 0 ? `₹${orderTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : (isOrder ? '₹0.00' : '—')}
+                          </TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700, color: paidAmount > 0 ? '#059669' : '#94A3B8', fontSize: '0.8125rem' }}>
+                            {paidAmount > 0 ? `₹${paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '₹0.00'}
+                          </TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.8125rem' }}>
+                            {isOrder ? (
+                              dueAmount > 0 ? (
+                                <span style={{ color: '#EF4444' }}>{`₹${dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Due)`}</span>
+                              ) : (
+                                <span style={{ color: '#059669' }}>₹0.00 (Paid)</span>
+                              )
+                            ) : (
+                              <span style={{ color: '#64748B' }}>—</span>
+                            )}
+                          </TableCell>
+                          <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
+                            {Boolean(isOrder || Number(txn.credit) > 0 || txn.voucherType === 'Receipt' || (txn.referenceNumber && txn.referenceNumber.startsWith('CPAY'))) ? (
+                              <Button
+                                size="small"
+                                variant="text"
+                                onClick={() => handleDownloadReceipt(txn)}
+                                disabled={downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id)}
+                                sx={{ textTransform: 'none', fontSize: '0.75rem', fontWeight: 600, color: '#0284C7', py: 0.25 }}
+                              >
+                                {downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id) ? 'Generating...' : 'Download'}
+                              </Button>
+                            ) : (
+                              <Typography variant="caption" sx={{ color: '#CBD5E1' }}>—</Typography>
+                            )}
+                          </TableCell>
+                        </TableRow>
+
+                        {/* Expandable Sub-row for Part Payments */}
+                        {hasParts && (
+                          <TableRow sx={{ backgroundColor: '#F8FAFC' }}>
+                            <TableCell colSpan={9} sx={{ py: 0, px: 2, borderBottom: isExpanded ? '1px solid #E2E8F0' : 'none' }}>
+                              <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                                <Box sx={{ py: 1.5, px: 2, my: 1, backgroundColor: '#FFFFFF', borderRadius: '8px', border: '1px solid #CBD5E1', borderLeft: '4px solid #0284C7', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 1 }}>
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0F172A', fontSize: '0.8125rem' }}>
+                                      Payments Received for Order #{txn.referenceNumber || txn.voucherId}
+                                    </Typography>
+                                    <Typography variant="caption" sx={{ color: '#475569' }}>
+                                      Total Received: <strong style={{ color: '#059669' }}>₹{paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong> of ₹{orderTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} &nbsp;|&nbsp; Remaining Due: <strong style={{ color: dueAmount > 0 ? '#EF4444' : '#059669' }}>₹{dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                                    </Typography>
+                                  </Box>
+                                  <Table size="small">
+                                    <TableHead sx={{ backgroundColor: '#F1F5F9' }}>
+                                      <TableRow>
+                                        <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#475569', width: 40 }}>#</TableCell>
+                                        <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#475569' }}>Payment Date</TableCell>
+                                        <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#475569' }}>Payment Ref / Voucher</TableCell>
+                                        <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#475569' }}>Mode</TableCell>
+                                        <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#475569' }}>Payment Type / Remarks</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#475569' }}>Amount Received (₹)</TableCell>
+                                        <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#475569' }}>Status</TableCell>
+                                      </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                      {paymentsList.map((p, pIdx) => (
+                                        <TableRow key={p.paymentId || p.paymentNumber || pIdx} hover>
+                                          <TableCell sx={{ fontSize: '0.75rem', color: '#64748B' }}>{pIdx + 1}</TableCell>
+                                          <TableCell sx={{ fontSize: '0.75rem', color: '#334155', whiteSpace: 'nowrap' }}>
+                                            {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString('en-IN') : '—'}
+                                          </TableCell>
+                                          <TableCell sx={{ fontSize: '0.75rem', fontFamily: 'monospace', fontWeight: 600, color: '#0284C7' }}>
+                                            {p.referenceNumber || p.paymentNumber}
+                                          </TableCell>
+                                          <TableCell sx={{ fontSize: '0.75rem', color: '#475569' }}>
+                                            {p.paymentMode || 'Advance / Bank'}
+                                          </TableCell>
+                                          <TableCell sx={{ fontSize: '0.75rem', color: '#475569' }}>
+                                            {p.remarks || (pIdx === 0 && p.paymentNumber?.startsWith('ADV') ? 'Initial Booking Advance' : 'Part Payment')}
+                                          </TableCell>
+                                          <TableCell align="right" sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#059669' }}>
+                                            ₹{Number(p.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                          </TableCell>
+                                          <TableCell align="center">
+                                            <Chip
+                                              size="small"
+                                              label="CLEARED"
+                                              sx={{ height: 18, fontSize: '0.625rem', fontWeight: 700, backgroundColor: '#DCFCE7', color: '#15803D' }}
+                                            />
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </Box>
+                              </Collapse>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
                     );
                   })}
                 </TableBody>
