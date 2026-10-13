@@ -12,6 +12,8 @@ import {
   getCustomerStatement,
   adjustDueFromAdvance,
   downloadPaymentReceipt,
+  downloadOrderChallan,
+  downloadOrderInvoice,
   sendPaymentDueReminder
 } from '../../services/accountingService';
 import CustomerPaymentModal from './CustomerPaymentModal';
@@ -254,6 +256,31 @@ const CustomerKhataStatement = () => {
       printWindow.print();
       printWindow.close();
     }, 250);
+  };
+
+  const [downloadingDocId, setDownloadingDocId] = useState(null);
+
+  const handleDownloadOrderDoc = async (txn) => {
+    const orderId = txn.orderId || txn.voucherId;
+    const orderNumber = txn.orderNumber || txn.referenceNumber || 'Order';
+    if (!orderId) {
+      toast.error('Order ID not available for document download');
+      return;
+    }
+    try {
+      setDownloadingDocId(orderId);
+      if (txn.challanUrl || txn.hasChallan) {
+        await downloadOrderChallan(orderId, `Challan-${orderNumber}`);
+        toast.success('Delivery Challan downloaded successfully!');
+      } else {
+        await downloadOrderInvoice(orderId, orderNumber, `Invoice-${orderNumber}`);
+        toast.success('Invoice downloaded successfully!');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to download order document');
+    } finally {
+      setDownloadingDocId(null);
+    }
   };
 
   const handleDownloadReceipt = async (txn) => {
@@ -731,7 +758,7 @@ const CustomerKhataStatement = () => {
                 <TableBody>
                   {transactions.map((txn, idx) => {
                     const rowKey = txn._id || txn.voucherId || txn.referenceNumber || idx;
-                    const isOrder = Boolean(txn.orderGrandTotal != null || txn.orderStatus || (txn.referenceNumber && txn.referenceNumber.startsWith('BO-')) || txn.voucherType === 'Sales Invoice');
+                    const isOrder = Boolean(txn.orderId || txn.orderGrandTotal != null || txn.orderStatus || (txn.referenceNumber && txn.referenceNumber.startsWith('BO-')) || txn.voucherType === 'Sales Invoice');
                     const orderTotal = Number(txn.orderGrandTotal != null ? txn.orderGrandTotal : txn.debit || 0);
                     const paidAmount = Number(txn.orderPaidAmount != null ? txn.orderPaidAmount : txn.credit || 0);
                     const dueAmount = Number(txn.orderBalanceDue != null ? txn.orderBalanceDue : Math.max(0, orderTotal - paidAmount));
@@ -759,22 +786,52 @@ const CustomerKhataStatement = () => {
                             {txn.orderDate || txn.transactionDate ? new Date(txn.orderDate || txn.transactionDate).toLocaleDateString('en-IN') : '—'}
                           </TableCell>
                           <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.8125rem', color: '#0F172A' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                              <span>{txn.referenceNumber || txn.voucherId || '—'}</span>
-                              {hasParts && (
-                                <Chip
-                                  size="small"
-                                  label={`${paymentsList.length} ${paymentsList.length === 1 ? 'Payment' : 'Payments'}`}
-                                  onClick={() => toggleExpandRow(rowKey)}
-                                  sx={{
-                                    height: 18,
-                                    fontSize: '0.65rem',
-                                    fontWeight: 600,
-                                    backgroundColor: isExpanded ? '#BAE6FD' : '#E0F2FE',
-                                    color: '#0369A1',
-                                    cursor: 'pointer'
-                                  }}
-                                />
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                <span>{txn.referenceNumber || txn.voucherId || '—'}</span>
+                                {hasParts && (
+                                  <Chip
+                                    size="small"
+                                    label={`${paymentsList.length} ${paymentsList.length === 1 ? 'Payment' : 'Payments'}`}
+                                    onClick={() => toggleExpandRow(rowKey)}
+                                    sx={{
+                                      height: 18,
+                                      fontSize: '0.65rem',
+                                      fontWeight: 600,
+                                      backgroundColor: isExpanded ? '#BAE6FD' : '#E0F2FE',
+                                      color: '#0369A1',
+                                      cursor: 'pointer'
+                                    }}
+                                  />
+                                )}
+                              </Box>
+
+                              {/* Attached Document: Challan if present, else Invoice */}
+                              {isOrder && (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  <Chip
+                                    size="small"
+                                    icon={<Icon icon={(txn.challanUrl || txn.hasChallan) ? "solar:box-minimalistic-bold" : "solar:bill-list-bold"} width={12} />}
+                                    label={downloadingDocId === (txn.orderId || txn.voucherId) ? 'Downloading...' : ((txn.challanUrl || txn.hasChallan) ? 'Challan' : 'Invoice')}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDownloadOrderDoc(txn);
+                                    }}
+                                    disabled={downloadingDocId === (txn.orderId || txn.voucherId)}
+                                    sx={{
+                                      height: 20,
+                                      fontSize: '0.68rem',
+                                      fontWeight: 600,
+                                      cursor: 'pointer',
+                                      backgroundColor: (txn.challanUrl || txn.hasChallan) ? '#F0F9FF' : '#EEF2FF',
+                                      color: (txn.challanUrl || txn.hasChallan) ? '#0284C7' : '#4F46E5',
+                                      border: `1px solid ${(txn.challanUrl || txn.hasChallan) ? '#BAE6FD' : '#C7D2FE'}`,
+                                      '&:hover': {
+                                        backgroundColor: (txn.challanUrl || txn.hasChallan) ? '#E0F2FE' : '#E0E7FF'
+                                      }
+                                    }}
+                                  />
+                                </Box>
                               )}
                             </Box>
                           </TableCell>
@@ -797,11 +854,21 @@ const CustomerKhataStatement = () => {
                                 }}
                               />
                             ) : (
-                              <Typography variant="caption" sx={{ color: '#94A3B8' }}>—</Typography>
+                              <Chip
+                                size="small"
+                                label="Received"
+                                sx={{
+                                  backgroundColor: '#DCFCE7',
+                                  color: '#15803D',
+                                  fontWeight: 600,
+                                  fontSize: '0.7rem',
+                                  height: 20
+                                }}
+                              />
                             )}
                           </TableCell>
                           <TableCell align="right" sx={{ fontWeight: 600, color: '#0F172A', fontSize: '0.8125rem' }}>
-                            {orderTotal > 0 ? `₹${orderTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : (isOrder ? '₹0.00' : '—')}
+                            {orderTotal > 0 ? `₹${orderTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '₹0.00'}
                           </TableCell>
                           <TableCell align="right" sx={{ fontWeight: 700, color: paidAmount > 0 ? '#059669' : '#94A3B8', fontSize: '0.8125rem' }}>
                             {paidAmount > 0 ? `₹${paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '₹0.00'}
@@ -814,7 +881,7 @@ const CustomerKhataStatement = () => {
                                 <span style={{ color: '#059669' }}>₹0.00 (Paid)</span>
                               )
                             ) : (
-                              <span style={{ color: '#64748B' }}>—</span>
+                              <span style={{ color: '#64748B' }}>₹0.00</span>
                             )}
                           </TableCell>
                           <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
@@ -829,7 +896,7 @@ const CustomerKhataStatement = () => {
                                 {downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id) ? 'Generating...' : 'Download'}
                               </Button>
                             ) : (
-                              <Typography variant="caption" sx={{ color: '#CBD5E1' }}>—</Typography>
+                              <Typography variant="caption" sx={{ color: '#CBD5E1' }}>₹0.00</Typography>
                             )}
                           </TableCell>
                         </TableRow>
@@ -841,9 +908,22 @@ const CustomerKhataStatement = () => {
                               <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                                 <Box sx={{ py: 1.5, px: 2, my: 1, backgroundColor: '#FFFFFF', borderRadius: '8px', border: '1px solid #CBD5E1', borderLeft: '4px solid #0284C7', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
                                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 1 }}>
-                                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0F172A', fontSize: '0.8125rem' }}>
-                                      Payments Received for Order #{txn.referenceNumber || txn.voucherId}
-                                    </Typography>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0F172A', fontSize: '0.8125rem' }}>
+                                        Payments Received for Order #{txn.referenceNumber || txn.voucherId}
+                                      </Typography>
+                                      {isOrder && (
+                                        <Button
+                                          size="small"
+                                          variant="text"
+                                          onClick={() => handleDownloadOrderDoc(txn)}
+                                          disabled={downloadingDocId === (txn.orderId || txn.voucherId)}
+                                          sx={{ textTransform: 'none', fontSize: '0.72rem', fontWeight: 600, color: (txn.challanUrl || txn.hasChallan) ? '#0284C7' : '#4F46E5', py: 0 }}
+                                        >
+                                          Download {(txn.challanUrl || txn.hasChallan) ? 'Challan' : 'Invoice'}
+                                        </Button>
+                                      )}
+                                    </Box>
                                     <Typography variant="caption" sx={{ color: '#475569' }}>
                                       Total Received: <strong style={{ color: '#059669' }}>₹{paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong> of ₹{orderTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} &nbsp;|&nbsp; Remaining Due: <strong style={{ color: dueAmount > 0 ? '#EF4444' : '#059669' }}>₹{dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
                                     </Typography>

@@ -205,3 +205,41 @@ export const getCustomerOrdersForLedger = async (customerId) => {
     throw handleServiceError(error, 'Failed to fetch customer orders for ledger');
   }
 };
+
+export const downloadOrderChallan = async (orderId, fileName = 'Challan') => {
+  try {
+    const response = await api.get(`/api/order/bulk-orders/${orderId}/challan`, {
+      responseType: 'blob'
+    });
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${fileName}-${orderId}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    throw handleServiceError(error, 'Failed to download delivery challan');
+  }
+};
+
+export const downloadOrderInvoice = async (orderId, orderNumber, fileName = 'Invoice') => {
+  try {
+    const response = await api.get(`/api/order/bulk-orders/${orderId}/invoice`, {
+      responseType: 'blob'
+    });
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${fileName}-${orderNumber || orderId}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    throw handleServiceError(error, 'Failed to download invoice');
+  }
+};
