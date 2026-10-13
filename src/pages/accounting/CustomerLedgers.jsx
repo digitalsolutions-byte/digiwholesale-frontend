@@ -436,89 +436,143 @@ const CustomerLedgers = () => {
 
       {/* Filters Bar */}
       <Card elevation={0} sx={{ p: 2, mb: 3, borderRadius: '10px', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF' }}>
-        <Grid container spacing={1.5} alignItems="center">
-          <Grid item xs={12} sm={6} md={3.5}>
-            <TextField
-              size="small"
-              placeholder="Search shop, owner, mobile, GSTIN..."
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+
+          {/* Search */}
+          <Box sx={{ flex: '1 1 220px', minWidth: 180, position: 'relative' }}>
+            <Icon icon="lucide:search" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', fontSize: 16, pointerEvents: 'none' }} />
+            <input
+              type="text"
+              placeholder="Search shop, owner, mobile..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && fetchLedgers()}
-              InputProps={{
-                startAdornment: <Icon icon="lucide:search" style={{ marginRight: 8, color: '#94A3B8', fontSize: 18 }} />
+              style={{
+                width: '100%',
+                height: 38,
+                paddingLeft: 34,
+                paddingRight: 12,
+                fontSize: '0.8125rem',
+                color: '#0F172A',
+                backgroundColor: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                borderRadius: 8,
+                outline: 'none',
+                boxSizing: 'border-box',
+                fontFamily: 'inherit'
               }}
-              fullWidth
             />
-          </Grid>
+          </Box>
 
-          {/* Credit Alert Filter */}
-          <Grid item xs={6} sm={3} md={2.5}>
-            <TextField
-              select
-              size="small"
-              label="Credit Status"
+          {/* Credit Status */}
+          <Box sx={{ position: 'relative', flex: '0 0 auto' }}>
+            <select
               value={creditFilter}
               onChange={(e) => setCreditFilter(e.target.value)}
-              fullWidth
-            >
-              <MenuItem value="ALL">All Profiles</MenuItem>
-              <MenuItem value="HEALTHY">Safe (&lt; 80% Used)</MenuItem>
-              <MenuItem value="WARNING_20_PERCENT">20% Limit Warning (80-99%)</MenuItem>
-              <MenuItem value="EXCEEDED">Limit Exceeded (100%+)</MenuItem>
-            </TextField>
-          </Grid>
-
-          {/* Tax Registration Filter */}
-          <Grid item xs={6} sm={3} md={2}>
-            <TextField
-              select
-              size="small"
-              label="Tax Type"
-              value={gstFilter}
-              onChange={(e) => setGstFilter(e.target.value)}
-              fullWidth
-            >
-              <MenuItem value="ALL">All Customers</MenuItem>
-              <MenuItem value="GST">GST Registered</MenuItem>
-              <MenuItem value="NON_GST">Non-GST / Unregistered</MenuItem>
-            </TextField>
-          </Grid>
-
-          {/* Account Status Filter */}
-          <Grid item xs={6} sm={3} md={2}>
-            <TextField
-              select
-              size="small"
-              label="Account Status"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              fullWidth
-            >
-              <MenuItem value="">All Statuses</MenuItem>
-              <MenuItem value="Active">Active</MenuItem>
-              <MenuItem value="Blocked">Blocked</MenuItem>
-              <MenuItem value="Closed">Closed</MenuItem>
-            </TextField>
-          </Grid>
-
-          <Grid item xs={6} sm={3} md={2}>
-            <Button
-              variant="outlined"
-              onClick={fetchLedgers}
-              fullWidth
-              sx={{
-                borderRadius: '8px',
-                textTransform: 'none',
-                height: 40,
-                color: '#475569',
-                borderColor: '#CBD5E1',
-                fontWeight: 600
+              style={{
+                height: 38,
+                paddingLeft: 12,
+                paddingRight: 32,
+                fontSize: '0.8125rem',
+                fontWeight: 500,
+                color: '#374151',
+                backgroundColor: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                borderRadius: 8,
+                outline: 'none',
+                appearance: 'none',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                minWidth: 160
               }}
             >
-              Refresh
-            </Button>
-          </Grid>
-        </Grid>
+              <option value="ALL">All Profiles</option>
+              <option value="HEALTHY">Safe (&lt; 80% Used)</option>
+              <option value="WARNING_20_PERCENT">20% Limit Warning</option>
+              <option value="EXCEEDED">Limit Exceeded</option>
+            </select>
+            <Icon icon="lucide:chevron-down" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', fontSize: 14, pointerEvents: 'none' }} />
+          </Box>
+
+          {/* Tax Type */}
+          <Box sx={{ position: 'relative', flex: '0 0 auto' }}>
+            <select
+              value={gstFilter}
+              onChange={(e) => setGstFilter(e.target.value)}
+              style={{
+                height: 38,
+                paddingLeft: 12,
+                paddingRight: 32,
+                fontSize: '0.8125rem',
+                fontWeight: 500,
+                color: '#374151',
+                backgroundColor: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                borderRadius: 8,
+                outline: 'none',
+                appearance: 'none',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                minWidth: 150
+              }}
+            >
+              <option value="ALL">All Customers</option>
+              <option value="GST">GST Registered</option>
+              <option value="NON_GST">Non-GST</option>
+            </select>
+            <Icon icon="lucide:chevron-down" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', fontSize: 14, pointerEvents: 'none' }} />
+          </Box>
+
+          {/* Account Status */}
+          <Box sx={{ position: 'relative', flex: '0 0 auto' }}>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              style={{
+                height: 38,
+                paddingLeft: 12,
+                paddingRight: 32,
+                fontSize: '0.8125rem',
+                fontWeight: 500,
+                color: '#374151',
+                backgroundColor: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                borderRadius: 8,
+                outline: 'none',
+                appearance: 'none',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                minWidth: 140
+              }}
+            >
+              <option value="">All Statuses</option>
+              <option value="Active">Active</option>
+              <option value="Blocked">Blocked</option>
+              <option value="Closed">Closed</option>
+            </select>
+            <Icon icon="lucide:chevron-down" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', fontSize: 14, pointerEvents: 'none' }} />
+          </Box>
+
+          {/* Refresh */}
+          <Button
+            variant="outlined"
+            onClick={fetchLedgers}
+            sx={{
+              borderRadius: '8px',
+              textTransform: 'none',
+              height: 38,
+              px: 2.5,
+              color: '#475569',
+              borderColor: '#CBD5E1',
+              fontWeight: 600,
+              fontSize: '0.8125rem',
+              flexShrink: 0,
+              whiteSpace: 'nowrap'
+            }}
+          >
+            Refresh
+          </Button>
+        </Box>
       </Card>
 
       {/* Table */}
@@ -547,9 +601,9 @@ const CustomerLedgers = () => {
           }}
         >
           <Table sx={{ minWidth: 950 }}>
-            <TableHead sx={{ backgroundColor: '#F8FAFC' }}>
+            <TableHead sx={{ backgroundColor: '#F8FAFC', overflowX: "scroll" }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 600, color: '#475569', width: 110, fontSize: '0.8125rem' }}>Code</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#475569', width: 150, fontSize: '0.8125rem' }}>Customer Code</TableCell>
                 <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Customer / Shop</TableCell>
                 <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Tax Type</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Limit & Terms</TableCell>
