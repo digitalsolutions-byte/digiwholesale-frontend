@@ -3,7 +3,7 @@ import {
   Box, Card, Typography, Button, Grid, Chip, IconButton,
   TextField, Table, TableHead, TableRow, TableCell, TableBody,
   TableContainer, Paper, CircularProgress, Divider, Alert,
-  LinearProgress, Tabs, Tab, Tooltip, Collapse
+  LinearProgress, Tooltip, Collapse
 } from '@mui/material';
 import { Icon } from '@iconify/react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -65,7 +65,7 @@ const CustomerKhataStatement = () => {
   const [orders, setOrders] = useState([]);
   const [monthlyBreakdown, setMonthlyBreakdown] = useState([]);
   const [filters, setFilters] = useState({ startDate: '', endDate: '' });
-  const [activeTab, setActiveTab] = useState(0);
+  const [showMonthlySummary, setShowMonthlySummary] = useState(false);
 
   // Payment Modal state
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -124,6 +124,14 @@ const CustomerKhataStatement = () => {
 
   const maxAdjustable = Math.min(creditUsed, advanceAmount);
 
+  // Build orders lookup map for enriching transaction rows with full order details
+  const ordersMap = {};
+  orders.forEach(ord => {
+    if (ord.orderId) ordersMap[String(ord.orderId)] = ord;
+    if (ord._id) ordersMap[String(ord._id)] = ord;
+    if (ord.orderNumber) ordersMap[ord.orderNumber] = ord;
+  });
+
   const handleOpenPartPayment = (ord) => {
     setSelectedOrderForPayment(ord);
     setPaymentModalOpen(true);
@@ -137,7 +145,6 @@ const CustomerKhataStatement = () => {
     const newFilters = { startDate: start, endDate: end };
     setFilters(newFilters);
     fetchStatement(newFilters);
-    setActiveTab(0);
     toast.info(`Filtered transactions for ${monthKey}`);
   };
 
@@ -642,31 +649,72 @@ const CustomerKhataStatement = () => {
         </Grid>
       </Grid>
 
-      {/* Tabs */}
-      <Card elevation={0} sx={{ mb: 3, borderRadius: '10px', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF' }}>
-        <Tabs
-          value={activeTab}
-          onChange={(e, val) => setActiveTab(val)}
-          sx={{ px: 2, borderBottom: '1px solid #E2E8F0' }}
+      {/* Monthly Summary - Collapsible */}
+      <Card elevation={0} sx={{ mb: 3, borderRadius: '10px', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF', overflow: 'hidden' }}>
+        <Box
+          sx={{
+            p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            cursor: 'pointer', '&:hover': { backgroundColor: '#FAFBFC' },
+            borderBottom: showMonthlySummary ? '1px solid #E2E8F0' : 'none'
+          }}
+          onClick={() => setShowMonthlySummary(!showMonthlySummary)}
         >
-          <Tab
-            label={`Ledger Statement (${transactions.length})`}
-            sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.85rem' }}
-          />
-          <Tab
-            label={`Orders & Part Payments (${orders.length})`}
-            sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.85rem' }}
-          />
-          <Tab
-            label={`Monthly View (${monthlyBreakdown.length})`}
-            sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.85rem' }}
-          />
-        </Tabs>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Icon icon="lucide:calendar-range" style={{ color: '#0284C7', fontSize: 18 }} />
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0F172A' }}>Monthly Breakdown Summary</Typography>
+            <Chip size="small" label={`${monthlyBreakdown.length} months`} sx={{ fontSize: '0.68rem', height: 20 }} />
+          </Box>
+          <IconButton size="small" sx={{ color: '#64748B' }}>
+            <Icon icon={showMonthlySummary ? 'lucide:chevron-up' : 'lucide:chevron-down'} />
+          </IconButton>
+        </Box>
+        <Collapse in={showMonthlySummary}>
+          {monthlyBreakdown.length > 0 ? (
+            <TableContainer>
+              <Table size="small">
+                <TableHead sx={{ backgroundColor: '#F8FAFC' }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.78rem' }}>Month &amp; Year</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.78rem' }}>Invoiced Sales (₹)</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.78rem' }}>Collections (₹)</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.78rem' }}>Net Movement (₹)</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.78rem' }}>Txns</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.78rem' }}>Action</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {monthlyBreakdown.map((mb) => {
+                    const isNetPositive = mb.netMovement > 0;
+                    return (
+                      <TableRow key={mb.month} hover>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', color: '#0F172A' }}>{mb.monthLabel || mb.month}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600, color: '#E11D48', fontSize: '0.8rem' }}>₹{Number(mb.totalDebit || 0).toLocaleString()}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600, color: '#059669', fontSize: '0.8rem' }}>₹{Number(mb.totalCredit || 0).toLocaleString()}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: isNetPositive ? '#E11D48' : '#059669', fontSize: '0.8rem' }}>
+                          {isNetPositive ? `+₹${mb.netMovement.toLocaleString()} (Added)` : `-₹${Math.abs(mb.netMovement).toLocaleString()} (Cleared)`}
+                        </TableCell>
+                        <TableCell align="center"><Chip size="small" label={`${mb.transactionsCount}`} sx={{ fontSize: '0.68rem', height: 20 }} /></TableCell>
+                        <TableCell align="center">
+                          <Button size="small" variant="text" onClick={(e) => { e.stopPropagation(); handleFilterMonth(mb.month); }}
+                            sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.75rem', color: '#0284C7' }}>
+                            View Month
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          ) : (
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="body2" sx={{ color: '#64748B' }}>No monthly data recorded yet.</Typography>
+            </Box>
+          )}
+        </Collapse>
       </Card>
 
-      {/* TAB 0: Ledger Transactions */}
-      {activeTab === 0 && (
-        <Box>
+      <Box>
           {/* Date Filter Bar */}
           <Card elevation={0} sx={{ p: 2, mb: 3, borderRadius: '10px', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF' }}>
             <Grid container spacing={1.5} alignItems="center">
@@ -731,245 +779,449 @@ const CustomerKhataStatement = () => {
               </Typography>
             </Card>
           ) : (
-            <TableContainer
-              component={Paper}
-              elevation={0}
-              sx={{
-                borderRadius: '10px',
-                border: '1px solid #E2E8F0',
-                overflowX: 'auto',
-                width: '100%'
-              }}
-            >
-              <Table sx={{ minWidth: 950 }}>
+            <TableContainer component={Paper} elevation={0}
+              sx={{ borderRadius: '10px', border: '1px solid #E2E8F0', overflowX: 'auto', width: '100%' }}>
+              <Box sx={{ px: 2.5, py: 1.5, borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F8FAFC' }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Icon icon="lucide:book-open" style={{ color: '#0284C7', fontSize: 16 }} />
+                  Unified Khata Ledger — {transactions.length} Entries | {orders.length} Wholesale Orders
+                </Typography>
+                {filters.startDate && (
+                  <Chip size="small" label={`Filtered: ${filters.startDate} → ${filters.endDate || 'Now'}`}
+                    onDelete={() => { const c = { startDate: '', endDate: '' }; setFilters(c); fetchStatement(c); }}
+                    sx={{ fontSize: '0.68rem', height: 22 }} />
+                )}
+              </Box>
+              <Table sx={{ minWidth: 1100 }}>
                 <TableHead sx={{ backgroundColor: '#F8FAFC' }}>
                   <TableRow>
                     <TableCell sx={{ width: 44, p: 0.5, textAlign: 'center' }} />
-                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Order Date</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Ref / Order #</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Sales Person / User</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Order Status</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Order Total (₹)</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Payment Received (₹)</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Remaining Due (₹)</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Receipt</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8rem' }}>Date</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8rem' }}>Ref / Invoice #</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8rem' }}>Type</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8rem' }}>Customer &amp; Vendor</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8rem' }}>Status</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8rem' }}>Debit (₹)</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8rem' }}>Credit (₹)</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8rem' }}>Balance</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8rem', minWidth: 120 }}>Payment Progress</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8rem' }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {transactions.map((txn, idx) => {
                     const rowKey = txn._id || txn.voucherId || txn.referenceNumber || idx;
-                    const isOrder = Boolean(txn.orderId || txn.orderGrandTotal != null || txn.orderStatus || (txn.referenceNumber && txn.referenceNumber.startsWith('BO-')) || txn.voucherType === 'Sales Invoice');
+                    const isPayment = Boolean(
+                      (txn.referenceNumber && txn.referenceNumber.startsWith('CPAY')) ||
+                      txn.voucherType === 'Receipt' ||
+                      txn.voucherType === 'Advance' ||
+                      (!txn.voucherType?.toLowerCase().includes('invoice') && Number(txn.credit) > 0 && !txn.referenceNumber?.startsWith('BO-'))
+                    );
+                    const isOrder = !isPayment && Boolean(
+                      (txn.referenceNumber && txn.referenceNumber.startsWith('BO-')) ||
+                      txn.voucherType === 'Sales Invoice' ||
+                      txn.voucherType === 'Invoice' ||
+                      txn.orderStatus ||
+                      (txn.orderGrandTotal != null && Number(txn.orderGrandTotal) > 0)
+                    );
                     const orderTotal = Number(txn.orderGrandTotal != null ? txn.orderGrandTotal : txn.debit || 0);
                     const paidAmount = Number(txn.orderPaidAmount != null ? txn.orderPaidAmount : txn.credit || 0);
                     const dueAmount = Number(txn.orderBalanceDue != null ? txn.orderBalanceDue : Math.max(0, orderTotal - paidAmount));
                     const orderBadge = getStatusBadge(txn.orderStatus);
-                    const paymentsList = Array.isArray(txn.orderPayments) ? txn.orderPayments : [];
+                    const matchedOrder = ordersMap[String(txn.orderId)] || ordersMap[txn.orderNumber] || ordersMap[txn.referenceNumber] || null;
+                    const paymentsList = (Array.isArray(txn.orderPayments) && txn.orderPayments.length > 0) ? txn.orderPayments : (matchedOrder?.orderPayments || []);
                     const hasParts = paymentsList.length > 0;
                     const isExpanded = expandedRowId === rowKey;
+                    const orderItems = txn.items?.length > 0 ? txn.items : (matchedOrder?.items || []);
+                    const pct = orderTotal > 0 ? Math.min(100, Math.round((paidAmount / orderTotal) * 100)) : 0;
+                    const isFullyPaid = dueAmount <= 0 && isOrder;
+                    const isPartPaid = paidAmount > 0 && dueAmount > 0;
+
+                    // Determine entry type
+                    let entryType = txn.description || txn.voucherType || 'Entry';
+                    let typeBadge = { bg: '#F3F4F6', text: '#6B7280' };
+                    if (isOrder) {
+                      entryType = 'Sale Invoice';
+                      typeBadge = { bg: '#EEF2FF', text: '#4338CA' };
+                    } else if (isPayment) {
+                      entryType = txn.voucherType === 'Advance' ? 'Advance' : 'Payment';
+                      typeBadge = { bg: '#ECFDF5', text: '#065F46' };
+                    }
+
+                    const hasExpandableContent = hasParts || (isOrder && orderItems.length > 0) || isOrder;
 
                     return (
                       <React.Fragment key={rowKey}>
                         <TableRow hover sx={{ backgroundColor: isExpanded ? '#F0F9FF' : 'inherit' }}>
+                          {/* Expand Arrow */}
                           <TableCell sx={{ width: 44, p: 0.5, textAlign: 'center' }}>
-                            {hasParts ? (
-                              <IconButton
-                                size="small"
-                                onClick={() => toggleExpandRow(rowKey)}
+                            {hasExpandableContent ? (
+                              <IconButton size="small" onClick={() => toggleExpandRow(rowKey)}
                                 sx={{ color: isExpanded ? '#0284C7' : '#64748B', p: 0.5 }}
-                                title={isExpanded ? 'Hide payment installments' : 'View payment installments'}
-                              >
+                                title={isExpanded ? 'Hide details' : 'View order items, vendor, & payment details'}>
                                 <Icon icon={isExpanded ? 'solar:alt-arrow-down-bold' : 'solar:alt-arrow-right-bold'} width={16} />
                               </IconButton>
                             ) : null}
                           </TableCell>
-                          <TableCell sx={{ whiteSpace: 'nowrap', fontSize: '0.8125rem', color: '#475569' }}>
+
+                          {/* Date */}
+                          <TableCell sx={{ whiteSpace: 'nowrap', fontSize: '0.8rem', color: '#475569' }}>
                             {txn.orderDate || txn.transactionDate ? new Date(txn.orderDate || txn.transactionDate).toLocaleDateString('en-IN') : '—'}
                           </TableCell>
-                          <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.8125rem', color: '#0F172A' }}>
+
+                          {/* Ref / Invoice # */}
+                          <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.8rem', color: '#0F172A' }}>
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                                 <span>{txn.referenceNumber || txn.voucherId || '—'}</span>
                                 {hasParts && (
-                                  <Chip
-                                    size="small"
-                                    label={`${paymentsList.length} ${paymentsList.length === 1 ? 'Payment' : 'Payments'}`}
+                                  <Chip size="small" label={`${paymentsList.length} ${paymentsList.length === 1 ? 'Pay' : 'Pays'}`}
                                     onClick={() => toggleExpandRow(rowKey)}
-                                    sx={{
-                                      height: 18,
-                                      fontSize: '0.65rem',
-                                      fontWeight: 600,
-                                      backgroundColor: isExpanded ? '#BAE6FD' : '#E0F2FE',
-                                      color: '#0369A1',
-                                      cursor: 'pointer'
-                                    }}
-                                  />
+                                    sx={{ height: 18, fontSize: '0.62rem', fontWeight: 600,
+                                      backgroundColor: isExpanded ? '#BAE6FD' : '#E0F2FE', color: '#0369A1', cursor: 'pointer' }} />
                                 )}
                               </Box>
-
-                              {/* Attached Document: Challan if present, else Invoice */}
-                              {isOrder && (
+                              {isOrder ? (
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                  <Chip
-                                    size="small"
+                                  <Chip size="small"
                                     icon={<Icon icon={(txn.challanUrl || txn.hasChallan) ? "solar:box-minimalistic-bold" : "solar:bill-list-bold"} width={12} />}
-                                    label={downloadingDocId === (txn.orderId || txn.voucherId) ? 'Downloading...' : ((txn.challanUrl || txn.hasChallan) ? 'Challan' : 'Invoice')}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDownloadOrderDoc(txn);
-                                    }}
+                                    label={downloadingDocId === (txn.orderId || txn.voucherId) ? '...' : ((txn.challanUrl || txn.hasChallan) ? 'Challan' : 'Invoice')}
+                                    onClick={(e) => { e.stopPropagation(); handleDownloadOrderDoc(txn); }}
                                     disabled={downloadingDocId === (txn.orderId || txn.voucherId)}
-                                    sx={{
-                                      height: 20,
-                                      fontSize: '0.68rem',
-                                      fontWeight: 600,
-                                      cursor: 'pointer',
+                                    sx={{ height: 20, fontSize: '0.65rem', fontWeight: 600, cursor: 'pointer',
                                       backgroundColor: (txn.challanUrl || txn.hasChallan) ? '#F0F9FF' : '#EEF2FF',
                                       color: (txn.challanUrl || txn.hasChallan) ? '#0284C7' : '#4F46E5',
                                       border: `1px solid ${(txn.challanUrl || txn.hasChallan) ? '#BAE6FD' : '#C7D2FE'}`,
-                                      '&:hover': {
-                                        backgroundColor: (txn.challanUrl || txn.hasChallan) ? '#E0F2FE' : '#E0E7FF'
-                                      }
-                                    }}
-                                  />
+                                      '&:hover': { backgroundColor: (txn.challanUrl || txn.hasChallan) ? '#E0F2FE' : '#E0E7FF' }
+                                    }} />
                                 </Box>
+                              ) : isPayment ? (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  <Chip size="small"
+                                    icon={<Icon icon="lucide:receipt" width={11} />}
+                                    label={downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id) ? '...' : 'Receipt'}
+                                    onClick={(e) => { e.stopPropagation(); handleDownloadReceipt(txn); }}
+                                    disabled={downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id)}
+                                    sx={{ height: 20, fontSize: '0.65rem', fontWeight: 600, cursor: 'pointer',
+                                      backgroundColor: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0',
+                                      '&:hover': { backgroundColor: '#DCFCE7' }
+                                    }} />
+                                </Box>
+                              ) : null}
+                            </Box>
+                          </TableCell>
+
+                          {/* Type */}
+                          <TableCell>
+                            <Chip size="small" label={entryType}
+                              sx={{ height: 20, fontSize: '0.68rem', fontWeight: 600,
+                                backgroundColor: typeBadge.bg, color: typeBadge.text }} />
+                          </TableCell>
+
+                          {/* Customer & Vendor */}
+                          <TableCell sx={{ minWidth: 150 }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.78rem', color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {txn.customerName || cust.shopName || cust.ownerName || 'Customer'}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: '#0284C7', fontWeight: 500, fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Icon icon="solar:shop-2-bold" width={11} />
+                              {txn.vendorName || summary.wholesaler?.companyName || 'Digi-Optics'}
+                            </Typography>
+                          </TableCell>
+
+                          {/* Status */}
+                          <TableCell>
+                            {txn.orderStatus ? (
+                              <Chip size="small" label={txn.orderStatus}
+                                sx={{ backgroundColor: orderBadge.bg, color: orderBadge.text,
+                                  fontWeight: 600, fontSize: '0.68rem', height: 20 }} />
+                            ) : isPayment ? (
+                              <Chip size="small" label="Received"
+                                sx={{ backgroundColor: '#DCFCE7', color: '#15803D',
+                                  fontWeight: 600, fontSize: '0.68rem', height: 20 }} />
+                            ) : (
+                              <Typography variant="caption" sx={{ color: '#94A3B8' }}>—</Typography>
+                            )}
+                          </TableCell>
+
+                          {/* Debit */}
+                          <TableCell align="right" sx={{ fontWeight: 600, color: '#0F172A', fontSize: '0.8rem' }}>
+                            {orderTotal > 0 && isOrder ? `₹${orderTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : Number(txn.debit || 0) > 0 ? `₹${Number(txn.debit).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}
+                          </TableCell>
+
+                          {/* Credit */}
+                          <TableCell align="right" sx={{ fontWeight: 700, color: (paidAmount > 0 || Number(txn.credit || 0) > 0) ? '#059669' : '#94A3B8', fontSize: '0.8rem' }}>
+                            {isOrder && paidAmount > 0 ? `₹${paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : Number(txn.credit || 0) > 0 ? `₹${Number(txn.credit).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}
+                          </TableCell>
+
+                          {/* Balance */}
+                          <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.8rem' }}>
+                            {isOrder ? (
+                              dueAmount > 0 ? (
+                                <span style={{ color: '#EF4444' }}>{`₹${dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })} Due`}</span>
+                              ) : (
+                                <span style={{ color: '#059669' }}>Paid ✓</span>
+                              )
+                            ) : txn.runningBalance != null ? (
+                              <span style={{ color: txn.runningBalance > 0 ? '#E11D48' : txn.runningBalance < 0 ? '#059669' : '#64748B' }}>
+                                {txn.runningBalance > 0 ? `₹${Number(txn.runningBalance).toLocaleString('en-IN')} (Due)` :
+                                 txn.runningBalance < 0 ? `₹${Number(Math.abs(txn.runningBalance)).toLocaleString('en-IN')} (Adv)` : '₹0'}
+                              </span>
+                            ) : (
+                              <span style={{ color: '#64748B' }}>—</span>
+                            )}
+                          </TableCell>
+
+                          {/* Payment Progress */}
+                          <TableCell sx={{ minWidth: 120 }}>
+                            {isOrder ? (
+                              <Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Box sx={{ width: '100%' }}>
+                                    <LinearProgress variant="determinate" value={pct}
+                                      sx={{ height: 5, borderRadius: 3, backgroundColor: '#E2E8F0',
+                                        '& .MuiLinearProgress-bar': {
+                                          backgroundColor: isFullyPaid ? '#10B981' : isPartPaid ? '#F59E0B' : '#94A3B8'
+                                        }
+                                      }} />
+                                  </Box>
+                                  <Typography variant="caption" sx={{ minWidth: 35, fontWeight: 600, color: '#475569', fontSize: '0.68rem' }}>
+                                    {pct}%
+                                  </Typography>
+                                </Box>
+                                <Typography variant="caption" sx={{ color: '#64748B', fontSize: '0.65rem' }}>
+                                  {isFullyPaid ? 'Fully Paid' : isPartPaid ? 'Part Paid' : 'Unpaid'}
+                                </Typography>
+                              </Box>
+                            ) : (
+                              <Typography variant="caption" sx={{ color: '#CBD5E1' }}>—</Typography>
+                            )}
+                          </TableCell>
+
+                          {/* Actions */}
+                          <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                              {isOrder && (
+                                <Tooltip title="Download Order Invoice (Hand to Hand)" arrow>
+                                  <span>
+                                    <IconButton size="small" onClick={() => handleDownloadOrderDoc(txn)}
+                                      disabled={downloadingDocId === (txn.orderId || txn.voucherId)}
+                                      sx={{ color: '#0284C7', p: 0.5, backgroundColor: '#F0F9FF', '&:hover': { backgroundColor: '#E0F2FE' } }}>
+                                      <Icon icon="solar:bill-list-bold" width={15} />
+                                    </IconButton>
+                                  </span>
+                                </Tooltip>
+                              )}
+                              {(isOrder || isPayment) && (
+                                <Tooltip title="Download Receipt" arrow>
+                                  <span>
+                                    <IconButton size="small" onClick={() => handleDownloadReceipt(txn)}
+                                      disabled={downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id)}
+                                      sx={{ color: '#059669', p: 0.5, backgroundColor: '#F0FDF4', '&:hover': { backgroundColor: '#DCFCE7' } }}>
+                                      <Icon icon="lucide:receipt" width={15} />
+                                    </IconButton>
+                                  </span>
+                                </Tooltip>
+                              )}
+                              {isOrder && dueAmount > 0 && (
+                                <Tooltip title={`Pay ₹${dueAmount.toLocaleString()} due`} arrow>
+                                  <Button size="small" variant="outlined" color="success"
+                                    onClick={() => handleOpenPartPayment(matchedOrder || { orderId: txn.orderId, orderNumber: txn.orderNumber, grandTotal: orderTotal, paidAmount, balanceDue: dueAmount })}
+                                    sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.68rem', borderRadius: '6px', px: 1, py: 0.25, minWidth: 'auto' }}>
+                                    Pay
+                                  </Button>
+                                </Tooltip>
+                              )}
+                              {isOrder && txn.orderId && (
+                                <Tooltip title="View Order Details" arrow>
+                                  <IconButton size="small" onClick={() => navigate(`/orders/${txn.orderId}`)}
+                                    sx={{ color: '#64748B', p: 0.5 }}>
+                                    <Icon icon="lucide:external-link" width={14} />
+                                  </IconButton>
+                                </Tooltip>
                               )}
                             </Box>
                           </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8125rem', color: '#0F172A' }}>
-                              {txn.createdByName || 'Sales Staff'}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            {txn.orderStatus ? (
-                              <Chip
-                                size="small"
-                                label={txn.orderStatus}
-                                sx={{
-                                  backgroundColor: orderBadge.bg,
-                                  color: orderBadge.text,
-                                  fontWeight: 600,
-                                  fontSize: '0.7rem',
-                                  height: 20
-                                }}
-                              />
-                            ) : (
-                              <Chip
-                                size="small"
-                                label="Received"
-                                sx={{
-                                  backgroundColor: '#DCFCE7',
-                                  color: '#15803D',
-                                  fontWeight: 600,
-                                  fontSize: '0.7rem',
-                                  height: 20
-                                }}
-                              />
-                            )}
-                          </TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 600, color: '#0F172A', fontSize: '0.8125rem' }}>
-                            {orderTotal > 0 ? `₹${orderTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '₹0.00'}
-                          </TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 700, color: paidAmount > 0 ? '#059669' : '#94A3B8', fontSize: '0.8125rem' }}>
-                            {paidAmount > 0 ? `₹${paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '₹0.00'}
-                          </TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.8125rem' }}>
-                            {isOrder ? (
-                              dueAmount > 0 ? (
-                                <span style={{ color: '#EF4444' }}>{`₹${dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Due)`}</span>
-                              ) : (
-                                <span style={{ color: '#059669' }}>₹0.00 (Paid)</span>
-                              )
-                            ) : (
-                              <span style={{ color: '#64748B' }}>₹0.00</span>
-                            )}
-                          </TableCell>
-                          <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
-                            {Boolean(isOrder || Number(txn.credit) > 0 || txn.voucherType === 'Receipt' || (txn.referenceNumber && txn.referenceNumber.startsWith('CPAY'))) ? (
-                              <Button
-                                size="small"
-                                variant="text"
-                                onClick={() => handleDownloadReceipt(txn)}
-                                disabled={downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id)}
-                                sx={{ textTransform: 'none', fontSize: '0.75rem', fontWeight: 600, color: '#0284C7', py: 0.25 }}
-                              >
-                                {downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id) ? 'Generating...' : 'Download'}
-                              </Button>
-                            ) : (
-                              <Typography variant="caption" sx={{ color: '#CBD5E1' }}>₹0.00</Typography>
-                            )}
-                          </TableCell>
                         </TableRow>
 
-                        {/* Expandable Sub-row for Part Payments */}
-                        {hasParts && (
+                        {/* Expandable Details: Order Items + Parties + Payment Installments */}
+                        {hasExpandableContent && (
                           <TableRow sx={{ backgroundColor: '#F8FAFC' }}>
-                            <TableCell colSpan={9} sx={{ py: 0, px: 2, borderBottom: isExpanded ? '1px solid #E2E8F0' : 'none' }}>
+                            <TableCell colSpan={11} sx={{ py: 0, px: 2, borderBottom: isExpanded ? '1px solid #E2E8F0' : 'none' }}>
                               <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                                <Box sx={{ py: 1.5, px: 2, my: 1, backgroundColor: '#FFFFFF', borderRadius: '8px', border: '1px solid #CBD5E1', borderLeft: '4px solid #0284C7', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 1 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0F172A', fontSize: '0.8125rem' }}>
-                                        Payments Received for Order #{txn.referenceNumber || txn.voucherId}
+                                <Box sx={{ py: 2, px: 2, my: 1.5, backgroundColor: '#FFFFFF', borderRadius: '8px', border: '1px solid #CBD5E1', borderLeft: '4px solid #0284C7', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+
+                                  {/* Parties Meta Box: Customer (Buyer) & Wholesaler (Vendor) */}
+                                  <Box sx={{ mb: 2, p: 1.5, backgroundColor: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
+                                    <Box>
+                                      <Typography variant="caption" sx={{ color: '#0284C7', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.68rem', display: 'block' }}>
+                                        Buyer (Customer Details)
                                       </Typography>
+                                      <Typography variant="body2" sx={{ fontWeight: 600, color: '#0F172A', fontSize: '0.8rem' }}>
+                                        {txn.customerName || cust.shopName || cust.ownerName || 'Customer'}
+                                      </Typography>
+                                      <Typography variant="caption" sx={{ color: '#64748B', display: 'block', fontSize: '0.72rem' }}>
+                                        Owner: {cust.ownerName || '—'} | Mob: {cust.mobile || '—'} | GST: {cust.gstin || (cust.isGSTRegistered ? 'Registered' : 'Non-GST')}
+                                      </Typography>
+                                    </Box>
+                                    <Box>
+                                      <Typography variant="caption" sx={{ color: '#059669', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.68rem', display: 'block' }}>
+                                        Seller (Wholesaler / Vendor)
+                                      </Typography>
+                                      <Typography variant="body2" sx={{ fontWeight: 600, color: '#0F172A', fontSize: '0.8rem' }}>
+                                        {txn.vendorName || summary.wholesaler?.companyName || 'Digi-Optics Wholesaler'}
+                                      </Typography>
+                                      <Typography variant="caption" sx={{ color: '#64748B', display: 'block', fontSize: '0.72rem' }}>
+                                        Sales Person: {txn.createdByName || 'Sales Staff'} | {summary.wholesaler?.phone ? `Contact: ${summary.wholesaler.phone}` : ''}
+                                      </Typography>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                       {isOrder && (
                                         <Button
                                           size="small"
-                                          variant="text"
+                                          variant="contained"
+                                          startIcon={<Icon icon="solar:bill-list-bold" width={15} />}
                                           onClick={() => handleDownloadOrderDoc(txn)}
                                           disabled={downloadingDocId === (txn.orderId || txn.voucherId)}
-                                          sx={{ textTransform: 'none', fontSize: '0.72rem', fontWeight: 600, color: (txn.challanUrl || txn.hasChallan) ? '#0284C7' : '#4F46E5', py: 0 }}
+                                          sx={{
+                                            textTransform: 'none',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 600,
+                                            backgroundColor: '#0284C7',
+                                            '&:hover': { backgroundColor: '#0369A1' },
+                                            height: 32,
+                                            px: 2,
+                                            borderRadius: '6px'
+                                          }}
                                         >
-                                          Download {(txn.challanUrl || txn.hasChallan) ? 'Challan' : 'Invoice'}
+                                          {downloadingDocId === (txn.orderId || txn.voucherId) ? 'Downloading...' : 'Download Invoice (PDF)'}
                                         </Button>
                                       )}
                                     </Box>
-                                    <Typography variant="caption" sx={{ color: '#475569' }}>
-                                      Total Received: <strong style={{ color: '#059669' }}>₹{paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong> of ₹{orderTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} &nbsp;|&nbsp; Remaining Due: <strong style={{ color: dueAmount > 0 ? '#EF4444' : '#059669' }}>₹{dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
-                                    </Typography>
                                   </Box>
-                                  <Table size="small">
-                                    <TableHead sx={{ backgroundColor: '#F1F5F9' }}>
-                                      <TableRow>
-                                        <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#475569', width: 40 }}>#</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#475569' }}>Payment Date</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#475569' }}>Payment Ref / Voucher</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#475569' }}>Mode</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#475569' }}>Payment Type / Remarks</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#475569' }}>Amount Received (₹)</TableCell>
-                                        <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#475569' }}>Status</TableCell>
-                                      </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                      {paymentsList.map((p, pIdx) => (
-                                        <TableRow key={p.paymentId || p.paymentNumber || pIdx} hover>
-                                          <TableCell sx={{ fontSize: '0.75rem', color: '#64748B' }}>{pIdx + 1}</TableCell>
-                                          <TableCell sx={{ fontSize: '0.75rem', color: '#334155', whiteSpace: 'nowrap' }}>
-                                            {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString('en-IN') : '—'}
-                                          </TableCell>
-                                          <TableCell sx={{ fontSize: '0.75rem', fontFamily: 'monospace', fontWeight: 600, color: '#0284C7' }}>
-                                            {p.referenceNumber || p.paymentNumber}
-                                          </TableCell>
-                                          <TableCell sx={{ fontSize: '0.75rem', color: '#475569' }}>
-                                            {p.paymentMode || 'Advance / Bank'}
-                                          </TableCell>
-                                          <TableCell sx={{ fontSize: '0.75rem', color: '#475569' }}>
-                                            {p.remarks || (pIdx === 0 && p.paymentNumber?.startsWith('ADV') ? 'Initial Booking Advance' : 'Part Payment')}
-                                          </TableCell>
-                                          <TableCell align="right" sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#059669' }}>
-                                            ₹{Number(p.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                          </TableCell>
-                                          <TableCell align="center">
-                                            <Chip
-                                              size="small"
-                                              label="CLEARED"
-                                              sx={{ height: 18, fontSize: '0.625rem', fontWeight: 700, backgroundColor: '#DCFCE7', color: '#15803D' }}
-                                            />
-                                          </TableCell>
-                                        </TableRow>
-                                      ))}
-                                    </TableBody>
-                                  </Table>
+
+                                  {/* Order Items Table */}
+                                  {isOrder && orderItems.length > 0 && (
+                                    <Box sx={{ mb: hasParts ? 2 : 0 }}>
+                                      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0F172A', fontSize: '0.8rem', mb: 1, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                        <Icon icon="lucide:package" style={{ color: '#0284C7', fontSize: 14 }} />
+                                        Order Items ({orderItems.length}) — {matchedOrder?.isGSTRegistered ? `GST (${matchedOrder?.gstNumber || 'Registered'})` : 'Non-GST'}
+                                      </Typography>
+                                      <Table size="small">
+                                        <TableHead sx={{ backgroundColor: '#F1F5F9' }}>
+                                          <TableRow>
+                                            <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569', width: 40 }}>#</TableCell>
+                                            <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Item / Product</TableCell>
+                                            <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Brand</TableCell>
+                                            <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Qty</TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Rate (₹)</TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Amount (₹)</TableCell>
+                                          </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                          {orderItems.map((item, iIdx) => (
+                                            <TableRow key={iIdx} hover>
+                                              <TableCell sx={{ fontSize: '0.72rem', color: '#64748B' }}>{iIdx + 1}</TableCell>
+                                              <TableCell sx={{ fontSize: '0.72rem', color: '#0F172A', fontWeight: 500 }}>
+                                                {item.productName || item.name || item.itemName || 'Product'}
+                                              </TableCell>
+                                              <TableCell sx={{ fontSize: '0.72rem', color: '#475569' }}>
+                                                {item.brand || item.brandName || '—'}
+                                              </TableCell>
+                                              <TableCell align="center" sx={{ fontSize: '0.72rem', fontWeight: 600, color: '#0F172A' }}>
+                                                {item.qty || item.quantity || 1}
+                                              </TableCell>
+                                              <TableCell align="right" sx={{ fontSize: '0.72rem', color: '#475569' }}>
+                                                ₹{Number(item.rate || item.price || item.unitPrice || 0).toLocaleString('en-IN')}
+                                              </TableCell>
+                                              <TableCell align="right" sx={{ fontSize: '0.72rem', fontWeight: 600, color: '#0F172A' }}>
+                                                ₹{Number(item.amount || item.totalPrice || ((item.qty || 1) * (item.rate || item.price || 0))).toLocaleString('en-IN')}
+                                              </TableCell>
+                                            </TableRow>
+                                          ))}
+                                        </TableBody>
+                                      </Table>
+                                      {/* Tax Summary */}
+                                      {matchedOrder && (
+                                        <Box sx={{ mt: 1, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                                          <Typography variant="caption" sx={{ color: '#475569' }}>
+                                            Taxable: <strong>₹{Number(matchedOrder.taxableAmount || 0).toLocaleString('en-IN')}</strong>
+                                          </Typography>
+                                          <Typography variant="caption" sx={{ color: '#475569' }}>
+                                            GST: <strong>₹{Number(matchedOrder.gstAmount || 0).toLocaleString('en-IN')}</strong>
+                                          </Typography>
+                                          <Typography variant="caption" sx={{ color: '#0F172A', fontWeight: 700 }}>
+                                            Grand Total: ₹{Number(matchedOrder.grandTotal || 0).toLocaleString('en-IN')}
+                                          </Typography>
+                                        </Box>
+                                      )}
+                                    </Box>
+                                  )}
+
+                                  {/* Payment Installments Table */}
+                                  {hasParts && (
+                                    <Box>
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 1 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0F172A', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                            <Icon icon="lucide:wallet" style={{ color: '#059669', fontSize: 14 }} />
+                                            Payment History ({paymentsList.length})
+                                          </Typography>
+                                          {isOrder && (
+                                            <Button size="small" variant="text" onClick={() => handleDownloadOrderDoc(txn)}
+                                              disabled={downloadingDocId === (txn.orderId || txn.voucherId)}
+                                              sx={{ textTransform: 'none', fontSize: '0.7rem', fontWeight: 600, color: (txn.challanUrl || txn.hasChallan) ? '#0284C7' : '#4F46E5', py: 0 }}>
+                                              Download {(txn.challanUrl || txn.hasChallan) ? 'Challan' : 'Invoice'}
+                                            </Button>
+                                          )}
+                                        </Box>
+                                        <Typography variant="caption" sx={{ color: '#475569' }}>
+                                          Received: <strong style={{ color: '#059669' }}>₹{paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong> of ₹{orderTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                          &nbsp;|&nbsp; Due: <strong style={{ color: dueAmount > 0 ? '#EF4444' : '#059669' }}>₹{dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
+                                        </Typography>
+                                      </Box>
+                                      <Table size="small">
+                                        <TableHead sx={{ backgroundColor: '#F1F5F9' }}>
+                                          <TableRow>
+                                            <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569', width: 40 }}>#</TableCell>
+                                            <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Payment Date</TableCell>
+                                            <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Ref / Voucher</TableCell>
+                                            <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Mode</TableCell>
+                                            <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Remarks</TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Amount (₹)</TableCell>
+                                            <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Status</TableCell>
+                                          </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                          {paymentsList.map((p, pIdx) => (
+                                            <TableRow key={p.paymentId || p.paymentNumber || pIdx} hover>
+                                              <TableCell sx={{ fontSize: '0.72rem', color: '#64748B' }}>{pIdx + 1}</TableCell>
+                                              <TableCell sx={{ fontSize: '0.72rem', color: '#334155', whiteSpace: 'nowrap' }}>
+                                                {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString('en-IN') : '—'}
+                                              </TableCell>
+                                              <TableCell sx={{ fontSize: '0.72rem', fontFamily: 'monospace', fontWeight: 600, color: '#0284C7' }}>
+                                                {p.referenceNumber || p.paymentNumber}
+                                              </TableCell>
+                                              <TableCell sx={{ fontSize: '0.72rem', color: '#475569' }}>
+                                                {p.paymentMode || 'Bank'}
+                                              </TableCell>
+                                              <TableCell sx={{ fontSize: '0.72rem', color: '#475569' }}>
+                                                {p.remarks || (pIdx === 0 && p.paymentNumber?.startsWith('ADV') ? 'Booking Advance' : 'Part Payment')}
+                                              </TableCell>
+                                              <TableCell align="right" sx={{ fontSize: '0.72rem', fontWeight: 700, color: '#059669' }}>
+                                                ₹{Number(p.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                              </TableCell>
+                                              <TableCell align="center">
+                                                <Chip size="small" label="CLEARED"
+                                                  sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, backgroundColor: '#DCFCE7', color: '#15803D' }} />
+                                              </TableCell>
+                                            </TableRow>
+                                          ))}
+                                        </TableBody>
+                                      </Table>
+                                    </Box>
+                                  )}
+
                                 </Box>
                               </Collapse>
                             </TableCell>
@@ -983,242 +1235,10 @@ const CustomerKhataStatement = () => {
             </TableContainer>
           )}
         </Box>
-      )}
 
-      {/* TAB 1: Orders & Part Payment Tracking */}
-      {activeTab === 1 && (
-        <Box>
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0F172A' }}>
-              Part Payment & Order Breakdown Tracking
-            </Typography>
-            <Typography variant="body2" sx={{ color: '#64748B' }}>
-              Track order-level advance, installment payments, and outstanding balances
-            </Typography>
-          </Box>
 
-          {orders.length === 0 ? (
-            <Card elevation={0} sx={{ p: 4, textAlign: 'center', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
-              <Typography variant="body2" sx={{ color: '#64748B' }}>
-                No bulk orders found for this customer.
-              </Typography>
-            </Card>
-          ) : (
-            <TableContainer
-              component={Paper}
-              elevation={0}
-              sx={{
-                borderRadius: '10px',
-                border: '1px solid #E2E8F0',
-                overflowX: 'auto',
-                width: '100%'
-              }}
-            >
-              <Table sx={{ minWidth: 900 }}>
-                <TableHead sx={{ backgroundColor: '#F8FAFC' }}>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Order #</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Date</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Status</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Tax Type</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Order Total</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Paid Amount</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Due Balance</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Part Payment Status</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Action</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {orders.map((ord) => {
-                    const badge = getStatusBadge(ord.orderStatus);
-                    const grandTotal = Number(ord.grandTotal || 0);
-                    const paid = Number(ord.paidAmount || 0);
-                    const due = Number(ord.balanceDue || 0);
-                    const pct = grandTotal > 0 ? Math.min(100, Math.round((paid / grandTotal) * 100)) : 0;
-                    const isFullyPaid = due <= 0;
-                    const isPartPaid = paid > 0 && due > 0;
 
-                    return (
-                      <TableRow key={ord.orderId || ord._id} hover>
-                        <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600, color: '#0284C7', fontSize: '0.8125rem' }}>
-                          {ord.orderNumber}
-                        </TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap', fontSize: '0.8125rem', color: '#475569' }}>
-                          {ord.orderDate ? new Date(ord.orderDate).toLocaleDateString('en-IN') : '—'}
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            size="small"
-                            label={ord.orderStatus || 'Submitted'}
-                            sx={{
-                              backgroundColor: badge.bg,
-                              color: badge.text,
-                              fontWeight: 600,
-                              fontSize: '0.7rem',
-                              height: 20
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            size="small"
-                            label={ord.hasGST ? 'GST' : 'Non-GST'}
-                            sx={{
-                              backgroundColor: ord.hasGST ? '#ECFDF5' : '#F8FAFC',
-                              color: ord.hasGST ? '#065F46' : '#64748B',
-                              border: '1px solid',
-                              borderColor: ord.hasGST ? '#A7F3D0' : '#E2E8F0',
-                              fontSize: '0.7rem',
-                              height: 20
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.8125rem' }}>
-                          ₹{grandTotal.toLocaleString()}
-                        </TableCell>
-                        <TableCell align="right" sx={{ color: '#059669', fontWeight: 600, fontSize: '0.8125rem' }}>
-                          ₹{paid.toLocaleString()}
-                        </TableCell>
-                        <TableCell align="right" sx={{ color: due > 0 ? '#E11D48' : '#64748B', fontWeight: 700, fontSize: '0.8125rem' }}>
-                          {due > 0 ? `₹${due.toLocaleString()}` : 'Settled'}
-                        </TableCell>
-                        <TableCell sx={{ minWidth: 150 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Box sx={{ width: '100%', mr: 1 }}>
-                              <LinearProgress
-                                variant="determinate"
-                                value={pct}
-                                sx={{
-                                  height: 5,
-                                  borderRadius: 3,
-                                  backgroundColor: '#E2E8F0',
-                                  '& .MuiLinearProgress-bar': {
-                                    backgroundColor: isFullyPaid ? '#10B981' : isPartPaid ? '#F59E0B' : '#94A3B8'
-                                  }
-                                }}
-                              />
-                            </Box>
-                            <Typography variant="caption" sx={{ minWidth: 35, fontWeight: 600, color: '#475569', fontSize: '0.7rem' }}>
-                              {pct}%
-                            </Typography>
-                          </Box>
-                          <Typography variant="caption" sx={{ color: '#64748B', fontSize: '0.7rem' }}>
-                            {isFullyPaid ? 'Fully Paid' : isPartPaid ? 'Part Payment' : 'Unpaid'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="center">
-                          {due > 0 ? (
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              color="success"
-                              onClick={() => handleOpenPartPayment(ord)}
-                              sx={{
-                                textTransform: 'none',
-                                fontWeight: 600,
-                                fontSize: '0.75rem',
-                                borderRadius: '6px',
-                                px: 1,
-                                py: 0.25
-                              }}
-                            >
-                              Pay Due
-                            </Button>
-                          ) : (
-                            <Typography variant="caption" sx={{ color: '#059669', fontWeight: 600 }}>Cleared</Typography>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </Box>
-      )}
 
-      {/* TAB 2: Monthly Breakdown View */}
-      {activeTab === 2 && (
-        <Box>
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0F172A' }}>
-              Monthly Accounting & Invoicing View
-            </Typography>
-            <Typography variant="body2" sx={{ color: '#64748B' }}>
-              Summary of monthly debits (sales invoices) vs credits (receipts)
-            </Typography>
-          </Box>
-
-          {monthlyBreakdown.length === 0 ? (
-            <Card elevation={0} sx={{ p: 4, textAlign: 'center', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
-              <Typography variant="body2" sx={{ color: '#64748B' }}>
-                No monthly transactions recorded yet.
-              </Typography>
-            </Card>
-          ) : (
-            <TableContainer
-              component={Paper}
-              elevation={0}
-              sx={{
-                borderRadius: '10px',
-                border: '1px solid #E2E8F0',
-                overflowX: 'auto',
-                width: '100%'
-              }}
-            >
-              <Table sx={{ minWidth: 750 }}>
-                <TableHead sx={{ backgroundColor: '#F8FAFC' }}>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Month & Year</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Invoiced Sales (Debit ₹)</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Collections Received (Credit ₹)</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Net Monthly Movement (₹)</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Transactions</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Action</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {monthlyBreakdown.map((mb) => {
-                    const isNetPositive = mb.netMovement > 0;
-                    return (
-                      <TableRow key={mb.month} hover>
-                        <TableCell sx={{ fontWeight: 600, fontSize: '0.8125rem', color: '#0F172A' }}>
-                          {mb.monthLabel || mb.month}
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600, color: '#E11D48', fontSize: '0.8125rem' }}>
-                          ₹{Number(mb.totalDebit || 0).toLocaleString()}
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600, color: '#059669', fontSize: '0.8125rem' }}>
-                          ₹{Number(mb.totalCredit || 0).toLocaleString()}
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700, color: isNetPositive ? '#E11D48' : '#059669', fontSize: '0.8125rem' }}>
-                          {isNetPositive
-                            ? `+₹${mb.netMovement.toLocaleString()} (Added)`
-                            : `-₹${Math.abs(mb.netMovement).toLocaleString()} (Cleared)`}
-                        </TableCell>
-                        <TableCell align="center">
-                          <Chip size="small" label={`${mb.transactionsCount} txns`} sx={{ fontSize: '0.7rem', height: 20 }} />
-                        </TableCell>
-                        <TableCell align="center">
-                          <Button
-                            size="small"
-                            variant="text"
-                            onClick={() => handleFilterMonth(mb.month)}
-                            sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.75rem', color: '#0284C7' }}
-                          >
-                            View Month
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </Box>
-      )}
 
       {/* Payment Modal */}
       {paymentModalOpen && (
