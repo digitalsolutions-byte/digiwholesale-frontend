@@ -910,7 +910,7 @@ const CustomerKhataStatement = () => {
                     <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8rem' }}>Ref / Invoice #</TableCell>
                     <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8rem' }}>Type</TableCell>
                     <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8rem' }}>Customer &amp; Vendor</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8rem' }}>Status</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8rem' }}>Order Status</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8rem' }}>Debit (₹)</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8rem' }}>Credit (₹)</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8rem' }}>Balance</TableCell>
@@ -980,7 +980,7 @@ const CustomerKhataStatement = () => {
                           </TableCell>
 
                           {/* Ref / Invoice # */}
-                          <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.8rem', color: '#0F172A' }}>
+                          <TableCell sx={{ minWidth: 160, fontFamily: 'monospace', fontWeight: 600, fontSize: '0.8rem', color: '#0F172A' }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                               <span>{txn.referenceNumber || txn.voucherId || '—'}</span>
                               {hasParts && (
@@ -1000,18 +1000,18 @@ const CustomerKhataStatement = () => {
                           </TableCell>
 
                           {/* Customer & Vendor */}
-                          <TableCell sx={{ minWidth: 150 }}>
+                          <TableCell sx={{ minWidth: 170 }}>
                             <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.78rem', color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {txn.customerName || cust.shopName || cust.ownerName || 'Customer'}
                             </Typography>
-                            <Typography variant="caption" sx={{ color: '#0284C7', fontWeight: 500, fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            {/* <Typography variant="caption" sx={{ color: '#0284C7', fontWeight: 500, fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
                               <Icon icon="solar:shop-2-bold" width={11} />
                               {txn.vendorName || summary.wholesaler?.companyName || 'Digi-Optics'}
-                            </Typography>
+                            </Typography> */}
                           </TableCell>
 
                           {/* Status */}
-                          <TableCell>
+                          <TableCell sx={{ minWidth: 120 }}>
                             {txn.orderStatus ? (
                               <Chip size="small" label={txn.orderStatus}
                                 sx={{ backgroundColor: orderBadge.bg, color: orderBadge.text,
@@ -1150,7 +1150,7 @@ const CustomerKhataStatement = () => {
                                         Seller (Wholesaler / Vendor)
                                       </Typography>
                                       <Typography variant="body2" sx={{ fontWeight: 600, color: '#0F172A', fontSize: '0.8rem' }}>
-                                        {txn.vendorName || summary.wholesaler?.companyName || 'Digi-Optics Wholesaler'}
+                                        {txn.vendorName || summary.wholesaler?.companyName}
                                       </Typography>
                                       <Typography variant="caption" sx={{ color: '#64748B', display: 'block', fontSize: '0.72rem' }}>
                                         Sales Person: {txn.createdByName || 'Sales Staff'} | {summary.wholesaler?.phone ? `Contact: ${summary.wholesaler.phone}` : ''}
