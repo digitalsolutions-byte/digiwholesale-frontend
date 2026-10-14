@@ -358,34 +358,53 @@ const CustomerKhataStatement = () => {
 
   const [downloadingDocId, setDownloadingDocId] = useState(null);
 
-  const handleDownloadOrderDoc = async (txn) => {
+  const handleDownloadOrderInvoice = async (txn) => {
     const orderId = txn.orderId || txn.voucherId;
     const orderNumber = txn.orderNumber || txn.referenceNumber || 'Order';
     if (!orderId) {
-      toast.error('Order ID not available for document download');
+      toast.error('Order ID not available for invoice download');
       return;
     }
     try {
       setDownloadingDocId(orderId);
-      if (txn.challanUrl || txn.hasChallan) {
-        await downloadOrderChallan(orderId, `Challan-${orderNumber}`);
-        toast.success('Delivery Challan downloaded successfully!');
-      } else {
-        await downloadOrderInvoice(orderId, orderNumber, `Invoice-${orderNumber}`);
-        toast.success('Invoice downloaded successfully!');
-      }
+      await downloadOrderInvoice(orderId, orderNumber, `Invoice-${orderNumber}`);
+      toast.success('Order Invoice downloaded successfully!');
     } catch (err) {
-      toast.error(err.message || 'Failed to download order document');
+      toast.error(err.message || 'Failed to download invoice');
     } finally {
       setDownloadingDocId(null);
     }
   };
 
-  const handleDownloadReceipt = async (txn) => {
-    const refKey = txn.voucherId || txn.referenceNumber || txn._id;
+  const handleDownloadReceipt = async (txnOrPayment) => {
+    let paymentId = null;
+    let paymentRef = 'CPAY';
+
+    if (txnOrPayment.paymentId && !String(txnOrPayment.paymentId).startsWith('ADV')) {
+      paymentId = txnOrPayment.paymentId;
+      paymentRef = txnOrPayment.referenceNumber || txnOrPayment.paymentNumber || 'Receipt';
+    } else {
+      const payments = txnOrPayment.orderPayments || ordersMap[String(txnOrPayment.orderId)]?.orderPayments || [];
+      const validPayments = payments.filter(p => p.paymentId && !String(p.paymentId).startsWith('ADV'));
+      const target = validPayments.length > 0 ? validPayments[validPayments.length - 1] : payments[payments.length - 1];
+
+      if (target && target.paymentId && !String(target.paymentId).startsWith('ADV')) {
+        paymentId = target.paymentId;
+        paymentRef = target.referenceNumber || target.paymentNumber || 'Receipt';
+      } else {
+        paymentId = txnOrPayment.voucherId || txnOrPayment._id;
+        paymentRef = txnOrPayment.referenceNumber || 'Receipt';
+      }
+    }
+
+    if (!paymentId) {
+      toast.error('Payment receipt not available for this record');
+      return;
+    }
+
     try {
-      setDownloadingReceiptId(refKey);
-      await downloadPaymentReceipt(refKey, `Receipt-${txn.referenceNumber || 'CPAY'}`);
+      setDownloadingReceiptId(paymentId);
+      await downloadPaymentReceipt(paymentId, `Receipt-${paymentRef}`);
       toast.success('Payment receipt downloaded successfully!');
     } catch (err) {
       toast.error(err.message || 'Failed to download receipt');
@@ -962,43 +981,14 @@ const CustomerKhataStatement = () => {
 
                           {/* Ref / Invoice # */}
                           <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.8rem', color: '#0F172A' }}>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                                <span>{txn.referenceNumber || txn.voucherId || '—'}</span>
-                                {hasParts && (
-                                  <Chip size="small" label={`${paymentsList.length} ${paymentsList.length === 1 ? 'Pay' : 'Pays'}`}
-                                    onClick={() => toggleExpandRow(rowKey)}
-                                    sx={{ height: 18, fontSize: '0.62rem', fontWeight: 600,
-                                      backgroundColor: isExpanded ? '#BAE6FD' : '#E0F2FE', color: '#0369A1', cursor: 'pointer' }} />
-                                )}
-                              </Box>
-                              {isOrder ? (
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                  <Chip size="small"
-                                    icon={<Icon icon={(txn.challanUrl || txn.hasChallan) ? "solar:box-minimalistic-bold" : "solar:bill-list-bold"} width={12} />}
-                                    label={downloadingDocId === (txn.orderId || txn.voucherId) ? '...' : ((txn.challanUrl || txn.hasChallan) ? 'Challan' : 'Invoice')}
-                                    onClick={(e) => { e.stopPropagation(); handleDownloadOrderDoc(txn); }}
-                                    disabled={downloadingDocId === (txn.orderId || txn.voucherId)}
-                                    sx={{ height: 20, fontSize: '0.65rem', fontWeight: 600, cursor: 'pointer',
-                                      backgroundColor: (txn.challanUrl || txn.hasChallan) ? '#F0F9FF' : '#EEF2FF',
-                                      color: (txn.challanUrl || txn.hasChallan) ? '#0284C7' : '#4F46E5',
-                                      border: `1px solid ${(txn.challanUrl || txn.hasChallan) ? '#BAE6FD' : '#C7D2FE'}`,
-                                      '&:hover': { backgroundColor: (txn.challanUrl || txn.hasChallan) ? '#E0F2FE' : '#E0E7FF' }
-                                    }} />
-                                </Box>
-                              ) : isPayment ? (
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                  <Chip size="small"
-                                    icon={<Icon icon="lucide:receipt" width={11} />}
-                                    label={downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id) ? '...' : 'Receipt'}
-                                    onClick={(e) => { e.stopPropagation(); handleDownloadReceipt(txn); }}
-                                    disabled={downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id)}
-                                    sx={{ height: 20, fontSize: '0.65rem', fontWeight: 600, cursor: 'pointer',
-                                      backgroundColor: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0',
-                                      '&:hover': { backgroundColor: '#DCFCE7' }
-                                    }} />
-                                </Box>
-                              ) : null}
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                              <span>{txn.referenceNumber || txn.voucherId || '—'}</span>
+                              {hasParts && (
+                                <Chip size="small" label={`${paymentsList.length} ${paymentsList.length === 1 ? 'Pay' : 'Pays'}`}
+                                  onClick={() => toggleExpandRow(rowKey)}
+                                  sx={{ height: 18, fontSize: '0.62rem', fontWeight: 600,
+                                    backgroundColor: isExpanded ? '#BAE6FD' : '#E0F2FE', color: '#0369A1', cursor: 'pointer' }} />
+                              )}
                             </Box>
                           </TableCell>
 
@@ -1093,9 +1083,9 @@ const CustomerKhataStatement = () => {
                           <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
                               {isOrder && (
-                                <Tooltip title="Download Order Invoice (Hand to Hand)" arrow>
+                                <Tooltip title="Download Order Invoice" arrow>
                                   <span>
-                                    <IconButton size="small" onClick={() => handleDownloadOrderDoc(txn)}
+                                    <IconButton size="small" onClick={() => handleDownloadOrderInvoice(txn)}
                                       disabled={downloadingDocId === (txn.orderId || txn.voucherId)}
                                       sx={{ color: '#0284C7', p: 0.5, backgroundColor: '#F0F9FF', '&:hover': { backgroundColor: '#E0F2FE' } }}>
                                       <Icon icon="solar:bill-list-bold" width={15} />
@@ -1172,7 +1162,7 @@ const CustomerKhataStatement = () => {
                                           size="small"
                                           variant="contained"
                                           startIcon={<Icon icon="solar:bill-list-bold" width={15} />}
-                                          onClick={() => handleDownloadOrderDoc(txn)}
+                                          onClick={() => handleDownloadOrderInvoice(txn)}
                                           disabled={downloadingDocId === (txn.orderId || txn.voucherId)}
                                           sx={{
                                             textTransform: 'none',
@@ -1181,11 +1171,34 @@ const CustomerKhataStatement = () => {
                                             backgroundColor: '#0284C7',
                                             '&:hover': { backgroundColor: '#0369A1' },
                                             height: 32,
-                                            px: 2,
+                                            px: 1.75,
                                             borderRadius: '6px'
                                           }}
                                         >
-                                          {downloadingDocId === (txn.orderId || txn.voucherId) ? 'Downloading...' : 'Download Invoice (PDF)'}
+                                          {downloadingDocId === (txn.orderId || txn.voucherId) ? 'Downloading...' : 'Download Order Invoice'}
+                                        </Button>
+                                      )}
+                                      {(isOrder || isPayment) && (
+                                        <Button
+                                          size="small"
+                                          variant="outlined"
+                                          startIcon={<Icon icon="lucide:receipt" width={15} />}
+                                          onClick={() => handleDownloadReceipt(txn)}
+                                          disabled={downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id)}
+                                          sx={{
+                                            textTransform: 'none',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 600,
+                                            color: '#059669',
+                                            borderColor: '#10B981',
+                                            backgroundColor: '#F0FDF4',
+                                            '&:hover': { backgroundColor: '#DCFCE7', borderColor: '#059669' },
+                                            height: 32,
+                                            px: 1.75,
+                                            borderRadius: '6px'
+                                          }}
+                                        >
+                                          {downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id) ? 'Downloading...' : 'Download Receipt'}
                                         </Button>
                                       )}
                                     </Box>
@@ -1253,19 +1266,10 @@ const CustomerKhataStatement = () => {
                                   {hasParts && (
                                     <Box>
                                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 1 }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0F172A', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                                            <Icon icon="lucide:wallet" style={{ color: '#059669', fontSize: 14 }} />
-                                            Payment History ({paymentsList.length})
-                                          </Typography>
-                                          {isOrder && (
-                                            <Button size="small" variant="text" onClick={() => handleDownloadOrderDoc(txn)}
-                                              disabled={downloadingDocId === (txn.orderId || txn.voucherId)}
-                                              sx={{ textTransform: 'none', fontSize: '0.7rem', fontWeight: 600, color: (txn.challanUrl || txn.hasChallan) ? '#0284C7' : '#4F46E5', py: 0 }}>
-                                              Download {(txn.challanUrl || txn.hasChallan) ? 'Challan' : 'Invoice'}
-                                            </Button>
-                                          )}
-                                        </Box>
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0F172A', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                          <Icon icon="lucide:wallet" style={{ color: '#059669', fontSize: 14 }} />
+                                          Payment History ({paymentsList.length})
+                                        </Typography>
                                         <Typography variant="caption" sx={{ color: '#475569' }}>
                                           Received: <strong style={{ color: '#059669' }}>₹{paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong> of ₹{orderTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                           &nbsp;|&nbsp; Due: <strong style={{ color: dueAmount > 0 ? '#EF4444' : '#059669' }}>₹{dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
@@ -1303,8 +1307,19 @@ const CustomerKhataStatement = () => {
                                                 ₹{Number(p.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                               </TableCell>
                                               <TableCell align="center">
-                                                <Chip size="small" label="CLEARED"
-                                                  sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, backgroundColor: '#DCFCE7', color: '#15803D' }} />
+                                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                                                  <Chip size="small" label="CLEARED"
+                                                    sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, backgroundColor: '#DCFCE7', color: '#15803D' }} />
+                                                  <Tooltip title="Download Receipt" arrow>
+                                                    <span>
+                                                      <IconButton size="small" onClick={() => handleDownloadReceipt(p)}
+                                                        disabled={downloadingReceiptId === (p.paymentId || p.paymentNumber)}
+                                                        sx={{ color: '#059669', p: 0.25, '&:hover': { backgroundColor: '#DCFCE7' } }}>
+                                                        <Icon icon="lucide:receipt" width={13} />
+                                                      </IconButton>
+                                                    </span>
+                                                  </Tooltip>
+                                                </Box>
                                               </TableCell>
                                             </TableRow>
                                           ))}
