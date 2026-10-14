@@ -5,10 +5,6 @@ export function generateTenantInvoice(tenant) {
     const owner = tenant.owner || {};
     const inv   = { ...tenant, ...(tenant.invoiceDetails || {}) };
     const sub   = tenant.subscription || {};
-
-    const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:9087/').replace(/\/+$/, '') + '/';
-    const authToken  = localStorage.getItem('token') || '';
-
     const defaults = {
         tenantId:       tenant._id || tenant.id || '',
         invoiceNo:      inv.invoiceNo      || tenant.tenantId || '',
@@ -42,8 +38,6 @@ export function generateTenantInvoice(tenant) {
         sellerState:    'Delhi',
         sellerCode:     '07',
         sellerEmail:    'garima@digibysr.com',
-        apiBaseUrl,
-        authToken,
     };
 
     const logoUrl = DIGI_OPTICS_LOGO_BASE64 || (window.location.origin + '/DigiOptics.png');
@@ -99,12 +93,8 @@ body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-
 #pf{padding:14px 18px;background:#ffffff;border-top:1px solid #e2e8f0;display:flex;flex-direction:column;gap:8px;position:sticky;bottom:0;z-index:10;box-shadow:0 -4px 12px rgba(0,0,0,.03)}
 .bprint{width:100%;padding:10px;background:linear-gradient(135deg,#2980b9 0%,#1f618d 100%);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 3px 10px rgba(41,128,185,.25);transition:all .2s}
 .bprint:hover{background:linear-gradient(135deg,#1f618d 0%,#174a6d 100%);box-shadow:0 4px 14px rgba(41,128,185,.35);transform:translateY(-1px)}
-.bsave{width:100%;padding:9px;background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:#fff;border:none;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 3px 8px rgba(16,185,129,.2);transition:all .2s}
-.bsave:hover{background:linear-gradient(135deg,#059669 0%,#047857 100%);box-shadow:0 4px 12px rgba(16,185,129,.3);transform:translateY(-1px)}
-.bsave:disabled{opacity:.6;cursor:not-allowed;transform:none}
 .breset{width:100%;padding:7px;background:#f8fafc;color:#64748b;border:1px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
 .breset:hover{background:#f1f5f9;color:#1e293b;border-color:#cbd5e1}
-#saveStatus{font-size:11px;font-weight:600;text-align:center;padding:6px 10px;border-radius:6px;display:none}
 
 #pw{flex:1;padding:24px 28px;overflow-y:auto;display:flex;justify-content:center;align-items:flex-start}
 .ip{width:210mm;background:#fff;padding:8mm 10mm;box-shadow:0 10px 35px rgba(0,0,0,.12);min-height:297mm;color:#000;font-size:11px;font-family:Arial,Helvetica,sans-serif;box-sizing:border-box}
@@ -226,9 +216,7 @@ body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-
 
 
   <div id="pf">
-    <div id="saveStatus"></div>
     <button class="bprint" onclick="window.print()">Print / Save as PDF</button>
-    <button class="bsave" id="btnSave" onclick="saveToBackend()">Save to Wholesaler Profile</button>
     <button class="breset" onclick="resetF()">Reset to Original</button>
   </div>
 </div>
@@ -540,101 +528,6 @@ function initF(){
 
 function resetF(){
   initF();
-  var st = document.getElementById('saveStatus');
-  st.style.display = 'none';
-}
-
-async function saveToBackend(){
-  if(!D.tenantId){
-    alert('Tenant ID not found, cannot save to server.');
-    return;
-  }
-  var btn = document.getElementById('btnSave');
-  var st = document.getElementById('saveStatus');
-  btn.disabled = true;
-  btn.innerHTML = '&#9203; Saving...';
-  st.style.display = 'none';
-
-  var updatedDetails = {
-    invoiceNo:          v('f_invNo').trim(),
-    invoiceDate:        v('f_invDate'),
-    hsnSac:             v('f_hsn').trim(),
-    supplierRef:        v('f_sref').trim(),
-    otherRef:           v('f_oref').trim(),
-    clientGSTIN:        v('f_bgstin').trim().toUpperCase(),
-    clientPAN:          v('f_bpan').trim().toUpperCase(),
-    clientStateName:    v('f_bstate').trim(),
-    clientStateCode:    v('f_bcode').trim(),
-    subscriptionAmount: nv('f_sub'),
-    serverCostAmount:   nv('f_srv'),
-    cgstRate:           nv('f_cgst'),
-    sgstRate:           nv('f_sgst'),
-    igstRate:           nv('f_igst'),
-    applyIGST:          isIGST(),
-    bankName:           BANK.name,
-    bankAccountNo:      BANK.acc,
-    bankBranch:         BANK.branch,
-    bankIFSC:           BANK.ifsc,
-    companyPAN:         SELLER.pan,
-  };
-
-  try {
-    var url = D.apiBaseUrl + 'api/tenants/' + D.tenantId;
-    var resp = await fetch(url, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': D.authToken ? ('Bearer ' + D.authToken) : ''
-      },
-      body: JSON.stringify({ invoiceDetails: updatedDetails })
-    });
-    var data = await resp.json();
-    if(resp.ok && data.success){
-      st.style.display = 'block';
-      st.style.background = '#ecfdf5';
-      st.style.color = '#065f46';
-      st.style.border = '1px solid #a7f3d0';
-      st.innerHTML = '&#9989; Saved to Wholesaler profile!';
-      // update local defaults so reset goes to new values
-      Object.assign(D, {
-        invoiceNo: updatedDetails.invoiceNo,
-        invoiceDate: updatedDetails.invoiceDate,
-        hsnSac: updatedDetails.hsnSac,
-        buyerGSTIN: updatedDetails.clientGSTIN,
-        buyerPAN: updatedDetails.clientPAN,
-        buyerState: updatedDetails.clientStateName,
-        buyerStateCode: updatedDetails.clientStateCode,
-        subAmt: updatedDetails.subscriptionAmount,
-        srvAmt: updatedDetails.serverCostAmount,
-        cgstRate: updatedDetails.cgstRate,
-        sgstRate: updatedDetails.sgstRate,
-        igstRate: updatedDetails.igstRate,
-        applyIGST: updatedDetails.applyIGST,
-        bankName: updatedDetails.bankName,
-        bankAccNo: updatedDetails.bankAccountNo,
-        bankBranch: updatedDetails.bankBranch,
-        bankIFSC: updatedDetails.bankIFSC,
-        companyPAN: updatedDetails.companyPAN
-      });
-      // Try to notify opener window if available
-      try {
-        if(window.opener && !window.opener.closed){
-          window.opener.postMessage({ type: 'TENANT_INVOICE_UPDATED', tenantId: D.tenantId }, '*');
-        }
-      } catch(e){}
-    } else {
-      throw new Error(data.message || 'Failed to save');
-    }
-  } catch(err){
-    st.style.display = 'block';
-    st.style.background = '#fff1f2';
-    st.style.color = '#9f1239';
-    st.style.border = '1px solid #fecdd3';
-    st.innerHTML = '&#10060; Error: ' + (err.message || 'Could not save');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '&#128190; Save to Wholesaler Profile';
-  }
 }
 
 window.addEventListener('DOMContentLoaded', initF);

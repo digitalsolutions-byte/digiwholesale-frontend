@@ -4,6 +4,7 @@ import { Icon } from '@iconify/react';
 import { toast } from 'react-toastify';
 import { getAllTenants, suspendTenant, activateTenant, deleteTenant } from '../services/tenantService';
 import { PATHS } from '../routes/paths';
+import { generateTenantInvoice } from '../utils/generateTenantInvoice';
 
 export default function PlatformOwnerDashboard() {
     const navigate = useNavigate();
@@ -206,6 +207,13 @@ export default function PlatformOwnerDashboard() {
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <button
+                                                onClick={() => generateTenantInvoice(t)}
+                                                className="p-1.5 text-[#2980B9] hover:text-[#1F618D] rounded-xl transition-colors"
+                                                title="Generate Invoice"
+                                            >
+                                                <Icon icon="lucide:file-text" className="text-base" />
+                                            </button>
+                                            <button
                                                 onClick={() => navigate(`/owner/wholesalers/${t._id}/settings`)}
                                                 className="p-1.5 text-slate-400 hover:text-[#2980B9] rounded-xl transition-colors"
                                                 title="Feature Settings"
@@ -302,6 +310,13 @@ export default function PlatformOwnerDashboard() {
                                             </td>
                                             <td className="px-4 py-3.5 text-center">
                                                 <div className="flex items-center justify-center gap-2">
+                                                    <button
+                                                        onClick={() => generateTenantInvoice(t)}
+                                                        className="p-1.5 text-[#2980B9] hover:text-[#1F618D] rounded-lg transition-colors"
+                                                        title="Generate Invoice"
+                                                    >
+                                                        <Icon icon="lucide:file-text" className="text-base" />
+                                                    </button>
                                                     <button
                                                         onClick={() => navigate(`/owner/wholesalers/${t._id}/settings`)}
                                                         className="p-1.5 text-slate-400 hover:text-[#2980B9] rounded-lg transition-colors"
