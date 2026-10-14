@@ -281,19 +281,14 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                     },
                 }}
             >
-                {/* Logo & Wholesaler Header Area */}
-                <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                {/* Logo & Brand Header Area */}
+                <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                     <img
-                        src={tenant?.storeInformation?.storeLogo || logo}
-                        alt={tenant?.storeInformation?.storeName || "DigiOptics"}
-                        style={{ width: '100%', maxWidth: '220px', objectFit: 'contain' }}
+                        src={logo}
+                        alt="DigiOptics Wholesale"
+                        style={{ width: '100%', maxWidth: '200px', objectFit: 'contain' }}
                         onError={(e) => { e.target.onerror = null; e.target.src = logo; }}
                     />
-                    {tenant?.storeInformation?.storeName && (
-                        <Typography sx={{ fontSize: '13px', fontWeight: 800, color: '#1E293B', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'center', mt: 0.5 }}>
-                            {tenant.storeInformation.storeName}
-                        </Typography>
-                    )}
                 </Box>
 
                 {/* Nav Items */}

@@ -132,6 +132,58 @@ const CustomerKhataStatement = () => {
     if (ord.orderNumber) ordersMap[ord.orderNumber] = ord;
   });
 
+  // Build unified transactions list: merge ledger transactions with any orders not yet recorded as separate transactions
+  const existingOrderRefs = new Set(
+    transactions
+      .flatMap(t => [String(t.orderId || ''), String(t.voucherId || ''), String(t.referenceNumber || ''), String(t.orderNumber || '')])
+      .filter(Boolean)
+  );
+
+  const unrecordedOrderTxns = orders
+    .filter(ord => {
+      const oid = String(ord.orderId || ord._id || '');
+      const onum = String(ord.orderNumber || '');
+      return (!oid || !existingOrderRefs.has(oid)) && (!onum || !existingOrderRefs.has(onum));
+    })
+    .map(ord => ({
+      _id: ord._id || ord.orderId,
+      voucherId: ord.orderId || ord._id,
+      orderId: ord.orderId || ord._id,
+      orderNumber: ord.orderNumber,
+      referenceNumber: ord.orderNumber,
+      voucherType: 'Sales Invoice',
+      transactionDate: ord.orderDate || ord.createdAt,
+      createdAt: ord.createdAt,
+      debit: Number(ord.grandTotal || ord.totalOrderPrice || 0),
+      credit: Number(ord.paidAmount || ord.advanceAmount || 0),
+      runningBalance: Number(ord.balanceDue || 0),
+      customerName: ord.customerName || cust.shopName || cust.ownerName || 'Customer',
+      vendorName: ord.vendorName || summary.wholesalerProfile?.companyName,
+      items: ord.items || [],
+      challanUrl: ord.challanUrl,
+      invoiceUrl: ord.invoiceUrl,
+      hasChallan: Boolean(ord.challanUrl || ord.hasChallan),
+      hasInvoice: Boolean(ord.invoiceUrl || ord.hasInvoice),
+      orderStatus: ord.orderStatus || 'Submitted',
+      orderGrandTotal: Number(ord.grandTotal || ord.totalOrderPrice || 0),
+      orderPaidAmount: Number(ord.paidAmount || ord.advanceAmount || 0),
+      orderBalanceDue: Number(ord.balanceDue || 0),
+      partPaymentStatus: ord.paymentStatus,
+      partPaymentPercentage: ord.partPaymentPercentage,
+      orderPayments: ord.orderPayments || [],
+      isGSTInvoice: Boolean(ord.isGSTRegistered),
+      taxableAmount: ord.taxableAmount,
+      gstAmount: ord.gstAmount,
+      createdByName: ord.salesPersonName || 'Sales Staff',
+    }));
+
+  const unifiedTransactions = [...transactions, ...unrecordedOrderTxns].sort(
+    (a, b) => new Date(b.transactionDate || b.createdAt) - new Date(a.transactionDate || a.createdAt)
+  );
+
+  const displayTotalInvoiced = Number(stats.totalDebit || 0) || unifiedTransactions.reduce((acc, t) => acc + Number(t.debit || 0), 0);
+  const displayTotalReceived = Number(stats.totalCredit || 0) || unifiedTransactions.reduce((acc, t) => acc + Number(t.credit || 0), 0);
+
   const handleOpenPartPayment = (ord) => {
     setSelectedOrderForPayment(ord);
     setPaymentModalOpen(true);
@@ -163,10 +215,10 @@ const CustomerKhataStatement = () => {
     const gstin = cust.gstin || cust.gstNumber || cust.GSTNo || 'N/A';
     const addr = formatAddress(cust.address);
     const ledgerCode = master.ledgerCode || 'LEDGER';
-    const totalDebit = Number(stats.totalDebit || 0).toLocaleString('en-IN');
-    const totalCredit = Number(stats.totalCredit || 0).toLocaleString('en-IN');
+    const totalDebit = Number(displayTotalInvoiced).toLocaleString('en-IN');
+    const totalCredit = Number(displayTotalReceived).toLocaleString('en-IN');
 
-    const rowsHtml = transactions
+    const rowsHtml = unifiedTransactions
       .map((t, idx) => {
         const d = t.transactionDate ? new Date(t.transactionDate).toLocaleDateString('en-IN') : '—';
         const debit = t.debit > 0 ? `₹${Number(t.debit).toLocaleString('en-IN')}` : '—';
@@ -627,7 +679,7 @@ const CustomerKhataStatement = () => {
           <Paper elevation={0} sx={{ p: 2, borderRadius: '10px', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF' }}>
             <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 600 }}>Total Invoiced</Typography>
             <Typography variant="h6" sx={{ fontWeight: 700, color: '#0F172A', mt: 0.25 }}>
-              ₹{Number(stats.totalDebit || 0).toLocaleString()}
+              ₹{Number(displayTotalInvoiced || 0).toLocaleString()}
             </Typography>
           </Paper>
         </Grid>
@@ -635,7 +687,7 @@ const CustomerKhataStatement = () => {
           <Paper elevation={0} sx={{ p: 2, borderRadius: '10px', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF' }}>
             <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 600 }}>Total Received</Typography>
             <Typography variant="h6" sx={{ fontWeight: 700, color: '#059669', mt: 0.25 }}>
-              ₹{Number(stats.totalCredit || 0).toLocaleString()}
+              ₹{Number(displayTotalReceived || 0).toLocaleString()}
             </Typography>
           </Paper>
         </Grid>
@@ -772,7 +824,7 @@ const CustomerKhataStatement = () => {
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
               <CircularProgress size={32} />
             </Box>
-          ) : transactions.length === 0 ? (
+          ) : unifiedTransactions.length === 0 ? (
             <Card elevation={0} sx={{ p: 4, textAlign: 'center', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
               <Typography variant="body2" sx={{ color: '#64748B' }}>
                 No transactions found for this customer ledger in the selected date range.
@@ -784,7 +836,7 @@ const CustomerKhataStatement = () => {
               <Box sx={{ px: 2.5, py: 1.5, borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F8FAFC' }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Icon icon="lucide:book-open" style={{ color: '#0284C7', fontSize: 16 }} />
-                  Unified Khata Ledger — {transactions.length} Entries | {orders.length} Wholesale Orders
+                  Unified Khata Ledger — {unifiedTransactions.length} Entries | {orders.length} Wholesale Orders
                 </Typography>
                 {filters.startDate && (
                   <Chip size="small" label={`Filtered: ${filters.startDate} → ${filters.endDate || 'Now'}`}
@@ -809,7 +861,7 @@ const CustomerKhataStatement = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {transactions.map((txn, idx) => {
+                  {unifiedTransactions.map((txn, idx) => {
                     const rowKey = txn._id || txn.voucherId || txn.referenceNumber || idx;
                     const isPayment = Boolean(
                       (txn.referenceNumber && txn.referenceNumber.startsWith('CPAY')) ||
