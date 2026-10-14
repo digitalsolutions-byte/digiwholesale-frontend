@@ -177,12 +177,42 @@ const CustomerKhataStatement = () => {
       createdByName: ord.salesPersonName || 'Sales Staff',
     }));
 
-  const unifiedTransactions = [...transactions, ...unrecordedOrderTxns].sort(
+  // Collect all payment voucher numbers and IDs that are allocated/grouped under orders
+  const allocatedPaymentRefs = new Set();
+  orders.forEach(ord => {
+    (ord.orderPayments || []).forEach(p => {
+      if (p.paymentNumber) allocatedPaymentRefs.add(String(p.paymentNumber));
+      if (p.referenceNumber) allocatedPaymentRefs.add(String(p.referenceNumber));
+      if (p.paymentId) allocatedPaymentRefs.add(String(p.paymentId));
+    });
+  });
+
+  // Filter out standalone payment rows that are already grouped under an order's dropdown
+  const standaloneTransactions = transactions.filter(t => {
+    const isPayment = Boolean(
+      (t.referenceNumber && t.referenceNumber.startsWith('CPAY')) ||
+      t.voucherType === 'Receipt' ||
+      t.voucherType === 'Advance' ||
+      (!t.voucherType?.toLowerCase().includes('invoice') && Number(t.credit) > 0 && !t.referenceNumber?.startsWith('BO-'))
+    );
+    if (!isPayment) return true; // Keep all orders / invoices / credit notes etc.
+
+    // If allocated to an order, keep the ledger clean and hide the duplicate standalone row
+    const isAllocated =
+      t.isOrderAllocatedPayment ||
+      allocatedPaymentRefs.has(String(t.referenceNumber || '')) ||
+      allocatedPaymentRefs.has(String(t.voucherId || '')) ||
+      allocatedPaymentRefs.has(String(t._id || ''));
+
+    return !isAllocated;
+  });
+
+  const unifiedTransactions = [...standaloneTransactions, ...unrecordedOrderTxns].sort(
     (a, b) => new Date(b.transactionDate || b.createdAt) - new Date(a.transactionDate || a.createdAt)
   );
 
-  const displayTotalInvoiced = Number(stats.totalDebit || 0) || unifiedTransactions.reduce((acc, t) => acc + Number(t.debit || 0), 0);
-  const displayTotalReceived = Number(stats.totalCredit || 0) || unifiedTransactions.reduce((acc, t) => acc + Number(t.credit || 0), 0);
+  const displayTotalInvoiced = Number(stats.totalDebit || 0) || unifiedTransactions.reduce((acc, t) => acc + Number(t.orderGrandTotal != null ? t.orderGrandTotal : t.debit || 0), 0);
+  const displayTotalReceived = Number(stats.totalCredit || 0) || unifiedTransactions.reduce((acc, t) => acc + Number(t.orderPaidAmount != null ? t.orderPaidAmount : t.credit || 0), 0);
 
   const handleOpenPartPayment = (ord) => {
     setSelectedOrderForPayment(ord);
@@ -221,13 +251,21 @@ const CustomerKhataStatement = () => {
     const rowsHtml = unifiedTransactions
       .map((t, idx) => {
         const d = t.transactionDate ? new Date(t.transactionDate).toLocaleDateString('en-IN') : '—';
-        const debit = t.debit > 0 ? `₹${Number(t.debit).toLocaleString('en-IN')}` : '—';
-        const credit = t.credit > 0 ? `₹${Number(t.credit).toLocaleString('en-IN')}` : '—';
-        const bal = t.runningBalance > 0
-          ? `₹${Number(t.runningBalance).toLocaleString('en-IN')} (Due)`
-          : t.runningBalance < 0
-            ? `₹${Number(Math.abs(t.runningBalance)).toLocaleString('en-IN')} (Adv)`
-            : '₹0';
+        const orderTotal = Number(t.orderGrandTotal != null ? t.orderGrandTotal : t.debit || 0);
+        const paidAmount = Number(t.orderPaidAmount != null ? t.orderPaidAmount : t.credit || 0);
+        const dueAmount = Number(t.orderBalanceDue != null ? t.orderBalanceDue : Math.max(0, orderTotal - paidAmount));
+        const debit = orderTotal > 0 ? `₹${Number(orderTotal).toLocaleString('en-IN')}` : (t.debit > 0 ? `₹${Number(t.debit).toLocaleString('en-IN')}` : '—');
+        const credit = paidAmount > 0 ? `₹${Number(paidAmount).toLocaleString('en-IN')}` : (t.credit > 0 ? `₹${Number(t.credit).toLocaleString('en-IN')}` : '—');
+        const bal = dueAmount > 0
+          ? `₹${Number(dueAmount).toLocaleString('en-IN')} (Due)`
+          : (orderTotal > 0 ? 'Paid (₹0)' : (t.runningBalance > 0 ? `₹${Number(t.runningBalance).toLocaleString('en-IN')} (Due)` : '₹0'));
+
+        const paymentDetailsHtml = (t.orderPayments && t.orderPayments.length > 0)
+          ? `<tr style="background:#f8fafc;"><td colspan="7" style="padding:4px 12px;font-size:10px;color:#64748B;">
+               <strong>Grouped Payment History:</strong> ${t.orderPayments.map(p => `${p.referenceNumber || p.paymentNumber || 'Receipt'}: ₹${Number(p.amount || 0).toLocaleString('en-IN')} (${p.paymentMode || 'Paid'})`).join(' &bull; ')}
+             </td></tr>`
+          : '';
+
         return `
           <tr>
             <td>${idx + 1}</td>
@@ -238,6 +276,7 @@ const CustomerKhataStatement = () => {
             <td style="text-align:right;color:#15803d;font-weight:600;">${credit}</td>
             <td style="text-align:right;font-weight:700;">${bal}</td>
           </tr>
+          ${paymentDetailsHtml}
         `;
       })
       .join('');
