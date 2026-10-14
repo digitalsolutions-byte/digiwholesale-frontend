@@ -607,7 +607,7 @@ const CustomerLedgers = () => {
                 <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Customer / Shop</TableCell>
                 <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Tax Type</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Limit & Terms</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#475569', width: 180, fontSize: '0.8125rem' }}>Utilization</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#475569', width: 180, fontSize: '0.8125rem' }}>Credit Utilization</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Pending Due</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Advance</TableCell>
                 <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Latest Order</TableCell>
@@ -712,8 +712,8 @@ const CustomerLedgers = () => {
                           {creditStatus === 'EXCEEDED'
                             ? `Exceeded (${pct}%)`
                             : creditStatus === 'WARNING_20_PERCENT'
-                            ? `20% Alert (${pct}%)`
-                            : `Safe (${pct}%)`}
+                              ? `20% Alert (${pct}%)`
+                              : `Safe (${pct}%)`}
                         </Typography>
                         <Typography variant="caption" sx={{ color: '#94A3B8', fontSize: '0.72rem' }}>
                           Rem: ₹{available.toLocaleString()}
@@ -739,7 +739,7 @@ const CustomerLedgers = () => {
                         variant="body2"
                         sx={{ fontWeight: used > 0 ? 700 : 400, color: used > 0 ? '#E11D48' : '#64748B' }}
                       >
-                        {used > 0 ? `₹${used.toLocaleString()}` : '—'}
+                        {used > 0 ? `₹${used.toLocaleString()}` : '₹0'}
                       </Typography>
                     </TableCell>
 
@@ -749,7 +749,7 @@ const CustomerLedgers = () => {
                         variant="body2"
                         sx={{ fontWeight: adv > 0 ? 700 : 400, color: adv > 0 ? '#059669' : '#64748B' }}
                       >
-                        {adv > 0 ? `₹${adv.toLocaleString()}` : '—'}
+                        {adv > 0 ? `₹${adv.toLocaleString()}` : '₹0'}
                       </Typography>
                     </TableCell>
 
