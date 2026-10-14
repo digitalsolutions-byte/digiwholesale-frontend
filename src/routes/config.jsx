@@ -123,6 +123,8 @@ const CUSTOMER_CARE_MODULE = [
     { path: PATHS.CUSTOMER_CARE.UPDATE_CUSTOMERS, element: CustomerList, page: 'CUSTOMER_LIST' },
     { path: PATHS.CUSTOMER_CARE.EDIT_ORDER, element: OrderWizard },
     { path: PATHS.CUSTOMER_CARE.ORDER_DETAILS, element: OrderDetails },
+    { path: PATHS.CUSTOMER_CARE.ORDER_DETAILS_ALT, element: OrderDetails },
+    { path: '/orders/:id', element: OrderDetails },
 ];
 
 // ── Operations ────────────────────────────────────────────────────────────────

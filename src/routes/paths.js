@@ -42,6 +42,7 @@ export const PATHS = {
         UPDATE_CUSTOMERS: '/customer/list',
         EDIT_ORDER: '/order/edit/:id',
         ORDER_DETAILS: '/order/view/:id',
+        ORDER_DETAILS_ALT: '/orders/:id',
         DRAFT_ORDERS: '/orders/draft-list',
     },
 
