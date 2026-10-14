@@ -181,7 +181,27 @@ export default function RegisterTenant() {
 
         // Demo Mode & Security Watermark Flags
         demoMode: false,
-        demoExpiry: ''
+        demoExpiry: '',
+
+        // Invoice / Billing Details
+        invoiceNo: '',
+        invoiceDate: new Date().toISOString().split('T')[0],
+        clientGSTIN: '',
+        clientStateName: '',
+        clientStateCode: '',
+        clientPAN: '',
+        hsnSac: '998313',
+        subscriptionAmount: '',
+        serverCostAmount: '',
+        cgstRate: 9,
+        sgstRate: 9,
+        igstRate: 18,
+        applyIGST: false,          // true = inter-state (IGST only), false = intra-state (CGST+SGST)
+        bankName: 'HDFC Bank',
+        bankAccountNo: '50200118392316',
+        bankBranch: 'Hauz Khas, New Delhi',
+        bankIFSC: 'HDFC0000467',
+        companyPAN: 'AAMCD1973C'
     });
 
     const handleChange = (e) => {
@@ -258,6 +278,26 @@ export default function RegisterTenant() {
         try {
             const isDemoOn = Boolean(formData.demoMode);
           const demoExpVal = formData.demoExpiry || null;
+          const invoiceDetails = {
+              invoiceNo: formData.invoiceNo || '',
+              invoiceDate: formData.invoiceDate || new Date().toISOString().split('T')[0],
+              clientGSTIN: (formData.clientGSTIN || '').toUpperCase(),
+              clientStateName: formData.clientStateName || '',
+              clientStateCode: formData.clientStateCode || '',
+              clientPAN: (formData.clientPAN || '').toUpperCase(),
+              hsnSac: formData.hsnSac || '998313',
+              subscriptionAmount: Number(formData.subscriptionAmount) || 0,
+              serverCostAmount: Number(formData.serverCostAmount) || 0,
+              cgstRate: Number(formData.cgstRate) || 9,
+              sgstRate: Number(formData.sgstRate) || 9,
+              igstRate: Number(formData.igstRate) || 18,
+              applyIGST: Boolean(formData.applyIGST),
+              bankName: formData.bankName || 'HDFC Bank',
+              bankAccountNo: formData.bankAccountNo || '50200118392316',
+              bankBranch: formData.bankBranch || 'Hauz Khas, New Delhi',
+              bankIFSC: (formData.bankIFSC || 'HDFC0000467').toUpperCase(),
+              companyPAN: (formData.companyPAN || 'AAMCD1973C').toUpperCase()
+          };
           const payload = {
               ...formData,
               demoMode: isDemoOn,
@@ -266,7 +306,8 @@ export default function RegisterTenant() {
                   ...(formData.featureFlags || {}),
                   demoMode: isDemoOn,
                   demoExpiry: demoExpVal
-              }
+              },
+              invoiceDetails
           };
           const res = await registerTenant(payload);
             if (res.success) {
@@ -745,6 +786,156 @@ export default function RegisterTenant() {
                         </div>
                     </div>
 
+                </div>
+
+                {/* Invoice / Billing Details Section */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs space-y-5">
+                    <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+                        <Icon icon="lucide:file-text" className="text-[#2980B9] text-xl" />
+                        <h2 className="text-sm font-bold text-slate-800">Invoice & Billing Details</h2>
+                        <span className="ml-auto px-2.5 py-0.5 bg-blue-50 text-[#2980B9] rounded-md text-[10px] font-bold uppercase">Used to Generate GST Invoice</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {/* Invoice No */}
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Invoice No.</label>
+                            <input type="text" name="invoiceNo" value={formData.invoiceNo} onChange={handleChange}
+                                placeholder="e.g. DIGI/01/26-27"
+                                className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                        </div>
+                        {/* Invoice Date */}
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Invoice Date</label>
+                            <input type="date" name="invoiceDate" value={formData.invoiceDate} onChange={handleChange}
+                                className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all cursor-pointer" />
+                        </div>
+                        {/* HSN/SAC */}
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">HSN / SAC Code</label>
+                            <input type="text" name="hsnSac" value={formData.hsnSac} onChange={handleChange}
+                                placeholder="998313"
+                                className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                        </div>
+                        {/* Tax Type */}
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Tax Type</label>
+                            <div className="flex gap-2 mt-1">
+                                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+                                    <input type="radio" name="applyIGST" checked={!formData.applyIGST}
+                                        onChange={() => setFormData(p => ({ ...p, applyIGST: false }))}
+                                        className="w-3.5 h-3.5 text-[#2980B9]" />
+                                    CGST + SGST
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+                                    <input type="radio" name="applyIGST" checked={formData.applyIGST}
+                                        onChange={() => setFormData(p => ({ ...p, applyIGST: true }))}
+                                        className="w-3.5 h-3.5 text-[#2980B9]" />
+                                    IGST
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Buyer Details */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Buyer GSTIN</label>
+                            <input type="text" name="clientGSTIN" value={formData.clientGSTIN} onChange={handleChange}
+                                placeholder="22AAAAA0000A1Z5"
+                                className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all uppercase" />
+                        </div>
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Buyer PAN</label>
+                            <input type="text" name="clientPAN" value={formData.clientPAN} onChange={handleChange}
+                                placeholder="ABCDE1234F"
+                                className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all uppercase" />
+                        </div>
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Buyer State Name</label>
+                            <input type="text" name="clientStateName" value={formData.clientStateName} onChange={handleChange}
+                                placeholder="Delhi"
+                                className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                        </div>
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Buyer State Code</label>
+                            <input type="text" name="clientStateCode" value={formData.clientStateCode} onChange={handleChange}
+                                placeholder="07"
+                                className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                        </div>
+                    </div>
+
+                    {/* Subscription Amounts */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Subscription Amount (₹)</label>
+                            <input type="number" name="subscriptionAmount" value={formData.subscriptionAmount} onChange={handleChange}
+                                placeholder="0.00" min="0"
+                                className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                        </div>
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Server Cost (₹)</label>
+                            <input type="number" name="serverCostAmount" value={formData.serverCostAmount} onChange={handleChange}
+                                placeholder="0.00" min="0"
+                                className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                        </div>
+                        {formData.applyIGST ? (
+                            <div>
+                                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">IGST Rate (%)</label>
+                                <input type="number" name="igstRate" value={formData.igstRate} onChange={handleChange}
+                                    placeholder="18" min="0" max="28"
+                                    className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                            </div>
+                        ) : (
+                            <>
+                                <div>
+                                    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">CGST Rate (%)</label>
+                                    <input type="number" name="cgstRate" value={formData.cgstRate} onChange={handleChange}
+                                        placeholder="9" min="0" max="14"
+                                        className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                                </div>
+                                <div>
+                                    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">SGST Rate (%)</label>
+                                    <input type="number" name="sgstRate" value={formData.sgstRate} onChange={handleChange}
+                                        placeholder="9" min="0" max="14"
+                                        className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                                </div>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Bank Details */}
+                    <div>
+                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                            <Icon icon="lucide:landmark" className="text-sm" /> Company Bank Details
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div>
+                                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Bank Name</label>
+                                <input type="text" name="bankName" value={formData.bankName} onChange={handleChange}
+                                    placeholder="HDFC Bank"
+                                    className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                            </div>
+                            <div>
+                                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Account No.</label>
+                                <input type="text" name="bankAccountNo" value={formData.bankAccountNo} onChange={handleChange}
+                                    placeholder="50200XXXXXXXXX"
+                                    className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                            </div>
+                            <div>
+                                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Branch</label>
+                                <input type="text" name="bankBranch" value={formData.bankBranch} onChange={handleChange}
+                                    placeholder="Hauz Khas, New Delhi"
+                                    className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                            </div>
+                            <div>
+                                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">IFSC Code</label>
+                                <input type="text" name="bankIFSC" value={formData.bankIFSC} onChange={handleChange}
+                                    placeholder="HDFC0000467"
+                                    className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all uppercase" />
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Bottom Action Bar */}

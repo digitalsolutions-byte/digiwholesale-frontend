@@ -4,6 +4,7 @@ import { Icon } from '@iconify/react';
 import { toast } from 'react-toastify';
 import { getAllTenants, suspendTenant, activateTenant, deleteTenant } from '../../services/tenantService';
 import { PATHS } from '../../routes/paths';
+import { generateTenantInvoice } from '../../utils/generateTenantInvoice';
 
 export default function TenantList() {
     const navigate = useNavigate();
@@ -43,6 +44,16 @@ export default function TenantList() {
 
     useEffect(() => {
         fetchTenants();
+    }, [fetchTenants]);
+
+    useEffect(() => {
+        const handleMsg = (e) => {
+            if (e.data?.type === 'TENANT_INVOICE_UPDATED') {
+                fetchTenants();
+            }
+        };
+        window.addEventListener('message', handleMsg);
+        return () => window.removeEventListener('message', handleMsg);
     }, [fetchTenants]);
 
     const handleConfirmSuspend = async () => {
@@ -216,6 +227,14 @@ export default function TenantList() {
 
                                     <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                                         <button
+                                            onClick={() => generateTenantInvoice(t)}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#2980B9] border border-blue-100 rounded-xl font-semibold text-xs transition-colors"
+                                            title="Download GST Invoice"
+                                        >
+                                            <Icon icon="lucide:file-down" className="text-sm" />
+                                            Invoice
+                                        </button>
+                                        <button
                                             onClick={() => navigate(`/owner/wholesalers/${t._id}/settings`)}
                                             className="p-2 text-slate-400 hover:text-[#2980B9] rounded-xl transition-colors"
                                             title="Feature Settings"
@@ -336,7 +355,15 @@ export default function TenantList() {
                                             </td>
                                             <td className="px-4 py-3.5 text-center">
                                                 <div className="flex items-center justify-center gap-2">
-                                                    <button
+                                                                                                         <button
+                                                         onClick={() => generateTenantInvoice(t)}
+                                                         className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-[#2980B9] border border-blue-100 rounded-lg font-semibold text-[11px] transition-colors"
+                                                         title="Download GST Invoice"
+                                                     >
+                                                         <Icon icon="lucide:file-down" className="text-sm" />
+                                                         Invoice
+                                                     </button>
+<button
                                                         onClick={() => navigate(`/owner/wholesalers/${t._id}/settings`)}
                                                         className="p-1.5 text-slate-400 hover:text-[#2980B9] rounded-lg transition-colors"
                                                         title="Feature Settings"
