@@ -1320,7 +1320,7 @@ const OrderWizard = () => {
         }, 300);
     };
 
-    const handleProductSelection = (index, selectedValue) => {
+    const handleProductSelection = (index, selectedValue, selectedOption = null) => {
         const prefix = `products.${index}.`;
 
         if (!selectedValue) {
@@ -1330,7 +1330,10 @@ const OrderWizard = () => {
             return;
         }
 
-        const option = productNames.find(p => p.value === selectedValue || p.label === selectedValue);
+        // Prefer explicitly passed option from selection event, fallback to search in productNames
+        const option = (selectedOption && typeof selectedOption === 'object' && selectedOption.raw)
+            ? selectedOption
+            : productNames.find(p => p.value === selectedValue || p.label === selectedValue);
 
         if (option && option.raw) {
             const rawProd = option.raw;
@@ -1449,6 +1452,12 @@ const OrderWizard = () => {
 
             // Fetch full product details from API to get ALL fields (expiry, coating, etc.)
             const productId = rawProd._id || rawProd.id;
+            // Capture prices already resolved from inventory search results (set synchronously above)
+            // so the async fetch never overwrites them with stale/zero values.
+            const resolvedSellingPrice = customerSellingPrice;
+            const resolvedMRP = Number(rawProd.mrp || rawProd.MRP || 0);
+            const resolvedBuyingPrice = Number(rawProd.buyingPrice || rawProd.price || 0);
+            const resolvedGstPercent = rawProd.gst !== undefined && rawProd.gst !== null ? rawProd.gst.toString() : '';
             if (productId) {
                 getProductById(productId).then(res => {
                     const fullProd = res?.data || res?.product || res;
@@ -1471,8 +1480,18 @@ const OrderWizard = () => {
                     set('brandId', brandInfo.brandId);
                     set('Brand', brandInfo.brandName);
                     set('brand', brandInfo.brandName);
-                    set('price', fullProd.price || 0);
-                    set('MRP', fullProd.mrp || fullProd.MRP || 0);
+                    // Only update price/MRP from full product if the search-result price was 0,
+                    // otherwise keep the fresher inventory price already set synchronously.
+                    if (resolvedSellingPrice <= 0 && Number(fullProd.price) > 0) {
+                        formik.setFieldValue(`${prefix}price`, Number(fullProd.price));
+                        formik.setFieldValue(`${prefix}sellingPrice`, Number(fullProd.price));
+                    }
+                    if (resolvedMRP <= 0 && Number(fullProd.mrp || fullProd.MRP) > 0) {
+                        formik.setFieldValue(`${prefix}MRP`, Number(fullProd.mrp || fullProd.MRP));
+                    }
+                    if (resolvedBuyingPrice <= 0 && Number(fullProd.buyingPrice) > 0) {
+                        formik.setFieldValue(`${prefix}buyingPrice`, Number(fullProd.buyingPrice));
+                    }
                     set('color', fullProd.color || 'BLACK');
                     set('size', fullProd.size || '');
                     set('type', fullProd.type || '');
@@ -1509,10 +1528,20 @@ const OrderWizard = () => {
                         const matchedTint = configs.tints?.find(t => t.name?.toUpperCase() === fullProd.tint.toUpperCase());
                         set('tintId', matchedTint?._id || fullProd.tint);
                     }
-                    if (fullProd.gst !== undefined && fullProd.gst !== null) {
+                    // Keep the gst percent resolved from search box; fallback to full product only if search had none
+                    const gstToUse = resolvedGstPercent !== ''
+                        ? resolvedGstPercent
+                        : ((fullProd.gst !== undefined && fullProd.gst !== null) ? fullProd.gst.toString() : '');
+                    if (gstToUse) {
                         formik.setFieldValue(`${prefix}gstDetails`, {
-                            ...formik.values.products[index]?.gstDetails,
-                            gstPercent: fullProd.gst.toString()
+                            gstPercent: gstToUse,
+                            gstType: fullProd.gstType || '',
+                            gstMode: fullProd.gstMode || '',
+                            gstAmount: fullProd.gstAmount || '',
+                            loyaltyPoints: fullProd.loyaltyPoints || '',
+                            advance: fullProd.advance || '',
+                            transactionType: fullProd.transactionType || '',
+                            remarks: fullProd.remarks || ''
                         });
                     }
 
@@ -1566,20 +1595,26 @@ const OrderWizard = () => {
                                 ? Number(defaultBatch.costPrice) 
                                 : sPrice);
 
-                        if (sPrice > 0) {
+                        // Only fallback to batch prices if the product prices were not already resolved from inventory search
+                        if (resolvedSellingPrice <= 0 && sPrice > 0) {
                             formik.setFieldValue(`${prefix}price`, sPrice);
                             formik.setFieldValue(`${prefix}sellingPrice`, sPrice);
                         }
-                        if (bPrice > 0) {
+                        if (resolvedBuyingPrice <= 0 && bPrice > 0) {
                             formik.setFieldValue(`${prefix}buyingPrice`, bPrice);
                         }
-                        if (Number(defaultBatch.mrp) > 0) {
+                        if (resolvedMRP <= 0 && Number(defaultBatch.mrp) > 0) {
                             formik.setFieldValue(`${prefix}MRP`, Number(defaultBatch.mrp));
                         }
                     }
                 }).catch(err => console.error('Failed to fetch product batches:', err));
             }
-            }
+        } else {
+            // FreeSolo manual text entry: update product name only without picking wrong product details
+            formik.setFieldValue(`${prefix}productId`, '');
+            formik.setFieldValue(`${prefix}productName`, selectedValue);
+            formik.setFieldValue(`${prefix}itemName`, selectedValue);
+        }
     };
 
     // Initial search and filter changes for active product
@@ -2941,7 +2976,7 @@ const OrderWizard = () => {
                                                         <SearchableSelect
                                                             name={`products.${index}.productName`}
                                                             value={{ value: product.productId || product.productName, label: product.productName || product.itemName || '' }}
-                                                            onChange={(e) => handleProductSelection(index, e.target.value)}
+                                                            onChange={(e) => handleProductSelection(index, e.target.value, e.target.option)}
                                                             onSearch={(q) => searchProductsForIndex(q, index)}
                                                             options={productNames}
                                                             loading={loadingProductNames}
@@ -3462,7 +3497,7 @@ const OrderWizard = () => {
                                             <SearchableSelect
                                                 name={`products.${index}.productName`}
                                                 value={{ value: product.productId || product.productName, label: product.productName || product.itemName || '' }}
-                                                onChange={(e) => handleProductSelection(index, e.target.value)}
+                                                onChange={(e) => handleProductSelection(index, e.target.value, e.target.option)}
                                                 onSearch={(q) => searchProductsForIndex(q, index)}
                                                 options={productNames}
                                                 loading={loadingProductNames}

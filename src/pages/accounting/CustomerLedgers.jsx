@@ -180,6 +180,7 @@ const CustomerLedgers = () => {
   const totalCreditUsed = metrics.totalReceivable ?? ledgers.reduce((sum, l) => sum + (Number(l.creditUsed) || 0), 0);
   const totalAdvances = metrics.totalAdvances ?? ledgers.reduce((sum, l) => sum + (Number(l.advanceAmount) || 0), 0);
   const totalCreditLimit = metrics.totalCreditLimit ?? ledgers.reduce((sum, l) => sum + (Number(l.creditLimit) || 0), 0);
+  const totalCollected = metrics.totalCollected ?? 0;
   const exceededCount = metrics.exceededLimitCount ?? ledgers.filter((l) => l.creditStatus === 'EXCEEDED').length;
   const warningCount = metrics.warning20PercentCount ?? ledgers.filter((l) => l.creditStatus === 'WARNING_20_PERCENT').length;
   const healthyCount = metrics.healthyCreditCount ?? ledgers.filter((l) => l.creditStatus === 'HEALTHY').length;
@@ -307,7 +308,8 @@ const CustomerLedgers = () => {
 
       {/* Metric KPI Cards */}
       <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        {/* Card 1: Total Receivable (Due) */}
+        <Grid item xs={12} sm={6} md={2.4}>
           <Card
             elevation={0}
             sx={{
@@ -332,7 +334,8 @@ const CustomerLedgers = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        {/* Card 2: Total Advances */}
+        <Grid item xs={12} sm={6} md={2.4}>
           <Card
             elevation={0}
             sx={{
@@ -357,7 +360,48 @@ const CustomerLedgers = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        {/* Card 3: Total Collected — actual payments received from customers */}
+        <Grid item xs={12} sm={6} md={2.4}>
+          <Card
+            elevation={0}
+            sx={{
+              p: { xs: 2, sm: 2.25 },
+              borderRadius: '10px',
+              border: '1px solid #BBF7D0',
+              backgroundColor: '#F0FDF4',
+              position: 'relative',
+              overflow: 'hidden',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: '3px',
+                background: 'linear-gradient(90deg, #16A34A, #22C55E)'
+              }
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
+              <Icon icon="lucide:wallet" style={{ color: '#16A34A', fontSize: 13 }} />
+              <Typography variant="caption" sx={{ color: '#15803D', fontWeight: 700, letterSpacing: '0.04em' }}>
+                TOTAL COLLECTED
+              </Typography>
+            </Box>
+            <Typography
+              variant="h5"
+              sx={{ fontWeight: 700, color: '#15803D', mt: 0.5, fontSize: { xs: '1.35rem', sm: '1.5rem' } }}
+            >
+              ₹{totalCollected.toLocaleString('en-IN')}
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#4ADE80', display: 'block', mt: 0.5, fontWeight: 600 }}>
+              Payments received from all customers
+            </Typography>
+          </Card>
+        </Grid>
+
+        {/* Card 4: Sanctioned Credit Limit */}
+        <Grid item xs={12} sm={6} md={2.4}>
           <Card
             elevation={0}
             sx={{
@@ -382,7 +426,8 @@ const CustomerLedgers = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        {/* Card 5: Credit Health Status */}
+        <Grid item xs={12} sm={6} md={2.4}>
           <Card
             elevation={0}
             sx={{

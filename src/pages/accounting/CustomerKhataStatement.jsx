@@ -950,7 +950,7 @@ const CustomerKhataStatement = () => {
               <Box sx={{ px: 2.5, py: 1.5, borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F8FAFC' }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Icon icon="lucide:book-open" style={{ color: '#0284C7', fontSize: 16 }} />
-                  Unified Khata Ledger — {unifiedTransactions.length} Entries | {orders.length} Wholesale Orders
+                  Unified Ledger — {unifiedTransactions.length} Entries | {orders.length} Wholesale Orders
                 </Typography>
                 {filters.startDate && (
                   <Chip size="small" label={`Filtered: ${filters.startDate} → ${filters.endDate || 'Now'}`}
