@@ -253,13 +253,21 @@ const CustomerKhataStatement = () => {
       .map((t, idx) => {
         const d = t.transactionDate ? new Date(t.transactionDate).toLocaleDateString('en-IN') : '—';
         const orderTotal = Number(t.orderGrandTotal != null ? t.orderGrandTotal : t.debit || 0);
-        const paidAmount = Number(t.orderPaidAmount != null ? t.orderPaidAmount : t.credit || 0);
-        const dueAmount = Number(t.orderBalanceDue != null ? t.orderBalanceDue : Math.max(0, orderTotal - paidAmount));
+        const paidAmount = Math.max(Number(t.orderPaidAmount != null ? t.orderPaidAmount : 0), Number(t.credit || 0));
+        const dueAmount = t.orderBalanceDue != null && Number(t.orderBalanceDue) <= (orderTotal - paidAmount)
+          ? Number(t.orderBalanceDue)
+          : Math.max(0, orderTotal - paidAmount);
         const debit = orderTotal > 0 ? `₹${Number(orderTotal).toLocaleString('en-IN')}` : (t.debit > 0 ? `₹${Number(t.debit).toLocaleString('en-IN')}` : '—');
         const credit = paidAmount > 0 ? `₹${Number(paidAmount).toLocaleString('en-IN')}` : (t.credit > 0 ? `₹${Number(t.credit).toLocaleString('en-IN')}` : '—');
-        const bal = dueAmount > 0
-          ? `₹${Number(dueAmount).toLocaleString('en-IN')} (Due)`
-          : (orderTotal > 0 ? 'Paid (₹0)' : (t.runningBalance > 0 ? `₹${Number(t.runningBalance).toLocaleString('en-IN')} (Due)` : '₹0'));
+        const bal = t.runningBalance != null
+          ? (t.runningBalance > 0
+              ? `₹${Number(t.runningBalance).toLocaleString('en-IN')} (Due)`
+              : t.runningBalance < 0
+                ? `₹${Number(Math.abs(t.runningBalance)).toLocaleString('en-IN')} (Adv)`
+                : '₹0.00')
+          : dueAmount > 0
+            ? `₹${Number(dueAmount).toLocaleString('en-IN')} (Due)`
+            : (orderTotal > 0 ? 'Paid (₹0)' : '₹0');
 
         const paymentDetailsHtml = (t.orderPayments && t.orderPayments.length > 0)
           ? `<tr style="background:#f8fafc;"><td colspan="7" style="padding:4px 12px;font-size:10px;color:#64748B;">
@@ -991,8 +999,10 @@ const CustomerKhataStatement = () => {
                       (txn.orderGrandTotal != null && Number(txn.orderGrandTotal) > 0)
                     );
                     const orderTotal = Number(txn.orderGrandTotal != null ? txn.orderGrandTotal : txn.debit || 0);
-                    const paidAmount = Number(txn.orderPaidAmount != null ? txn.orderPaidAmount : txn.credit || 0);
-                    const dueAmount = Number(txn.orderBalanceDue != null ? txn.orderBalanceDue : Math.max(0, orderTotal - paidAmount));
+                    const paidAmount = Math.max(Number(txn.orderPaidAmount != null ? txn.orderPaidAmount : 0), Number(txn.credit || 0));
+                    const dueAmount = txn.orderBalanceDue != null && Number(txn.orderBalanceDue) <= (orderTotal - paidAmount)
+                      ? Number(txn.orderBalanceDue)
+                      : Math.max(0, orderTotal - paidAmount);
                     const orderBadge = getStatusBadge(txn.orderStatus);
                     const matchedOrder = ordersMap[String(txn.orderId)] || ordersMap[txn.orderNumber] || ordersMap[txn.referenceNumber] || null;
                     const paymentsList = (Array.isArray(txn.orderPayments) && txn.orderPayments.length > 0) ? txn.orderPayments : (matchedOrder?.orderPayments || []);
@@ -1087,22 +1097,32 @@ const CustomerKhataStatement = () => {
                           </TableCell>
 
                           {/* Credit */}
-                          <TableCell align="right" sx={{ fontWeight: 700, color: (paidAmount > 0 || Number(txn.credit || 0) > 0) ? '#059669' : '#94A3B8', fontSize: '0.8rem' }}>
-                            {isOrder && paidAmount > 0 ? `₹${paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : Number(txn.credit || 0) > 0 ? `₹${Number(txn.credit).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}
+                          <TableCell align="right" sx={{ fontWeight: 700, color: (Math.max(paidAmount, Number(txn.credit || 0)) > 0) ? '#059669' : '#94A3B8', fontSize: '0.8rem' }}>
+                            {Math.max(paidAmount, Number(txn.credit || 0)) > 0
+                              ? `₹${Math.max(paidAmount, Number(txn.credit || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                              : '—'}
                           </TableCell>
 
                           {/* Balance */}
                           <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.8rem' }}>
-                            {isOrder ? (
-                              dueAmount > 0 ? (
-                                <span style={{ color: '#EF4444' }}>{`₹${dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })} Due`}</span>
-                              ) : (
-                                <span style={{ color: '#059669' }}>Paid ✓</span>
-                              )
-                            ) : txn.runningBalance != null ? (
-                              <span style={{ color: txn.runningBalance > 0 ? '#E11D48' : txn.runningBalance < 0 ? '#059669' : '#64748B' }}>
-                                {txn.runningBalance > 0 ? `₹${Number(txn.runningBalance).toLocaleString('en-IN')} (Due)` :
-                                 txn.runningBalance < 0 ? `₹${Number(Math.abs(txn.runningBalance)).toLocaleString('en-IN')} (Adv)` : '₹0'}
+                            {txn.runningBalance != null ? (
+                              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                <span style={{ color: txn.runningBalance > 0 ? '#E11D48' : txn.runningBalance < 0 ? '#059669' : '#64748B' }}>
+                                  {txn.runningBalance > 0
+                                    ? `₹${Number(txn.runningBalance).toLocaleString('en-IN', { minimumFractionDigits: 2 })} (Due)`
+                                    : txn.runningBalance < 0
+                                      ? `₹${Number(Math.abs(txn.runningBalance)).toLocaleString('en-IN', { minimumFractionDigits: 2 })} (Adv)`
+                                      : '₹0.00'}
+                                </span>
+                                {isOrder && (
+                                  <Typography variant="caption" sx={{ fontSize: '0.67rem', color: isFullyPaid ? '#059669' : '#DC2626', fontWeight: 600 }}>
+                                    {isFullyPaid ? 'Order Paid ✓' : `Order Due: ₹${dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
+                                  </Typography>
+                                )}
+                              </Box>
+                            ) : isOrder ? (
+                              <span style={{ color: dueAmount > 0 ? '#EF4444' : '#059669' }}>
+                                {dueAmount > 0 ? `₹${dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })} (Due)` : 'Paid ✓'}
                               </span>
                             ) : (
                               <span style={{ color: '#64748B' }}>—</span>
