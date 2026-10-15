@@ -206,9 +206,10 @@ export const getCustomerOrdersForLedger = async (customerId) => {
   }
 };
 
-export const downloadOrderChallan = async (orderId, fileName = 'Challan') => {
+export const downloadOrderChallan = async (orderId, fileName = 'Challan', regenerate = false) => {
   try {
     const response = await api.get(`/api/order/bulk-orders/${orderId}/challan`, {
+      params: regenerate ? { regenerate: 'true' } : {},
       responseType: 'blob'
     });
     const blob = new Blob([response.data], { type: 'application/pdf' });
@@ -241,5 +242,25 @@ export const downloadOrderInvoice = async (orderId, orderNumber, fileName = 'Inv
     window.URL.revokeObjectURL(url);
   } catch (error) {
     throw handleServiceError(error, 'Failed to download invoice');
+  }
+};
+
+export const downloadCustomerLedgerStatement = async (customerId, fileName = 'CustomerLedgerStatement', regenerate = false) => {
+  try {
+    const response = await api.get(`/api/v1/ledgers/customer/${customerId}/statement-pdf`, {
+      params: regenerate ? { regenerate: 'true' } : {},
+      responseType: 'blob'
+    });
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${fileName}-${customerId}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    throw handleServiceError(error, 'Failed to download ledger statement');
   }
 };

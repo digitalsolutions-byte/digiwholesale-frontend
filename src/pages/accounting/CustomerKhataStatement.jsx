@@ -14,6 +14,7 @@ import {
   downloadPaymentReceipt,
   downloadOrderChallan,
   downloadOrderInvoice,
+  downloadCustomerLedgerStatement,
   sendPaymentDueReminder
 } from '../../services/accountingService';
 import CustomerPaymentModal from './CustomerPaymentModal';
@@ -357,6 +358,43 @@ const CustomerKhataStatement = () => {
   };
 
   const [downloadingDocId, setDownloadingDocId] = useState(null);
+  const [downloadingChallanId, setDownloadingChallanId] = useState(null);
+  const [downloadingStatement, setDownloadingStatement] = useState(false);
+
+  const handleDownloadLedgerStatement = async () => {
+    if (!customerId) {
+      toast.error('Customer ID missing');
+      return;
+    }
+    try {
+      setDownloadingStatement(true);
+      const safeName = (summary.customer?.shopName || summary.customer?.ownerName || 'Customer').replace(/[^a-z0-9]/gi, '-');
+      await downloadCustomerLedgerStatement(customerId, `Ledger-Statement-${safeName}`);
+      toast.success('Customer Ledger Statement downloaded successfully!');
+    } catch (err) {
+      toast.error(err.message || 'Failed to download ledger statement');
+    } finally {
+      setDownloadingStatement(false);
+    }
+  };
+
+  const handleDownloadOrderChallan = async (txn) => {
+    const orderId = txn.orderId || txn.voucherId;
+    const orderNumber = txn.orderNumber || txn.referenceNumber || 'Order';
+    if (!orderId) {
+      toast.error('Order ID not available for challan download');
+      return;
+    }
+    try {
+      setDownloadingChallanId(orderId);
+      await downloadOrderChallan(orderId, `Challan-${orderNumber}`);
+      toast.success('Delivery Challan downloaded successfully!');
+    } catch (err) {
+      toast.error(err.message || 'Failed to download delivery challan');
+    } finally {
+      setDownloadingChallanId(null);
+    }
+  };
 
   const handleDownloadOrderInvoice = async (txn) => {
     const orderId = txn.orderId || txn.voucherId;
@@ -538,6 +576,24 @@ const CustomerKhataStatement = () => {
             }}
           >
             Print
+          </Button>
+
+          <Button
+            variant="contained"
+            disabled={downloadingStatement}
+            onClick={handleDownloadLedgerStatement}
+            startIcon={<Icon icon="lucide:file-down" width={16} />}
+            sx={{
+              borderRadius: '8px',
+              textTransform: 'none',
+              fontWeight: 600,
+              backgroundColor: '#4338CA',
+              '&:hover': { backgroundColor: '#3730A3' },
+              fontSize: '0.8125rem',
+              color: '#FFFFFF'
+            }}
+          >
+            {downloadingStatement ? 'Downloading...' : 'Download Statement'}
           </Button>
         </Box>
       </Box>
@@ -1083,23 +1139,32 @@ const CustomerKhataStatement = () => {
                           <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
                               {isOrder && (
-                                <Tooltip title="Download Order Invoice" arrow>
+                                <Tooltip title="Download Delivery Challan" arrow>
                                   <span>
-                                    <IconButton size="small" onClick={() => handleDownloadOrderInvoice(txn)}
-                                      disabled={downloadingDocId === (txn.orderId || txn.voucherId)}
+                                    <IconButton size="small" onClick={() => handleDownloadOrderChallan(txn)}
+                                      disabled={downloadingChallanId === (txn.orderId || txn.voucherId)}
                                       sx={{ color: '#0284C7', p: 0.5, backgroundColor: '#F0F9FF', '&:hover': { backgroundColor: '#E0F2FE' } }}>
-                                      <Icon icon="solar:bill-list-bold" width={15} />
+                                      <Icon icon="lucide:truck" width={15} />
                                     </IconButton>
                                   </span>
                                 </Tooltip>
                               )}
-                              {(isOrder || isPayment) && (
-                                <Tooltip title="Download Receipt" arrow>
+                              <Tooltip title="Download Ledger Statement" arrow>
+                                <span>
+                                  <IconButton size="small" onClick={handleDownloadLedgerStatement}
+                                    disabled={downloadingStatement}
+                                    sx={{ color: '#4338CA', p: 0.5, backgroundColor: '#EEF2FF', '&:hover': { backgroundColor: '#E0E7FF' } }}>
+                                    <Icon icon="lucide:book-open" width={15} />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                              {isOrder && (
+                                <Tooltip title="Download Order Invoice" arrow>
                                   <span>
-                                    <IconButton size="small" onClick={() => handleDownloadReceipt(txn)}
-                                      disabled={downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id)}
-                                      sx={{ color: '#059669', p: 0.5, backgroundColor: '#F0FDF4', '&:hover': { backgroundColor: '#DCFCE7' } }}>
-                                      <Icon icon="lucide:receipt" width={15} />
+                                    <IconButton size="small" onClick={() => handleDownloadOrderInvoice(txn)}
+                                      disabled={downloadingDocId === (txn.orderId || txn.voucherId)}
+                                      sx={{ color: '#0D9488', p: 0.5, backgroundColor: '#F0FDFA', '&:hover': { backgroundColor: '#CCFBF1' } }}>
+                                      <Icon icon="solar:bill-list-bold" width={15} />
                                     </IconButton>
                                   </span>
                                 </Tooltip>
@@ -1161,9 +1226,9 @@ const CustomerKhataStatement = () => {
                                         <Button
                                           size="small"
                                           variant="contained"
-                                          startIcon={<Icon icon="solar:bill-list-bold" width={15} />}
-                                          onClick={() => handleDownloadOrderInvoice(txn)}
-                                          disabled={downloadingDocId === (txn.orderId || txn.voucherId)}
+                                          startIcon={<Icon icon="lucide:truck" width={15} />}
+                                          onClick={() => handleDownloadOrderChallan(txn)}
+                                          disabled={downloadingChallanId === (txn.orderId || txn.voucherId)}
                                           sx={{
                                             textTransform: 'none',
                                             fontSize: '0.75rem',
@@ -1175,32 +1240,30 @@ const CustomerKhataStatement = () => {
                                             borderRadius: '6px'
                                           }}
                                         >
-                                          {downloadingDocId === (txn.orderId || txn.voucherId) ? 'Downloading...' : 'Download Order Invoice'}
+                                          {downloadingChallanId === (txn.orderId || txn.voucherId) ? 'Downloading Challan...' : 'Download Delivery Challan'}
                                         </Button>
                                       )}
-                                      {(isOrder || isPayment) && (
-                                        <Button
-                                          size="small"
-                                          variant="outlined"
-                                          startIcon={<Icon icon="lucide:receipt" width={15} />}
-                                          onClick={() => handleDownloadReceipt(txn)}
-                                          disabled={downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id)}
-                                          sx={{
-                                            textTransform: 'none',
-                                            fontSize: '0.75rem',
-                                            fontWeight: 600,
-                                            color: '#059669',
-                                            borderColor: '#10B981',
-                                            backgroundColor: '#F0FDF4',
-                                            '&:hover': { backgroundColor: '#DCFCE7', borderColor: '#059669' },
-                                            height: 32,
-                                            px: 1.75,
-                                            borderRadius: '6px'
-                                          }}
-                                        >
-                                          {downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id) ? 'Downloading...' : 'Download Receipt'}
-                                        </Button>
-                                      )}
+                                      <Button
+                                        size="small"
+                                        variant="outlined"
+                                        startIcon={<Icon icon="lucide:book-open" width={15} />}
+                                        onClick={handleDownloadLedgerStatement}
+                                        disabled={downloadingStatement}
+                                        sx={{
+                                          textTransform: 'none',
+                                          fontSize: '0.75rem',
+                                          fontWeight: 600,
+                                          color: '#4338CA',
+                                          borderColor: '#818CF8',
+                                          backgroundColor: '#EEF2FF',
+                                          '&:hover': { backgroundColor: '#E0E7FF', borderColor: '#4338CA' },
+                                          height: 32,
+                                          px: 1.75,
+                                          borderRadius: '6px'
+                                        }}
+                                      >
+                                        {downloadingStatement ? 'Downloading Statement...' : 'Download Ledger Statement'}
+                                      </Button>
                                     </Box>
                                   </Box>
 
