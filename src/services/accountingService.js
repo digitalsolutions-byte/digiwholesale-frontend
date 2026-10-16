@@ -206,7 +206,7 @@ export const getCustomerOrdersForLedger = async (customerId) => {
   }
 };
 
-export const downloadOrderChallan = async (orderId, fileName = 'Challan', regenerate = false) => {
+export const downloadOrderChallan = async (orderId, fileName = 'Challan', regenerate = true) => {
   try {
     const response = await api.get(`/api/order/bulk-orders/${orderId}/challan`, {
       params: regenerate ? { regenerate: 'true' } : {},
@@ -245,7 +245,7 @@ export const downloadOrderInvoice = async (orderId, orderNumber, fileName = 'Inv
   }
 };
 
-export const downloadCustomerLedgerStatement = async (customerId, fileName = 'CustomerLedgerStatement', regenerate = false) => {
+export const downloadCustomerLedgerStatement = async (customerId, fileName = 'CustomerLedgerStatement', regenerate = true) => {
   try {
     const response = await api.get(`/api/v1/ledgers/customer/${customerId}/statement-pdf`, {
       params: regenerate ? { regenerate: 'true' } : {},
