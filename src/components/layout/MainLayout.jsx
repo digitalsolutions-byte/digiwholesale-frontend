@@ -1,3 +1,6 @@
+import useSubscriptionExpiry from '../../hooks/useSubscriptionExpiry';
+import GoogleStyleLoginReminder from '../subscription/GoogleStyleLoginReminder';
+import SubscriptionRenewalModal from '../subscription/SubscriptionRenewalModal';
 import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
@@ -20,6 +23,8 @@ const MainLayout = () => {
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobile);
     const navigate = useNavigate();
+    const expiryMeta = useSubscriptionExpiry();
+    const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
 
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 

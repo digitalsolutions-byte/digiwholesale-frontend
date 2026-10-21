@@ -109,6 +109,19 @@ api.interceptors.response.use(
             }
         }
 
+        // Handle subscription expiration: auto-logout and redirect to login
+        if (error.response && error.response.status === 403) {
+            const errCode = error.response.data?.error?.code || error.response.data?.code;
+            if (errCode === 'SUBSCRIPTION_EXPIRED' || errCode === 'DEMO_EXPIRED') {
+                const msg = error.response.data?.error?.message || error.response.data?.message || 'Your workspace subscription has expired. Please renew your plan to log in.';
+                sessionStorage.setItem('digioptics_expired_login_message', msg);
+                store.dispatch(logOut());
+                if (!window.location.pathname.startsWith('/login')) {
+                    window.location.href = '/login';
+                }
+            }
+        }
+
         // Normalize backend error structure so that error.response.data.message is always populated
         if (error.response && error.response.data && typeof error.response.data === 'object') {
             const data = error.response.data;

@@ -1,4 +1,4 @@
-import { DIGI_OPTICS_LOGO_BASE64 } from './digiOpticsLogoData';
+import { DIGIBYSR_LOGO_BASE64 } from './digiBySRLogoData';
 
 export function generateTenantInvoice(tenant) {
     const store = tenant.storeInformation || {};
@@ -40,7 +40,7 @@ export function generateTenantInvoice(tenant) {
         sellerEmail:    'garima@digibysr.com',
     };
 
-    const logoUrl = DIGI_OPTICS_LOGO_BASE64 || (window.location.origin + '/DigiOptics.png');
+    const logoUrl = DIGIBYSR_LOGO_BASE64 || (window.location.origin + '/digibysr_horizontal.png') || (window.location.origin + '/digibysr.png');
     const D = JSON.stringify(defaults).replace(/<\/script>/gi, '<\\/script>');
 
     const html = buildInvoiceHTML(D, logoUrl);
@@ -104,7 +104,7 @@ body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-
 .ih-top{display:flex;border-bottom:1.5px solid #000}
 .ih-left{flex:1.25;border-right:1.5px solid #000;display:flex;flex-direction:column}
 .ih-company{padding:8px 10px;display:flex;align-items:flex-start;gap:12px;border-bottom:1px solid #000;min-height:90px}
-.ih-company img{height:48px;max-width:110px;object-fit:contain}
+.ih-company img{height:44px;max-width:125px;object-fit:contain}
 .ih-company-text .cn{font-size:13px;font-weight:bold;margin-bottom:2px}
 .ih-company-text .cs{font-size:10px;line-height:1.45}
 .ih-buyer{padding:8px 10px;font-size:11px;flex:1;min-height:95px;line-height:1.55}
@@ -163,7 +163,7 @@ body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-
   <div id="ph">
     <div class="ph-title">
       <h2>Invoice Editor</h2>
-      <span class="badge">DigiOptics</span>
+      <span class="badge">DigiBySR</span>
     </div>
     <p>Live changes appear instantly on the preview</p>
   </div>
