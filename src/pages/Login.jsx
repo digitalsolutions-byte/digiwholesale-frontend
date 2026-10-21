@@ -205,23 +205,38 @@ const Login = () => {
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="pt-1 flex items-center gap-2 flex-wrap">
-                                        <a
-                                            href="https://wa.me/919876543210?text=Hi%20DigiBySR%2C%20our%20wholesaler%20subscription%20has%20expired%20and%20panel%20access%20is%20blocked.%20Please%20help%20us%20renew."
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="px-3 py-1.5 text-[11px] font-black text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg inline-flex items-center gap-1 shadow-2xs transition-colors"
-                                        >
-                                            <Icon icon="lucide:message-circle" className="text-xs" />
-                                            Renew on WhatsApp
-                                        </a>
-                                        <a
-                                            href="tel:+919876543210"
-                                            className="px-3 py-1.5 text-[11px] font-bold text-slate-700 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg inline-flex items-center gap-1 shadow-2xs transition-colors"
-                                        >
-                                            <Icon icon="lucide:phone-call" className="text-xs text-blue-600" />
-                                            Call Desk
-                                        </a>
+                                    <div className="pt-1 flex flex-col gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <a
+                                                href="https://wa.me/919315806662?text=Hi%20DigiBySR%2C%20our%20wholesaler%20subscription%20has%20expired%20and%20panel%20access%20is%20blocked.%20Please%20help%20us%20renew."
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="px-3 py-1.5 text-[11px] font-black text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg inline-flex items-center gap-1 shadow-2xs transition-colors"
+                                            >
+                                                <Icon icon="lucide:message-circle" className="text-xs" />
+                                                WhatsApp (+91 93158 06662)
+                                            </a>
+                                            <a
+                                                href="tel:+919650560526"
+                                                className="px-3 py-1.5 text-[11px] font-bold text-blue-900 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded-lg inline-flex items-center gap-1 shadow-2xs transition-colors"
+                                            >
+                                                <Icon icon="lucide:phone-call" className="text-xs text-blue-600" />
+                                                +91 96505 60526
+                                            </a>
+                                            <a
+                                                href="tel:+918368942780"
+                                                className="px-3 py-1.5 text-[11px] font-bold text-indigo-900 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-lg inline-flex items-center gap-1 shadow-2xs transition-colors"
+                                            >
+                                                <Icon icon="lucide:phone" className="text-xs text-indigo-600" />
+                                                +91 836 894 2780
+                                            </a>
+                                        </div>
+                                        <div className="text-[10px] text-slate-500 font-medium flex items-center gap-2 flex-wrap pt-0.5">
+                                            <span className="font-bold text-slate-600">Support Emails:</span>
+                                            <a href="mailto:sid@digibysr.com" className="text-blue-600 hover:underline">sid@digibysr.com</a>
+                                            <span>•</span>
+                                            <a href="mailto:suryansh@digibysr.com" className="text-blue-600 hover:underline">suryansh@digibysr.com</a>
+                                        </div>
                                     </div>
                                 </div>
                             )}

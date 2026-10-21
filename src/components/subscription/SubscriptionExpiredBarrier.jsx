@@ -2,10 +2,20 @@ import React from 'react';
 import { Icon } from '@iconify/react';
 import logo from '../../assets/logo.png';
 
-const SUPPORT_PHONE = '+91 98765 43210';
-const SUPPORT_PHONE_RAW = '+919876543210';
-const SUPPORT_EMAIL = 'billing@digibysr.com';
-const SUPPORT_WHATSAPP = '919876543210';
+// Official DigiBySR India Support Contacts
+const SUPPORT_CONTACTS = {
+    whatsapp: '919315806662',
+    whatsappDisplay: '+91 93158 06662',
+    phones: [
+        { label: 'Support Desk 1', display: '+91 96505 60526', raw: '+919650560526' },
+        { label: 'Support Desk 2', display: '+91 836 894 2780', raw: '+918368942780' },
+        { label: 'Accounts & WhatsApp', display: '+91 93158 06662', raw: '+919315806662' }
+    ],
+    emails: [
+        'sid@digibysr.com',
+        'suryansh@digibysr.com'
+    ]
+};
 
 export default function SubscriptionExpiredBarrier({ tenant, user, onLogout }) {
     const store = tenant?.storeInformation || {};
@@ -33,7 +43,7 @@ export default function SubscriptionExpiredBarrier({ tenant, user, onLogout }) {
 
     const emailSubject = encodeURIComponent(`URGENT: Subscription Renewal & Access Restoration - ${storeName} [${tenantId}]`);
     const emailBody = encodeURIComponent(
-        `Dear DigiBySR Billing Team,\n\nOur workspace subscription expired on ${formattedDate}. All panel access is currently restricted.\nPlease share the renewal invoice and payment link to restore service access immediately.\n\nWorkspace ID: ${tenantId}\nStore Name: ${storeName}\n\nThank you!`
+        `Dear DigiBySR Billing & Support Team,\n\nOur workspace subscription expired on ${formattedDate}. All panel access is currently restricted.\nPlease share the renewal invoice and payment link to restore service access immediately.\n\nWorkspace ID: ${tenantId}\nStore Name: ${storeName}\n\nThank you!`
     );
 
     return (
@@ -49,7 +59,7 @@ export default function SubscriptionExpiredBarrier({ tenant, user, onLogout }) {
                         <Icon icon="lucide:lock" className="text-3xl text-white animate-bounce" style={{ animationDuration: '2s' }} />
                     </div>
                     <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-white/25 text-white inline-block mb-2">
-                        Panel Access Restricted
+                        Panel Access Restricted • India
                     </span>
                     <h1 className="text-2xl font-black tracking-tight">Subscription Expired</h1>
                     <p className="text-xs text-rose-100 font-medium mt-1 max-w-sm mx-auto leading-relaxed">
@@ -58,7 +68,7 @@ export default function SubscriptionExpiredBarrier({ tenant, user, onLogout }) {
                 </div>
 
                 {/* Workspace Details & Renewal Actions */}
-                <div className="p-6 space-y-5">
+                <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
                     {/* Workspace Snapshot */}
                     <div className="bg-rose-50/60 border border-rose-200/80 rounded-2xl p-4 flex items-center justify-between">
                         <div className="min-w-0 pr-3">
@@ -82,15 +92,16 @@ export default function SubscriptionExpiredBarrier({ tenant, user, onLogout }) {
                     </div>
 
                     {/* Instant Renewal Channels */}
-                    <div className="space-y-2.5 pt-1">
+                    <div className="space-y-3 pt-1">
                         <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block text-center">
-                            Fast Renewal Assistance
+                            Fast Renewal Assistance (India Support)
                         </span>
 
+                        {/* WhatsApp + Phone Row 1 */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                             {/* WhatsApp Direct */}
                             <a
-                                href={`https://wa.me/${SUPPORT_WHATSAPP}?text=${whatsappMessage}`}
+                                href={`https://wa.me/${SUPPORT_CONTACTS.whatsapp}?text=${whatsappMessage}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="flex items-center gap-3 p-3 rounded-xl border border-emerald-200 bg-emerald-50/60 hover:bg-emerald-50 hover:border-emerald-300 text-emerald-900 transition-all group shadow-2xs"
@@ -99,39 +110,77 @@ export default function SubscriptionExpiredBarrier({ tenant, user, onLogout }) {
                                     <Icon icon="lucide:message-circle" className="text-xl" />
                                 </div>
                                 <div className="min-w-0">
-                                    <span className="text-xs font-black block text-emerald-800">WhatsApp Renew</span>
-                                    <span className="text-[10px] text-emerald-600 font-medium truncate block">Instant chat renewal</span>
+                                    <span className="text-xs font-black block text-emerald-800">WhatsApp Support</span>
+                                    <span className="text-[10px] text-emerald-600 font-medium truncate block">{SUPPORT_CONTACTS.whatsappDisplay}</span>
                                 </div>
                             </a>
 
-                            {/* Direct Phone Call */}
+                            {/* Direct Phone Call 1 */}
                             <a
-                                href={`tel:${SUPPORT_PHONE_RAW}`}
+                                href={`tel:${SUPPORT_CONTACTS.phones[0].raw}`}
                                 className="flex items-center gap-3 p-3 rounded-xl border border-blue-200 bg-blue-50/60 hover:bg-blue-50 hover:border-blue-300 text-blue-900 transition-all group shadow-2xs"
                             >
                                 <div className="w-10 h-10 rounded-xl bg-[#2980B9] text-white flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
                                     <Icon icon="lucide:phone-call" className="text-xl" />
                                 </div>
                                 <div className="min-w-0">
-                                    <span className="text-xs font-black block text-blue-800">Call Billing Desk</span>
-                                    <span className="text-[10px] text-blue-600 font-medium truncate block">{SUPPORT_PHONE}</span>
+                                    <span className="text-xs font-black block text-blue-800">{SUPPORT_CONTACTS.phones[0].label}</span>
+                                    <span className="text-[10px] text-blue-600 font-medium truncate block">{SUPPORT_CONTACTS.phones[0].display}</span>
+                                </div>
+                            </a>
+                        </div>
+
+                        {/* Phone Row 2 */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <a
+                                href={`tel:${SUPPORT_CONTACTS.phones[1].raw}`}
+                                className="flex items-center gap-3 p-3 rounded-xl border border-indigo-200 bg-indigo-50/40 hover:bg-indigo-50 hover:border-indigo-300 text-indigo-900 transition-all group shadow-2xs"
+                            >
+                                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                                    <Icon icon="lucide:phone" className="text-xl" />
+                                </div>
+                                <div className="min-w-0">
+                                    <span className="text-xs font-black block text-indigo-900">{SUPPORT_CONTACTS.phones[1].label}</span>
+                                    <span className="text-[10px] text-indigo-600 font-medium truncate block">{SUPPORT_CONTACTS.phones[1].display}</span>
                                 </div>
                             </a>
 
-                            {/* Email Desk */}
                             <a
-                                href={`mailto:${SUPPORT_EMAIL}?subject=${emailSubject}&body=${emailBody}`}
-                                className="sm:col-span-2 flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100/80 text-slate-800 transition-all group shadow-2xs"
+                                href={`tel:${SUPPORT_CONTACTS.phones[2].raw}`}
+                                className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 transition-all group shadow-2xs"
                             >
                                 <div className="w-10 h-10 rounded-xl bg-slate-700 text-white flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
-                                    <Icon icon="lucide:mail" className="text-xl" />
+                                    <Icon icon="lucide:phone-call" className="text-xl" />
                                 </div>
-                                <div className="min-w-0 flex-1">
-                                    <span className="text-xs font-bold block text-slate-800">Email DigiBySR Billing</span>
-                                    <span className="text-[10px] text-slate-500 font-medium truncate block">{SUPPORT_EMAIL}</span>
+                                <div className="min-w-0">
+                                    <span className="text-xs font-black block text-slate-800">{SUPPORT_CONTACTS.phones[2].label}</span>
+                                    <span className="text-[10px] text-slate-500 font-medium truncate block">{SUPPORT_CONTACTS.phones[2].display}</span>
                                 </div>
-                                <Icon icon="lucide:chevron-right" className="text-slate-400 group-hover:translate-x-1 transition-transform" />
                             </a>
+                        </div>
+
+                        {/* Support Emails */}
+                        <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-2">
+                            <div className="flex items-center gap-2 text-slate-600">
+                                <Icon icon="lucide:mail" className="text-sm text-slate-500" />
+                                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Official Support Emails</span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <a
+                                    href={`mailto:${SUPPORT_CONTACTS.emails[0]}?subject=${emailSubject}&body=${emailBody}`}
+                                    className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200/80 hover:border-blue-400 hover:text-blue-700 text-xs font-bold text-slate-700 transition-all group"
+                                >
+                                    <span className="truncate">{SUPPORT_CONTACTS.emails[0]}</span>
+                                    <Icon icon="lucide:external-link" className="text-xs text-slate-400 group-hover:text-blue-600 flex-shrink-0" />
+                                </a>
+                                <a
+                                    href={`mailto:${SUPPORT_CONTACTS.emails[1]}?subject=${emailSubject}&body=${emailBody}`}
+                                    className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200/80 hover:border-blue-400 hover:text-blue-700 text-xs font-bold text-slate-700 transition-all group"
+                                >
+                                    <span className="truncate">{SUPPORT_CONTACTS.emails[1]}</span>
+                                    <Icon icon="lucide:external-link" className="text-xs text-slate-400 group-hover:text-blue-600 flex-shrink-0" />
+                                </a>
+                            </div>
                         </div>
                     </div>
 
