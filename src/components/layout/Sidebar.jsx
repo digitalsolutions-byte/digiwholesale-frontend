@@ -132,7 +132,7 @@ const navItems = [
             // { label: 'Chart of Accounts', path: PATHS.ACCOUNTING.COA },
             { label: 'Customer Ledgers', path: PATHS.ACCOUNTING.CUSTOMER_LEDGERS },
             { label: 'Vendor Ledgers', path: PATHS.ACCOUNTING.VENDOR_LEDGERS },
-            { label: 'Payments & Vouchers', path: PATHS.ACCOUNTING.PAYMENTS },
+            // { label: 'Payments & Vouchers', path: PATHS.ACCOUNTING.PAYMENTS },
             // { label: 'Cheque Clearance', path: PATHS.ACCOUNTING.CHEQUES },
             // { label: '30/60/90 Aging Report', path: PATHS.ACCOUNTING.AGING },
         ],
