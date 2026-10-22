@@ -50,7 +50,8 @@ const CustomerPaymentModal = ({ open, onClose, customer, initialOrder, onSuccess
   useEffect(() => {
     if (open && customer?._id) {
       fetchOrders(customer._id);
-      const initAmt = initialOrder ? (initialOrder.balanceDue || initialOrder.totalOrderPrice || '') : '';
+      const hasDue = initialOrder && Number(initialOrder.balanceDue || 0) > 0;
+      const initAmt = hasDue ? initialOrder.balanceDue : '';
       setFormData({
         amount: initAmt ? String(initAmt) : '',
         paymentMode: 'UPI',
@@ -61,10 +62,10 @@ const CustomerPaymentModal = ({ open, onClose, customer, initialOrder, onSuccess
           bankName: '',
           chequeDate: '',
           cashVoucherNo: '',
-          remarks: initialOrder ? `Part payment for Order #${initialOrder.orderNumber}` : ''
+          remarks: hasDue ? `Part payment for Order #${initialOrder.orderNumber}` : ''
         }
       });
-      if (initialOrder && initialOrder.orderId) {
+      if (hasDue && initialOrder.orderId) {
         setAllocations({ [initialOrder.orderId]: Number(initAmt) });
       } else {
         setAllocations({});
@@ -98,8 +99,8 @@ const CustomerPaymentModal = ({ open, onClose, customer, initialOrder, onSuccess
         }));
       }
 
-      const pendingOrds = ords.filter(o => o.balanceDue > 0 || (initialOrder && o.orderId === initialOrder.orderId));
-      const targetList = pendingOrds.length > 0 ? pendingOrds : ords.slice(0, 10);
+      const pendingOrds = ords.filter((o) => Number(o.balanceDue || 0) > 0);
+      const targetList = pendingOrds;
 
       // Sort strictly from Past to Recent (Oldest orders first - FIFO)
       const sortedPastToRecent = [...targetList].sort((a, b) => {
