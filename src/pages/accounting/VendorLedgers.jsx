@@ -103,6 +103,16 @@ const VendorLedgers = () => {
   };
 
   const handleOpenPayout = (ledger) => {
+    const rawPending = Number(
+      ledger.pendingDue !== undefined
+        ? ledger.pendingDue
+        : (ledger.currentOutstanding > 0 ? ledger.currentOutstanding : 0)
+    ) || 0;
+    const rawAdvance = Number(
+      ledger.advanceAmount !== undefined
+        ? ledger.advanceAmount
+        : (ledger.currentOutstanding < 0 ? Math.abs(ledger.currentOutstanding) : 0)
+    ) || 0;
     setPayoutVendor({
       _id: ledger.vendorId?._id || ledger.vendorId,
       id: ledger.vendorId?._id || ledger.vendorId,
@@ -112,6 +122,14 @@ const VendorLedgers = () => {
       email: ledger.vendorId?.email,
       gstNumber: ledger.vendorId?.gstNumber || ledger.gstin,
       pan: ledger.pan,
+      creditLimit: Number(ledger.creditLimit || ledger.vendorId?.creditLimit || 0),
+      creditUsed: rawPending,
+      pendingDue: rawPending,
+      advanceAmount: rawAdvance,
+      isGSTRegistered: Boolean(ledger.vendorId?.gstNumber || ledger.gstin),
+      tdsApplicable: ledger.tdsApplicable,
+      tdsSection: ledger.tdsSection,
+      tdsPercentage: ledger.tdsPercentage,
       currentOutstanding: ledger.currentOutstanding
     });
     setPayoutModalOpen(true);

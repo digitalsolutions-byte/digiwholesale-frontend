@@ -50,6 +50,7 @@ const VendorStatement = () => {
   const [filters, setFilters] = useState({ startDate: '', endDate: '' });
   const [showMonthlySummary, setShowMonthlySummary] = useState(false);
   const [payoutModalOpen, setPayoutModalOpen] = useState(false);
+  const [selectedPurchaseForPayout, setSelectedPurchaseForPayout] = useState(null);
   const [expandedRowId, setExpandedRowId] = useState(null);
   const toggleExpandRow = (id) => setExpandedRowId((prev) => (prev === id ? null : id));
   const [downloadingReceiptId, setDownloadingReceiptId] = useState(null);
@@ -293,7 +294,10 @@ const VendorStatement = () => {
           </Button>
           <Button
             variant="contained"
-            onClick={() => setPayoutModalOpen(true)}
+            onClick={() => {
+              setSelectedPurchaseForPayout(null);
+              setPayoutModalOpen(true);
+            }}
             startIcon={<Icon icon="lucide:arrow-up-right" />}
             sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, backgroundColor: '#E11D48', '&:hover': { backgroundColor: '#BE123C' } }}
           >
@@ -677,6 +681,30 @@ const VendorStatement = () => {
                         {/* Actions */}
                         <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                            {isPurchase && dueAmount > 0 && (
+                              <Tooltip title="Part Pay / Allocate Payout for this Purchase" arrow>
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => {
+                                      setSelectedPurchaseForPayout(
+                                        matchedOrder || {
+                                          _id: txn.orderId || txn._id,
+                                          orderId: txn.orderId || txn._id,
+                                          orderNumber: txn.orderNumber || txn.referenceNumber,
+                                          balanceDue: dueAmount,
+                                          grandTotal: orderTotal
+                                        }
+                                      );
+                                      setPayoutModalOpen(true);
+                                    }}
+                                    sx={{ color: '#E11D48', p: 0.5, backgroundColor: '#FFF1F2', '&:hover': { backgroundColor: '#FFE4E6' } }}
+                                  >
+                                    <Icon icon="lucide:arrow-up-right" width={15} />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            )}
                             {isPayout && (
                               <Tooltip title="Download Payout Receipt" arrow>
                                 <span>
@@ -733,6 +761,37 @@ const VendorStatement = () => {
                                     </Typography>
                                   </Box>
                                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    {isPurchase && dueAmount > 0 && (
+                                      <Button
+                                        size="small"
+                                        variant="contained"
+                                        startIcon={<Icon icon="lucide:arrow-up-right" width={15} />}
+                                        onClick={() => {
+                                          setSelectedPurchaseForPayout(
+                                            matchedOrder || {
+                                              _id: txn.orderId || txn._id,
+                                              orderId: txn.orderId || txn._id,
+                                              orderNumber: txn.orderNumber || txn.referenceNumber,
+                                              balanceDue: dueAmount,
+                                              grandTotal: orderTotal
+                                            }
+                                          );
+                                          setPayoutModalOpen(true);
+                                        }}
+                                        sx={{
+                                          textTransform: 'none',
+                                          fontSize: '0.75rem',
+                                          fontWeight: 700,
+                                          backgroundColor: '#E11D48',
+                                          '&:hover': { backgroundColor: '#BE123C' },
+                                          height: 32,
+                                          px: 1.75,
+                                          borderRadius: '6px'
+                                        }}
+                                      >
+                                        Part Pay (₹{dueAmount.toLocaleString()})
+                                      </Button>
+                                    )}
                                     {isPayout && (
                                       <Button size="small" variant="contained"
                                         startIcon={<Icon icon="lucide:receipt" width={15} />}
@@ -961,7 +1020,10 @@ const VendorStatement = () => {
       {payoutModalOpen && (
         <VendorPayoutModal
           open={payoutModalOpen}
-          onClose={() => setPayoutModalOpen(false)}
+          onClose={() => {
+            setPayoutModalOpen(false);
+            setSelectedPurchaseForPayout(null);
+          }}
           vendor={{
             _id: vendor.id || vendor._id || vendorId,
             id: vendor.id || vendor._id || vendorId,
@@ -971,10 +1033,16 @@ const VendorStatement = () => {
             email: vendor.email,
             gstNumber: vendor.gstin || vendor.gstNumber,
             currentOutstanding,
+            creditLimit: Number(vendor.creditLimit || master.creditLimit || 0),
+            creditUsed: currentOutstanding > 0 ? currentOutstanding : 0,
+            pendingDue: currentOutstanding > 0 ? currentOutstanding : 0,
+            advanceAmount: currentOutstanding < 0 ? Math.abs(currentOutstanding) : 0,
+            isGSTRegistered: Boolean(vendor.gstin || vendor.gstNumber),
             tdsApplicable: master.tdsApplicable,
             tdsSection: master.tdsSection,
             tdsPercentage: master.tdsPercentage,
           }}
+          initialPurchase={selectedPurchaseForPayout}
           onSuccess={() => fetchStatement()}
         />
       )}
