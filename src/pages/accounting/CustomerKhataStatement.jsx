@@ -188,6 +188,8 @@ const CustomerKhataStatement = () => {
       isGSTInvoice: Boolean(ord.isGSTRegistered),
       taxableAmount: ord.taxableAmount,
       gstAmount: ord.gstAmount,
+      shippingCharges: Number(ord.shippingCharges || 0),
+      otherCharges: Number(ord.otherCharges || 0),
       createdByName: ord.salesPersonName || 'Sales Staff',
     }));
 
@@ -1731,16 +1733,26 @@ const CustomerKhataStatement = () => {
                                       </TableBody>
                                     </Table>
                                     {/* Tax Summary */}
-                                    {matchedOrder && (
-                                      <Box sx={{ mt: 1, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                                    {(matchedOrder || isOrder) && (
+                                      <Box sx={{ mt: 1, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
                                         <Typography variant="caption" sx={{ color: '#475569' }}>
-                                          Taxable: <strong>₹{Number(matchedOrder.taxableAmount || 0).toLocaleString('en-IN')}</strong>
+                                          Taxable: <strong>₹{Number((matchedOrder?.taxableAmount ?? txn.taxableAmount) || 0).toLocaleString('en-IN')}</strong>
                                         </Typography>
                                         <Typography variant="caption" sx={{ color: '#475569' }}>
-                                          GST: <strong>₹{Number(matchedOrder.gstAmount || 0).toLocaleString('en-IN')}</strong>
+                                          GST: <strong>₹{Number((matchedOrder?.gstAmount ?? txn.gstAmount) || 0).toLocaleString('en-IN')}</strong>
                                         </Typography>
+                                        {Number(matchedOrder?.shippingCharges ?? txn.shippingCharges ?? 0) > 0 && (
+                                          <Typography variant="caption" sx={{ color: '#475569' }}>
+                                            Shipping / Freight: <strong>₹{Number(matchedOrder?.shippingCharges ?? txn.shippingCharges).toLocaleString('en-IN')}</strong>
+                                          </Typography>
+                                        )}
+                                        {Number(matchedOrder?.otherCharges ?? txn.otherCharges ?? 0) > 0 && (
+                                          <Typography variant="caption" sx={{ color: '#475569' }}>
+                                            Other Charges: <strong>₹{Number(matchedOrder?.otherCharges ?? txn.otherCharges).toLocaleString('en-IN')}</strong>
+                                          </Typography>
+                                        )}
                                         <Typography variant="caption" sx={{ color: '#0F172A', fontWeight: 700 }}>
-                                          Grand Total: ₹{Number(matchedOrder.grandTotal || 0).toLocaleString('en-IN')}
+                                          Grand Total: ₹{Number((matchedOrder?.grandTotal ?? txn.orderGrandTotal ?? orderTotal) || 0).toLocaleString('en-IN')}
                                         </Typography>
                                       </Box>
                                     )}
