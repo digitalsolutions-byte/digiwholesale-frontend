@@ -453,15 +453,24 @@ const CustomerKhataStatement = () => {
              </tr>`
           : '';
 
+        const separatorHtml = idx > 0
+          ? `
+          <tr style="height: 14px;">
+            <td colspan="7" style="height: 14px; padding: 0; background: #f1f5f9; border-top: 2px solid #000000; border-bottom: 1.5px solid #000000;"></td>
+          </tr>
+          `
+          : '';
+
         return `
+          ${separatorHtml}
           <tr style="border-bottom: 1px solid #000000;">
-            <td style="border-right: 1px solid #000000; padding: 4px 2px; text-align: center; font-size: 9px; color: #475569;">${idx + 1}</td>
-            <td style="border-right: 1px solid #000000; padding: 4px 4px; text-align: center; font-size: 9px;">${d}</td>
-            <td style="border-right: 1px solid #000000; padding: 4px 6px; font-family: monospace; font-size: 9px; font-weight: 700; color: #0284c7;">${t.referenceNumber || t.voucherId || '0'}</td>
-            <td style="border-right: 1px solid #000000; padding: 4px 6px; font-size: 9px;">${particularsText}</td>
-            <td style="border-right: 1px solid #000000; padding: 4px 6px; text-align: right; font-family: monospace; font-size: 9px; font-weight: 600;">${debit}</td>
-            <td style="border-right: 1px solid #000000; padding: 4px 6px; text-align: right; font-family: monospace; font-size: 9px; font-weight: 600; color: #059669;">${credit}</td>
-            <td style="padding: 4px 6px; text-align: right; font-family: monospace; font-size: 9px; font-weight: 700; color: ${isDue ? '#b91c1c' : '#15803d'};">${bal}</td>
+            <td style="border-right: 1px solid #000000; padding: 6px 4px; text-align: center; font-size: 9px; color: #475569; font-weight: 700;">${idx + 1}</td>
+            <td style="border-right: 1px solid #000000; padding: 6px 4px; text-align: center; font-size: 9px;">${d}</td>
+            <td style="border-right: 1px solid #000000; padding: 6px 6px; font-family: monospace; font-size: 9px; font-weight: 700; color: #0284c7;">${t.referenceNumber || t.voucherId || '0'}</td>
+            <td style="border-right: 1px solid #000000; padding: 6px 6px; font-size: 9px;">${particularsText}</td>
+            <td style="border-right: 1px solid #000000; padding: 6px 6px; text-align: right; font-family: monospace; font-size: 9px; font-weight: 600;">${debit}</td>
+            <td style="border-right: 1px solid #000000; padding: 6px 6px; text-align: right; font-family: monospace; font-size: 9px; font-weight: 600; color: #059669;">${credit}</td>
+            <td style="padding: 6px 6px; text-align: right; font-family: monospace; font-size: 9px; font-weight: 700; color: ${isDue ? '#b91c1c' : '#15803d'};">${bal}</td>
           </tr>
           ${paymentDetailsHtml}
         `;
