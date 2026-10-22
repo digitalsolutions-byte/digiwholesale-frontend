@@ -14,6 +14,8 @@ import {
   TableCell,
   TableBody,
   Paper,
+  TableContainer,
+  LinearProgress,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -45,6 +47,7 @@ const VendorLedgers = () => {
     gstin: '',
     pan: '',
     paymentTerms: 30,
+    creditLimit: 0,
     openingBalance: 0,
     openingBalanceType: 'Credit',
     ledgerStatus: 'Active',
@@ -79,6 +82,7 @@ const VendorLedgers = () => {
       gstin: ledger.gstin || ledger.vendorId?.gstNumber || '',
       pan: ledger.pan || '',
       paymentTerms: ledger.paymentTerms || 30,
+      creditLimit: ledger.creditLimit || ledger.vendorId?.creditLimit || 0,
       openingBalance: ledger.openingBalance || 0,
       openingBalanceType: ledger.openingBalanceType || 'Credit',
       ledgerStatus: ledger.ledgerStatus || 'Active',
@@ -114,12 +118,12 @@ const VendorLedgers = () => {
   };
 
   const totalPayables = ledgers.reduce((sum, l) => {
-    const out = Number(l.currentOutstanding) || 0;
-    return sum + (out > 0 ? out : 0); // Only sum amounts actually owed to vendors
+    const out = Number(l.pendingDue !== undefined ? l.pendingDue : (l.currentOutstanding > 0 ? l.currentOutstanding : 0)) || 0;
+    return sum + (out > 0 ? out : 0);
   }, 0);
   const totalAdvancesPaid = ledgers.reduce((sum, l) => {
-    const out = Number(l.currentOutstanding) || 0;
-    return sum + (out < 0 ? Math.abs(out) : 0); // Only sum overpaid/advance amounts
+    const adv = Number(l.advanceAmount !== undefined ? l.advanceAmount : (l.currentOutstanding < 0 ? Math.abs(l.currentOutstanding) : 0)) || 0;
+    return sum + adv;
   }, 0);
   const totalOverdue = ledgers.reduce((sum, l) => sum + (Number(l.overdueAmount) || 0), 0);
   const activeVendorsCount = ledgers.filter((l) => l.ledgerStatus === 'Active').length;
@@ -228,29 +232,86 @@ const VendorLedgers = () => {
           </Typography>
         </Card>
       ) : (
-        <Paper variant="outlined" sx={{ borderRadius: '12px', overflow: 'hidden' }}>
-          <Table>
+        <TableContainer
+          component={Paper}
+          elevation={0}
+          sx={{
+            borderRadius: '10px',
+            border: '1px solid #E2E8F0',
+            overflowX: 'auto',
+            width: '100%'
+          }}
+        >
+          <Table sx={{ minWidth: 1050 }}>
             <TableHead sx={{ backgroundColor: '#F8FAFC' }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 700 }}>Ledger Code</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Vendor / Firm</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Contact Info</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>GST Number</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700 }}>Payment Terms</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700 }}>Outstanding (₹)</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700 }}>Status</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700 }}>Actions</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Ledger Code</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Vendor / Firm</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Contact Info</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>GST Number</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Limit & Terms</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#475569', width: 180, fontSize: '0.8125rem' }}>Credit Utilization</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Pending Due</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Advance</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Status</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 600, color: '#475569', width: 160, fontSize: '0.8125rem' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {ledgers.map((l) => {
-                const out = Number(l.currentOutstanding || 0);
+                const limit = Number(l.creditLimit ?? l.vendorId?.creditLimit ?? 0);
+                const pendingDue = Number(
+                  l.pendingDue !== undefined
+                    ? l.pendingDue
+                    : (l.currentOutstanding > 0 ? l.currentOutstanding : 0)
+                );
+                const advance = Number(
+                  l.advanceAmount !== undefined
+                    ? l.advanceAmount
+                    : (l.currentOutstanding < 0 ? Math.abs(l.currentOutstanding) : 0)
+                );
+                const terms = l.paymentTerms || l.vendorId?.paymentTerms || 30;
+
+                const effectiveLimit = limit > 0 ? limit : Number(l.totalPurchasedAmount || 0);
+                const available = limit > 0
+                  ? Math.max(0, limit - pendingDue)
+                  : (effectiveLimit > 0 ? Math.max(0, effectiveLimit - pendingDue) : 0);
+                const pct = effectiveLimit > 0
+                  ? Number(((pendingDue / effectiveLimit) * 100).toFixed(1))
+                  : 0;
+                const creditStatus = limit > 0
+                  ? (pendingDue >= limit
+                      ? 'EXCEEDED'
+                      : pendingDue >= 0.8 * limit
+                        ? 'WARNING_20_PERCENT'
+                        : 'HEALTHY')
+                  : (pct >= 100
+                      ? 'EXCEEDED'
+                      : pct >= 80
+                        ? 'WARNING_20_PERCENT'
+                        : 'HEALTHY');
+
                 const gstNo = l.gstin || l.vendorId?.gstNumber;
+
                 return (
-                  <TableRow key={l._id} hover>
-                    <TableCell sx={{ fontWeight: 600, fontFamily: 'monospace' }}>
+                  <TableRow
+                    key={l._id}
+                    hover
+                    sx={{
+                      backgroundColor:
+                        creditStatus === 'EXCEEDED'
+                          ? '#FFF5F5'
+                          : creditStatus === 'WARNING_20_PERCENT'
+                            ? '#FFFBEB'
+                            : 'inherit'
+                    }}
+                  >
+                    {/* Ledger Code */}
+                    <TableCell sx={{ fontWeight: 600, fontFamily: 'monospace', fontSize: '0.8125rem', color: '#475569' }}>
                       {l.ledgerCode}
                     </TableCell>
+
+                    {/* Vendor / Firm */}
                     <TableCell>
                       <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0F172A' }}>
                         {l.vendorId?.firm || l.vendorId?.name || 'N/A'}
@@ -261,6 +322,8 @@ const VendorLedgers = () => {
                         </Typography>
                       )}
                     </TableCell>
+
+                    {/* Contact Info */}
                     <TableCell>
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
@@ -283,6 +346,8 @@ const VendorLedgers = () => {
                         )}
                       </Box>
                     </TableCell>
+
+                    {/* GST Number */}
                     <TableCell>
                       {gstNo ? (
                         <Typography
@@ -307,22 +372,89 @@ const VendorLedgers = () => {
                         </Typography>
                       )}
                     </TableCell>
-                    <TableCell align="right">{l.paymentTerms || 0} Days</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>
-                      {out > 0 ? (
-                        <span style={{ color: '#E11D48' }}>₹{out.toLocaleString()} (To Pay)</span>
-                      ) : out < 0 ? (
-                        <Chip
-                          size="small"
-                          label={`₹${Math.abs(out).toLocaleString()} Advance Paid`}
-                          color="success"
-                          variant="outlined"
-                          sx={{ fontWeight: 700, height: 24, fontSize: '0.75rem' }}
-                        />
-                      ) : (
-                        <span style={{ color: '#6B7280' }}>₹0 (Settled)</span>
-                      )}
+
+                    {/* Limit & Terms */}
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: '#0F172A' }}>
+                        ₹{limit > 0 ? limit.toLocaleString() : (effectiveLimit > 0 ? effectiveLimit.toLocaleString() : '0')}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: '#64748B', display: 'block' }}>
+                        {terms} days window
+                      </Typography>
                     </TableCell>
+
+                    {/* Credit Utilization */}
+                    <TableCell sx={{ width: 180 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontWeight: 600,
+                            color:
+                              creditStatus === 'EXCEEDED'
+                                ? '#DC2626'
+                                : creditStatus === 'WARNING_20_PERCENT'
+                                  ? '#D97706'
+                                  : '#16A34A',
+                            fontSize: '0.72rem'
+                          }}
+                        >
+                          {creditStatus === 'EXCEEDED'
+                            ? `Exceeded (${pct}%)`
+                            : creditStatus === 'WARNING_20_PERCENT'
+                              ? `20% Alert (${pct}%)`
+                              : `Safe (${pct}%)`}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: '#94A3B8', fontSize: '0.72rem' }}>
+                          Rem: ₹{available.toLocaleString()}
+                        </Typography>
+                      </Box>
+                      <LinearProgress
+                        variant="determinate"
+                        value={Math.min(100, pct)}
+                        sx={{
+                          height: 5,
+                          borderRadius: 3,
+                          backgroundColor: '#E2E8F0',
+                          '& .MuiLinearProgress-bar': {
+                            backgroundColor:
+                              creditStatus === 'EXCEEDED'
+                                ? '#EF4444'
+                                : creditStatus === 'WARNING_20_PERCENT'
+                                  ? '#F59E0B'
+                                  : '#10B981'
+                          }
+                        }}
+                      />
+                    </TableCell>
+
+                    {/* Pending Due */}
+                    <TableCell align="right">
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: pendingDue > 0 ? 700 : 400,
+                          color: pendingDue > 0 ? '#E11D48' : '#64748B'
+                        }}
+                      >
+                        {pendingDue > 0 ? `₹${pendingDue.toLocaleString()}` : '₹0'}
+                      </Typography>
+                    </TableCell>
+
+                    {/* Advance */}
+                    <TableCell align="right">
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: advance > 0 ? 700 : 400,
+                          color: advance > 0 ? '#059669' : '#64748B'
+                        }}
+                      >
+                        {advance > 0 ? `₹${advance.toLocaleString()}` : '₹0'}
+                      </Typography>
+                    </TableCell>
+
+                    {/* Status */}
                     <TableCell align="center">
                       <Chip
                         size="small"
@@ -331,6 +463,8 @@ const VendorLedgers = () => {
                         sx={{ fontWeight: 600, height: 22 }}
                       />
                     </TableCell>
+
+                    {/* Actions */}
                     <TableCell align="center">
                       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
                         <Tooltip title="Print / View Vendor Statement">
@@ -375,7 +509,7 @@ const VendorLedgers = () => {
               })}
             </TableBody>
           </Table>
-        </Paper>
+        </TableContainer>
       )}
 
       {/* Financial Master Modal */}
@@ -447,6 +581,17 @@ const VendorLedgers = () => {
                     onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
                     fullWidth
                     helperText="Agreed credit window before payment due"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Credit Limit (₹)"
+                    type="number"
+                    size="small"
+                    value={formData.creditLimit}
+                    onChange={(e) => setFormData({ ...formData, creditLimit: e.target.value })}
+                    fullWidth
+                    helperText="Maximum allowed outstanding credit"
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>

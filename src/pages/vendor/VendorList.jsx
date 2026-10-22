@@ -1,15 +1,10 @@
 import VendorTabNav from '../../components/vendor/VendorTabNav';
-import VendorPayoutModal from '../accounting/VendorPayoutModal';
 import { useNavigate } from 'react-router-dom';
 import React, { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { createPortal } from "react-dom";
 import { useReactTable, getCoreRowModel, getPaginationRowModel, getFilteredRowModel, flexRender } from "@tanstack/react-table";
 import { Icon } from "@iconify/react";
-import {
-    FiInfo, FiEdit2, FiTrash2, FiRefreshCw, FiX, FiUser, FiPhone,
-    FiMail, FiMapPin, FiFileText, FiCreditCard, FiMessageSquare,
-    FiBriefcase, FiSearch, FiChevronLeft, FiChevronRight, FiShoppingCart, FiPlusCircle,
-} from "react-icons/fi";
+import { FiInfo, FiEdit2, FiTrash2, FiX, FiBriefcase, FiSearch, FiShoppingCart } from "react-icons/fi";
 import * as vendorService from "../../services/vendorService";
 import * as vendorOrderService from "../../services/vendorOrderService";
 import api from "../../services/apiInstance";
@@ -21,9 +16,7 @@ import { useDispatch, useSelector } from "react-redux";
 const FETCH_LIMIT = 100;
 const PAGE_SIZE = 100;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Shared UI primitives
-// ─────────────────────────────────────────────────────────────────────────────
+
 const Modal = ({ onClose, children, maxWidth = "max-w-lg" }) => {
     return createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-3 sm:p-4 transition-all duration-300 overflow-y-auto"
@@ -579,6 +572,18 @@ export default function VendorList() {
         { header: "Address", accessorKey: "address" },
         { header: "GST", accessorKey: "gstNumber", cell: ({ getValue }) => getValue() || "-" },
         { header: "Payment Terms", accessorKey: "paymentTerms", cell: ({ getValue }) => getValue() || "-" },
+        {
+            header: "Credit Limit",
+            accessorKey: "creditLimit",
+            cell: ({ getValue }) => {
+                const val = Number(getValue() || 0);
+                return val > 0 ? (
+                    <span className="font-semibold text-gray-800">₹{val.toLocaleString()}</span>
+                ) : (
+                    <span className="text-gray-400">₹0</span>
+                );
+            }
+        },
         { header: "Note", accessorKey: "notes", cell: ({ getValue }) => <span className="text-gray-500 text-xs">{getValue() || "-"}</span> },
 
         ...(checkPerm("DELETE VENDOR") ? [{
@@ -877,6 +882,7 @@ export default function VendorList() {
                                 <InfoRow label="Firm Name" value={selectedVendor.firm} />
                                 <InfoRow label="GST Number" value={selectedVendor.gstNumber} />
                                 <InfoRow label="Payment Terms" value={selectedVendor.paymentTerms} />
+                                <InfoRow label="Credit Limit" value={selectedVendor.creditLimit ? `₹${Number(selectedVendor.creditLimit).toLocaleString()}` : "₹0"} />
                                 <div className="col-span-2 md:col-span-3">
                                     <InfoRow label="Address" value={selectedVendor.address} />
                                 </div>
@@ -1518,7 +1524,7 @@ export default function VendorList() {
 // ─────────────────────────────────────────────────────────────────────────────
 function EditVendorModal({ vendor, onClose, onSuccess }) {
     const [form, setForm] = useState({
-        name: "", firm: "", mobile: "", email: "", address: "", gstNumber: "", paymentTerms: "", notes: "",
+        name: "", firm: "", mobile: "", email: "", address: "", gstNumber: "", paymentTerms: "", creditLimit: "", notes: "",
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -1528,7 +1534,7 @@ function EditVendorModal({ vendor, onClose, onSuccess }) {
             setForm({
                 name: vendor.name || "", firm: vendor.firm || "", mobile: vendor.mobile || "",
                 email: vendor.email || "", address: vendor.address || "", gstNumber: vendor.gstNumber || "",
-                paymentTerms: vendor.paymentTerms || "", notes: vendor.notes || "",
+                paymentTerms: vendor.paymentTerms || "", creditLimit: vendor.creditLimit || "", notes: vendor.notes || "",
             });
         }
     }, [vendor]);
@@ -1622,6 +1628,13 @@ function EditVendorModal({ vendor, onClose, onSuccess }) {
                         <div className="relative group">
                             <Icon icon="mdi:credit-card-outline" className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-erp-accent transition-colors" />
                             <input type="text" placeholder="Net 30 / Advance" value={form.paymentTerms} onChange={update("paymentTerms")} className={iconInputCls} />
+                        </div>
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className={labelCls}>Credit Limit (₹)</label>
+                        <div className="relative group">
+                            <Icon icon="mdi:cash-multiple" className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-erp-accent transition-colors" />
+                            <input type="number" placeholder="50000" value={form.creditLimit} onChange={update("creditLimit")} className={iconInputCls} />
                         </div>
                     </div>
                     <div className="md:col-span-2 space-y-1.5">
