@@ -307,7 +307,7 @@ const VendorStatement = () => {
       </Box>
 
       {/* ── Vendor Header Card ─────────────────────────────────────────── */}
-      <Card sx={{ p: 3, mb: 3, borderRadius: '16px', border: '1px solid #E2E8F0', background: 'linear-gradient(135deg, #FFF1F2 0%, #FFFFFF 100%)' }}>
+      <Card sx={{ p: 3, mb: 3, borderRadius: '16px', border: '1px solid #E2E8F0' }}>
         <Grid container spacing={3} alignItems="center">
           <Grid item xs={12} md={7}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
@@ -366,9 +366,9 @@ const VendorStatement = () => {
       {/* ── KPI Cards ─────────────────────────────────────────────────── */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {[
-          { label: 'Outstanding Payable', value: currentOutstanding, color: '#E11D48', bg: '#FFF1F2', border: '#FECDD3', icon: 'solar:bill-list-bold' },
-          { label: 'Total Purchased (Credit)', value: totalCredit, color: '#B91C1C', bg: '#FFF1F2', border: '#FECDD3', icon: 'solar:cart-large-2-bold' },
+          { label: 'Outstanding Payable', value: currentOutstanding, color: '#1d8705e6', bg: '#ECFDF5', border: '#A7F3D0', icon: 'solar:bill-list-bold' },
           { label: 'Total Paid Out (Debit)', value: totalDebit, color: '#059669', bg: '#ECFDF5', border: '#A7F3D0', icon: 'solar:money-bag-bold' },
+          { label: 'Total Purchased (Credit)', value: totalCredit, color: '#B91C1C', bg: '#FFF1F2', border: '#FECDD3', icon: 'solar:cart-large-2-bold' },
           { label: 'Opening Balance', value: openingBalance, color: '#475569', bg: '#F8FAFC', border: '#E2E8F0', icon: 'solar:history-bold' },
         ].map((kpi, i) => (
           <Grid item xs={6} sm={3} key={i}>
@@ -548,7 +548,7 @@ const VendorStatement = () => {
                   let typeBadge = { bg: '#F3F4F6', text: '#6B7280' };
                   if (isPurchase) {
                     entryType = 'Purchase Invoice';
-                    typeBadge = { bg: '#FEF2F2', text: '#991B1B' };
+                    typeBadge = { bg: '#ECFDF5', text: '#065F46' };
                   } else if (isPayout) {
                     entryType = 'Vendor Payout';
                     typeBadge = { bg: '#ECFDF5', text: '#065F46' };
@@ -556,7 +556,7 @@ const VendorStatement = () => {
 
                   return (
                     <React.Fragment key={rowKey}>
-                      <TableRow hover sx={{ backgroundColor: isExpanded ? '#FFF1F2' : 'inherit' }}>
+                      <TableRow hover sx={{ backgroundColor:  'inherit' }}>
                         {/* Expand Arrow */}
                         <TableCell sx={{ width: 44, p: 0.5, textAlign: 'center' }}>
                           {hasExpandableContent ? (
@@ -737,7 +737,7 @@ const VendorStatement = () => {
                               <Box sx={{ py: 2, px: 2, my: 1.5, backgroundColor: '#FFFFFF', borderRadius: '8px', border: '1px solid #FECDD3', borderLeft: '4px solid #E11D48', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
 
                                 {/* Parties Meta */}
-                                <Box sx={{ mb: 2, p: 1.5, backgroundColor: '#FFF1F2', borderRadius: '6px', border: '1px solid #FECDD3', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
+                                <Box sx={{ mb: 2, p: 1.5, borderRadius: '6px', border: '1px solid #FECDD3', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
                                   <Box>
                                     <Typography variant="caption" sx={{ color: '#E11D48', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.68rem', display: 'block' }}>
                                       Vendor / Supplier Details
