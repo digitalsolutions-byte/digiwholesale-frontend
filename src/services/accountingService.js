@@ -245,10 +245,13 @@ export const downloadOrderInvoice = async (orderId, orderNumber, fileName = 'Inv
   }
 };
 
-export const downloadCustomerLedgerStatement = async (customerId, fileName = 'CustomerLedgerStatement', regenerate = true) => {
+export const downloadCustomerLedgerStatement = async (customerId, fileName = 'CustomerLedgerStatement', regenerate = true, filters = {}) => {
   try {
+    const params = regenerate ? { regenerate: 'true' } : {};
+    if (filters.startDate) params.startDate = filters.startDate;
+    if (filters.endDate) params.endDate = filters.endDate;
     const response = await api.get(`/api/v1/ledgers/customer/${customerId}/statement-pdf`, {
-      params: regenerate ? { regenerate: 'true' } : {},
+      params,
       responseType: 'blob'
     });
     const blob = new Blob([response.data], { type: 'application/pdf' });

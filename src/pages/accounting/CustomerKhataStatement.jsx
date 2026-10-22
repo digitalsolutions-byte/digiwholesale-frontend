@@ -87,7 +87,7 @@ const CustomerKhataStatement = () => {
       const res = await getCustomerStatement(customerId, customFilters);
       setSummary(res.data?.summary || {});
       const rawTxns = res.data?.transactions || [];
-      const sorted = [...rawTxns].sort((a, b) => new Date(b.transactionDate || b.createdAt) - new Date(a.transactionDate || a.createdAt));
+      const sorted = [...rawTxns].sort((a, b) => new Date(a.transactionDate || a.createdAt) - new Date(b.transactionDate || b.createdAt));
       setTransactions(sorted);
       setOrders(res.data?.orders || []);
       setMonthlyBreakdown(res.data?.monthlyBreakdown || []);
@@ -144,7 +144,20 @@ const CustomerKhataStatement = () => {
     .filter(ord => {
       const oid = String(ord.orderId || ord._id || '');
       const onum = String(ord.orderNumber || '');
-      return (!oid || !existingOrderRefs.has(oid)) && (!onum || !existingOrderRefs.has(onum));
+      if ((oid && existingOrderRefs.has(oid)) || (onum && existingOrderRefs.has(onum))) {
+        return false;
+      }
+      // Strictly respect date filter if active
+      if (filters.startDate || filters.endDate) {
+        const ordDate = new Date(ord.orderDate || ord.createdAt);
+        if (filters.startDate && ordDate < new Date(filters.startDate)) return false;
+        if (filters.endDate) {
+          const endD = new Date(filters.endDate);
+          endD.setHours(23, 59, 59, 999);
+          if (ordDate > endD) return false;
+        }
+      }
+      return true;
     })
     .map(ord => ({
       _id: ord._id || ord.orderId,
@@ -190,6 +203,17 @@ const CustomerKhataStatement = () => {
 
   // Filter out standalone payment rows that are already grouped under an order's dropdown
   const standaloneTransactions = transactions.filter(t => {
+    // Strictly respect date filter if active
+    if (filters.startDate || filters.endDate) {
+      const txDate = new Date(t.transactionDate || t.createdAt);
+      if (filters.startDate && txDate < new Date(filters.startDate)) return false;
+      if (filters.endDate) {
+        const endD = new Date(filters.endDate);
+        endD.setHours(23, 59, 59, 999);
+        if (txDate > endD) return false;
+      }
+    }
+
     const isPayment = Boolean(
       (t.referenceNumber && t.referenceNumber.startsWith('CPAY')) ||
       t.voucherType === 'Receipt' ||
@@ -208,9 +232,17 @@ const CustomerKhataStatement = () => {
     return !isAllocated;
   });
 
-  const unifiedTransactions = [...standaloneTransactions, ...unrecordedOrderTxns].sort(
-    (a, b) => new Date(b.transactionDate || b.createdAt) - new Date(a.transactionDate || a.createdAt)
-  );
+  const seenUnifiedKeys = new Set();
+  const unifiedTransactions = [...standaloneTransactions, ...unrecordedOrderTxns]
+    .filter(t => {
+      const key = t.orderNumber || (t.voucherId ? String(t.voucherId) : (t.referenceNumber || String(t._id)));
+      if (seenUnifiedKeys.has(key)) return false;
+      seenUnifiedKeys.add(key);
+      return true;
+    })
+    .sort(
+      (a, b) => new Date(a.transactionDate || a.createdAt) - new Date(b.transactionDate || b.createdAt)
+    );
 
   const displayTotalInvoiced = Number(stats.totalDebit || 0) || unifiedTransactions.reduce((acc, t) => acc + Number(t.orderGrandTotal != null ? t.orderGrandTotal : t.debit || 0), 0);
   const displayTotalReceived = Number(stats.totalCredit || 0) || unifiedTransactions.reduce((acc, t) => acc + Number(t.orderPaidAmount != null ? t.orderPaidAmount : t.credit || 0), 0);
@@ -661,7 +693,10 @@ const CustomerKhataStatement = () => {
     try {
       setDownloadingStatement(true);
       const safeName = (summary.customer?.shopName || summary.customer?.ownerName || 'Customer').replace(/[^a-z0-9]/gi, '-');
-      await downloadCustomerLedgerStatement(customerId, `Ledger-Statement-${safeName}`);
+      const activeFilters = {};
+      if (filters.startDate) activeFilters.startDate = filters.startDate;
+      if (filters.endDate) activeFilters.endDate = filters.endDate;
+      await downloadCustomerLedgerStatement(customerId, `Ledger-Statement-${safeName}`, true, activeFilters);
       toast.success('Customer Ledger Statement downloaded successfully!');
     } catch (err) {
       toast.error(err.message || 'Failed to download ledger statement');
