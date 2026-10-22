@@ -267,3 +267,36 @@ export const downloadCustomerLedgerStatement = async (customerId, fileName = 'Cu
     throw handleServiceError(error, 'Failed to download ledger statement');
   }
 };
+
+export const downloadVendorLedgerStatement = async (vendorId, fileName = 'VendorLedgerStatement', regenerate = true, filters = {}) => {
+  try {
+    const params = regenerate ? { regenerate: 'true' } : {};
+    if (filters.startDate) params.startDate = filters.startDate;
+    if (filters.endDate) params.endDate = filters.endDate;
+    const response = await api.get(`/api/v1/ledgers/vendor/${vendorId}/statement-pdf`, {
+      params,
+      responseType: 'blob'
+    });
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${fileName}-${vendorId}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    throw handleServiceError(error, 'Failed to download vendor ledger statement');
+  }
+};
+
+export const getVendorOrdersForLedger = async (vendorId) => {
+  try {
+    const response = await api.get(`/api/v1/ledgers/vendor/${vendorId}/orders`);
+    return response.data;
+  } catch (error) {
+    throw handleServiceError(error, 'Failed to fetch vendor orders for ledger');
+  }
+};
+

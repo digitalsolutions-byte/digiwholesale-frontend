@@ -1,429 +1,203 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Card, Typography, Button, Grid, Chip, Paper,
-  Table, TableHead, TableRow, TableCell, TableBody,
-  TextField, CircularProgress, Divider, Alert
+  Box, Card, Typography, Button, Grid, Chip, IconButton,
+  TextField, Table, TableHead, TableRow, TableCell, TableBody,
+  TableContainer, Paper, CircularProgress, Divider, Alert,
+  LinearProgress, Tooltip, Collapse
 } from '@mui/material';
 import { Icon } from '@iconify/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { getVendorStatement, downloadPaymentReceipt } from '../../services/accountingService';
+import {
+  getVendorStatement,
+  downloadPaymentReceipt,
+  downloadVendorLedgerStatement,
+} from '../../services/accountingService';
 import VendorPayoutModal from './VendorPayoutModal';
 
 const formatAddress = (addr) => {
   if (!addr) return '';
   if (typeof addr === 'string') return addr;
   if (typeof addr === 'object') {
-    const parts = [
-      addr.address,
-      addr.city,
-      addr.state,
-      addr.zipCode,
-      addr.country
-    ].filter(Boolean);
+    const parts = [addr.address, addr.city, addr.state, addr.zipCode, addr.country].filter(Boolean);
     return parts.join(', ') || addr.branchName || '';
   }
   return '';
+};
+
+const getPurchaseStatusBadge = (status) => {
+  switch ((status || '').toLowerCase()) {
+    case 'received':
+    case 'closed':
+      return { bg: '#DEF7EC', text: '#03543F', border: '#BCF0DA' };
+    case 'partiallyreceived':
+      return { bg: '#FEF3C7', text: '#92400E', border: '#FDE68A' };
+    case 'submitted':
+      return { bg: '#EDE9FE', text: '#5B21B6', border: '#DDD6FE' };
+    default:
+      return { bg: '#F3F4F6', text: '#374151', border: '#E5E7EB' };
+  }
 };
 
 const VendorStatement = () => {
   const { vendorId } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [statementData, setStatementData] = useState(null);
+  const [summary, setSummary] = useState({});
+  const [transactions, setTransactions] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [monthlyBreakdown, setMonthlyBreakdown] = useState([]);
   const [filters, setFilters] = useState({ startDate: '', endDate: '' });
+  const [showMonthlySummary, setShowMonthlySummary] = useState(false);
   const [payoutModalOpen, setPayoutModalOpen] = useState(false);
+  const [expandedRowId, setExpandedRowId] = useState(null);
+  const toggleExpandRow = (id) => setExpandedRowId((prev) => (prev === id ? null : id));
   const [downloadingReceiptId, setDownloadingReceiptId] = useState(null);
+  const [downloadingStatement, setDownloadingStatement] = useState(false);
+  const [statementError, setStatementError] = useState(null);
 
-  const fetchStatement = async () => {
+  const fetchStatement = async (customFilters = filters) => {
     try {
       setLoading(true);
-      const res = await getVendorStatement(vendorId, filters);
+      setStatementError(null);
+      const res = await getVendorStatement(vendorId, customFilters);
       const data = res.data || {};
+      setSummary(data.summary || {});
       const rawTxns = data.transactions || [];
       const sorted = [...rawTxns].sort(
-        (a, b) => new Date(b.transactionDate || b.createdAt) - new Date(a.transactionDate || a.createdAt)
+        (a, b) => new Date(a.transactionDate || a.createdAt) - new Date(b.transactionDate || b.createdAt)
       );
-      setStatementData({ ...data, transactions: sorted });
+      setTransactions(sorted);
+      setOrders(data.orders || []);
+      setMonthlyBreakdown(data.monthlyBreakdown || []);
     } catch (err) {
-      toast.error(err.message || 'Failed to load vendor statement');
+      const msg = err.response?.data?.message || err.message || 'Failed to load vendor statement';
+      setStatementError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (vendorId) {
-      fetchStatement();
-    }
+    if (vendorId) fetchStatement();
   }, [vendorId]);
 
-  const summary = statementData?.summary || statementData || {};
-  const vendor = summary.vendor || statementData?.vendor || {};
-  const master = summary.ledgerMaster || statementData?.ledgerMaster || {};
-  const stats = summary.statistics || statementData?.statistics || {};
-  const transactions = statementData?.transactions || [];
+  const stats = summary.statistics || {};
+  const master = summary.ledgerMaster || {};
+  const vendor = summary.vendor || {};
 
-  const currentOutstanding = Number(
-    master.currentOutstanding !== undefined
-      ? master.currentOutstanding
-      : master.currentBalance !== undefined
-      ? master.currentBalance
-      : stats.currentOutstanding || 0
-  );
-  const totalDebit = Number(stats.totalDebit || 0);     // Total Payouts/Returns
-  const totalCredit = Number(stats.totalCredit || 0);   // Total Purchases
+  const currentOutstanding = Number(master.currentOutstanding !== undefined ? master.currentOutstanding : stats.currentOutstanding || 0);
+  const totalDebit = Number(stats.totalDebit || 0);
+  const totalCredit = Number(stats.totalCredit || 0);
   const openingBalance = Number(stats.openingBalance || master.openingBalance || 0);
 
-  // ── Bulletproof Dedicated Print Engine (Zero CSS / Layout clipping) ──────────
-  const handlePrint = () => {
-    const printWindow = window.open('', '_blank', 'width=950,height=800');
-    if (!printWindow) {
-      window.print();
-      return;
+  // Build orders lookup map
+  const ordersMap = {};
+  orders.forEach(ord => {
+    if (ord.orderId) ordersMap[String(ord.orderId)] = ord;
+    if (ord._id) ordersMap[String(ord._id)] = ord;
+    if (ord.orderNumber) ordersMap[ord.orderNumber] = ord;
+  });
+
+  // Detect unrecorded purchase orders not yet in the transactions list
+  const existingOrderRefs = new Set(
+    transactions.flatMap(t => [
+      String(t.orderId || ''), String(t.voucherId || ''),
+      String(t.referenceNumber || ''), String(t.orderNumber || '')
+    ]).filter(Boolean)
+  );
+
+  const unrecordedOrderTxns = orders
+    .filter(ord => {
+      const oid = String(ord.orderId || ord._id || '');
+      const onum = String(ord.orderNumber || '');
+      if ((oid && existingOrderRefs.has(oid)) || (onum && existingOrderRefs.has(onum))) return false;
+      if (filters.startDate || filters.endDate) {
+        const ordDate = new Date(ord.orderDate || ord.createdAt);
+        if (filters.startDate && ordDate < new Date(filters.startDate)) return false;
+        if (filters.endDate) {
+          const endD = new Date(filters.endDate);
+          endD.setHours(23, 59, 59, 999);
+          if (ordDate > endD) return false;
+        }
+      }
+      return true;
+    })
+    .map(ord => ({
+      _id: ord._id || ord.orderId,
+      voucherId: ord.orderId || ord._id,
+      orderId: ord.orderId || ord._id,
+      orderNumber: ord.orderNumber,
+      referenceNumber: ord.orderNumber,
+      voucherType: 'Purchase Invoice',
+      transactionDate: ord.orderDate || ord.createdAt,
+      createdAt: ord.createdAt,
+      credit: Number(ord.grandTotal || ord.totalOrderPrice || 0),
+      debit: 0,
+      runningBalance: Number(ord.balanceDue || 0),
+      vendorName: ord.vendorName || vendor.firm || vendor.name || 'Vendor',
+      items: ord.items || [],
+      orderStatus: ord.orderStatus || 'Submitted',
+      orderGrandTotal: Number(ord.grandTotal || ord.totalOrderPrice || 0),
+      orderPaidAmount: Number(ord.paidAmount || 0),
+      orderBalanceDue: Number(ord.balanceDue || 0),
+      partPaymentStatus: ord.paymentStatus,
+      partPaymentPercentage: ord.partPaymentPercentage,
+      orderPayments: ord.orderPayments || [],
+      taxableAmount: ord.taxableAmount,
+      gstAmount: ord.gstAmount,
+      shippingCharges: Number(ord.shippingCharges || 0),
+      otherCharges: Number(ord.otherCharges || 0),
+      createdByName: 'Staff',
+    }));
+
+  // Collect payment refs already grouped under orders
+  const allocatedPaymentRefs = new Set();
+  orders.forEach(ord => {
+    (ord.orderPayments || []).forEach(p => {
+      if (p.paymentNumber) allocatedPaymentRefs.add(String(p.paymentNumber));
+      if (p.referenceNumber) allocatedPaymentRefs.add(String(p.referenceNumber));
+      if (p.paymentId) allocatedPaymentRefs.add(String(p.paymentId));
+    });
+  });
+
+  // Filter standalone transactions
+  const standaloneTransactions = transactions.filter(t => {
+    if (filters.startDate || filters.endDate) {
+      const txDate = new Date(t.transactionDate || t.createdAt);
+      if (filters.startDate && txDate < new Date(filters.startDate)) return false;
+      if (filters.endDate) {
+        const endD = new Date(filters.endDate);
+        endD.setHours(23, 59, 59, 999);
+        if (txDate > endD) return false;
+      }
     }
 
-    const vendorName = vendor.name || vendor.firm || vendor.firmName || 'Supplier';
-    const contactPerson = vendor.contactPerson || vendor.name || '—';
-    const mobile = vendor.mobile || '—';
-    const email = vendor.email || '—';
-    const gstin = vendor.gstin || vendor.gstNumber || 'Unregistered';
-    const addr = formatAddress(vendor.address);
-    const ledgerCode = master.ledgerCode || 'VEND-LED';
-    const periodText = filters.startDate ? `${filters.startDate} to ${filters.endDate || 'Present'}` : 'Full History';
-    const printDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const isPayout = Boolean(
+      (t.referenceNumber && t.referenceNumber.startsWith('VPAY')) ||
+      t.voucherType === 'Payment Voucher' ||
+      (Number(t.debit) > 0 && !t.referenceNumber?.startsWith('PO-'))
+    );
+    if (!isPayout) return true;
 
-    const totalDebitStr = totalDebit.toLocaleString('en-IN');
-    const totalCreditStr = totalCredit.toLocaleString('en-IN');
-    const netBalanceText = currentOutstanding > 0
-      ? `₹${currentOutstanding.toLocaleString('en-IN')} (Payable Due)`
-      : currentOutstanding < 0
-      ? `₹${Math.abs(currentOutstanding).toLocaleString('en-IN')} (Debit Advance)`
-      : '₹0.00 (Settled)';
+    const isAllocated =
+      t.isOrderAllocatedPayment ||
+      allocatedPaymentRefs.has(String(t.referenceNumber || '')) ||
+      allocatedPaymentRefs.has(String(t.voucherId || '')) ||
+      allocatedPaymentRefs.has(String(t._id || ''));
+    return !isAllocated;
+  });
 
-    const rowsHtml = transactions.length === 0
-      ? '<tr><td colspan="7" style="padding:20px;text-align:center;color:#64748b;">No transactions recorded for this supplier in the selected period.</td></tr>'
-      : transactions.map((t, idx) => {
-          const isDebit = Number(t.debit || 0) > 0;
-          const isCredit = Number(t.credit || 0) > 0;
-          const rb = Number(t.runningBalance || 0);
-          const rbText = rb > 0
-            ? `<span style="color:#b91c1c;font-weight:700;">₹${rb.toLocaleString('en-IN')} (Payable)</span>`
-            : rb < 0
-            ? `<span style="color:#15803d;font-weight:700;">₹${Math.abs(rb).toLocaleString('en-IN')} (Adv)</span>`
-            : '<span style="color:#64748b;">₹0.00</span>';
-
-          return `
-            <tr style="background-color: ${idx % 2 === 1 ? '#f8fafc' : '#ffffff'};">
-              <td style="padding:6px 8px;text-align:center;color:#64748b;font-size:10px;">${idx + 1}</td>
-              <td style="padding:6px 8px;white-space:nowrap;font-size:10.5px;">${new Date(t.transactionDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
-              <td style="padding:6px 8px;font-family:monospace;font-weight:700;font-size:10.5px;">${t.referenceNumber || '—'}</td>
-              <td style="padding:6px 8px;font-size:10.5px;color:#334155;">${t.narration || '—'}</td>
-              <td style="padding:6px 8px;text-align:right;font-size:10.5px;${isDebit ? 'color:#059669;font-weight:700;' : 'color:#94a3b8;'}">${isDebit ? '₹' + Number(t.debit).toLocaleString('en-IN') : '—'}</td>
-              <td style="padding:6px 8px;text-align:right;font-size:10.5px;${isCredit ? 'color:#b91c1c;font-weight:700;' : 'color:#94a3b8;'}">${isCredit ? '₹' + Number(t.credit).toLocaleString('en-IN') : '—'}</td>
-              <td style="padding:6px 8px;text-align:right;font-size:10.5px;">${rbText}</td>
-            </tr>
-          `;
-        }).join('');
-
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8" />
-        <title>Vendor Statement - ${vendorName}</title>
-        <style>
-          @page {
-            size: A4 portrait;
-            margin: 10mm 10mm 12mm 10mm;
-          }
-          * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          body {
-            background: #ffffff;
-            color: #0f172a;
-            padding: 16px;
-            font-size: 11px;
-          }
-          .header-bar {
-            border-bottom: 2.5px solid #0284c7;
-            padding-bottom: 12px;
-            margin-bottom: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-          }
-          .brand-title {
-            font-size: 24px;
-            font-weight: 900;
-            color: #0f172a;
-            letter-spacing: -0.5px;
-          }
-          .brand-title span {
-            color: #0284c7;
-          }
-          .company-details {
-            font-size: 10.5px;
-            color: #475569;
-            margin-top: 3px;
-            line-height: 1.4;
-          }
-          .doc-header {
-            text-align: right;
-          }
-          .doc-title {
-            font-size: 18px;
-            font-weight: 800;
-            color: #0284c7;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-          }
-          .doc-meta {
-            font-size: 10.5px;
-            color: #64748b;
-            margin-top: 3px;
-          }
-          .grid-2 {
-            display: grid;
-            grid-template-columns: 1.2fr 1fr;
-            gap: 12px;
-            margin-bottom: 16px;
-          }
-          .info-box {
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            padding: 10px 12px;
-            background: #f8fafc;
-          }
-          .box-title {
-            font-size: 10px;
-            font-weight: 800;
-            color: #0284c7;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-            letter-spacing: 0.5px;
-          }
-          .kpi-row {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-            margin-bottom: 16px;
-            text-align: center;
-          }
-          .kpi-card {
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            padding: 8px;
-            background: #f8fafc;
-          }
-          .kpi-card.highlight {
-            background: ${currentOutstanding > 0 ? '#fee2e2' : '#f0fdf4'};
-            border-color: ${currentOutstanding > 0 ? '#fca5a5' : '#86efac'};
-          }
-          .kpi-card-title {
-            font-size: 9px;
-            font-weight: 700;
-            color: #64748b;
-            text-transform: uppercase;
-          }
-          .kpi-card-val {
-            font-size: 12.5px;
-            font-weight: 800;
-            margin-top: 2px;
-            color: #0f172a;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 16px;
-            page-break-inside: auto;
-          }
-          tr {
-            page-break-inside: avoid;
-            page-break-after: auto;
-          }
-          th, td {
-            border: 1px solid #cbd5e1;
-            padding: 6px 8px;
-            text-align: left;
-            font-size: 10.5px;
-          }
-          th {
-            background: #f1f5f9;
-            font-weight: 700;
-            color: #1e293b;
-            text-transform: uppercase;
-            font-size: 10px;
-          }
-          tfoot tr {
-            background: #f1f5f9;
-            font-weight: 700;
-          }
-          .terms-grid {
-            display: grid;
-            grid-template-columns: 1.4fr 1fr;
-            gap: 16px;
-            margin-top: 16px;
-            border-top: 1px solid #cbd5e1;
-            padding-top: 12px;
-            page-break-inside: avoid;
-          }
-          .terms-title {
-            font-size: 10px;
-            font-weight: 800;
-            color: #475569;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-          }
-          .terms-list {
-            margin: 0;
-            padding-left: 14px;
-            font-size: 9.5px;
-            color: #64748b;
-            line-height: 1.4;
-          }
-          .sign-box {
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            align-items: flex-end;
-            min-height: 65px;
-          }
-          .sign-line {
-            border-top: 1px solid #94a3b8;
-            width: 160px;
-            text-align: center;
-            padding-top: 3px;
-            font-size: 9.5px;
-            color: #64748b;
-          }
-        </style>
-      </head>
-      <body>
-        <!-- Header -->
-        <div class="header-bar">
-          <div>
-            <div class="brand-title">Digi<span>Optics</span> Wholesale</div>
-            <div class="company-details">
-              WeWork Eldeco Centre, Block A, Shivalik Colony, Malviya Nagar, New Delhi 110017<br />
-              <strong>GSTIN:</strong> GST9876543210 &nbsp;|&nbsp; <strong>Phone:</strong> +91 9650560526 &nbsp;|&nbsp; <strong>Email:</strong> accounts@digioptics.com
-            </div>
-          </div>
-          <div class="doc-header">
-            <div class="doc-title">Vendor Account Statement</div>
-            <div class="doc-meta"><strong>Date:</strong> ${printDate}</div>
-            <div class="doc-meta"><strong>Period:</strong> ${periodText}</div>
-          </div>
-        </div>
-
-        <!-- Vendor & Ledger Summary Grid -->
-        <div class="grid-2">
-          <div class="info-box">
-            <div class="box-title">Supplier / Vendor Details</div>
-            <div style="font-size: 13px; font-weight: 800; color: #0f172a;">${vendorName}</div>
-            <div style="margin-top: 2px;"><strong>Contact Person:</strong> ${contactPerson}</div>
-            <div><strong>Mobile:</strong> ${mobile} &nbsp;|&nbsp; <strong>Email:</strong> ${email}</div>
-            <div><strong>GSTIN:</strong> ${gstin}</div>
-            ${addr ? `<div style="color: #64748b; margin-top: 2px;"><strong>Address:</strong> ${addr}</div>` : ''}
-          </div>
-
-          <div class="info-box">
-            <div class="box-title">Supplier Ledger Overview</div>
-            <div><strong>Ledger Code:</strong> <span style="font-family: monospace; font-weight: 700;">${ledgerCode}</span></div>
-            <div><strong>Payment Terms:</strong> ${master.paymentTerms || 30} Days &nbsp;|&nbsp; <strong>Category:</strong> ${master.vendorCategory || 'Standard'}</div>
-            ${master.tdsApplicable ? `<div><strong>TDS Applicable:</strong> ${master.tdsSection || '194C'} (${master.tdsPercentage || 0}%)</div>` : ''}
-            <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #cbd5e1; display: flex; justify-content: space-between;">
-              <strong>Account Position:</strong>
-              <span style="font-weight: 800; color: ${currentOutstanding > 0 ? '#b91c1c' : '#059669'};">
-                ${netBalanceText}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- KPI Summary Cards -->
-        <div class="kpi-row">
-          <div class="kpi-card">
-            <div class="kpi-card-title">Total Purchases (Credit)</div>
-            <div class="kpi-card-val" style="color: #b91c1c;">₹${totalCreditStr}</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-card-title">Total Paid Out (Debit)</div>
-            <div class="kpi-card-val" style="color: #059669;">₹${totalDebitStr}</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-card-title">Opening Balance</div>
-            <div class="kpi-card-val">₹${openingBalance.toLocaleString('en-IN')}</div>
-          </div>
-          <div class="kpi-card highlight">
-            <div class="kpi-card-title" style="color: ${currentOutstanding > 0 ? '#991b1b' : '#166534'};">Net Outstanding Payable</div>
-            <div class="kpi-card-val" style="color: ${currentOutstanding > 0 ? '#b91c1c' : '#059669'}; font-weight: 900;">
-              ${currentOutstanding > 0 ? '₹' + currentOutstanding.toLocaleString('en-IN') + ' (Payable)' : '₹0.00 (Settled)'}
-            </div>
-          </div>
-        </div>
-
-        <!-- Statement Table -->
-        <table>
-          <thead>
-            <tr>
-              <th style="text-align: center; width: 35px;">#</th>
-              <th style="width: 75px;">Date</th>
-              <th style="width: 130px;">Ref / Voucher No.</th>
-              <th>Particulars / Narration</th>
-              <th style="text-align: right; width: 90px;">Debit (Paid ₹)</th>
-              <th style="text-align: right; width: 90px;">Credit (Purchased ₹)</th>
-              <th style="text-align: right; width: 110px;">Balance (₹)</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rowsHtml}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colspan="4" style="text-align: right; text-transform: uppercase;">Period Totals:</td>
-              <td style="text-align: right; color: #059669;">₹${totalDebitStr}</td>
-              <td style="text-align: right; color: #b91c1c;">₹${totalCreditStr}</td>
-              <td style="text-align: right; color: #0f172a;">${currentOutstanding > 0 ? '₹' + currentOutstanding.toLocaleString('en-IN') + ' (Payable)' : '₹0.00'}</td>
-            </tr>
-          </tfoot>
-        </table>
-
-        <!-- Terms & Signatory -->
-        <div class="terms-grid">
-          <div>
-            <div class="terms-title">Notes & Audit Information:</div>
-            <ul class="terms-list">
-              <li>This is a computer-generated vendor ledger statement and does not require a physical signature.</li>
-              <li>Please verify all goods received notes, purchase bills, debit notes, and payout entries.</li>
-              <li>Any discrepancies must be brought to our accounting department's attention within 7 business days.</li>
-              <li>All payments are issued through authorized banking channels (NEFT/RTGS/Cheque).</li>
-            </ul>
-          </div>
-          <div class="sign-box">
-            <div style="font-weight: 800; color: #0f172a;">For DigiOptics Wholesale</div>
-            <div class="sign-line">Authorized Signatory</div>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 250);
-  };
+  const seenUnifiedKeys = new Set();
+  const unifiedTransactions = [...standaloneTransactions, ...unrecordedOrderTxns]
+    .filter(t => {
+      const key = t.orderNumber || (t.voucherId ? String(t.voucherId) : (t.referenceNumber || String(t._id)));
+      if (seenUnifiedKeys.has(key)) return false;
+      seenUnifiedKeys.add(key);
+      return true;
+    })
+    .sort((a, b) => new Date(a.transactionDate || a.createdAt) - new Date(b.transactionDate || b.createdAt));
 
   const handleDownloadReceipt = async (txn) => {
     const refKey = txn.voucherId || txn.referenceNumber || txn._id;
@@ -438,17 +212,49 @@ const VendorStatement = () => {
     }
   };
 
+  const handleDownloadLedgerStatement = async () => {
+    try {
+      setDownloadingStatement(true);
+      const safeName = (vendor.firm || vendor.name || 'vendor').replace(/[^a-z0-9]/gi, '-').toLowerCase();
+      await downloadVendorLedgerStatement(
+        vendorId,
+        `VendorStatement-${safeName}`,
+        true,
+        filters
+      );
+      toast.success('Vendor ledger statement downloaded');
+    } catch (err) {
+      toast.error(err.message || 'Failed to download statement');
+    } finally {
+      setDownloadingStatement(false);
+    }
+  };
+
+  const handleFilterMonth = (monthKey) => {
+    if (!monthKey) return;
+    const [yr, mo] = monthKey.split('-').map(Number);
+    const start = new Date(yr, mo - 1, 1).toISOString().split('T')[0];
+    const end = new Date(yr, mo, 0).toISOString().split('T')[0];
+    const newFilters = { startDate: start, endDate: end };
+    setFilters(newFilters);
+    fetchStatement(newFilters);
+    toast.info(`Filtered transactions for ${monthKey}`);
+  };
+
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-        <CircularProgress />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
+        <Box sx={{ textAlign: 'center' }}>
+          <CircularProgress size={40} />
+          <Typography sx={{ mt: 2, color: 'text.secondary' }}>Loading vendor statement…</Typography>
+        </Box>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1300, mx: 'auto' }}>
-      {/* Top Actions */}
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1400, mx: 'auto' }}>
+      {/* ── Top Action Bar ────────────────────────────────────────────── */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Button
@@ -460,49 +266,66 @@ const VendorStatement = () => {
             Back to Vendors
           </Button>
           <Box>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: '#0F172A' }}>
-              Vendor Account Statement
-            </Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: '#0F172A' }}>Vendor Account Statement</Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Supplier purchases, debit notes, payouts and live ledger
+              Supplier purchases, payouts &amp; live ledger
             </Typography>
           </Box>
         </Box>
 
-        <Box sx={{ display: 'flex', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
           <Button
-            variant="contained"
-            color="primary"
-            onClick={() => setPayoutModalOpen(true)}
-            startIcon={<Icon icon="lucide:arrow-up-right" />}
-            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, backgroundColor: '#0284C7' }}
+            variant="outlined"
+            onClick={() => setShowMonthlySummary(prev => !prev)}
+            startIcon={<Icon icon={showMonthlySummary ? 'lucide:chevron-up' : 'lucide:calendar'} />}
+            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, borderColor: '#94A3B8', color: '#475569' }}
           >
-            Record Payout
+            Monthly Summary
           </Button>
           <Button
             variant="outlined"
-            onClick={handlePrint}
-            startIcon={<Icon icon="lucide:printer" />}
-            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, borderColor: '#0284C7', color: '#0284C7' }}
+            onClick={handleDownloadLedgerStatement}
+            disabled={downloadingStatement}
+            startIcon={downloadingStatement ? <CircularProgress size={16} color="inherit" /> : <Icon icon="lucide:download" />}
+            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, borderColor: '#6366F1', color: '#6366F1', '&:hover': { backgroundColor: '#EEF2FF' } }}
           >
-            Print Statement
+            {downloadingStatement ? 'Downloading…' : 'Download Statement'}
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => setPayoutModalOpen(true)}
+            startIcon={<Icon icon="lucide:arrow-up-right" />}
+            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, backgroundColor: '#E11D48', '&:hover': { backgroundColor: '#BE123C' } }}
+          >
+            Record Payout
           </Button>
         </Box>
       </Box>
 
-      {/* Vendor Header Card */}
-      <Card sx={{ p: 3, mb: 3, borderRadius: '16px', border: '1px solid #E2E8F0' }}>
+      {/* ── Vendor Header Card ─────────────────────────────────────────── */}
+      <Card sx={{ p: 3, mb: 3, borderRadius: '16px', border: '1px solid #E2E8F0', background: 'linear-gradient(135deg, #FFF1F2 0%, #FFFFFF 100%)' }}>
         <Grid container spacing={3} alignItems="center">
           <Grid item xs={12} md={7}>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: '#0F172A' }}>
-              {vendor.name || vendor.firm || vendor.firmName || 'Supplier'}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
+              <Box sx={{ width: 42, height: 42, borderRadius: '10px', backgroundColor: '#E11D48', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon icon="solar:shop-bold" style={{ color: '#fff', fontSize: 22 }} />
+              </Box>
+              <Box>
+                <Typography variant="h5" sx={{ fontWeight: 800, color: '#0F172A' }}>
+                  {vendor.firm || vendor.name || 'Supplier'}
+                </Typography>
+                {vendor.firm && vendor.name && (
+                  <Typography variant="caption" sx={{ color: '#64748B' }}>Contact: {vendor.name}</Typography>
+                )}
+              </Box>
+            </Box>
             <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
-              Contact: <strong>{vendor.contactPerson || vendor.name || '—'}</strong> | Mobile: <strong>{vendor.mobile || '—'}</strong>
+              Mobile: <strong>{vendor.mobile || '—'}</strong>
+              {vendor.email && <> | Email: <strong>{vendor.email}</strong></>}
             </Typography>
             {(vendor.gstin || vendor.gstNumber) && (
               <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                GSTIN: {vendor.gstin || vendor.gstNumber}
+                GSTIN: <strong style={{ fontFamily: 'monospace' }}>{vendor.gstin || vendor.gstNumber}</strong>
               </Typography>
             )}
             {formatAddress(vendor.address) && (
@@ -511,12 +334,9 @@ const VendorStatement = () => {
               </Typography>
             )}
             <Box sx={{ display: 'flex', gap: 1, mt: 1.5, flexWrap: 'wrap' }}>
-              <Chip size="small" label={`Ledger: ${master.ledgerCode || 'VEND-LED'}`} sx={{ fontWeight: 600 }} />
-              <Chip size="small" label={`Category: ${master.vendorCategory || 'Standard'}`} variant="outlined" sx={{ fontWeight: 600 }} />
-              <Chip size="small" label={`Terms: ${master.paymentTerms || 30} Days`} sx={{ fontWeight: 600 }} />
-              {master.tdsApplicable && (
-                <Chip size="small" label={`TDS: ${master.tdsSection || '194C'} (${master.tdsPercentage || 0}%)`} color="warning" sx={{ fontWeight: 600 }} />
-              )}
+              <Chip size="small" label={`Ledger: ${master.ledgerCode || 'VEND-LED'}`} sx={{ fontWeight: 600, fontSize: '0.72rem' }} />
+              {master.paymentTerms && <Chip size="small" label={`Terms: ${master.paymentTerms} Days`} variant="outlined" sx={{ fontWeight: 600, fontSize: '0.72rem' }} />}
+              <Chip size="small" label={`${unifiedTransactions.length} Transactions`} sx={{ fontWeight: 600, fontSize: '0.72rem', backgroundColor: '#F1F5F9', color: '#475569' }} />
             </Box>
           </Grid>
 
@@ -525,11 +345,13 @@ const VendorStatement = () => {
               Net Balance Payable to Vendor
             </Typography>
             <Typography variant="h4" sx={{ fontWeight: 800, color: currentOutstanding > 0 ? '#E11D48' : '#059669', mt: 0.5 }}>
-              {currentOutstanding > 0 ? `₹${currentOutstanding.toLocaleString()} (Payable)` : '₹0 (Settled)'}
+              {currentOutstanding > 0
+                ? `₹${currentOutstanding.toLocaleString('en-IN', { minimumFractionDigits: 2 })} (Payable)`
+                : '₹0.00 (Settled)'}
             </Typography>
             <Chip
               size="small"
-              label={currentOutstanding > 0 ? 'Payment Due (Payable)' : 'Account Settled'}
+              label={currentOutstanding > 0 ? 'Payment Due to Vendor' : 'Account Settled'}
               color={currentOutstanding > 0 ? 'error' : 'success'}
               sx={{ mt: 1, fontWeight: 700 }}
             />
@@ -537,50 +359,90 @@ const VendorStatement = () => {
         </Grid>
       </Card>
 
-      {/* KPI Cards */}
+      {/* ── KPI Cards ─────────────────────────────────────────────────── */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={6} sm={3}>
-          <Paper elevation={0} sx={{ p: 2, borderRadius: '10px', border: '1px solid #FECDD3', backgroundColor: '#FFF1F2' }}>
-            <Typography variant="caption" sx={{ color: '#E11D48', fontWeight: 700 }}>Outstanding Payable</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 800, color: '#E11D48' }}>
-              ₹{currentOutstanding.toLocaleString()}
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={6} sm={3}>
-          <Paper elevation={0} sx={{ p: 2, borderRadius: '10px', border: '1px solid #E2E8F0', backgroundColor: '#F8FAFC' }}>
-            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700 }}>Total Purchased (Credit)</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 800, color: '#E11D48' }}>
-              ₹{totalCredit.toLocaleString()}
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={6} sm={3}>
-          <Paper elevation={0} sx={{ p: 2, borderRadius: '10px', border: '1px solid #A7F3D0', backgroundColor: '#ECFDF5' }}>
-            <Typography variant="caption" sx={{ color: '#059669', fontWeight: 700 }}>Total Paid Out (Debit)</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 800, color: '#059669' }}>
-              ₹{totalDebit.toLocaleString()}
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={6} sm={3}>
-          <Paper elevation={0} sx={{ p: 2, borderRadius: '10px', border: '1px solid #E2E8F0', backgroundColor: '#F8FAFC' }}>
-            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700 }}>Opening Balance</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 800 }}>
-              ₹{openingBalance.toLocaleString()}
-            </Typography>
-          </Paper>
-        </Grid>
+        {[
+          { label: 'Outstanding Payable', value: currentOutstanding, color: '#E11D48', bg: '#FFF1F2', border: '#FECDD3', icon: 'solar:bill-list-bold' },
+          { label: 'Total Purchased (Credit)', value: totalCredit, color: '#B91C1C', bg: '#FFF1F2', border: '#FECDD3', icon: 'solar:cart-large-2-bold' },
+          { label: 'Total Paid Out (Debit)', value: totalDebit, color: '#059669', bg: '#ECFDF5', border: '#A7F3D0', icon: 'solar:money-bag-bold' },
+          { label: 'Opening Balance', value: openingBalance, color: '#475569', bg: '#F8FAFC', border: '#E2E8F0', icon: 'solar:history-bold' },
+        ].map((kpi, i) => (
+          <Grid item xs={6} sm={3} key={i}>
+            <Paper elevation={0} sx={{ p: 2, borderRadius: '10px', border: `1px solid ${kpi.border}`, backgroundColor: kpi.bg }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                <Icon icon={kpi.icon} style={{ color: kpi.color, fontSize: 18 }} />
+                <Typography variant="caption" sx={{ color: kpi.color, fontWeight: 700 }}>{kpi.label}</Typography>
+              </Box>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: kpi.color }}>
+                ₹{kpi.value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </Typography>
+            </Paper>
+          </Grid>
+        ))}
       </Grid>
 
-      {/* Date Filter */}
+      {/* ── Monthly Summary Collapse ───────────────────────────────────── */}
+      <Collapse in={showMonthlySummary} timeout="auto" unmountOnExit>
+        <Card sx={{ mb: 3, borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+          <Box sx={{ px: 2.5, py: 1.5, backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Icon icon="solar:calendar-bold" style={{ color: '#6366F1', fontSize: 18 }} />
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0F172A' }}>
+              Monthly Breakdown ({monthlyBreakdown.length} months)
+            </Typography>
+          </Box>
+          <TableContainer>
+            <Table size="small">
+              <TableHead sx={{ backgroundColor: '#F1F5F9' }}>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Month</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.75rem', color: '#B91C1C' }}>Purchased (₹)</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.75rem', color: '#059669' }}>Paid Out (₹)</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Net Movement (₹)</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Transactions</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: '0.75rem' }}>Filter</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {monthlyBreakdown.map((m) => (
+                  <TableRow key={m.month} hover>
+                    <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>{m.monthLabel}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: '#B91C1C', fontSize: '0.8rem' }}>
+                      ₹{Number(m.totalCredit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: '#059669', fontSize: '0.8rem' }}>
+                      ₹{Number(m.totalDebit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.8rem', color: m.netMovement > 0 ? '#B91C1C' : '#059669' }}>
+                      ₹{Number(m.netMovement || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </TableCell>
+                    <TableCell align="center">
+                      <Chip size="small" label={m.transactionsCount} sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700 }} />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Button size="small" onClick={() => handleFilterMonth(m.month)}
+                        sx={{ textTransform: 'none', fontSize: '0.7rem', py: 0.25, px: 1, borderRadius: '6px', color: '#6366F1', '&:hover': { backgroundColor: '#EEF2FF' } }}>
+                        View
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {monthlyBreakdown.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>No monthly data available</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Card>
+      </Collapse>
+
+      {/* ── Date Filter ───────────────────────────────────────────────── */}
       <Card sx={{ p: 2, mb: 3, borderRadius: '12px', border: '1px solid', borderColor: 'divider' }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={4}>
             <TextField
-              type="date"
-              size="small"
-              label="From Date"
+              type="date" size="small" label="From Date"
               InputLabelProps={{ shrink: true }}
               value={filters.startDate}
               onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
@@ -589,126 +451,513 @@ const VendorStatement = () => {
           </Grid>
           <Grid item xs={12} sm={4}>
             <TextField
-              type="date"
-              size="small"
-              label="To Date"
+              type="date" size="small" label="To Date"
               InputLabelProps={{ shrink: true }}
               value={filters.endDate}
               onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
               fullWidth
             />
           </Grid>
-          <Grid item xs={12} sm={4}>
-            <Button
-              variant="contained"
-              onClick={fetchStatement}
+          <Grid item xs={6} sm={2}>
+            <Button variant="contained" onClick={() => fetchStatement(filters)}
               startIcon={<Icon icon="lucide:filter" />}
-              fullWidth
-              sx={{ borderRadius: '8px', textTransform: 'none', height: 40, backgroundColor: '#0284C7' }}
-            >
-              Apply Filter
+              fullWidth sx={{ borderRadius: '8px', textTransform: 'none', height: 40, backgroundColor: '#0284C7' }}>
+              Apply
+            </Button>
+          </Grid>
+          <Grid item xs={6} sm={2}>
+            <Button variant="outlined" onClick={() => { const f = { startDate: '', endDate: '' }; setFilters(f); fetchStatement(f); }}
+              startIcon={<Icon icon="lucide:x" />}
+              fullWidth sx={{ borderRadius: '8px', textTransform: 'none', height: 40 }}>
+              Clear
             </Button>
           </Grid>
         </Grid>
       </Card>
 
-      {/* Statement Table */}
-      {transactions.length === 0 ? (
+      {/* ── Statement Table ───────────────────────────────────────────── */}
+      {statementError ? (
+        <Alert severity="error" sx={{ borderRadius: '12px', mb: 3 }}>{statementError}</Alert>
+      ) : unifiedTransactions.length === 0 ? (
         <Card sx={{ p: 4, textAlign: 'center', borderRadius: '12px' }}>
+          <Icon icon="solar:file-corrupted-bold" style={{ fontSize: 48, color: '#CBD5E1', marginBottom: 12 }} />
           <Typography variant="body1" sx={{ color: 'text.secondary' }}>
-            No transactions found for this vendor in selected date range.
+            No transactions found for this vendor in the selected date range.
           </Typography>
+          {(filters.startDate || filters.endDate) && (
+            <Button size="small" onClick={() => { const f = { startDate: '', endDate: '' }; setFilters(f); fetchStatement(f); }}
+              sx={{ mt: 2, textTransform: 'none' }}>
+              Clear Filter
+            </Button>
+          )}
         </Card>
       ) : (
         <Paper variant="outlined" sx={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #E2E8F0' }}>
-          <Table>
-            <TableHead sx={{ backgroundColor: '#F8FAFC' }}>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Reference No.</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Narration / Details</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700, color: '#059669' }}>Debit (Payout/Return ₹)</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700, color: '#E11D48' }}>Credit (Purchase ₹)</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700 }}>Running Balance (₹)</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700, width: 130 }}>Action / Receipt</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {transactions.map((txn, idx) => {
-                const isDebit = Number(txn.debit || 0) > 0;
-                const isCredit = Number(txn.credit || 0) > 0;
-                const rb = Number(txn.runningBalance || 0);
+          <TableContainer>
+            <Table>
+              <TableHead sx={{ backgroundColor: '#F8FAFC' }}>
+                <TableRow>
+                  <TableCell sx={{ width: 44, p: 0.5 }} />
+                  <TableCell sx={{ fontWeight: 700, fontSize: '0.78rem', color: '#475569' }}>Date</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: '0.78rem', color: '#475569' }}>Reference No.</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: '0.78rem', color: '#475569' }}>Type</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: '0.78rem', color: '#475569' }}>Vendor / Firm</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: '0.78rem', color: '#475569' }}>Status</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.78rem', color: '#059669' }}>Paid Out (₹)</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.78rem', color: '#B91C1C' }}>Purchased (₹)</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.78rem' }}>Balance</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: '0.78rem', minWidth: 120 }}>Payment Progress</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: '0.78rem' }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {unifiedTransactions.map((txn, idx) => {
+                  const rowKey = txn.orderNumber || (txn.voucherId ? String(txn.voucherId) : (txn.referenceNumber || String(txn._id)));
+                  const isPurchase = Boolean(
+                    txn.voucherType === 'Purchase Invoice' ||
+                    (txn.referenceNumber && String(txn.referenceNumber).startsWith('PO-')) ||
+                    (txn.orderGrandTotal != null && Number(txn.orderGrandTotal) > 0)
+                  );
+                  const isPayout = Boolean(
+                    (txn.referenceNumber && txn.referenceNumber.startsWith('VPAY')) ||
+                    txn.voucherType === 'Payment Voucher' ||
+                    (!isPurchase && Number(txn.debit) > 0)
+                  );
 
-                return (
-                  <TableRow key={txn._id || idx} hover>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                      {new Date(txn.transactionDate).toLocaleDateString('en-IN')}
-                    </TableCell>
-                    <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600 }}>
-                      {txn.referenceNumber || '—'}
-                    </TableCell>
-                    <TableCell sx={{ maxWidth: 320, color: 'text.secondary', fontSize: '0.85rem' }}>
-                      {txn.narration || '—'}
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: '#059669' }}>
-                      {isDebit ? (`₹${Number(txn.debit).toLocaleString()}`) : '—'}
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: '#E11D48' }}>
-                      {isCredit ? (`₹${Number(txn.credit).toLocaleString()}`) : '—'}
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>
-                      {rb > 0 ? (
-                        <span style={{ color: '#EF4444' }}>{`₹${rb.toLocaleString()} (Payable)`}</span>
-                      ) : rb < 0 ? (
-                        <span style={{ color: '#059669' }}>{`₹${Math.abs(rb).toLocaleString()} (Adv)`}</span>
-                      ) : (
-                        <span style={{ color: '#6B7280' }}>₹0</span>
-                      )}
-                    </TableCell>
-                    <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
-                      {(isDebit || txn.voucherType === 'Payment' || (txn.referenceNumber && (txn.referenceNumber.startsWith('VPAY') || txn.referenceNumber.startsWith('PAY')))) ? (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          disabled={downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id)}
-                          onClick={() => handleDownloadReceipt(txn)}
-                          startIcon={
-                            downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id) ? (
-                              <CircularProgress size={13} color="inherit" />
+                  const orderTotal = Number(txn.orderGrandTotal != null ? txn.orderGrandTotal : txn.credit || 0);
+                  const paidAmount = Number(txn.orderPaidAmount != null ? txn.orderPaidAmount : 0);
+                  const dueAmount = txn.orderBalanceDue != null
+                    ? Number(txn.orderBalanceDue)
+                    : Math.max(0, orderTotal - paidAmount);
+                  const purchaseBadge = getPurchaseStatusBadge(txn.orderStatus);
+                  const matchedOrder = ordersMap[String(txn.orderId)] || ordersMap[txn.orderNumber] || ordersMap[txn.referenceNumber] || null;
+                  const paymentsList = (Array.isArray(txn.orderPayments) && txn.orderPayments.length > 0) ? txn.orderPayments : (matchedOrder?.orderPayments || []);
+                  const hasParts = paymentsList.length > 0;
+                  const isExpanded = expandedRowId === rowKey;
+                  const orderItems = txn.items?.length > 0 ? txn.items : (matchedOrder?.items || []);
+                  const pct = orderTotal > 0 ? Math.min(100, Math.round((paidAmount / orderTotal) * 100)) : 0;
+                  const isFullyPaid = dueAmount <= 0 && isPurchase && orderTotal > 0;
+                  const isPartPaid = paidAmount > 0 && dueAmount > 0;
+                  const hasExpandableContent = hasParts || (isPurchase && orderItems.length > 0) || isPurchase;
+
+                  let entryType = txn.voucherType || 'Entry';
+                  let typeBadge = { bg: '#F3F4F6', text: '#6B7280' };
+                  if (isPurchase) {
+                    entryType = 'Purchase Invoice';
+                    typeBadge = { bg: '#FEF2F2', text: '#991B1B' };
+                  } else if (isPayout) {
+                    entryType = 'Vendor Payout';
+                    typeBadge = { bg: '#ECFDF5', text: '#065F46' };
+                  }
+
+                  return (
+                    <React.Fragment key={rowKey}>
+                      <TableRow hover sx={{ backgroundColor: isExpanded ? '#FFF1F2' : 'inherit' }}>
+                        {/* Expand Arrow */}
+                        <TableCell sx={{ width: 44, p: 0.5, textAlign: 'center' }}>
+                          {hasExpandableContent ? (
+                            <IconButton size="small" onClick={() => toggleExpandRow(rowKey)}
+                              sx={{ color: isExpanded ? '#E11D48' : '#64748B', p: 0.5 }}>
+                              <Icon icon={isExpanded ? 'solar:alt-arrow-down-bold' : 'solar:alt-arrow-right-bold'} width={16} />
+                            </IconButton>
+                          ) : null}
+                        </TableCell>
+
+                        {/* Date */}
+                        <TableCell sx={{ whiteSpace: 'nowrap', fontSize: '0.8rem', color: '#475569' }}>
+                          {txn.orderDate || txn.transactionDate
+                            ? new Date(txn.orderDate || txn.transactionDate).toLocaleDateString('en-IN')
+                            : '—'}
+                        </TableCell>
+
+                        {/* Ref */}
+                        <TableCell sx={{ minWidth: 160, fontFamily: 'monospace', fontWeight: 600, fontSize: '0.8rem', color: '#0F172A' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                            <span>{txn.referenceNumber || txn.voucherId || '—'}</span>
+                            {hasParts && (
+                              <Chip size="small" label={`${paymentsList.length} Pay${paymentsList.length > 1 ? 's' : ''}`}
+                                onClick={() => toggleExpandRow(rowKey)}
+                                sx={{ height: 18, fontSize: '0.62rem', fontWeight: 600, backgroundColor: isExpanded ? '#FECDD3' : '#FEE2E2', color: '#991B1B', cursor: 'pointer' }} />
+                            )}
+                          </Box>
+                        </TableCell>
+
+                        {/* Type */}
+                        <TableCell>
+                          <Chip size="small" label={entryType}
+                            sx={{ height: 20, fontSize: '0.68rem', fontWeight: 600, backgroundColor: typeBadge.bg, color: typeBadge.text }} />
+                        </TableCell>
+
+                        {/* Vendor */}
+                        <TableCell sx={{ minWidth: 170 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.78rem', color: '#0F172A' }}>
+                            {txn.vendorName || vendor.firm || vendor.name || 'Vendor'}
+                          </Typography>
+                        </TableCell>
+
+                        {/* Status */}
+                        <TableCell sx={{ minWidth: 120 }}>
+                          {txn.orderStatus ? (
+                            <Chip size="small" label={txn.orderStatus}
+                              sx={{ backgroundColor: purchaseBadge.bg, color: purchaseBadge.text, fontWeight: 600, fontSize: '0.68rem', height: 20 }} />
+                          ) : isPayout ? (
+                            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                              <Chip size="small" label="Paid Out"
+                                sx={{ backgroundColor: '#DCFCE7', color: '#15803D', fontWeight: 600, fontSize: '0.68rem', height: 20 }} />
+                            </Box>
+                          ) : (
+                            <Chip size="small" label="Completed"
+                              sx={{ backgroundColor: '#F1F5F9', color: '#475569', fontWeight: 600, fontSize: '0.68rem', height: 20 }} />
+                          )}
+                        </TableCell>
+
+                        {/* Debit (Paid Out) */}
+                        <TableCell align="right" sx={{ fontWeight: 700, color: '#059669', fontSize: '0.8rem' }}>
+                          {Number(txn.debit || 0) > 0
+                            ? `₹${Number(txn.debit).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                            : '—'}
+                        </TableCell>
+
+                        {/* Credit (Purchased) */}
+                        <TableCell align="right" sx={{ fontWeight: 700, color: '#B91C1C', fontSize: '0.8rem' }}>
+                          {isPurchase && orderTotal > 0
+                            ? `₹${orderTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                            : Number(txn.credit || 0) > 0
+                              ? `₹${Number(txn.credit).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                              : '—'}
+                        </TableCell>
+
+                        {/* Balance */}
+                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.8rem' }}>
+                          {isPurchase ? (
+                            isFullyPaid ? (
+                              <span style={{ color: '#059669', fontWeight: 700 }}>Paid</span>
                             ) : (
-                              <Icon icon="lucide:file-text" />
+                              <span style={{ color: '#E11D48', fontWeight: 700 }}>
+                                ₹{dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })} (Payable)
+                              </span>
                             )
-                          }
-                          sx={{
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            textTransform: 'none',
-                            borderRadius: '8px',
-                            py: 0.4,
-                            px: 1.2,
-                            borderColor: '#0284C7',
-                            color: '#0284C7',
-                            '&:hover': {
-                              backgroundColor: '#E0F2FE',
-                              borderColor: '#0369A1',
-                            }
-                          }}
-                        >
-                          Receipt PDF
-                        </Button>
-                      ) : (
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>—</Typography>
+                          ) : (
+                            <span style={{ color: '#059669' }}>
+                              {Number(txn.debit) > 0
+                                ? `₹${Number(txn.debit).toLocaleString('en-IN', { minimumFractionDigits: 2 })} (Paid)`
+                                : '—'}
+                            </span>
+                          )}
+                        </TableCell>
+
+                        {/* Payment Progress */}
+                        <TableCell sx={{ minWidth: 120 }}>
+                          {isPurchase ? (
+                            <Box>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Box sx={{ width: '100%' }}>
+                                  <LinearProgress variant="determinate" value={pct}
+                                    sx={{
+                                      height: 5, borderRadius: 3, backgroundColor: '#E2E8F0',
+                                      '& .MuiLinearProgress-bar': {
+                                        backgroundColor: isFullyPaid ? '#10B981' : isPartPaid ? '#F59E0B' : '#94A3B8'
+                                      }
+                                    }} />
+                                </Box>
+                                <Typography variant="caption" sx={{ minWidth: 35, fontWeight: 600, color: '#475569', fontSize: '0.68rem' }}>
+                                  {pct}%
+                                </Typography>
+                              </Box>
+                              <Typography variant="caption" sx={{ color: '#64748B', fontSize: '0.65rem' }}>
+                                {isFullyPaid ? 'Fully Paid' : isPartPaid ? 'Part Paid' : '0% Paid (Due)'}
+                              </Typography>
+                            </Box>
+                          ) : (
+                            <Chip size="small" label="100% Paid"
+                              sx={{ backgroundColor: '#DCFCE7', color: '#15803D', fontWeight: 600, fontSize: '0.65rem', height: 20 }} />
+                          )}
+                        </TableCell>
+
+                        {/* Actions */}
+                        <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                            {isPayout && (
+                              <Tooltip title="Download Payout Receipt" arrow>
+                                <span>
+                                  <IconButton size="small" onClick={() => handleDownloadReceipt(txn)}
+                                    disabled={downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id)}
+                                    sx={{ color: '#059669', p: 0.5, backgroundColor: '#ECFDF5', '&:hover': { backgroundColor: '#D1FAE5' } }}>
+                                    <Icon icon="lucide:receipt" width={15} />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            )}
+                            <Tooltip title="Download Ledger Statement" arrow>
+                              <span>
+                                <IconButton size="small" onClick={handleDownloadLedgerStatement}
+                                  disabled={downloadingStatement}
+                                  sx={{ color: '#6366F1', p: 0.5, backgroundColor: '#EEF2FF', '&:hover': { backgroundColor: '#E0E7FF' } }}>
+                                  <Icon icon="lucide:book-open" width={15} />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+
+                      {/* ── Expanded Details Row ────────────────────────── */}
+                      {hasExpandableContent && (
+                        <TableRow sx={{ backgroundColor: '#FFF8F8' }}>
+                          <TableCell colSpan={11} sx={{ py: 0, px: 2, borderBottom: isExpanded ? '1px solid #FCE7F3' : 'none' }}>
+                            <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                              <Box sx={{ py: 2, px: 2, my: 1.5, backgroundColor: '#FFFFFF', borderRadius: '8px', border: '1px solid #FECDD3', borderLeft: '4px solid #E11D48', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+
+                                {/* Parties Meta */}
+                                <Box sx={{ mb: 2, p: 1.5, backgroundColor: '#FFF1F2', borderRadius: '6px', border: '1px solid #FECDD3', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
+                                  <Box>
+                                    <Typography variant="caption" sx={{ color: '#E11D48', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.68rem', display: 'block' }}>
+                                      Vendor / Supplier Details
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#0F172A', fontSize: '0.8rem' }}>
+                                      {txn.vendorName || vendor.firm || vendor.name || 'Vendor'}
+                                    </Typography>
+                                    <Typography variant="caption" sx={{ color: '#64748B', display: 'block', fontSize: '0.72rem' }}>
+                                      Mobile: {vendor.mobile || 'N/A'} | GST: {vendor.gstin || vendor.gstNumber || 'Unregistered'}
+                                    </Typography>
+                                  </Box>
+                                  <Box>
+                                    <Typography variant="caption" sx={{ color: '#059669', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.68rem', display: 'block' }}>
+                                      Purchase Info
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#0F172A', fontSize: '0.8rem' }}>
+                                      PO: {txn.orderNumber || txn.referenceNumber || '—'}
+                                    </Typography>
+                                    <Typography variant="caption" sx={{ color: '#64748B', display: 'block', fontSize: '0.72rem' }}>
+                                      Created by: {txn.createdByName || 'Staff'}
+                                    </Typography>
+                                  </Box>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    {isPayout && (
+                                      <Button size="small" variant="contained"
+                                        startIcon={<Icon icon="lucide:receipt" width={15} />}
+                                        onClick={() => handleDownloadReceipt(txn)}
+                                        disabled={downloadingReceiptId === (txn.voucherId || txn.referenceNumber || txn._id)}
+                                        sx={{ textTransform: 'none', fontSize: '0.75rem', fontWeight: 600, backgroundColor: '#059669', '&:hover': { backgroundColor: '#047857' }, height: 32, px: 1.75, borderRadius: '6px' }}>
+                                        Download Receipt
+                                      </Button>
+                                    )}
+                                    <Button size="small" variant="outlined"
+                                      startIcon={<Icon icon="lucide:book-open" width={15} />}
+                                      onClick={handleDownloadLedgerStatement}
+                                      disabled={downloadingStatement}
+                                      sx={{ textTransform: 'none', fontSize: '0.75rem', fontWeight: 600, color: '#6366F1', borderColor: '#818CF8', backgroundColor: '#EEF2FF', '&:hover': { backgroundColor: '#E0E7FF', borderColor: '#6366F1' }, height: 32, px: 1.75, borderRadius: '6px' }}>
+                                      Download Statement
+                                    </Button>
+                                  </Box>
+                                </Box>
+
+                                {/* Order Items Table */}
+                                {isPurchase && orderItems.length > 0 && (
+                                  <Box sx={{ mb: hasParts ? 2 : 0 }}>
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0F172A', fontSize: '0.8rem', mb: 1, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                      <Icon icon="lucide:package" style={{ color: '#E11D48', fontSize: 14 }} />
+                                      Purchase Items ({orderItems.length})
+                                      {(txn.taxableAmount != null || matchedOrder?.taxableAmount != null) && (
+                                        <Chip size="small" label={vendor.gstin || vendor.gstNumber ? 'GST Purchase' : 'Non-GST'}
+                                          sx={{ height: 18, fontSize: '0.62rem', fontWeight: 600, backgroundColor: '#FEF2F2', color: '#991B1B', ml: 1 }} />
+                                      )}
+                                    </Typography>
+                                    <Table size="small">
+                                      <TableHead sx={{ backgroundColor: '#F1F5F9' }}>
+                                        <TableRow>
+                                          <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569', width: 40 }}>#</TableCell>
+                                          <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Item / Product</TableCell>
+                                          <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Brand</TableCell>
+                                          <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Type</TableCell>
+                                          <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Qty</TableCell>
+                                          <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Rate (₹)</TableCell>
+                                          <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Amount (₹)</TableCell>
+                                          <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>GST %</TableCell>
+                                        </TableRow>
+                                      </TableHead>
+                                      <TableBody>
+                                        {orderItems.map((item, iIdx) => {
+                                          const price = Number(item.price || item.buyingPrice || 0);
+                                          const qty = Number(item.qty || 0);
+                                          const discount = Number(item.discountAmount || 0);
+                                          const amount = price * qty - discount;
+                                          const hasRx = item.orderType === 'RX' || (item.rx?.powers?.length > 0);
+                                          return (
+                                            <TableRow key={iIdx} hover>
+                                              <TableCell sx={{ fontSize: '0.72rem', color: '#64748B' }}>{iIdx + 1}</TableCell>
+                                              <TableCell sx={{ fontSize: '0.72rem', color: '#0F172A', fontWeight: 500 }}>
+                                                <Box>
+                                                  <span>{item.itemName || item.productName || item.name || 'Product'}</span>
+                                                  {item.code && <Typography variant="caption" sx={{ display: 'block', color: '#0284C7', fontFamily: 'monospace', fontSize: '0.65rem' }}>Code: {item.code}</Typography>}
+                                                  {hasRx && item.rx?.powers?.length > 0 && (
+                                                    <Typography variant="caption" sx={{ display: 'block', color: '#7C3AED', fontSize: '0.65rem' }}>
+                                                      RX: {item.rx.powers.slice(0, 2).map(p => `SPH ${p.sph || 0} / CYL ${p.cyl || 0}`).join(' | ')}
+                                                      {item.rx.powers.length > 2 && ` +${item.rx.powers.length - 2} more`}
+                                                    </Typography>
+                                                  )}
+                                                </Box>
+                                              </TableCell>
+                                              <TableCell sx={{ fontSize: '0.72rem', color: '#475569' }}>
+                                                {item.brand || item.brandName || '—'}
+                                              </TableCell>
+                                              <TableCell>
+                                                <Chip size="small"
+                                                  label={item.orderType || 'STOCK'}
+                                                  sx={{ height: 18, fontSize: '0.62rem', fontWeight: 600, backgroundColor: hasRx ? '#F5F3FF' : '#F0FDF4', color: hasRx ? '#6D28D9' : '#15803D' }} />
+                                              </TableCell>
+                                              <TableCell align="center" sx={{ fontSize: '0.72rem', fontWeight: 600, color: '#0F172A' }}>
+                                                {qty}
+                                              </TableCell>
+                                              <TableCell align="right" sx={{ fontSize: '0.72rem', color: '#475569' }}>
+                                                ₹{price.toLocaleString('en-IN')}
+                                              </TableCell>
+                                              <TableCell align="right" sx={{ fontSize: '0.72rem', fontWeight: 600, color: '#0F172A' }}>
+                                                ₹{amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                              </TableCell>
+                                              <TableCell align="center" sx={{ fontSize: '0.72rem', color: '#475569' }}>
+                                                {item.gst ? `${item.gst}%` : '—'}
+                                              </TableCell>
+                                            </TableRow>
+                                          );
+                                        })}
+                                      </TableBody>
+                                    </Table>
+
+                                    {/* Tax Summary */}
+                                    {(matchedOrder || isPurchase) && (
+                                      <Box sx={{ mt: 1, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+                                        <Typography variant="caption" sx={{ color: '#475569' }}>
+                                          Taxable: <strong>₹{Number((matchedOrder?.taxableAmount ?? txn.taxableAmount) || 0).toLocaleString('en-IN')}</strong>
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ color: '#475569' }}>
+                                          GST: <strong>₹{Number((matchedOrder?.gstAmount ?? txn.gstAmount) || 0).toLocaleString('en-IN')}</strong>
+                                        </Typography>
+                                        {Number(matchedOrder?.shippingCharges ?? txn.shippingCharges ?? 0) > 0 && (
+                                          <Typography variant="caption" sx={{ color: '#475569' }}>
+                                            Freight: <strong>₹{Number(matchedOrder?.shippingCharges ?? txn.shippingCharges).toLocaleString('en-IN')}</strong>
+                                          </Typography>
+                                        )}
+                                        {Number(matchedOrder?.otherCharges ?? txn.otherCharges ?? 0) > 0 && (
+                                          <Typography variant="caption" sx={{ color: '#475569' }}>
+                                            Other Charges: <strong>₹{Number(matchedOrder?.otherCharges ?? txn.otherCharges).toLocaleString('en-IN')}</strong>
+                                          </Typography>
+                                        )}
+                                        <Typography variant="caption" sx={{ color: '#0F172A', fontWeight: 700 }}>
+                                          Grand Total: ₹{Number((matchedOrder?.grandTotal ?? txn.orderGrandTotal ?? orderTotal) || 0).toLocaleString('en-IN')}
+                                        </Typography>
+                                      </Box>
+                                    )}
+                                  </Box>
+                                )}
+
+                                {/* Payment History */}
+                                {hasParts && (
+                                  <Box>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 1 }}>
+                                      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0F172A', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                        <Icon icon="lucide:wallet" style={{ color: '#059669', fontSize: 14 }} />
+                                        Payment History ({paymentsList.length})
+                                      </Typography>
+                                      <Typography variant="caption" sx={{ color: '#475569' }}>
+                                        Paid: <strong style={{ color: '#059669' }}>₹{paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong> of ₹{orderTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                        &nbsp;|&nbsp; Remaining: <strong style={{ color: dueAmount > 0 ? '#EF4444' : '#059669' }}>
+                                          {dueAmount > 0 ? `₹${dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })} (Payable)` : 'Settled'}
+                                        </strong>
+                                      </Typography>
+                                    </Box>
+                                    <Table size="small">
+                                      <TableHead sx={{ backgroundColor: '#F1F5F9' }}>
+                                        <TableRow>
+                                          <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569', width: 40 }}>#</TableCell>
+                                          <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Payment Date</TableCell>
+                                          <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Ref / Voucher</TableCell>
+                                          <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Mode</TableCell>
+                                          <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Remarks</TableCell>
+                                          <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Amount (₹)</TableCell>
+                                          <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Status</TableCell>
+                                        </TableRow>
+                                      </TableHead>
+                                      <TableBody>
+                                        {paymentsList.map((p, pIdx) => (
+                                          <TableRow key={p.paymentId || p.paymentNumber || pIdx} hover>
+                                            <TableCell sx={{ fontSize: '0.72rem', color: '#64748B' }}>{pIdx + 1}</TableCell>
+                                            <TableCell sx={{ fontSize: '0.72rem', color: '#334155', whiteSpace: 'nowrap' }}>
+                                              {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString('en-IN') : 'N/A'}
+                                            </TableCell>
+                                            <TableCell sx={{ fontSize: '0.72rem', fontFamily: 'monospace', fontWeight: 600, color: '#0284C7' }}>
+                                              {p.referenceNumber || p.paymentNumber}
+                                            </TableCell>
+                                            <TableCell>
+                                              <Chip size="small"
+                                                label={
+                                                  p.paymentMode === 'UPI' ? 'UPI / QR' :
+                                                    p.paymentMode === 'CASH' ? 'Cash' :
+                                                      p.paymentMode === 'BANK_TRANSFER' ? 'Bank Transfer' :
+                                                        p.paymentMode === 'CHEQUE' ? 'Cheque' :
+                                                          (p.paymentMode ? String(p.paymentMode).replace(/_/g, ' ') : 'Bank')
+                                                }
+                                                sx={{
+                                                  height: 20, fontSize: '0.65rem', fontWeight: 600,
+                                                  backgroundColor: p.paymentMode === 'UPI' ? '#F5F3FF' :
+                                                    p.paymentMode === 'CASH' ? '#FEF3C7' : '#F0FDF4',
+                                                  color: p.paymentMode === 'UPI' ? '#6D28D9' :
+                                                    p.paymentMode === 'CASH' ? '#B45309' : '#15803D'
+                                                }} />
+                                            </TableCell>
+                                            <TableCell sx={{ fontSize: '0.72rem', color: '#475569' }}>
+                                              <Box>
+                                                <span>{p.remarks || 'Vendor Payout'}</span>
+                                                {p.utrNumber && p.utrNumber !== (p.referenceNumber || p.paymentNumber) && (
+                                                  <Typography variant="caption" sx={{ display: 'block', color: '#0284C7', fontFamily: 'monospace', fontSize: '0.65rem' }}>
+                                                    UTR: {p.utrNumber}
+                                                  </Typography>
+                                                )}
+                                              </Box>
+                                            </TableCell>
+                                            <TableCell align="right" sx={{ fontSize: '0.72rem', fontWeight: 700, color: '#059669' }}>
+                                              ₹{Number(p.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            </TableCell>
+                                            <TableCell align="center">
+                                              <Chip size="small" label={p.status || 'CLEARED'}
+                                                sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, backgroundColor: '#DCFCE7', color: '#15803D' }} />
+                                            </TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                  </Box>
+                                )}
+                              </Box>
+                            </Collapse>
+                          </TableCell>
+                        </TableRow>
                       )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                    </React.Fragment>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          {/* Table Footer Summary */}
+          <Box sx={{ px: 2.5, py: 1.5, backgroundColor: '#F8FAFC', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end', gap: 3, flexWrap: 'wrap' }}>
+            <Typography variant="caption" sx={{ color: '#475569', fontWeight: 700 }}>
+              Total Purchased: <span style={{ color: '#B91C1C' }}>₹{totalCredit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#475569', fontWeight: 700 }}>
+              Total Paid Out: <span style={{ color: '#059669' }}>₹{totalDebit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#475569', fontWeight: 700 }}>
+              Net Payable: <span style={{ color: currentOutstanding > 0 ? '#E11D48' : '#059669', fontWeight: 800 }}>
+                ₹{currentOutstanding.toLocaleString('en-IN', { minimumFractionDigits: 2 })} {currentOutstanding > 0 ? '(Payable)' : '(Settled)'}
+              </span>
+            </Typography>
+          </Box>
         </Paper>
       )}
 
-      {/* Vendor Payout Modal */}
+      {/* ── Vendor Payout Modal ───────────────────────────────────────── */}
       {payoutModalOpen && (
         <VendorPayoutModal
           open={payoutModalOpen}
@@ -716,18 +965,17 @@ const VendorStatement = () => {
           vendor={{
             _id: vendor.id || vendor._id || vendorId,
             id: vendor.id || vendor._id || vendorId,
-            firm: vendor.firm || vendor.firmName || vendor.name,
-            name: vendor.name || vendor.contactPerson,
+            firm: vendor.firm || vendor.name,
+            name: vendor.name || vendor.firm,
             mobile: vendor.mobile,
             email: vendor.email,
             gstNumber: vendor.gstin || vendor.gstNumber,
-            pan: master.pan || vendor.pan,
             currentOutstanding,
             tdsApplicable: master.tdsApplicable,
             tdsSection: master.tdsSection,
-            tdsPercentage: master.tdsPercentage
+            tdsPercentage: master.tdsPercentage,
           }}
-          onSuccess={fetchStatement}
+          onSuccess={() => fetchStatement()}
         />
       )}
     </Box>
