@@ -265,14 +265,63 @@ const CustomerKhataStatement = () => {
     toast.info(`Filtered transactions for ${monthKey}`);
   };
 
-  // Print Engine
-  const handlePrint = () => {
+  // Shared formatting helpers
+  const fmtNum = (n) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const formatModeLabel = (mode) => {
+    if (!mode) return 'Direct Payment';
+    const m = String(mode).toUpperCase();
+    if (m === 'ADVANCE_ADJUSTMENT') return 'Advance Adjustment';
+    if (m === 'UPI') return 'UPI / QR Code';
+    if (m === 'CASH') return 'Cash Payment';
+    if (m === 'BANK_TRANSFER') return 'Bank Transfer / NEFT';
+    if (m === 'CHEQUE') return 'Cheque / DD';
+    return String(mode).replace(/_/g, ' ');
+  };
+
+  const numberToWordsINR = (num) => {
+    const n = Math.round(Number(num || 0));
+    if (!n || isNaN(n)) return 'Zero Rupees Only';
+    const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
+    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    function inWords(val) {
+      let str = '';
+      if (val > 99) { str += a[Math.floor(val / 100)] + 'Hundred '; val %= 100; }
+      if (val > 19) { str += b[Math.floor(val / 10)] + (val % 10 !== 0 ? ' ' + a[val % 10] : ' '); } else if (val > 0) { str += a[val]; }
+      return str;
+    }
+    let crore = Math.floor(n / 10000000); let rem = n % 10000000;
+    let lakh = Math.floor(rem / 100000); rem %= 100000;
+    let thousand = Math.floor(rem / 1000); rem %= 1000;
+    let words = '';
+    if (crore > 0) words += inWords(crore) + 'Crore ';
+    if (lakh > 0) words += inWords(lakh) + 'Lakh ';
+    if (thousand > 0) words += inWords(thousand) + 'Thousand ';
+    if (rem > 0) words += inWords(rem);
+    return (words.trim() || 'Zero') + ' Rupees Only';
+  };
+
+  // Browser Print / Save as PDF Engine
+  const printHTMLDocument = (htmlContent, title) => {
     const printWindow = window.open('', '_blank', 'width=950,height=800');
     if (!printWindow) {
-      window.print();
+      toast.error('Popup window was blocked by your browser. Please allow popups for this site to print or save PDF.');
       return;
     }
+    printWindow.document.open();
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    if (title) {
+      printWindow.document.title = title;
+    }
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 250);
+  };
 
+  // Generate Customer Ledger Statement HTML
+  const generateStatementHTML = () => {
     const wholesaler = summary.wholesaler || {};
     const wholesalerName = wholesaler.companyName || 'Anish DigiOptics Wholesaler';
     const companyAddress = wholesaler.address || 'New Delhi, India';
@@ -302,16 +351,6 @@ const CustomerKhataStatement = () => {
       statementPeriod = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
     }
 
-    const formatModeLabel = (mode) => {
-      if (!mode) return 'Direct Payment';
-      const m = String(mode).toUpperCase();
-      if (m === 'ADVANCE_ADJUSTMENT') return 'Advance Adjustment';
-      if (m === 'UPI') return 'UPI / QR Code';
-      if (m === 'CASH') return 'Cash Payment';
-      if (m === 'BANK_TRANSFER') return 'Bank Transfer / NEFT';
-      if (m === 'CHEQUE') return 'Cheque / DD';
-      return String(mode).replace(/_/g, ' ');
-    };
     const companyLogo = wholesaler.logo || '';
     const bank = wholesaler.bankDetails || {
       bankName: 'HDFC BANK',
@@ -334,30 +373,6 @@ const CustomerKhataStatement = () => {
     const totalCreditVal = Number(displayTotalReceived || 0);
     const advanceVal = Number(advanceAmount || 0);
     const closingDueVal = Number(creditUsed || 0);
-
-    const fmtNum = (n) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-    const numberToWordsINR = (num) => {
-      const n = Math.round(Number(num || 0));
-      if (!n || isNaN(n)) return 'Zero Rupees Only';
-      const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
-      const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-      function inWords(val) {
-        let str = '';
-        if (val > 99) { str += a[Math.floor(val / 100)] + 'Hundred '; val %= 100; }
-        if (val > 19) { str += b[Math.floor(val / 10)] + (val % 10 !== 0 ? ' ' + a[val % 10] : ' '); } else if (val > 0) { str += a[val]; }
-        return str;
-      }
-      let crore = Math.floor(n / 10000000); let rem = n % 10000000;
-      let lakh = Math.floor(rem / 100000); rem %= 100000;
-      let thousand = Math.floor(rem / 1000); rem %= 1000;
-      let words = '';
-      if (crore > 0) words += inWords(crore) + 'Crore ';
-      if (lakh > 0) words += inWords(lakh) + 'Lakh ';
-      if (thousand > 0) words += inWords(thousand) + 'Thousand ';
-      if (rem > 0) words += inWords(rem);
-      return (words.trim() || 'Zero') + ' Rupees Only';
-    };
 
     const rowsHtml = unifiedTransactions
       .map((t, idx) => {
@@ -511,11 +526,11 @@ const CustomerKhataStatement = () => {
       })
       .join('');
 
-    const html = `<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Customer Ledger Statement - ${customerName}</title>
+  <title>Customer-Ledger-Statement-${customerName.replace(/[^a-z0-9]/gi, '-')}</title>
   <style>
     @page { size: A4 portrait; margin: 6mm 8mm; }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -672,109 +687,898 @@ const CustomerKhataStatement = () => {
   </div>
 </body>
 </html>`;
+  };
 
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 250);
+  // Generate Payment Receipt Voucher HTML (matches original backend paymentReceiptTemplate.js design)
+  const generatePaymentReceiptHTML = (txnOrPayment) => {
+    const wholesaler = summary.wholesaler || {};
+    const companyName = wholesaler.companyName || 'SAANCHI & CO.';
+    const companyAddress = wholesaler.address || '3RD FLOOR, PEOPLES TV BUILDING, RAJA RAMMOHAN ROY ROAD,\nHAKIMPARA, SILIGURI';
+    const companyPhone = wholesaler.phone || '0353-4075631';
+    const rawCompanyGstin = wholesaler.gstin || master.gstin || '';
+    const companyGstin = (rawCompanyGstin && !String(rawCompanyGstin).startsWith('http') && !String(rawCompanyGstin).includes('/'))
+      ? String(rawCompanyGstin).trim()
+      : '19AFWFS3883G1Z2';
+    const finalLogo = wholesaler.logo || '';
+
+    const partyName = cust.shopName || cust.customerName || cust.ownerName || 'Customer';
+    const partyContact = cust.mobileNo1 || cust.mobile || cust.phone || '-';
+    const rawPartyGstin = cust.gstNumber || cust.gstin || cust.GSTNo || '';
+    const partyGstin = (rawPartyGstin && !String(rawPartyGstin).startsWith('http') && !String(rawPartyGstin).includes('/'))
+      ? String(rawPartyGstin).trim()
+      : 'URP';
+    const partyAddress = formatAddress(cust.address) || cust.billToAddress?.address || '-';
+
+    const isOrderReceipt = Boolean(txnOrPayment.orderPayments && txnOrPayment.orderPayments.length > 0) || Boolean(txnOrPayment.orderNumber && (txnOrPayment.orderGrandTotal || txnOrPayment.debit));
+    const orderTotal = Number(txnOrPayment.orderGrandTotal != null ? txnOrPayment.orderGrandTotal : txnOrPayment.debit || 0);
+    const paidAmount = Math.max(Number(txnOrPayment.orderPaidAmount != null ? txnOrPayment.orderPaidAmount : 0), Number(txnOrPayment.credit || 0));
+    const dueAmount = txnOrPayment.orderBalanceDue != null && Number(txnOrPayment.orderBalanceDue) <= (orderTotal - paidAmount)
+      ? Number(txnOrPayment.orderBalanceDue)
+      : Math.max(0, orderTotal - paidAmount);
+
+    let receiptNo = txnOrPayment.referenceNumber || txnOrPayment.paymentNumber || txnOrPayment.paymentId || txnOrPayment.voucherId || 'RCP';
+    if (!receiptNo || receiptNo === '0') {
+      receiptNo = `RCP-${String(Date.now()).slice(-6)}`;
+    }
+
+    const fmtD = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-') : '-');
+    const receiptDate = fmtD(txnOrPayment.transactionDate || txnOrPayment.paymentDate || txnOrPayment.createdAt || new Date());
+
+    const detectedMode = txnOrPayment.paymentMode || (txnOrPayment.narration?.toLowerCase().includes('upi') ? 'UPI' : txnOrPayment.narration?.toLowerCase().includes('cash') ? 'CASH' : 'BANK_TRANSFER');
+    const modeLabels = {
+      CASH: "Cash Voucher",
+      UPI: "UPI Transfer",
+      CHEQUE: "Cheque Payment",
+      BANK_TRANSFER: "Bank Transfer / NEFT / RTGS",
+      NEFT: "NEFT Transfer",
+      RTGS: "RTGS Transfer",
+      ONLINE: "Online Payment Gateway",
+      ADVANCE_ADJUSTMENT: "Advance Balance Adjustment",
+    };
+    const modeName = modeLabels[detectedMode] || detectedMode;
+
+    const refNumber =
+      txnOrPayment.paymentDetails?.referenceNumber ||
+      txnOrPayment.referenceNumber ||
+      txnOrPayment.paymentNumber ||
+      txnOrPayment.utrNumber ||
+      txnOrPayment.transactionId ||
+      receiptNo ||
+      '-';
+
+    const totalReceivedAmount = isOrderReceipt && (paidAmount > 0)
+      ? Number(paidAmount)
+      : Number(txnOrPayment.amount != null ? txnOrPayment.amount : (Number(txnOrPayment.credit) > 0 ? txnOrPayment.credit : (txnOrPayment.grossAmount || orderTotal || 0)));
+
+    const amountInWords = numberToWordsINR(totalReceivedAmount);
+    const narration = txnOrPayment.remarks || txnOrPayment.narration || txnOrPayment.description || '';
+
+    // Build Table Rows
+    let tableHeaderHtml = '';
+    let tableRowsHtml = '';
+
+    if (isOrderReceipt && Array.isArray(txnOrPayment.orderPayments) && txnOrPayment.orderPayments.length > 0) {
+      tableHeaderHtml = `
+        <tr style="background:#ffffff; border-bottom:1px solid #000000; font-size:9.5px; font-weight:700;">
+          <th style="width:28px; border-right:1px solid #000; padding:4px 2px; text-align:center;">#</th>
+          <th style="width:85px; border-right:1px solid #000; padding:4px 4px; text-align:left;">Payment Date</th>
+          <th style="border-right:1px solid #000; padding:4px 6px; text-align:left;">Voucher / Ref #</th>
+          <th style="width:110px; border-right:1px solid #000; padding:4px 4px; text-align:center;">Payment Mode</th>
+          <th style="border-right:1px solid #000; padding:4px 6px; text-align:left;">Remarks / Payment Type</th>
+          <th style="width:110px; border-right:1px solid #000; padding:4px 6px; text-align:right;">Amount (₹)</th>
+          <th style="width:65px; padding:4px 4px; text-align:center;">Status</th>
+        </tr>
+      `;
+
+      tableRowsHtml = txnOrPayment.orderPayments
+        .map((p, idx) => `
+          <tr style="border-bottom:1px solid #000000;">
+            <td style="border-right:1px solid #000; padding:3px 2px; text-align:center; font-size:10px;">${idx + 1}</td>
+            <td style="border-right:1px solid #000; padding:3px 4px; font-size:10px; font-family:monospace;">${fmtD(p.paymentDate)}</td>
+            <td style="border-right:1px solid #000; padding:3px 6px; font-size:10px; font-family:monospace; font-weight:700; color:#0284c7;">${p.referenceNumber || p.paymentNumber || "-"}</td>
+            <td style="border-right:1px solid #000; padding:3px 4px; text-align:center; font-size:9.5px;">${modeLabels[p.paymentMode] || p.paymentMode || "Advance / Bank"}</td>
+            <td style="border-right:1px solid #000; padding:3px 6px; font-size:10px; color:#1e293b;">${p.remarks || (idx === 0 && (p.paymentNumber?.startsWith("ADV") || p.referenceNumber?.startsWith("ADV")) ? "Booking Advance" : "Part Payment Installment")}</td>
+            <td style="border-right:1px solid #000; padding:3px 6px; text-align:right; font-size:10px; font-weight:700; font-family:monospace;">${fmtNum(p.amount)}</td>
+            <td style="padding:3px 4px; text-align:center; font-size:9px; font-weight:700; color:#15803d;">CLEARED</td>
+          </tr>
+        `)
+        .join("");
+    } else {
+      tableHeaderHtml = `
+        <tr style="background:#ffffff; border-bottom:1px solid #000000; font-size:9.5px; font-weight:700;">
+          <th style="width:28px; border-right:1px solid #000; padding:4px 2px; text-align:center;">#</th>
+          <th style="border-right:1px solid #000; padding:4px 6px; text-align:left;">Transaction Description / Particulars</th>
+          <th style="width:130px; border-right:1px solid #000; padding:4px 4px; text-align:center;">Payment Mode</th>
+          <th style="width:140px; border-right:1px solid #000; padding:4px 6px; text-align:left;">Reference # / UTR</th>
+          <th style="width:120px; border-right:1px solid #000; padding:4px 6px; text-align:right;">Amount Received (₹)</th>
+          <th style="width:75px; padding:4px 4px; text-align:center;">Status</th>
+        </tr>
+      `;
+
+      tableRowsHtml = `
+        <tr style="border-bottom:1px solid #000000;">
+          <td style="border-right:1px solid #000; padding:3px 2px; text-align:center; font-size:10px;">1</td>
+          <td style="border-right:1px solid #000; padding:3px 6px; font-size:10px; font-weight:600;">${narration || 'Direct Customer Khata Account Collection'}</td>
+          <td style="border-right:1px solid #000; padding:3px 4px; text-align:center; font-size:9.5px;">${modeName}</td>
+          <td style="border-right:1px solid #000; padding:3px 6px; font-size:10px; font-family:monospace; font-weight:600; color:#0284c7;">${refNumber}</td>
+          <td style="border-right:1px solid #000; padding:3px 6px; text-align:right; font-size:10px; font-weight:700; font-family:monospace;">${fmtNum(totalReceivedAmount)}</td>
+          <td style="padding:3px 4px; text-align:center; font-size:9px; font-weight:700; color:#15803d;">CLEARED</td>
+        </tr>
+      `;
+    }
+
+    const orderNumber = txnOrPayment.orderNumber || (isOrderReceipt ? receiptNo : null);
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Payment Receipt - ${receiptNo}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 6mm 8mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, Helvetica, "Segoe UI", Roboto, sans-serif;
+      color: #000000;
+      background: #ffffff;
+      font-size: 10.5px;
+      line-height: 1.25;
+    }
+    .invoice-wrapper {
+      width: 100%;
+      border: 1.5px solid #000000;
+      background: #ffffff;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-wrapper">
+    <!-- Header -->
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; padding:8px 12px; border-bottom:1.5px solid #000000;">
+      <div style="width:130px; min-height:50px; display:flex; align-items:center;">
+        ${finalLogo ? `<img src="${finalLogo}" alt="Logo" style="max-height:55px; max-width:130px; object-fit:contain;" />` : ""}
+      </div>
+      <div style="flex:1; text-align:center; padding:0 10px;">
+        <div style="font-size:13.5px; font-weight:700; margin-bottom:2px;">Payment Receipt / Voucher</div>
+        <div style="font-size:19px; font-weight:800; color:#0284c7; letter-spacing:0.5px; margin-bottom:2px;">${companyName.toUpperCase()}</div>
+        <div style="font-size:9.5px; font-weight:600; line-height:1.25; color:#1e293b; white-space:pre-line;">${companyAddress.toUpperCase()}</div>
+        <div style="font-size:10px; font-weight:600; color:#1e293b; margin-top:1px;">Contact No. ${companyPhone}</div>
+        <div style="font-size:10.5px; font-weight:700; margin-top:2px;">GST No : ${companyGstin}</div>
+      </div>
+      <div style="width:110px; text-align:right;">
+        <div style="font-size:11px; font-weight:700;">Original Copy</div>
+      </div>
+    </div>
+
+    <!-- Party Details & Receipt Meta 2 Columns -->
+    <div style="display:flex; border-bottom:1.5px solid #000000;">
+      <!-- Left Column: Party Details -->
+      <div style="flex:1.2; padding:6px 10px; border-right:1px solid #000000; font-size:10.5px; line-height:1.35;">
+        <table style="width:100%; border-collapse:collapse;">
+          <tr>
+            <td style="width:85px; font-weight:700; vertical-align:top;">Customer / Party Details :</td>
+            <td style="font-weight:800; font-size:11.5px; color:#000;">${partyName.toUpperCase()}</td>
+          </tr>
+          <tr>
+            <td style="font-weight:700; vertical-align:top;">Mobile :</td>
+            <td style="font-family:monospace; font-weight:600;">${partyContact}</td>
+          </tr>
+          ${partyGstin && partyGstin !== "URP" && partyGstin !== "Unregistered" ? `
+          <tr>
+            <td style="font-weight:700; vertical-align:top;">GST No :</td>
+            <td style="font-weight:600; font-family:monospace;">${partyGstin}</td>
+          </tr>` : ""}
+          <tr>
+            <td style="font-weight:700; vertical-align:top;">Address :</td>
+            <td style="color:#1e293b;">${partyAddress}</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Right Column: Receipt Meta Details -->
+      <div style="flex:0.8; padding:6px 10px; font-size:10.5px; line-height:1.35;">
+        <table style="width:100%; border-collapse:collapse;">
+          <tr>
+            <td style="width:95px; font-weight:700;">Receipt No :</td>
+            <td style="font-weight:800; font-family:monospace; font-size:11.5px; color:#0284c7;">${receiptNo}</td>
+          </tr>
+          <tr>
+            <td style="font-weight:700;">Receipt Date :</td>
+            <td style="font-weight:700; font-family:monospace;">${receiptDate}</td>
+          </tr>
+          <tr>
+            <td style="font-weight:700;">Payment Mode :</td>
+            <td style="font-weight:600;">${modeName}</td>
+          </tr>
+          <tr>
+            <td style="font-weight:700;">Ref # / UTR :</td>
+            <td style="font-family:monospace; font-weight:600;">${refNumber}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- If Order Receipt, Order Summary Bar -->
+    ${isOrderReceipt && orderNumber ? `
+    <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:6px 12px; border-bottom:1px solid #000000; font-size:10px;">
+      <div>
+        <span style="font-weight:700;">Order Number:</span> <span style="font-family:monospace; font-weight:700; color:#0284c7;">${orderNumber}</span>
+        &nbsp;|&nbsp; <span style="font-weight:700;">Order Status:</span> <span style="font-weight:700; color:#059669;">${txnOrPayment.orderStatus || "Submitted"}</span>
+      </div>
+      <div>
+        <span style="font-weight:700;">Order Total:</span> <span style="font-family:monospace; font-weight:700;">₹${fmtNum(orderTotal)}</span>
+        &nbsp;|&nbsp; <span style="font-weight:700;">Remaining Balance Due:</span> <span style="font-family:monospace; font-weight:800; color:${dueAmount > 0 ? '#b91c1c' : '#15803d'};">₹${fmtNum(dueAmount)}</span>
+      </div>
+    </div>` : ""}
+
+    <!-- Items / Payments Table -->
+    <table style="width:100%; border-collapse:collapse; border-bottom:1.5px solid #000000;">
+      <thead>
+        ${tableHeaderHtml}
+      </thead>
+      <tbody>
+        ${tableRowsHtml}
+        <!-- Integrated Total Row -->
+        <tr style="font-weight:800; font-size:10.5px; border-top:1px solid #000;">
+          <td colspan="${isOrderReceipt && Array.isArray(txnOrPayment.orderPayments) && txnOrPayment.orderPayments.length > 0 ? 5 : 4}" style="border-right:1px solid #000; padding:4px 6px; text-align:right;">Total Amount Received</td>
+          <td style="border-right:1px solid #000; padding:4px 6px; text-align:right; font-family:monospace; color:#15803d;">₹${fmtNum(totalReceivedAmount)}</td>
+          <td style="padding:4px 4px; text-align:center; font-size:9px; color:#15803d;">PAID</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Bottom Section: Words, Terms, QR Code, Signature -->
+    <div style="display:flex; padding:8px 10px; font-size:9.5px;">
+      <!-- Left Column -->
+      <div style="flex:1.2; padding-right:15px; border-right:1px solid #000000;">
+        <div style="margin-bottom:6px;">
+          <span style="font-weight:700;">Total Amount ( In Words ) :</span><br>
+          <span style="font-weight:800; font-size:10.5px;">${amountInWords}</span>
+        </div>
+        ${narration ? `
+        <div style="margin-bottom:6px;">
+          <span style="font-weight:700;">Payment Remarks / Narration :</span>
+          <div style="font-size:9.5px; color:#1e293b; margin-top:1px;">${narration}</div>
+        </div>` : ""}
+        <div>
+          <span style="font-weight:700; text-decoration:underline;">Declaration</span>
+          <div style="font-size:8.5px; color:#1e293b; line-height:1.3; margin-top:2px;">
+            This is an authenticated computer-generated payment voucher and official acknowledgment of money received and credited to the respective customer ledger account.
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column -->
+      <div style="flex:0.8; padding-left:15px; display:flex; flex-direction:column; justify-content:space-between;">
+        <div>
+          <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;">
+            <span style="font-weight:700;">Amount Cleared :</span>
+            <span style="font-weight:800; font-family:monospace; color:#15803d;">₹${fmtNum(totalReceivedAmount)}</span>
+          </div>
+          ${isOrderReceipt && orderNumber ? `
+          <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;">
+            <span style="font-weight:700;">Remaining Due :</span>
+            <span style="font-weight:800; font-family:monospace; color:${dueAmount > 0 ? '#b91c1c' : '#15803d'};">₹${fmtNum(dueAmount)}</span>
+          </div>` : ""}
+        </div>
+
+        <div style="text-align:right; margin-top:20px;">
+          <div style="font-size:11px; font-weight:800; color:#0284c7;">${companyName.toUpperCase()}</div>
+          <div style="font-size:9.5px; font-weight:700; margin-top:28px;">Authorised Signatory</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+  };
+
+  // Helper function matching backend deliveryChallanTemplate.js renderOpticalDocumentHTML
+  const renderOpticalDocumentHTML = (txn, docType = 'INVOICE') => {
+    const isChallan = docType === 'CHALLAN';
+    const title = isChallan ? 'Delivery Challan' : 'Sale Invoice';
+    const numberLabel = isChallan ? 'Challan No :' : 'Invoice No :';
+    const dateLabel = isChallan ? 'Challan Date :' : 'Invoice Date :';
+
+    const wholesaler = summary.wholesaler || {};
+    const wholesalerName = wholesaler.companyName || 'SAANCHI & CO.';
+    const wholesalerAddress = wholesaler.address || '3RD FLOOR, PEOPLES TV BUILDING, RAJA RAMMOHAN ROY ROAD,\nHAKIMPARA, SILIGURI';
+    const wholesalerPhone = wholesaler.phone || '0353-4075631';
+    const rawCompanyGstin = wholesaler.gstin || master.gstin || '';
+    const wholesalerGstin = (rawCompanyGstin && !String(rawCompanyGstin).startsWith('http') && !String(rawCompanyGstin).includes('/'))
+      ? String(rawCompanyGstin).trim()
+      : '19AFWFS3883G1Z2';
+    const finalLogo = wholesaler.logo || '';
+
+    const customerName = cust.shopName || cust.customerName || cust.ownerName || 'Customer';
+    const customerPhone = cust.mobile || cust.mobileNo1 || cust.phone || 'N/A';
+    const rawCustomerGstin = cust.gstin || cust.gstNumber || cust.GSTNo || '';
+    const customerGstin = (rawCustomerGstin && !String(rawCustomerGstin).startsWith('http') && !String(rawCustomerGstin).includes('/'))
+      ? String(rawCustomerGstin).trim()
+      : '';
+    const customerAddress = formatAddress(cust.address) || cust.billToAddress?.address || 'N/A';
+
+    const matchedOrder = ordersMap[String(txn.orderId)] || ordersMap[txn.orderNumber] || ordersMap[txn.referenceNumber] || txn;
+    const docNumber = matchedOrder.orderNumber || txn.orderNumber || txn.referenceNumber || (isChallan ? 'CH-001' : 'INV-001');
+    const docDate = txn.transactionDate || txn.createdAt || matchedOrder.createdAt || matchedOrder.orderDate || new Date();
+    const deliveryDate = matchedOrder.deliveryDate || matchedOrder.estimatedDeliveryDate || null;
+    const deliveryBy = matchedOrder.deliveryBy || matchedOrder.salesPersonName || '60';
+
+    const fmtPower = (val) => {
+      if (val === undefined || val === null || val === '') return '0.00';
+      const num = Number(val);
+      if (isNaN(num)) return String(val);
+      if (num > 0) return `+${num.toFixed(2)}`;
+      return num.toFixed(2);
+    };
+
+    const fmtAxis = (val) => {
+      if (val === undefined || val === null || val === '') return '0';
+      const num = Number(val);
+      return isNaN(num) ? String(val) : String(Math.round(num));
+    };
+
+    const fmtD = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-') : '-');
+
+    let itemIndex = 1;
+    let parsedItems = [];
+    let subTotal = 0;
+    let totalQty = 0;
+    let hsnMap = new Map();
+
+    const accumulateHsn = (hsn, taxable, cgstRate, sgstRate, igstRate) => {
+      const key = hsn || '90015000';
+      if (!hsnMap.has(key)) {
+        hsnMap.set(key, { taxable: 0, cgstRate, sgstRate, igstRate });
+      }
+      const entry = hsnMap.get(key);
+      entry.taxable += taxable;
+    };
+
+    const orderList = Array.isArray(matchedOrder.orders) && matchedOrder.orders.length > 0
+      ? matchedOrder.orders
+      : (Array.isArray(matchedOrder.items) && matchedOrder.items.length > 0
+        ? [{ items: matchedOrder.items, cgst: matchedOrder.cgst || 2.5, sgst: matchedOrder.sgst || 2.5, igst: matchedOrder.igst || 0, orderNumber: docNumber }]
+        : (Array.isArray(txn.items) && txn.items.length > 0
+          ? [{ items: txn.items, cgst: 2.5, sgst: 2.5, igst: 0, orderNumber: docNumber }]
+          : []));
+
+    if (orderList.length > 0) {
+      for (const order of orderList) {
+        const cgstRate = parseFloat(order.cgst || 2.5);
+        const sgstRate = parseFloat(order.sgst || 2.5);
+        const igstRate = parseFloat(order.igst || 0);
+
+        for (const item of (order.items || [])) {
+          const itemName = item.itemName || item.materialDescription || item.productName || item.lensType || 'Optical Item';
+          const hsn = item.hsnSac || item.hsn || '90015000';
+          const price = Number(item.price || item.unitRate || item.sellingPrice || 0);
+          const discPct = Number(item.discountPercent || 0);
+          const discAmt = Number(item.discountAmount || item.discount || 0);
+          const rxRef = item.rx?.orderReference || (item.orderNo ? `Rx Order No. - ${item.orderNo}` : (order.orderNumber ? `Rx Order No. - ${order.orderNumber}` : ''));
+
+          const powers = item.rx?.powers || [];
+          const rPower = powers.find(p => p.side === 'R' || p.side === 'Right') || (item.rPower ? { ...item.rPower, side: 'R' } : null);
+          const lPower = powers.find(p => p.side === 'L' || p.side === 'Left') || (item.lPower ? { ...item.lPower, side: 'L' } : null);
+
+          if (rPower && lPower) {
+            const rQty = 1;
+            const rPrice = price;
+            const rDiscAmt = discAmt > 0 ? (discAmt / 2) : (rPrice * rQty * discPct / 100);
+            const rAmt = (rPrice * rQty) - rDiscAmt;
+            parsedItems.push({
+              sn: itemIndex++,
+              itemName,
+              rxRef,
+              eye: 'R',
+              sph: fmtPower(rPower.sph),
+              cyl: fmtPower(rPower.cyl),
+              axis: fmtAxis(rPower.axis),
+              add: fmtPower(rPower.add),
+              qty: rQty,
+              price: rPrice,
+              discPct,
+              discAmt: rDiscAmt,
+              amt: rAmt,
+            });
+            subTotal += rAmt;
+            totalQty += rQty;
+            accumulateHsn(hsn, rAmt, cgstRate, sgstRate, igstRate);
+
+            const lQty = 1;
+            const lPrice = price;
+            const lDiscAmt = discAmt > 0 ? (discAmt / 2) : (lPrice * lQty * discPct / 100);
+            const lAmt = (lPrice * lQty) - lDiscAmt;
+            parsedItems.push({
+              sn: itemIndex++,
+              itemName,
+              rxRef,
+              eye: 'L',
+              sph: fmtPower(lPower.sph),
+              cyl: fmtPower(lPower.cyl),
+              axis: fmtAxis(lPower.axis),
+              add: fmtPower(lPower.add),
+              qty: lQty,
+              price: lPrice,
+              discPct,
+              discAmt: lDiscAmt,
+              amt: lAmt,
+            });
+            subTotal += lAmt;
+            totalQty += lQty;
+            accumulateHsn(hsn, lAmt, cgstRate, sgstRate, igstRate);
+          } else if (rPower || lPower) {
+            const p = rPower || lPower;
+            const side = rPower ? 'R' : 'L';
+            const qty = Number(item.quantity || item.qty || 1);
+            const iDiscAmt = discAmt > 0 ? discAmt : (price * qty * discPct / 100);
+            const iAmt = (price * qty) - iDiscAmt;
+            parsedItems.push({
+              sn: itemIndex++,
+              itemName,
+              rxRef,
+              eye: side,
+              sph: fmtPower(p.sph),
+              cyl: fmtPower(p.cyl),
+              axis: fmtAxis(p.axis),
+              add: fmtPower(p.add),
+              qty,
+              price,
+              discPct,
+              discAmt: iDiscAmt,
+              amt: iAmt,
+            });
+            subTotal += iAmt;
+            totalQty += qty;
+            accumulateHsn(hsn, iAmt, cgstRate, sgstRate, igstRate);
+          } else {
+            const qty = Number(item.quantity || item.qty || 1);
+            const iDiscAmt = discAmt > 0 ? discAmt : (price * qty * discPct / 100);
+            const iAmt = Number(item.netValue || item.value || (price * qty - iDiscAmt));
+            const hasPower = item.sph !== undefined || item.cyl !== undefined;
+            parsedItems.push({
+              sn: itemIndex++,
+              itemName,
+              rxRef: item.code ? `Item Code: ${item.code}` : (item.orderNo ? `Rx Order No. - ${item.orderNo}` : ''),
+              eye: item.side || item.eye || '-',
+              sph: hasPower ? fmtPower(item.sph) : '-',
+              cyl: hasPower ? fmtPower(item.cyl) : '-',
+              axis: hasPower ? fmtAxis(item.axis) : '-',
+              add: hasPower ? fmtPower(item.add) : '-',
+              qty,
+              price: price || (qty > 0 ? iAmt / qty : iAmt),
+              discPct,
+              discAmt: iDiscAmt,
+              amt: iAmt,
+            });
+            subTotal += iAmt;
+            totalQty += qty;
+            accumulateHsn(hsn, iAmt, cgstRate, sgstRate, igstRate);
+          }
+        }
+      }
+    }
+
+    if (parsedItems.length === 0) {
+      const orderTotalFallback = Number(matchedOrder.grandTotal || matchedOrder.totalOrderPrice || txn.orderGrandTotal || txn.debit || 0);
+      const taxableFallback = Number(matchedOrder.taxableAmount || (orderTotalFallback > 0 ? Number((orderTotalFallback / 1.05).toFixed(2)) : 0));
+      parsedItems.push({
+        sn: 1,
+        itemName: `Wholesale Optical Order #${docNumber}`,
+        rxRef: txn.referenceNumber ? `Ref: ${txn.referenceNumber}` : '',
+        eye: '-',
+        sph: '-',
+        cyl: '-',
+        axis: '-',
+        add: '-',
+        qty: 1,
+        price: taxableFallback,
+        discPct: 0,
+        discAmt: 0,
+        amt: taxableFallback,
+      });
+      subTotal = taxableFallback;
+      totalQty = 1;
+      accumulateHsn('90015000', taxableFallback, 2.5, 2.5, 0);
+    }
+
+    const shippingCharges = Number(matchedOrder.shippingCharges || txn.shippingCharges || 0);
+    const otherCharges = Number(matchedOrder.otherCharges || txn.otherCharges || 0);
+
+    let totalCgst = 0;
+    let totalSgst = 0;
+    let totalIgst = 0;
+    let totalTaxable = 0;
+    const hsnRows = [];
+
+    for (const [hsn, info] of hsnMap.entries()) {
+      const sgst = (info.taxable * info.sgstRate) / 100;
+      const cgst = (info.taxable * info.cgstRate) / 100;
+      const igst = (info.taxable * info.igstRate) / 100;
+      const rowTax = sgst + cgst + igst;
+      totalTaxable += info.taxable;
+      totalSgst += sgst;
+      totalCgst += cgst;
+      totalIgst += igst;
+      hsnRows.push({
+        hsn,
+        taxable: info.taxable,
+        sgstRate: info.sgstRate,
+        sgst,
+        cgstRate: info.cgstRate,
+        cgst,
+        igstRate: info.igstRate,
+        igst,
+        totalTax: rowTax,
+      });
+    }
+
+    const finalCgst = Number(matchedOrder.cgstAmount ?? totalCgst);
+    const finalSgst = Number(matchedOrder.sgstAmount ?? totalSgst);
+    const finalIgst = Number(matchedOrder.igstAmount ?? totalIgst);
+    const totalTaxes = finalCgst + finalSgst + finalIgst;
+
+    const rawGrandTotal = subTotal + shippingCharges + otherCharges + totalTaxes;
+    const explicitGrandTotal = Number(matchedOrder.grandTotal || matchedOrder.totalOrderPrice || txn.orderGrandTotal || txn.debit || 0);
+    const grandTotal = explicitGrandTotal > 0 ? Math.round(explicitGrandTotal) : Math.round(rawGrandTotal);
+    const roundOff = Number((grandTotal - rawGrandTotal).toFixed(2));
+
+    const paidAmount = Math.max(Number(matchedOrder.paidAmount ?? matchedOrder.totalPaidAmount ?? matchedOrder.advanceAmount ?? txn.orderPaidAmount ?? txn.credit ?? 0), 0);
+    const dueAmount = matchedOrder.balanceDue != null && Number(matchedOrder.balanceDue) <= (grandTotal - paidAmount)
+      ? Number(matchedOrder.balanceDue)
+      : Math.max(0, grandTotal - paidAmount);
+    const amountInWords = numberToWordsINR(grandTotal);
+
+    const bankDetails = wholesaler.bankDetails || {};
+    const bankAccountNo = bankDetails.bankAccountNo || bankDetails.accountNo || '0828073000000655';
+    const bankIFSC = bankDetails.bankIFSC || bankDetails.ifscCode || 'SIBL0000828';
+    const bankName = bankDetails.bankName || 'South Indian Bank Ltd.';
+    const bankBranch = bankDetails.bankBranch || bankDetails.branch || 'Siliguri Branch.';
+
+    const renderedItemRows = parsedItems.map((item) => `
+      <tr style="border-bottom:1px solid #000000;">
+        <td style="border-right:1px solid #000; padding:3px 2px; text-align:center; vertical-align:top; font-size:10px;">${item.sn}</td>
+        <td style="border-right:1px solid #000; padding:3px 6px; text-align:left; vertical-align:top;">
+          <div style="font-weight:700; font-size:10px; color:#000; text-transform:uppercase;">${item.itemName}</div>
+          ${item.rxRef ? `<div style="font-size:9px; color:#334155; margin-top:1px;">${item.rxRef}</div>` : ''}
+        </td>
+        <td style="border-right:1px solid #000; padding:3px 2px; text-align:center; vertical-align:top; font-weight:700; font-size:10px;">${item.eye}</td>
+        <td style="border-right:1px solid #000; padding:3px 2px; text-align:center; vertical-align:top; font-size:10px; font-family:monospace;">${item.sph}</td>
+        <td style="border-right:1px solid #000; padding:3px 2px; text-align:center; vertical-align:top; font-size:10px; font-family:monospace;">${item.cyl}</td>
+        <td style="border-right:1px solid #000; padding:3px 2px; text-align:center; vertical-align:top; font-size:10px; font-family:monospace;">${item.axis}</td>
+        <td style="border-right:1px solid #000; padding:3px 2px; text-align:center; vertical-align:top; font-size:10px; font-family:monospace;">${item.add}</td>
+        <td style="border-right:1px solid #000; padding:3px 2px; text-align:center; vertical-align:top; font-size:10px; font-weight:600;">${item.qty}</td>
+        <td style="border-right:1px solid #000; padding:3px 4px; text-align:right; vertical-align:top; font-size:10px; font-family:monospace;">${fmtNum(item.price)}</td>
+        <td style="border-right:1px solid #000; padding:3px 2px; text-align:center; vertical-align:top; font-size:10px;">${item.discPct || '0'}</td>
+        <td style="border-right:1px solid #000; padding:3px 4px; text-align:right; vertical-align:top; font-size:10px; font-family:monospace;">${fmtNum(item.discAmt)}</td>
+        <td style="padding:3px 6px; text-align:right; vertical-align:top; font-size:10px; font-weight:700; font-family:monospace;">${fmtNum(item.amt)}</td>
+      </tr>
+    `).join('');
+
+    const hsnRowsHtml = hsnRows.map(r => `
+      <tr style="border-bottom:1px solid #000000;">
+        <td style="border-right:1px solid #000; padding:2px 4px; font-family:monospace;">${r.hsn}</td>
+        <td style="border-right:1px solid #000; padding:2px 4px; text-align:right; font-family:monospace;">${fmtNum(r.taxable)}</td>
+        <td style="border-right:1px solid #000; padding:2px 4px;">${r.sgstRate.toFixed(2)}</td>
+        <td style="border-right:1px solid #000; padding:2px 4px; text-align:right; font-family:monospace;">${fmtNum(r.sgst)}</td>
+        <td style="border-right:1px solid #000; padding:2px 4px;">${r.cgstRate.toFixed(2)}</td>
+        <td style="border-right:1px solid #000; padding:2px 4px; text-align:right; font-family:monospace;">${fmtNum(r.cgst)}</td>
+        <td style="border-right:1px solid #000; padding:2px 4px;">${r.igstRate.toFixed(2)}</td>
+        <td style="border-right:1px solid #000; padding:2px 4px; text-align:right; font-family:monospace;">${fmtNum(r.igst)}</td>
+        <td style="padding:2px 4px; text-align:right; font-weight:700; font-family:monospace;">${fmtNum(r.totalTax)}</td>
+      </tr>
+    `).join('');
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>${title} - ${docNumber}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 6mm 8mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, Helvetica, "Segoe UI", Roboto, sans-serif;
+      color: #000000;
+      background: #ffffff;
+      font-size: 10.5px;
+      line-height: 1.25;
+    }
+    .invoice-wrapper {
+      width: 100%;
+      border: 1.5px solid #000000;
+      background: #ffffff;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-wrapper">
+    <!-- Header -->
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; padding:8px 12px; border-bottom:1.5px solid #000000;">
+      <div style="width:130px; min-height:50px; display:flex; align-items:center;">
+        ${finalLogo ? `<img src="${finalLogo}" alt="Logo" style="max-height:55px; max-width:130px; object-fit:contain;" />` : ''}
+      </div>
+      <div style="flex:1; text-align:center; padding:0 10px;">
+        <div style="font-size:13.5px; font-weight:700; margin-bottom:2px;">${title}</div>
+        <div style="font-size:19px; font-weight:800; color:#0284c7; letter-spacing:0.5px; margin-bottom:2px;">${wholesalerName.toUpperCase()}</div>
+        <div style="font-size:9.5px; font-weight:600; line-height:1.25; color:#1e293b; white-space:pre-line;">${wholesalerAddress.toUpperCase()}</div>
+        <div style="font-size:10px; font-weight:600; color:#1e293b; margin-top:1px;">Contact No. ${wholesalerPhone}</div>
+        <div style="font-size:10.5px; font-weight:700; margin-top:2px;">GST No : ${wholesalerGstin}</div>
+      </div>
+      <div style="width:110px; text-align:right;">
+        <div style="font-size:11px; font-weight:700;">Original Copy</div>
+      </div>
+    </div>
+
+    <!-- Customer & Doc Info 2 Columns -->
+    <div style="display:flex; border-bottom:1.5px solid #000000;">
+      <!-- Left Column: Party Details -->
+      <div style="flex:1.2; padding:6px 10px; border-right:1px solid #000000; font-size:10.5px; line-height:1.35;">
+        <table style="width:100%; border-collapse:collapse;">
+          <tr>
+            <td style="width:85px; font-weight:700; vertical-align:top;">Party Name :</td>
+            <td style="font-weight:800; font-size:11.5px; color:#000;">${customerName.toUpperCase()}</td>
+          </tr>
+          <tr>
+            <td style="font-weight:700; vertical-align:top;">Mobile :</td>
+            <td style="font-family:monospace; font-weight:600;">${customerPhone}</td>
+          </tr>
+          ${customerGstin ? `
+          <tr>
+            <td style="font-weight:700; vertical-align:top;">GST No :</td>
+            <td style="font-weight:600; font-family:monospace;">${customerGstin}</td>
+          </tr>` : ''}
+          <tr>
+            <td style="font-weight:700; vertical-align:top;">Address :</td>
+            <td style="color:#1e293b;">${customerAddress}</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Right Column: Doc Details -->
+      <div style="flex:0.8; padding:6px 10px; font-size:10.5px; line-height:1.35;">
+        <table style="width:100%; border-collapse:collapse;">
+          <tr>
+            <td style="width:95px; font-weight:700;">${numberLabel}</td>
+            <td style="font-weight:800; font-family:monospace; font-size:11.5px;">${docNumber}</td>
+          </tr>
+          <tr>
+            <td style="font-weight:700;">${dateLabel}</td>
+            <td style="font-weight:700; font-family:monospace;">${fmtD(docDate)}</td>
+          </tr>
+          <tr>
+            <td style="font-weight:700;">Delivery Date :</td>
+            <td style="font-family:monospace;">${deliveryDate ? fmtD(deliveryDate) : '-'}</td>
+          </tr>
+          <tr>
+            <td style="font-weight:700;">Delivery By :</td>
+            <td style="font-weight:600;">${deliveryBy}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Items Table -->
+    <table style="width:100%; border-collapse:collapse; border-bottom:1.5px solid #000000;">
+      <thead>
+        <tr style="background:#ffffff; border-bottom:1px solid #000000; font-size:9.5px; font-weight:700;">
+          <th style="width:26px; border-right:1px solid #000; padding:4px 2px; text-align:center;">Sn.</th>
+          <th style="border-right:1px solid #000; padding:4px 6px; text-align:left;">Particulars_detail</th>
+          <th style="width:26px; border-right:1px solid #000; padding:4px 2px; text-align:center;">Eye</th>
+          <th style="width:42px; border-right:1px solid #000; padding:4px 2px; text-align:center;">Sph</th>
+          <th style="width:42px; border-right:1px solid #000; padding:4px 2px; text-align:center;">Cyl</th>
+          <th style="width:34px; border-right:1px solid #000; padding:4px 2px; text-align:center;">Axis</th>
+          <th style="width:42px; border-right:1px solid #000; padding:4px 2px; text-align:center;">Add</th>
+          <th style="width:28px; border-right:1px solid #000; padding:4px 2px; text-align:center;">Qty</th>
+          <th style="width:55px; border-right:1px solid #000; padding:4px 4px; text-align:right;">Price</th>
+          <th style="width:34px; border-right:1px solid #000; padding:4px 2px; text-align:center;">Dis%</th>
+          <th style="width:44px; border-right:1px solid #000; padding:4px 4px; text-align:right;">Dis.</th>
+          <th style="width:62px; padding:4px 6px; text-align:right;">Amt</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${renderedItemRows}
+        <!-- Integrated Totals Inside Table Grid -->
+        <tr style="border-top:1px solid #000;">
+          <td colspan="7" style="border-right:1px solid #000; border-bottom:1px solid #000;"></td>
+          <td colspan="4" style="border-right:1px solid #000; border-bottom:1px solid #000; padding:3px 6px; font-weight:700; text-align:right;">Total Value</td>
+          <td style="border-bottom:1px solid #000; padding:3px 6px; text-align:right; font-family:monospace; font-weight:600;">${fmtNum(subTotal)}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #000;">
+          <td colspan="7" style="border-right:1px solid #000; border-bottom:1px solid #000;"></td>
+          <td colspan="4" style="border-right:1px solid #000; border-bottom:1px solid #000; padding:3px 6px; font-weight:700; text-align:right;">Rounded Off ${roundOff >= 0 ? '(+)' : '(-)'}</td>
+          <td style="border-bottom:1px solid #000; padding:3px 6px; text-align:right; font-family:monospace; font-weight:600;">${fmtNum(Math.abs(roundOff))}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #000;">
+          <td colspan="7" style="border-right:1px solid #000; border-bottom:1px solid #000;"></td>
+          <td colspan="4" style="border-right:1px solid #000; border-bottom:1px solid #000; padding:3px 6px; font-weight:700; text-align:right;">Freight Charges</td>
+          <td style="border-bottom:1px solid #000; padding:3px 6px; text-align:right; font-family:monospace; font-weight:600;">${fmtNum(shippingCharges)}</td>
+        </tr>
+        ${otherCharges !== 0 ? `
+        <tr style="border-bottom:1px solid #000;">
+          <td colspan="7" style="border-right:1px solid #000; border-bottom:1px solid #000;"></td>
+          <td colspan="4" style="border-right:1px solid #000; border-bottom:1px solid #000; padding:3px 6px; font-weight:700; text-align:right;">Other Charges</td>
+          <td style="border-bottom:1px solid #000; padding:3px 6px; text-align:right; font-family:monospace; font-weight:600;">${fmtNum(otherCharges)}</td>
+        </tr>` : ''}
+        ${finalCgst > 0 ? `
+        <tr style="border-bottom:1px solid #000;">
+          <td colspan="7" style="border-right:1px solid #000; border-bottom:1px solid #000;"></td>
+          <td colspan="4" style="border-right:1px solid #000; border-bottom:1px solid #000; padding:3px 6px; font-weight:700; text-align:right;">CGST</td>
+          <td style="border-bottom:1px solid #000; padding:3px 6px; text-align:right; font-family:monospace; font-weight:600;">${fmtNum(finalCgst)}</td>
+        </tr>` : ''}
+        ${finalSgst > 0 ? `
+        <tr style="border-bottom:1px solid #000;">
+          <td colspan="7" style="border-right:1px solid #000; border-bottom:1px solid #000;"></td>
+          <td colspan="4" style="border-right:1px solid #000; border-bottom:1px solid #000; padding:3px 6px; font-weight:700; text-align:right;">SGST</td>
+          <td style="border-bottom:1px solid #000; padding:3px 6px; text-align:right; font-family:monospace; font-weight:600;">${fmtNum(finalSgst)}</td>
+        </tr>` : ''}
+        ${finalIgst > 0 ? `
+        <tr style="border-bottom:1px solid #000;">
+          <td colspan="7" style="border-right:1px solid #000; border-bottom:1px solid #000;"></td>
+          <td colspan="4" style="border-right:1px solid #000; border-bottom:1px solid #000; padding:3px 6px; font-weight:700; text-align:right;">IGST</td>
+          <td style="border-bottom:1px solid #000; padding:3px 6px; text-align:right; font-family:monospace; font-weight:600;">${fmtNum(finalIgst)}</td>
+        </tr>` : ''}
+        <tr style="font-weight:800; font-size:10.5px; border-bottom:1.5px solid #000000;">
+          <td colspan="7" style="border-right:1px solid #000; padding:4px 6px; text-align:center;">Total</td>
+          <td style="border-right:1px solid #000; padding:4px 2px; text-align:center;">${totalQty}</td>
+          <td colspan="3" style="border-right:1px solid #000;"></td>
+          <td style="padding:4px 6px; text-align:right; font-family:monospace;">${fmtNum(grandTotal)}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- HSN Summary Table -->
+    <table style="width:100%; border-collapse:collapse; border-bottom:1.5px solid #000000; font-size:9px; text-align:center;">
+      <thead>
+        <tr style="border-bottom:1px solid #000; font-weight:700;">
+          <th style="border-right:1px solid #000; padding:2px 4px;">HSN</th>
+          <th style="border-right:1px solid #000; padding:2px 4px;">Taxable</th>
+          <th style="border-right:1px solid #000; padding:2px 4px;">SGST %</th>
+          <th style="border-right:1px solid #000; padding:2px 4px;">SGST</th>
+          <th style="border-right:1px solid #000; padding:2px 4px;">CGST %</th>
+          <th style="border-right:1px solid #000; padding:2px 4px;">CGST</th>
+          <th style="border-right:1px solid #000; padding:2px 4px;">IGST %</th>
+          <th style="border-right:1px solid #000; padding:2px 4px;">IGST</th>
+          <th style="padding:2px 4px;">Total.Tax</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${hsnRowsHtml}
+        <tr style="border-top:1px solid #000; font-weight:700;">
+          <td style="border-right:1px solid #000; padding:2px 4px;">Total</td>
+          <td style="border-right:1px solid #000; padding:2px 4px; text-align:right; font-family:monospace;">${fmtNum(totalTaxable)}</td>
+          <td style="border-right:1px solid #000; padding:2px 4px;"></td>
+          <td style="border-right:1px solid #000; padding:2px 4px; text-align:right; font-family:monospace;">${fmtNum(totalSgst)}</td>
+          <td style="border-right:1px solid #000; padding:2px 4px;"></td>
+          <td style="border-right:1px solid #000; padding:2px 4px; text-align:right; font-family:monospace;">${fmtNum(totalCgst)}</td>
+          <td style="border-right:1px solid #000; padding:2px 4px;"></td>
+          <td style="border-right:1px solid #000; padding:2px 4px; text-align:right; font-family:monospace;">${fmtNum(totalIgst)}</td>
+          <td style="padding:2px 4px; text-align:right; font-family:monospace;">${fmtNum(totalTaxes)}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Bottom Section: Words, Terms, Bank, QR Code, Signature -->
+    <div style="display:flex; padding:6px 10px; font-size:9.5px;">
+      <!-- Left Column -->
+      <div style="flex:1.2; padding-right:15px; border-right:1px solid #000000;">
+        <div style="margin-bottom:5px;">
+          <span style="font-weight:700;">Total ${isChallan ? 'Challan' : 'Invoice'} value ( In Words ) :</span><br>
+          <span style="font-weight:800; font-size:10px;">${amountInWords}</span>
+        </div>
+        <div style="margin-bottom:6px;">
+          <span style="font-weight:700; text-decoration:underline;">Terms & Condition</span>
+          <div style="font-size:8.5px; color:#1e293b; line-height:1.3; margin-top:1px;">
+            1.Bills Generated are to be paid in Full. 2.Goods once sold will not be returned back 3.Interest @18% will be charged after the expiry of due date. 4.Cheque dishonour will attract a Penality.
+          </div>
+        </div>
+        <div>
+          <span style="font-weight:700; text-decoration:underline;">Bank Details :</span>
+          <div style="font-size:9px; line-height:1.3; margin-top:1px;">
+            <strong>${wholesalerName.toUpperCase()},</strong><br>
+            Account No- ${bankAccountNo}<br>
+            IFSC- ${bankIFSC}<br>
+            ${bankName},<br>
+            ${bankBranch}
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column -->
+      <div style="flex:0.8; padding-left:15px; display:flex; flex-direction:column; justify-content:space-between;">
+        <div>
+          <div style="display:flex; justify-content:space-between; font-size:10.5px; margin-bottom:2px;">
+            <span style="font-weight:700;">Paid Amount :</span>
+            <span style="font-weight:700; font-family:monospace;">${fmtNum(paidAmount)}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:10.5px; margin-bottom:4px;">
+            <span style="font-weight:700;">Due Amount :</span>
+            <span style="font-weight:800; font-family:monospace; color:${dueAmount > 0 ? '#b91c1c' : '#15803d'};">${fmtNum(dueAmount)}</span>
+          </div>
+        </div>
+
+        <div style="text-align:right; margin-top:15px;">
+          <div style="font-size:11px; font-weight:800; color:#0284c7;">${wholesalerName.toUpperCase()}</div>
+          <div style="font-size:9.5px; font-weight:700; margin-top:28px;">Authorised Signatory</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+  };
+
+  // Generate Order Tax Invoice HTML (matches original backend deliveryChallanTemplate.js renderOpticalDocumentHTML INVOICE design)
+  const generateOrderInvoiceHTML = (txn) => {
+    return renderOpticalDocumentHTML(txn, 'INVOICE');
+  };
+
+  // Generate Order Delivery Challan HTML (matches original backend deliveryChallanTemplate.js renderOpticalDocumentHTML CHALLAN design)
+  const generateOrderChallanHTML = (txn) => {
+    return renderOpticalDocumentHTML(txn, 'CHALLAN');
+  };
+
+  // Top Bar Action: Print Statement
+  const handlePrint = () => {
+    const safeName = (cust.shopName || cust.ownerName || 'Customer').replace(/[^a-z0-9]/gi, '-');
+    const html = generateStatementHTML();
+    printHTMLDocument(html, `Customer-Ledger-Statement-${safeName}`);
   };
 
   const [downloadingDocId, setDownloadingDocId] = useState(null);
   const [downloadingChallanId, setDownloadingChallanId] = useState(null);
   const [downloadingStatement, setDownloadingStatement] = useState(false);
 
-  const handleDownloadLedgerStatement = async () => {
-    if (!customerId) {
-      toast.error('Customer ID missing');
-      return;
-    }
-    try {
-      setDownloadingStatement(true);
-      const safeName = (summary.customer?.shopName || summary.customer?.ownerName || 'Customer').replace(/[^a-z0-9]/gi, '-');
-      const activeFilters = {};
-      if (filters.startDate) activeFilters.startDate = filters.startDate;
-      if (filters.endDate) activeFilters.endDate = filters.endDate;
-      await downloadCustomerLedgerStatement(customerId, `Ledger-Statement-${safeName}`, true, activeFilters);
-      toast.success('Customer Ledger Statement downloaded successfully!');
-    } catch (err) {
-      toast.error(err.message || 'Failed to download ledger statement');
-    } finally {
-      setDownloadingStatement(false);
-    }
+  // 1. Download / Print Ledger Statement
+  const handleDownloadLedgerStatement = () => {
+    const safeName = (cust.shopName || cust.ownerName || 'Customer').replace(/[^a-z0-9]/gi, '-');
+    const html = generateStatementHTML();
+    printHTMLDocument(html, `Customer-Ledger-Statement-${safeName}`);
+    toast.success('Customer Ledger Statement opened in print / save as PDF dialog!');
   };
 
-  const handleDownloadOrderChallan = async (txn) => {
-    const orderId = txn.orderId || txn.voucherId;
-    const orderNumber = txn.orderNumber || txn.referenceNumber || 'Order';
-    if (!orderId) {
-      toast.error('Order ID not available for challan download');
-      return;
-    }
-    try {
-      setDownloadingChallanId(orderId);
-      await downloadOrderChallan(orderId, `Challan-${orderNumber}`);
-      toast.success('Delivery Challan downloaded successfully!');
-    } catch (err) {
-      toast.error(err.message || 'Failed to download delivery challan');
-    } finally {
-      setDownloadingChallanId(null);
-    }
+  // 2. Download / Print Order Delivery Challan
+  const handleDownloadOrderChallan = (txn) => {
+    const orderNumber = txn.orderNumber || txn.referenceNumber || txn.orderId || 'Order';
+    const html = generateOrderChallanHTML(txn);
+    printHTMLDocument(html, `Delivery-Challan-${orderNumber}`);
+    toast.success(`Delivery Challan #${orderNumber} opened in print / save as PDF dialog!`);
   };
 
-  const handleDownloadOrderInvoice = async (txn) => {
-    const orderId = txn.orderId || txn.voucherId;
-    const orderNumber = txn.orderNumber || txn.referenceNumber || 'Order';
-    if (!orderId) {
-      toast.error('Order ID not available for invoice download');
-      return;
-    }
-    try {
-      setDownloadingDocId(orderId);
-      await downloadOrderInvoice(orderId, orderNumber, `Invoice-${orderNumber}`);
-      toast.success('Order Invoice downloaded successfully!');
-    } catch (err) {
-      toast.error(err.message || 'Failed to download invoice');
-    } finally {
-      setDownloadingDocId(null);
-    }
+  // 3. Download / Print Order Tax Invoice
+  const handleDownloadOrderInvoice = (txn) => {
+    const orderNumber = txn.orderNumber || txn.referenceNumber || txn.orderId || 'Order';
+    const html = generateOrderInvoiceHTML(txn);
+    printHTMLDocument(html, `Tax-Invoice-${orderNumber}`);
+    toast.success(`Tax Invoice #${orderNumber} opened in print / save as PDF dialog!`);
   };
 
-  const handleDownloadReceipt = async (txnOrPayment) => {
-    let identifier = null;
-    let fileLabel = 'Receipt';
-
-    if (txnOrPayment.orderId || txnOrPayment.orderNumber || (txnOrPayment.items && txnOrPayment.items.length > 0)) {
-      identifier = txnOrPayment.orderId || txnOrPayment._id || txnOrPayment.orderNumber;
-      fileLabel = `Receipt-${txnOrPayment.orderNumber || 'Order'}`;
-    } else if (txnOrPayment.paymentId) {
-      identifier = txnOrPayment.paymentId;
-      fileLabel = `Receipt-${txnOrPayment.referenceNumber || txnOrPayment.paymentNumber || 'Payment'}`;
-    } else if (txnOrPayment.paymentNumber || txnOrPayment.referenceNumber) {
-      identifier = txnOrPayment.referenceNumber || txnOrPayment.paymentNumber;
-      fileLabel = `Receipt-${identifier}`;
-    } else {
-      identifier = txnOrPayment.voucherId || txnOrPayment._id;
-      fileLabel = `Receipt-${txnOrPayment.referenceNumber || 'Receipt'}`;
-    }
-
-    if (!identifier) {
-      toast.error('Payment receipt not available for this record');
-      return;
-    }
-
-    try {
-      setDownloadingReceiptId(identifier);
-      await downloadPaymentReceipt(identifier, fileLabel);
-      toast.success('Payment receipt downloaded successfully!');
-    } catch (err) {
-      toast.error(err.message || 'Failed to download receipt');
-    } finally {
-      setDownloadingReceiptId(null);
-    }
+  // 4. Download / Print Payment Receipt
+  const handleDownloadReceipt = (txnOrPayment) => {
+    let identifier = txnOrPayment.referenceNumber || txnOrPayment.paymentNumber || txnOrPayment.paymentId || txnOrPayment.voucherId || txnOrPayment.orderNumber || 'RCP';
+    const html = generatePaymentReceiptHTML(txnOrPayment);
+    printHTMLDocument(html, `Payment-Receipt-${identifier}`);
+    toast.success(`Payment Receipt #${identifier} opened in print / save as PDF dialog!`);
   };
 
   const handleAutoAdjustAdvance = async () => {

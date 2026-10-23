@@ -200,35 +200,980 @@ const VendorStatement = () => {
     })
     .sort((a, b) => new Date(a.transactionDate || a.createdAt) - new Date(b.transactionDate || b.createdAt));
 
-  const handleDownloadReceipt = async (txn) => {
-    const refKey = txn.voucherId || txn.referenceNumber || txn._id;
+  const numberToWordsINR = (num) => {
+    const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
+    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    const inWords = (n) => {
+      let str = '';
+      if (n > 19) {
+        str += b[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + a[n % 10] : ' ');
+      } else {
+        str += a[n];
+      }
+      return str;
+    };
+    num = Math.floor(Math.abs(Number(num) || 0));
+    if (num === 0) return 'Zero Rupees Only';
+    let words = '';
+    const crore = Math.floor(num / 10000000);
+    num %= 10000000;
+    const lakh = Math.floor(num / 100000);
+    num %= 100000;
+    const thousand = Math.floor(num / 1000);
+    num %= 1000;
+    const hundred = Math.floor(num / 100);
+    const rem = num % 100;
+    if (crore > 0) words += (crore > 99 ? inWords(Math.floor(crore / 100)) + 'Hundred ' + inWords(crore % 100) : inWords(crore)) + 'Crore ';
+    if (lakh > 0) words += inWords(lakh) + 'Lakh ';
+    if (thousand > 0) words += inWords(thousand) + 'Thousand ';
+    if (hundred > 0) words += inWords(hundred) + 'Hundred ';
+    if (rem > 0) words += inWords(rem);
+    return (words.trim() || 'Zero') + ' Rupees Only';
+  };
+
+  // Browser Print / Save as PDF Engine
+  const printHTMLDocument = (htmlContent, title) => {
+    const printWindow = window.open('', '_blank', 'width=950,height=800');
+    if (!printWindow) {
+      toast.error('Popup window was blocked by your browser. Please allow popups for this site to print or save PDF.');
+      return;
+    }
+    printWindow.document.open();
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    if (title) {
+      printWindow.document.title = title;
+    }
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 250);
+  };
+
+  const fmtNum = (n) =>
+    Number(n || 0).toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+  const fmtD = (d) =>
+    d
+      ? new Date(d)
+          .toLocaleDateString('en-IN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+          })
+          .replace(/\//g, '-')
+      : '—';
+
+  const formatModeLabel = (mode) => {
+    if (!mode) return 'Bank Transfer';
+    const m = String(mode).toUpperCase();
+    if (m === 'UPI') return 'UPI / QR Code';
+    if (m === 'CASH') return 'Cash Payment';
+    if (m === 'BANK_TRANSFER') return 'Bank Transfer / NEFT';
+    if (m === 'CHEQUE') return 'Cheque / DD';
+    return String(mode).replace(/_/g, ' ');
+  };
+
+  // Generate Vendor / Supplier Ledger Statement HTML
+  const generateVendorStatementHTML = () => {
+    const wholesaler = summary.wholesaler || {};
+    const wholesalerName = wholesaler.companyName || 'SAANCHI & CO.';
+    const companyAddress = wholesaler.address || '3RD FLOOR, PEOPLES TV BUILDING, RAJA RAMMOHAN ROY ROAD,\nHAKIMPARA, SILIGURI';
+    const companyPhone = wholesaler.phone || '0353-4075631';
+    const companyEmail = wholesaler.email || 'support@digioptics.com';
+    const rawCompanyGstin = wholesaler.gstin || master.gstin || '';
+    const companyGstin = (rawCompanyGstin && !String(rawCompanyGstin).startsWith('http') && !String(rawCompanyGstin).includes('/'))
+      ? String(rawCompanyGstin).trim()
+      : '19AFWFS3883G1Z2';
+    const companyLogo = wholesaler.logo || '';
+
+    const partyName = vendor.firm || vendor.name || 'Vendor';
+    const partyContact = vendor.mobile || vendor.phone || '-';
+    const rawPartyGstin = vendor.gstNumber || vendor.gstin || '';
+    const partyGstin = (rawPartyGstin && !String(rawPartyGstin).startsWith('http') && !String(rawPartyGstin).includes('/'))
+      ? String(rawPartyGstin).trim()
+      : 'URP';
+    const partyAddress = formatAddress(vendor.address) || '-';
+    const ledgerCode = master.ledgerCode || `VEND-LED-${String(vendorId || '').slice(-6).toUpperCase()}`;
+    const paymentTerms = master.paymentTerms || vendor.paymentTerms || 30;
+
+    let statementPeriod = filters.startDate
+      ? `From ${fmtD(filters.startDate)} To ${filters.endDate ? fmtD(filters.endDate) : 'Today'}`
+      : '';
+
+    if (!statementPeriod && unifiedTransactions && unifiedTransactions.length > 0) {
+      const validDates = unifiedTransactions
+        .map(t => new Date(t.transactionDate || t.orderDate || t.createdAt).getTime())
+        .filter(time => !isNaN(time) && time > 0)
+        .sort((a, b) => a - b);
+      if (validDates.length > 0) {
+        const fromStr = fmtD(new Date(validDates[0]));
+        const toStr = fmtD(new Date(validDates[validDates.length - 1]));
+        statementPeriod = fromStr === toStr ? fromStr : `From ${fromStr} To ${toStr}`;
+      }
+    }
+    if (!statementPeriod) {
+      statementPeriod = `As of ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')}`;
+    }
+
+    const rowsHtml = unifiedTransactions
+      .map((t, idx) => {
+        const d = fmtD(t.transactionDate || t.orderDate || t.createdAt);
+        const isPurchase = Boolean(
+          t.voucherType === 'Purchase Invoice' ||
+          (t.referenceNumber && String(t.referenceNumber).startsWith('PO-')) ||
+          (t.orderGrandTotal != null && Number(t.orderGrandTotal) > 0)
+        );
+        const isPayout = Boolean(
+          (t.referenceNumber && t.referenceNumber.startsWith('VPAY')) ||
+          t.voucherType === 'Payment Voucher' ||
+          (!isPurchase && Number(t.debit) > 0)
+        );
+
+        const orderTotal = Number(t.orderGrandTotal != null ? t.orderGrandTotal : t.credit || 0);
+        const paidAmount = Number(t.orderPaidAmount != null ? t.orderPaidAmount : 0);
+        const dueAmount = t.orderBalanceDue != null
+          ? Number(t.orderBalanceDue)
+          : Math.max(0, orderTotal - paidAmount);
+
+        const matchedOrder = ordersMap[String(t.orderId)] || ordersMap[t.orderNumber] || ordersMap[t.referenceNumber] || null;
+        const paymentsList = (Array.isArray(t.orderPayments) && t.orderPayments.length > 0) ? t.orderPayments : (matchedOrder?.orderPayments || []);
+        const orderItems = (t.items && t.items.length > 0) ? t.items : (matchedOrder?.items || []);
+        const isFullyPaid = isPurchase && dueAmount <= 0 && orderTotal > 0;
+
+        const creditStr = isPurchase && orderTotal > 0 ? fmtNum(orderTotal) : (Number(t.credit || 0) > 0 ? fmtNum(t.credit) : '0.00');
+        const debitStr = Number(t.debit || 0) > 0 ? fmtNum(t.debit) : '0.00';
+        const balStr = isPurchase
+          ? (isFullyPaid ? 'Paid' : `₹${fmtNum(dueAmount)} (Payable)`)
+          : (Number(t.debit || 0) > 0 ? `₹${fmtNum(t.debit)} (Paid)` : (t.runningBalance != null ? `₹${fmtNum(t.runningBalance)}` : '—'));
+
+        const balColor = isFullyPaid ? '#15803d' : (isPurchase && dueAmount > 0 ? '#b91c1c' : '#0f172a');
+        const ref = t.orderNumber || t.referenceNumber || t.voucherId || '—';
+
+        let particulars = '';
+        if (isPayout) {
+          const detectedMode = t.paymentMode || (t.narration?.toLowerCase().includes('upi') ? 'UPI' : t.narration?.toLowerCase().includes('cash') ? 'CASH' : 'BANK_TRANSFER');
+          particulars = `<span style="display:inline-block; font-weight:700; color:#059669; background:#dcfce7; padding:1px 4px; border-radius:2px; font-size:8px; margin-right:4px;">[${formatModeLabel(detectedMode)}]</span> Payout / Payment Disbursed`;
+          if (t.narration && !t.narration.toLowerCase().includes('payout issued') && !t.narration.toLowerCase().includes('payment issued')) {
+            particulars += ` &bull; ${t.narration}`;
+          }
+        } else if (isPurchase) {
+          particulars = 'Purchase Invoice';
+          const rawNarration = t.narration || t.description || '';
+          const isAutoGenerated = /Purchase Order #|Total:|Vendor:/i.test(rawNarration);
+          if (rawNarration && !isAutoGenerated) {
+            particulars += ` &bull; ${rawNarration}`;
+          }
+        } else {
+          particulars = t.voucherType || t.description || 'General Ledger Entry';
+        }
+
+        // Purchase Items sub-table
+        const orderCreatedDate = t.orderDate || t.createdAt || matchedOrder?.orderDate || matchedOrder?.createdAt;
+        const itemsRow = (isPurchase && orderItems.length > 0)
+          ? `
+          <tr style="background:#fff8f8; border-bottom:1px solid #fca5a5;">
+            <td colspan="7" style="padding:4px 6px 6px 6px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px; padding-bottom:2px; border-bottom:1px dashed #fca5a5; font-size:8.5px;">
+                <span style="font-weight:800; color:#b91c1c; text-transform:uppercase; letter-spacing:0.3px;">
+                  Purchase Items (${orderItems.length} Product${orderItems.length > 1 ? 's' : ''}) &bull; PO Ref: <strong style="font-family:monospace; color:#0284c7;">${ref}</strong> &bull; Order Created: <strong style="font-family:monospace; color:#0f172a;">${fmtD(orderCreatedDate)}</strong>
+                </span>
+                <span style="color:#475569; font-weight:600;">
+                  PO Status: <strong>${t.orderStatus || matchedOrder?.orderStatus || 'Submitted'}</strong> &bull; Invoiced Total: <strong style="color:#b91c1c;">₹${creditStr}</strong>
+                </span>
+              </div>
+              <table style="width:100%; border-collapse:collapse; background:#ffffff; border:1px solid #f87171; font-size:8px;">
+                <thead>
+                  <tr style="background:#fee2e2; border-bottom:1px solid #f87171; font-weight:700; color:#7f1d1d;">
+                    <th style="width:28px; border-right:1px solid #fca5a5; padding:2.5px 3px; text-align:center;">#</th>
+                    <th style="border-right:1px solid #fca5a5; padding:2.5px 5px; text-align:left;">Product / Item Name</th>
+                    <th style="width:95px; border-right:1px solid #fca5a5; padding:2.5px 4px; text-align:left;">Brand</th>
+                    <th style="width:80px; border-right:1px solid #fca5a5; padding:2.5px 4px; text-align:center;">Category / Type</th>
+                    <th style="width:90px; border-right:1px solid #fca5a5; padding:2.5px 4px; text-align:center;">Item Code / Ref</th>
+                    <th style="width:40px; border-right:1px solid #fca5a5; padding:2.5px 4px; text-align:center;">Qty</th>
+                    <th style="width:85px; border-right:1px solid #fca5a5; padding:2.5px 5px; text-align:right;">Buying Price (₹)</th>
+                    <th style="width:85px; padding:2.5px 5px; text-align:right;">Total (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${orderItems.map((item, iIdx) => {
+                    const itemName = item.itemName || item.productName || item.name || 'Product';
+                    const brand = item.brand || item.brandName || '—';
+                    const category = item.category || item.categoryName || item.orderType || 'STOCK';
+                    const code = item.code || item.productCode || item.hsnSac || ref || '—';
+                    const buyingPrice = Number(item.buyingPrice || item.price || 0);
+                    const qty = Number(item.qty || 1);
+                    const discount = Number(item.discountAmount || 0);
+                    const lineTotal = buyingPrice * qty - discount;
+                    return `
+                      <tr style="border-bottom:1px solid #fee2e2;">
+                        <td style="border-right:1px solid #fca5a5; padding:2.5px 3px; text-align:center; font-weight:700; color:#64748b;">${iIdx + 1}</td>
+                        <td style="border-right:1px solid #fca5a5; padding:2.5px 5px; font-weight:600; color:#0f172a;">${itemName}</td>
+                        <td style="border-right:1px solid #fca5a5; padding:2.5px 4px; color:#334155;">${brand}</td>
+                        <td style="border-right:1px solid #fca5a5; padding:2.5px 4px; text-align:center; font-weight:600; color:#475569;">${category}</td>
+                        <td style="border-right:1px solid #fca5a5; padding:2.5px 4px; text-align:center; font-family:monospace; color:#0284c7;">${code}</td>
+                        <td style="border-right:1px solid #fca5a5; padding:2.5px 4px; text-align:center; font-weight:700; color:#0f172a;">${qty}</td>
+                        <td style="border-right:1px solid #fca5a5; padding:2.5px 5px; text-align:right; font-family:monospace; font-weight:700; color:#475569;">₹${fmtNum(buyingPrice)}</td>
+                        <td style="padding:2.5px 5px; text-align:right; font-family:monospace; font-weight:700; color:#0f172a;">₹${fmtNum(lineTotal)}</td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </td>
+          </tr>`
+          : '';
+
+        // Payment Breakdown sub-table
+        const paymentsRow = (paymentsList && paymentsList.length > 0)
+          ? `
+          <tr style="background:#f8fafc; border-bottom:1.5px solid #000000;">
+            <td colspan="7" style="padding:4px 6px 6px 6px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px; padding-bottom:2px; border-bottom:1px dashed #cbd5e1; font-size:8.5px;">
+                <span style="font-weight:800; color:#0369a1; text-transform:uppercase; letter-spacing:0.3px;">
+                  Payment Breakdown &amp; Installments (${paymentsList.length} Record${paymentsList.length > 1 ? 's' : ''})
+                </span>
+                <span style="color:#475569; font-weight:600;">
+                  Purchase Total: <strong>₹${creditStr}</strong> &bull; Total Paid: <strong style="color:#15803d;">₹${fmtNum(paidAmount)}</strong> &bull; Balance Payable: <strong style="color:${dueAmount > 0 ? '#b91c1c' : '#15803d'};">₹${fmtNum(dueAmount)}</strong>
+                </span>
+              </div>
+              <table style="width:100%; border-collapse:collapse; background:#ffffff; border:1px solid #94a3b8; font-size:8px;">
+                <thead>
+                  <tr style="background:#e2e8f0; border-bottom:1px solid #94a3b8; font-weight:700; color:#334155;">
+                    <th style="width:44px; border-right:1px solid #cbd5e1; padding:2.5px 3px; text-align:center;">Inst. #</th>
+                    <th style="width:74px; border-right:1px solid #cbd5e1; padding:2.5px 4px; text-align:center;">Payment Date</th>
+                    <th style="width:115px; border-right:1px solid #cbd5e1; padding:2.5px 5px; text-align:left;">Payment Method</th>
+                    <th style="width:145px; border-right:1px solid #cbd5e1; padding:2.5px 5px; text-align:left;">Ref / Voucher / UTR</th>
+                    <th style="border-right:1px solid #cbd5e1; padding:2.5px 5px; text-align:left;">Narration / Remarks</th>
+                    <th style="width:85px; border-right:1px solid #cbd5e1; padding:2.5px 5px; text-align:right;">Amount (₹)</th>
+                    <th style="width:62px; padding:2.5px 3px; text-align:center;">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${paymentsList.map((p, pIdx) => {
+                    const pDate = fmtD(p.paymentDate || p.createdAt || t.transactionDate);
+                    const pMode = formatModeLabel(p.paymentMode);
+                    const pRef = p.referenceNumber || p.paymentNumber || p.paymentId || '—';
+                    let pRemarks = p.remarks || 'Payout Issued';
+                    if (p.utrNumber && p.utrNumber !== pRef) pRemarks += ` (UTR: ${p.utrNumber})`;
+                    if (p.bankName) pRemarks += ` [${p.bankName}]`;
+                    const pStatus = p.status || 'CLEARED';
+                    const isCleared = pStatus === 'CLEARED' || pStatus === 'PAID' || pStatus === 'COMPLETED';
+                    return `
+                      <tr style="border-bottom:1px solid #e2e8f0;">
+                        <td style="border-right:1px solid #cbd5e1; padding:2.5px 3px; text-align:center; font-weight:700; color:#475569;">#${pIdx + 1}</td>
+                        <td style="border-right:1px solid #cbd5e1; padding:2.5px 4px; text-align:center; font-family:monospace; color:#1e293b;">${pDate}</td>
+                        <td style="border-right:1px solid #cbd5e1; padding:2.5px 5px; font-weight:600; color:#0f172a;">${pMode}</td>
+                        <td style="border-right:1px solid #cbd5e1; padding:2.5px 5px; font-family:monospace; font-weight:700; color:#0284c7;">${pRef}</td>
+                        <td style="border-right:1px solid #cbd5e1; padding:2.5px 5px; color:#475569;">${pRemarks}</td>
+                        <td style="border-right:1px solid #cbd5e1; padding:2.5px 5px; text-align:right; font-family:monospace; font-weight:700; color:#15803d;">₹${fmtNum(p.amount)}</td>
+                        <td style="padding:2.5px 3px; text-align:center;">
+                          <span style="font-weight:700; font-size:7.5px; padding:1px 3px; border-radius:2px; ${isCleared ? 'background:#dcfce7; color:#15803d; border:0.5px solid #86efac;' : 'background:#fef3c7; color:#b45309; border:0.5px solid #fde68a;'}">
+                            ${pStatus}
+                          </span>
+                        </td>
+                      </tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+            </td>
+          </tr>`
+          : '';
+
+        const separatorRow = idx > 0
+          ? `<tr style="height: 10px;"><td colspan="7" style="height: 10px; padding: 0; background: #f1f5f9; border-top: 1.5px solid #000000; border-bottom: 1px solid #000000;"></td></tr>`
+          : '';
+
+        return `
+          ${separatorRow}
+          <tr style="border-bottom: 1px solid #000000;">
+            <td style="border-right:1px solid #000; padding:5px 4px; text-align:center; font-size:10px; font-weight:700;">${idx + 1}</td>
+            <td style="border-right:1px solid #000; padding:5px 4px; text-align:center; font-family:monospace; font-size:9.5px;">${d}</td>
+            <td style="border-right:1px solid #000; padding:5px 6px; font-family:monospace; font-weight:700; font-size:10px; color:#0284c7;">${ref}</td>
+            <td style="border-right:1px solid #000; padding:5px 6px; font-size:9.5px; color:#1e293b;">${particulars}</td>
+            <td style="border-right:1px solid #000; padding:5px 6px; text-align:right; font-family:monospace; font-size:10px; font-weight:700; color:#059669;">${debitStr}</td>
+            <td style="border-right:1px solid #000; padding:5px 6px; text-align:right; font-family:monospace; font-size:10px; font-weight:600; color:#b91c1c;">${creditStr}</td>
+            <td style="padding:5px 6px; text-align:right; font-family:monospace; font-size:10px; font-weight:700; color:${balColor};">${balStr}</td>
+          </tr>
+          ${itemsRow}
+          ${paymentsRow}
+        `;
+      })
+      .join('');
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Vendor Statement - ${partyName}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 8mm;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    body {
+      font-family: Arial, Helvetica, "Segoe UI", Roboto, sans-serif;
+      font-size: 10px;
+      color: #000000;
+      background: #ffffff;
+      line-height: 1.3;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+  </style>
+</head>
+<body>
+  <div style="width: 100%; max-width: 800px; margin: 0 auto; border: 1.5px solid #000000; background: #ffffff;">
+
+    <!-- 1. Header: Logo, Wholesaler Info, Statement Meta -->
+    <table style="width: 100%; border-collapse: collapse; border-bottom: 1.5px solid #000000;">
+      <tr>
+        <td style="width: 125px; padding: 6px; vertical-align: middle; text-align: center; border-right: 1px solid #000000;">
+          ${companyLogo ? `<img src="${companyLogo}" alt="Logo" style="max-width: 110px; max-height: 52px; object-fit: contain;" />` : `<div style="font-weight: 900; font-size: 13px;">${wholesalerName}</div>`}
+        </td>
+        <td style="padding: 6px 12px; vertical-align: middle;">
+          <div style="font-weight: 900; font-size: 15px; color: #000000; text-transform: uppercase; letter-spacing: 0.5px;">${wholesalerName}</div>
+          <div style="font-size: 9.5px; color: #1e293b; margin-top: 2px; line-height: 1.35; white-space: pre-line;">${companyAddress}</div>
+          <div style="font-size: 9.5px; color: #1e293b; margin-top: 2px;">Phone: <strong>${companyPhone}</strong> | Email: <strong>${companyEmail}</strong></div>
+          <div style="font-size: 9px; color: #475569; margin-top: 1px;">GSTIN: <strong style="font-family:monospace;">${companyGstin}</strong></div>
+        </td>
+        <td style="width: 210px; padding: 6px 10px; vertical-align: middle; border-left: 1px solid #000000; font-size: 9px; line-height: 1.4;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="font-weight: 700; width: 90px;">Statement Date:</td>
+              <td style="font-weight: 600; font-family: monospace;">${fmtD(new Date())}</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700;">Period:</td>
+              <td style="font-weight: 700; color: #0f172a; font-size: 8.5px;">${statementPeriod}</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700;">Ledger Code:</td>
+              <td style="font-weight: 800; font-family: monospace; color: #0284c7;">${ledgerCode}</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700;">Payment Terms:</td>
+              <td style="font-weight: 600;">${paymentTerms} Days</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <!-- 2. Title Banner -->
+    <div style="text-align: center; font-weight: 800; font-size: 11px; padding: 4px 0; letter-spacing: 1px; background: #f8fafc; border-bottom: 1.5px solid #000000; text-transform: uppercase; color: #0f172a;">
+      VENDOR / SUPPLIER LEDGER STATEMENT
+    </div>
+
+    <!-- 3. Vendor Details -->
+    <div style="padding: 6px 12px; border-bottom: 1.5px solid #000000; font-size: 9.5px;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="width: 50%; vertical-align: top; padding-right: 10px;">
+            <div style="font-size: 8px; font-weight: 700; color: #64748b; text-transform: uppercase;">Supplier / Vendor Information:</div>
+            <div style="font-weight: 800; font-size: 12px; color: #000000; margin-top: 1px;">${partyName.toUpperCase()}</div>
+            <div style="margin-top: 2px;">Contact Mobile: <strong style="font-family:monospace;">${partyContact}</strong></div>
+            <div>GSTIN / Tax ID: <strong style="font-family:monospace;">${partyGstin}</strong></div>
+          </td>
+          <td style="width: 50%; vertical-align: top; padding-left: 10px; border-left: 1px solid #000000;">
+            <div style="font-size: 8px; font-weight: 700; color: #64748b; text-transform: uppercase;">Billing / Dispatch Address:</div>
+            <div style="margin-top: 2px; line-height: 1.35; color: #1e293b;">${partyAddress}</div>
+            <div style="margin-top: 3px;">Account Category: <strong>Manufacturer / Optical Supplier</strong></div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- 4. Financial KPI Strip -->
+    <table style="width: 100%; border-collapse: collapse; border-bottom: 1.5px solid #000000; font-size: 9.5px; background: #f8fafc;">
+      <tr>
+        <td style="width: 33.33%; padding: 5px 8px; border-right: 1px solid #000000; text-align: center;">
+          <div style="font-size: 8.5px; font-weight: 700; color: #475569; text-transform: uppercase;">Total Purchased (Credit)</div>
+          <div style="font-size: 11.5px; font-weight: 800; font-family: monospace; color: #b91c1c; margin-top: 2px;">₹${fmtNum(totalCredit)}</div>
+        </td>
+        <td style="width: 33.33%; padding: 5px 8px; border-right: 1px solid #000000; text-align: center;">
+          <div style="font-size: 8.5px; font-weight: 700; color: #475569; text-transform: uppercase;">Total Paid Out (Debit)</div>
+          <div style="font-size: 11.5px; font-weight: 800; font-family: monospace; color: #15803d; margin-top: 2px;">₹${fmtNum(totalDebit)}</div>
+        </td>
+        <td style="width: 33.33%; padding: 5px 8px; text-align: center;">
+          <div style="font-size: 8.5px; font-weight: 700; color: #475569; text-transform: uppercase;">Net Balance Payable</div>
+          <div style="font-size: 11.5px; font-weight: 800; font-family: monospace; color: ${currentOutstanding > 0 ? '#b91c1c' : '#15803d'}; margin-top: 2px;">
+            ${currentOutstanding > 0 ? `₹${fmtNum(currentOutstanding)} (Payable)` : '₹0.00 (Settled)'}
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- 5. Transactions Table -->
+    <table style="width: 100%; border-collapse: collapse; font-size: 9.5px;">
+      <thead>
+        <tr style="background: #ffffff; border-bottom: 1px solid #000000; font-weight: 700;">
+          <th style="width: 28px; border-right: 1px solid #000; padding: 4px 2px; text-align: center;">#</th>
+          <th style="width: 75px; border-right: 1px solid #000; padding: 4px 4px; text-align: center;">Date</th>
+          <th style="width: 130px; border-right: 1px solid #000; padding: 4px 6px; text-align: left;">Ref No.</th>
+          <th style="border-right: 1px solid #000; padding: 4px 6px; text-align: left;">Particulars &amp; Narration</th>
+          <th style="width: 95px; border-right: 1px solid #000; padding: 4px 6px; text-align: right;">Paid Out (₹)</th>
+          <th style="width: 95px; border-right: 1px solid #000; padding: 4px 6px; text-align: right;">Purchased (₹)</th>
+          <th style="width: 110px; padding: 4px 6px; text-align: right;">Balance (₹)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml || `<tr><td colspan="7" style="text-align:center; padding:15px; color:#64748B;">No transactions recorded.</td></tr>`}
+      </tbody>
+    </table>
+
+    <!-- 6. Bottom Summary & Declaration -->
+    <table style="width: 100%; border-collapse: collapse; border-top: 1.5px solid #000000;">
+      <tr>
+        <td style="width: 58%; padding: 8px 12px; vertical-align: top; border-right: 1px solid #000000; font-size: 9px; line-height: 1.45;">
+          <div style="font-weight: 800; text-transform: uppercase; font-size: 9px; color: #0f172a; margin-bottom: 3px;">Declaration &amp; Notes:</div>
+          <div style="color: #475569; font-size: 8.5px; line-height: 1.45;">
+            &bull; This is an authentic computer-generated Vendor / Supplier Ledger Statement.<br/>
+            &bull; Product buying prices, item codes, and order creation dates are tracked per supplier purchase invoices.<br/>
+            &bull; All payments and voucher disbursements are subject to bank realization.<br/>
+            &bull; For any ledger reconciliation queries, please contact our accounts department within 7 working days.
+          </div>
+        </td>
+        <td style="width: 42%; padding: 6px 10px; vertical-align: top; font-size: 10px;">
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 8px;">
+            <tr style="border-bottom: 1px solid #000000;">
+              <td style="padding: 3px 0; font-weight: 700;">Total Invoiced / Purchased:</td>
+              <td style="padding: 3px 0; text-align: right; font-weight: 700; font-family: monospace; color: #b91c1c;">₹${fmtNum(totalCredit)}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #000000;">
+              <td style="padding: 3px 0; font-weight: 700;">Total Paid Out (Debit):</td>
+              <td style="padding: 3px 0; text-align: right; font-weight: 700; font-family: monospace; color: #15803d;">₹${fmtNum(totalDebit)}</td>
+            </tr>
+            <tr style="border-bottom: 1.5px solid #000000; background: #f8fafc;">
+              <td style="padding: 4px 0; font-weight: 800; font-size: 10px;">Net Outstanding Payable:</td>
+              <td style="padding: 4px 0; text-align: right; font-weight: 800; font-size: 11px; font-family: monospace; color: ${currentOutstanding > 0 ? '#b91c1c' : '#15803d'};">
+                ₹${fmtNum(currentOutstanding)}
+              </td>
+            </tr>
+          </table>
+
+          <div style="text-align: right; margin-top: 14px;">
+            <div style="font-size: 9.5px; font-weight: 700;">For ${wholesalerName}</div>
+            <div style="height: 38px;"></div>
+            <div style="font-size: 9px; font-weight: 800; text-transform: uppercase; border-top: 1px dashed #000000; display: inline-block; padding-top: 2px;">
+              Authorised Signatory
+            </div>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <div style="font-size: 8px; color: #64748b; padding: 4px 8px; border-top: 1px solid #000000; display: flex; justify-content: space-between;">
+      <div>System-generated supplier statement. Optical Wholesale ERP Ledger.</div>
+      <div>Generated on: ${fmtD(new Date())} | ${wholesalerName}</div>
+    </div>
+  </div>
+</body>
+</html>`;
+  };
+
+  // Generate Vendor Payout Voucher HTML (matches original backend paymentReceiptTemplate.js design)
+  const generateVendorPayoutVoucherHTML = (txn) => {
+    const wholesaler = summary.wholesaler || {};
+    const wholesalerName = wholesaler.companyName || 'SAANCHI & CO.';
+    const companyAddress = wholesaler.address || '3RD FLOOR, PEOPLES TV BUILDING, RAJA RAMMOHAN ROY ROAD,\nHAKIMPARA, SILIGURI';
+    const companyPhone = wholesaler.phone || '0353-4075631';
+    const rawCompanyGstin = wholesaler.gstin || master.gstin || '';
+    const companyGstin = (rawCompanyGstin && !String(rawCompanyGstin).startsWith('http') && !String(rawCompanyGstin).includes('/'))
+      ? String(rawCompanyGstin).trim()
+      : '19AFWFS3883G1Z2';
+    const companyLogo = wholesaler.logo || '';
+
+    const partyName = vendor.firm || vendor.name || 'Vendor Partner';
+    const partyContact = vendor.mobile || vendor.phone || '-';
+    const rawPartyGstin = vendor.gstNumber || vendor.gstin || '';
+    const partyGstin = (rawPartyGstin && !String(rawPartyGstin).startsWith('http') && !String(rawPartyGstin).includes('/'))
+      ? String(rawPartyGstin).trim()
+      : 'URP';
+    const partyAddress = formatAddress(vendor.address) || '-';
+
+    let receiptNo = txn.referenceNumber || txn.voucherId || txn._id || 'VPAY';
+    if (!receiptNo || receiptNo === '0') {
+      receiptNo = `VPAY-${String(Date.now()).slice(-6)}`;
+    }
+
+    const receiptDate = fmtD(txn.transactionDate || txn.createdAt || new Date());
+    const detectedMode = txn.paymentMode || (txn.narration?.toLowerCase().includes('upi') ? 'UPI' : txn.narration?.toLowerCase().includes('cash') ? 'CASH' : 'BANK_TRANSFER');
+    const modeName = formatModeLabel(detectedMode);
+    const refNumber = txn.referenceNumber || txn.voucherId || '-';
+    const totalPaidAmount = Number(txn.debit || txn.amount || txn.credit || 0);
+    const amountInWords = numberToWordsINR(totalPaidAmount);
+
+    let statementPeriod = filters.startDate
+      ? `From ${fmtD(filters.startDate)} To ${filters.endDate ? fmtD(filters.endDate) : 'Today'}`
+      : `Payout Date: ${receiptDate}`;
+
+    // Link to purchase order if available
+    const matchedOrder = ordersMap[String(txn.orderId)] || ordersMap[txn.orderNumber] || ordersMap[txn.referenceNumber] || null;
+    const orderItems = (txn.items && txn.items.length > 0) ? txn.items : (matchedOrder?.items || []);
+    const txnIsPurchase = Boolean(txn.voucherType === 'Purchase Invoice' || (txn.referenceNumber && String(txn.referenceNumber).startsWith('PO-')) || txn.orderGrandTotal != null);
+    const hasOrder = Boolean(matchedOrder || (txnIsPurchase && orderItems.length > 0) || txn.orderNumber);
+
+    let tableHeaderHtml = '';
+    let tableRowsHtml = '';
+
+    if (orderItems.length > 0) {
+      tableHeaderHtml = `
+        <tr style="background:#ffffff; border-bottom:1px solid #000000; font-size:9.5px; font-weight:700;">
+          <th style="width:28px; border-right:1px solid #000; padding:4px 2px; text-align:center;">#</th>
+          <th style="border-right:1px solid #000; padding:4px 6px; text-align:left;">Product / Item Name</th>
+          <th style="width:95px; border-right:1px solid #000; padding:4px 4px; text-align:left;">Brand</th>
+          <th style="width:85px; border-right:1px solid #000; padding:4px 4px; text-align:center;">Category / Type</th>
+          <th style="width:95px; border-right:1px solid #000; padding:4px 4px; text-align:center;">Item Code / Ref</th>
+          <th style="width:40px; border-right:1px solid #000; padding:4px 4px; text-align:center;">Qty</th>
+          <th style="width:85px; border-right:1px solid #000; padding:4px 6px; text-align:right;">Buying Price (₹)</th>
+          <th style="width:90px; padding:4px 6px; text-align:right;">Total (₹)</th>
+        </tr>
+      `;
+
+      tableRowsHtml = orderItems.map((item, idx) => {
+        const itemName = item.itemName || item.productName || item.name || 'Product';
+        const brand = item.brand || item.brandName || '—';
+        const category = item.category || item.categoryName || item.orderType || 'STOCK';
+        const code = item.code || item.productCode || item.hsnSac || refNumber || '—';
+        const buyingPrice = Number(item.buyingPrice || item.price || 0);
+        const qty = Number(item.qty || 1);
+        const discount = Number(item.discountAmount || 0);
+        const lineTotal = buyingPrice * qty - discount;
+        return `
+          <tr style="border-bottom:1px solid #000000;">
+            <td style="border-right:1px solid #000; padding:3px 2px; text-align:center; font-size:10px;">${idx + 1}</td>
+            <td style="border-right:1px solid #000; padding:3px 6px; font-size:10px; font-weight:600; color:#0f172a;">${itemName}</td>
+            <td style="border-right:1px solid #000; padding:3px 4px; font-size:10px; color:#334155;">${brand}</td>
+            <td style="border-right:1px solid #000; padding:3px 4px; text-align:center; font-size:9.5px; font-weight:600; color:#475569;">${category}</td>
+            <td style="border-right:1px solid #000; padding:3px 4px; text-align:center; font-size:10px; font-family:monospace; color:#0284c7;">${code}</td>
+            <td style="border-right:1px solid #000; padding:3px 4px; text-align:center; font-size:10px; font-weight:700;">${qty}</td>
+            <td style="border-right:1px solid #000; padding:3px 6px; text-align:right; font-size:10px; font-family:monospace; font-weight:700; color:#475569;">₹${fmtNum(buyingPrice)}</td>
+            <td style="padding:3px 6px; text-align:right; font-size:10px; font-weight:700; font-family:monospace; color:#0f172a;">₹${fmtNum(lineTotal)}</td>
+          </tr>
+        `;
+      }).join('');
+    } else {
+      tableHeaderHtml = `
+        <tr style="background:#ffffff; border-bottom:1px solid #000000; font-size:9.5px; font-weight:700;">
+          <th style="width:28px; border-right:1px solid #000; padding:4px 2px; text-align:center;">#</th>
+          <th style="border-right:1px solid #000; padding:4px 6px; text-align:left;">Transaction Description / Particulars</th>
+          <th style="width:130px; border-right:1px solid #000; padding:4px 4px; text-align:center;">Payment Mode</th>
+          <th style="width:140px; border-right:1px solid #000; padding:4px 6px; text-align:left;">Reference # / UTR</th>
+          <th style="width:120px; border-right:1px solid #000; padding:4px 6px; text-align:right;">Amount Paid (₹)</th>
+          <th style="width:75px; padding:4px 4px; text-align:center;">Status</th>
+        </tr>
+      `;
+
+      tableRowsHtml = `
+        <tr style="border-bottom:1px solid #000000;">
+          <td style="border-right:1px solid #000; padding:3px 2px; text-align:center; font-size:10px;">1</td>
+          <td style="border-right:1px solid #000; padding:3px 6px; font-size:10px; font-weight:600;">Vendor Payout Disbursement / Supplier Account Clearance</td>
+          <td style="border-right:1px solid #000; padding:3px 4px; text-align:center; font-size:9.5px;">${modeName}</td>
+          <td style="border-right:1px solid #000; padding:3px 6px; font-size:10px; font-family:monospace; font-weight:600; color:#0284c7;">${refNumber}</td>
+          <td style="border-right:1px solid #000; padding:3px 6px; text-align:right; font-size:10px; font-weight:700; font-family:monospace;">₹${fmtNum(totalPaidAmount)}</td>
+          <td style="padding:3px 4px; text-align:center; font-size:9px; font-weight:700; color:#15803d;">CLEARED</td>
+        </tr>
+      `;
+    }
+
+    const orderTotalAmount = Number(matchedOrder?.grandTotal || matchedOrder?.totalOrderPrice || txn.orderGrandTotal || 0);
+    const orderDueBalance = Number(matchedOrder?.balanceDue || txn.orderBalanceDue || 0);
+    const orderCreatedDate = fmtD(matchedOrder?.orderDate || matchedOrder?.createdAt || txn.transactionDate);
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Vendor Payout Voucher - ${receiptNo}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 6mm 8mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, Helvetica, "Segoe UI", Roboto, sans-serif;
+      color: #000000;
+      background: #ffffff;
+      font-size: 10.5px;
+      line-height: 1.25;
+    }
+    .invoice-wrapper {
+      width: 100%;
+      border: 1.5px solid #000000;
+      background: #ffffff;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-wrapper">
+    <!-- Header -->
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; padding:8px 12px; border-bottom:1.5px solid #000000;">
+      <div style="width:130px; min-height:50px; display:flex; align-items:center;">
+        ${companyLogo ? `<img src="${companyLogo}" alt="Logo" style="max-height:55px; max-width:130px; object-fit:contain;" />` : ''}
+      </div>
+      <div style="flex:1; text-align:center; padding:0 10px;">
+        <div style="font-size:13.5px; font-weight:700; margin-bottom:2px; text-transform:uppercase;">Vendor Payout Voucher</div>
+        <div style="font-size:19px; font-weight:800; color:#0284c7; letter-spacing:0.5px; margin-bottom:2px;">${wholesalerName.toUpperCase()}</div>
+        <div style="font-size:9.5px; font-weight:600; line-height:1.25; color:#1e293b; white-space:pre-line;">${companyAddress.toUpperCase()}</div>
+        <div style="font-size:10px; font-weight:600; color:#1e293b; margin-top:1px;">Contact No. ${companyPhone}</div>
+        <div style="font-size:10.5px; font-weight:700; margin-top:2px;">GST No : ${companyGstin}</div>
+      </div>
+      <div style="width:110px; text-align:right;">
+        <div style="font-size:11px; font-weight:700;">Original Copy</div>
+        <div style="font-size:8.5px; color:#64748b; margin-top:2px;">Supplier Voucher</div>
+      </div>
+    </div>
+
+    <!-- Vendor Details & Voucher Meta 2 Columns -->
+    <div style="display:flex; border-bottom:1.5px solid #000000;">
+      <!-- Left Column: Vendor Details -->
+      <div style="flex:1.2; padding:6px 10px; border-right:1px solid #000000; font-size:10.5px; line-height:1.35;">
+        <table style="width:100%; border-collapse:collapse;">
+          <tr>
+            <td style="width:110px; font-weight:700; vertical-align:top;">Vendor / Supplier :</td>
+            <td style="font-weight:800; font-size:11.5px; color:#000;">${partyName.toUpperCase()}</td>
+          </tr>
+          <tr>
+            <td style="font-weight:700; vertical-align:top;">Contact Mobile :</td>
+            <td style="font-family:monospace; font-weight:600;">${partyContact}</td>
+          </tr>
+          ${partyGstin && partyGstin !== 'URP' ? `
+          <tr>
+            <td style="font-weight:700; vertical-align:top;">GST No :</td>
+            <td style="font-weight:600; font-family:monospace;">${partyGstin}</td>
+          </tr>` : ''}
+          <tr>
+            <td style="font-weight:700; vertical-align:top;">Address :</td>
+            <td style="color:#1e293b;">${partyAddress}</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Right Column: Voucher Meta -->
+      <div style="flex:0.8; padding:6px 10px; font-size:10.5px; line-height:1.35;">
+        <table style="width:100%; border-collapse:collapse;">
+          <tr>
+            <td style="width:100px; font-weight:700;">Voucher No :</td>
+            <td style="font-weight:800; font-family:monospace; font-size:11.5px; color:#0284c7;">${receiptNo}</td>
+          </tr>
+          <tr>
+            <td style="font-weight:700;">Payout Date :</td>
+            <td style="font-weight:700; font-family:monospace;">${receiptDate}</td>
+          </tr>
+          <tr>
+            <td style="font-weight:700;">Payment Mode :</td>
+            <td style="font-weight:600;">${modeName}</td>
+          </tr>
+          <tr>
+            <td style="font-weight:700;">Ref # / UTR :</td>
+            <td style="font-family:monospace; font-weight:600;">${refNumber}</td>
+          </tr>
+          <tr>
+            <td style="font-weight:700;">Period / Date :</td>
+            <td style="font-size:9.5px; color:#475569;">${statementPeriod}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- If Linked Purchase Order, Summary Bar -->
+    ${hasOrder ? `
+    <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:6px 12px; border-bottom:1px solid #000000; font-size:10px;">
+      <div>
+        <span style="font-weight:700;">PO Reference:</span> <span style="font-family:monospace; font-weight:700; color:#0284c7;">${matchedOrder?.orderNumber || txn.orderNumber || refNumber}</span>
+        &nbsp;|&nbsp; <span style="font-weight:700;">Order Created:</span> <span style="font-family:monospace; font-weight:700; color:#0f172a;">${orderCreatedDate}</span>
+        &nbsp;|&nbsp; <span style="font-weight:700;">Status:</span> <span style="font-weight:700; color:#059669;">${matchedOrder?.orderStatus || 'Submitted'}</span>
+      </div>
+      <div>
+        ${orderTotalAmount > 0 ? `<span style="font-weight:700;">PO Total:</span> <span style="font-family:monospace; font-weight:700;">₹${fmtNum(orderTotalAmount)}</span> &nbsp;|&nbsp; ` : ''}
+        <span style="font-weight:700;">Remaining Balance Due:</span> <span style="font-family:monospace; font-weight:800; color:${orderDueBalance > 0 ? '#b91c1c' : '#15803d'};">₹${fmtNum(orderDueBalance)}</span>
+      </div>
+    </div>` : ''}
+
+    <!-- Items / Particulars Table -->
+    <table style="width:100%; border-collapse:collapse; border-bottom:1.5px solid #000000;">
+      <thead>
+        ${tableHeaderHtml}
+      </thead>
+      <tbody>
+        ${tableRowsHtml}
+        <!-- Integrated Total Row -->
+        <tr style="font-weight:800; font-size:10.5px; border-top:1px solid #000;">
+          <td colspan="${orderItems.length > 0 ? 6 : 4}" style="border-right:1px solid #000; padding:4px 6px; text-align:right;">Total Amount Disbursed / Paid</td>
+          <td style="border-right:1px solid #000; padding:4px 6px; text-align:right; font-family:monospace; color:#15803d;">₹${fmtNum(totalPaidAmount)}</td>
+          <td style="padding:4px 4px; text-align:center; font-size:9px; color:#15803d;">PAID OUT</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Bottom Section: Words, Terms, Signatures -->
+    <div style="display:flex; padding:8px 10px; font-size:9.5px;">
+      <!-- Left Column -->
+      <div style="flex:1.2; padding-right:15px; border-right:1px solid #000000;">
+        <div style="margin-bottom:6px;">
+          <span style="font-weight:700;">Total Amount ( In Words ) :</span><br>
+          <span style="font-weight:800; font-size:10.5px;">${amountInWords}</span>
+        </div>
+        ${txn.narration ? `
+        <div style="margin-bottom:6px;">
+          <span style="font-weight:700;">Payment Remarks / Narration :</span>
+          <div style="font-size:9.5px; color:#1e293b; margin-top:1px;">${txn.narration}</div>
+        </div>` : ''}
+        <div>
+          <span style="font-weight:700; text-decoration:underline;">Declaration</span>
+          <div style="font-size:8.5px; color:#1e293b; line-height:1.3; margin-top:2px;">
+            This is an authenticated computer-generated vendor payout voucher confirming disbursement of funds against supplier purchase orders / ledger account.
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column -->
+      <div style="flex:0.8; padding-left:15px; display:flex; flex-direction:column; justify-content:space-between;">
+        <div>
+          <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;">
+            <span style="font-weight:700;">Amount Cleared :</span>
+            <span style="font-weight:800; font-family:monospace; color:#15803d;">₹${fmtNum(totalPaidAmount)}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;">
+            <span style="font-weight:700;">Balance Payable to Vendor :</span>
+            <span style="font-weight:800; font-family:monospace; color:${currentOutstanding > 0 ? '#b91c1c' : '#15803d'};">₹${fmtNum(currentOutstanding)}</span>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:25px;">
+          <div style="text-align:center;">
+            <div style="font-size:9px; font-weight:700; border-top:1px dashed #000; padding-top:2px;">Vendor / Payee Acknowledgment</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:10.5px; font-weight:800; color:#0284c7;">${wholesalerName.toUpperCase()}</div>
+            <div style="font-size:9px; font-weight:700; margin-top:22px; border-top:1px dashed #000; padding-top:2px;">Authorised Signatory</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+  };
+
+  // Generate Purchase Order / Vendor Invoice HTML
+  const generatePurchaseOrderHTML = (txnOrOrder) => {
+    const wholesaler = summary.wholesaler || {};
+    const wholesalerName = wholesaler.companyName || 'SAANCHI & CO.';
+    const companyAddress = wholesaler.address || '3RD FLOOR, PEOPLES TV BUILDING, RAJA RAMMOHAN ROY ROAD,\nHAKIMPARA, SILIGURI';
+    const companyPhone = wholesaler.phone || '0353-4075631';
+    const rawCompanyGstin = wholesaler.gstin || master.gstin || '';
+    const companyGstin = (rawCompanyGstin && !String(rawCompanyGstin).startsWith('http') && !String(rawCompanyGstin).includes('/'))
+      ? String(rawCompanyGstin).trim()
+      : '19AFWFS3883G1Z2';
+    const companyLogo = wholesaler.logo || '';
+
+    const partyName = vendor.firm || vendor.name || 'Vendor';
+    const partyContact = vendor.mobile || vendor.phone || '-';
+    const rawPartyGstin = vendor.gstNumber || vendor.gstin || '';
+    const partyGstin = (rawPartyGstin && !String(rawPartyGstin).startsWith('http') && !String(rawPartyGstin).includes('/'))
+      ? String(rawPartyGstin).trim()
+      : 'URP';
+    const partyAddress = formatAddress(vendor.address) || '-';
+
+    const matchedOrder = ordersMap[String(txnOrOrder.orderId)] || ordersMap[txnOrOrder.orderNumber] || ordersMap[txnOrOrder.referenceNumber] || txnOrOrder;
+    const poNumber = matchedOrder.orderNumber || txnOrOrder.referenceNumber || txnOrOrder.voucherId || 'PO';
+    const orderCreatedDate = fmtD(matchedOrder.orderDate || matchedOrder.createdAt || txnOrOrder.transactionDate);
+    const orderItems = (matchedOrder.items && matchedOrder.items.length > 0) ? matchedOrder.items : (txnOrOrder.items || []);
+
+    const grandTotal = Number(matchedOrder.grandTotal || matchedOrder.totalOrderPrice || txnOrOrder.orderGrandTotal || txnOrOrder.credit || 0);
+    const paidAmount = Number(matchedOrder.paidAmount || txnOrOrder.orderPaidAmount || 0);
+    const balanceDue = Number(matchedOrder.balanceDue != null ? matchedOrder.balanceDue : (grandTotal - paidAmount));
+    const paymentsList = (Array.isArray(matchedOrder.orderPayments) && matchedOrder.orderPayments.length > 0) ? matchedOrder.orderPayments : (txnOrOrder.orderPayments || []);
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Purchase Order - ${poNumber}</title>
+  <style>
+    @page { size: A4 portrait; margin: 8mm; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { font-family: Arial, sans-serif; font-size: 10px; color: #000; background: #fff; margin: 0; padding: 0; }
+    table { width: 100%; border-collapse: collapse; }
+  </style>
+</head>
+<body>
+  <div style="border: 1.5px solid #000; width: 100%; max-width: 800px; margin: 0 auto; background: #fff;">
+    <!-- Header -->
+    <table style="border-bottom: 1.5px solid #000;">
+      <tr>
+        <td style="width: 125px; padding: 6px; text-align: center; border-right: 1px solid #000;">
+          ${companyLogo ? `<img src="${companyLogo}" alt="Logo" style="max-width: 110px; max-height: 52px; object-fit: contain;" />` : `<div style="font-weight: 900; font-size: 13px;">${wholesalerName}</div>`}
+        </td>
+        <td style="padding: 6px 12px;">
+          <div style="font-weight: 900; font-size: 15px; text-transform: uppercase;">${wholesalerName}</div>
+          <div style="font-size: 9.5px; color: #1e293b; white-space: pre-line;">${companyAddress}</div>
+          <div style="font-size: 9.5px; margin-top: 2px;">Phone: <strong>${companyPhone}</strong> | GSTIN: <strong style="font-family:monospace;">${companyGstin}</strong></div>
+        </td>
+        <td style="width: 210px; padding: 6px 10px; border-left: 1px solid #000; font-size: 9px; line-height: 1.4;">
+          <table style="width: 100%;">
+            <tr><td style="font-weight: 700;">PO Ref No:</td><td style="font-weight: 800; font-family: monospace; color: #0284c7;">${poNumber}</td></tr>
+            <tr><td style="font-weight: 700;">PO Created:</td><td style="font-weight: 700; font-family: monospace;">${orderCreatedDate}</td></tr>
+            <tr><td style="font-weight: 700;">PO Status:</td><td style="font-weight: 700; color: #059669;">${matchedOrder.orderStatus || 'Submitted'}</td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <div style="text-align: center; font-weight: 800; font-size: 11px; padding: 4px 0; background: #f8fafc; border-bottom: 1.5px solid #000; text-transform: uppercase;">
+      PURCHASE ORDER &bull; SUPPLIER INVOICE
+    </div>
+
+    <!-- Vendor Details -->
+    <div style="padding: 6px 12px; border-bottom: 1.5px solid #000; font-size: 9.5px;">
+      <table style="width: 100%;">
+        <tr>
+          <td style="width: 50%; vertical-align: top; padding-right: 10px;">
+            <div style="font-size: 8px; font-weight: 700; color: #64748b; text-transform: uppercase;">Vendor / Supplier:</div>
+            <div style="font-weight: 800; font-size: 12px; margin-top: 1px;">${partyName.toUpperCase()}</div>
+            <div style="margin-top: 2px;">Mobile: <strong style="font-family:monospace;">${partyContact}</strong> | GSTIN: <strong style="font-family:monospace;">${partyGstin}</strong></div>
+          </td>
+          <td style="width: 50%; vertical-align: top; padding-left: 10px; border-left: 1px solid #000;">
+            <div style="font-size: 8px; font-weight: 700; color: #64748b; text-transform: uppercase;">Delivery &amp; Billing Address:</div>
+            <div style="margin-top: 2px; color: #1e293b;">${partyAddress}</div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Items Table -->
+    <table style="width: 100%; border-bottom: 1.5px solid #000; font-size: 9.5px;">
+      <thead>
+        <tr style="background: #ffffff; border-bottom: 1px solid #000; font-weight: 700;">
+          <th style="width: 28px; border-right: 1px solid #000; padding: 4px 2px; text-align: center;">#</th>
+          <th style="border-right: 1px solid #000; padding: 4px 6px; text-align: left;">Product / Item Name</th>
+          <th style="width: 95px; border-right: 1px solid #000; padding: 4px 4px; text-align: left;">Brand</th>
+          <th style="width: 85px; border-right: 1px solid #000; padding: 4px 4px; text-align: center;">Category / Type</th>
+          <th style="width: 95px; border-right: 1px solid #000; padding: 4px 4px; text-align: center;">Item Code / Ref</th>
+          <th style="width: 40px; border-right: 1px solid #000; padding: 4px 4px; text-align: center;">Qty</th>
+          <th style="width: 90px; border-right: 1px solid #000; padding: 4px 6px; text-align: right;">Buying Price (₹)</th>
+          <th style="width: 95px; padding: 4px 6px; text-align: right;">Total (₹)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${orderItems.map((item, idx) => {
+          const itemName = item.itemName || item.productName || item.name || 'Product';
+          const brand = item.brand || item.brandName || '—';
+          const category = item.category || item.categoryName || item.orderType || 'STOCK';
+          const code = item.code || item.productCode || item.hsnSac || poNumber || '—';
+          const buyingPrice = Number(item.buyingPrice || item.price || 0);
+          const qty = Number(item.qty || 1);
+          const discount = Number(item.discountAmount || 0);
+          const lineTotal = buyingPrice * qty - discount;
+          return `
+            <tr style="border-bottom: 1px solid #000;">
+              <td style="border-right: 1px solid #000; padding: 4px 2px; text-align: center; font-size: 10px;">${idx + 1}</td>
+              <td style="border-right: 1px solid #000; padding: 4px 6px; font-size: 10px; font-weight: 600;">${itemName}</td>
+              <td style="border-right: 1px solid #000; padding: 4px 4px; font-size: 10px;">${brand}</td>
+              <td style="border-right: 1px solid #000; padding: 4px 4px; text-align: center; font-size: 9.5px; font-weight: 600;">${category}</td>
+              <td style="border-right: 1px solid #000; padding: 4px 4px; text-align: center; font-family: monospace; color: #0284c7;">${code}</td>
+              <td style="border-right: 1px solid #000; padding: 4px 4px; text-align: center; font-weight: 700;">${qty}</td>
+              <td style="border-right: 1px solid #000; padding: 4px 6px; text-align: right; font-family: monospace; font-weight: 700;">₹${fmtNum(buyingPrice)}</td>
+              <td style="padding: 4px 6px; text-align: right; font-family: monospace; font-weight: 700;">₹${fmtNum(lineTotal)}</td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+
+    <!-- Totals & Payment Summary -->
+    <table style="width: 100%; border-top: 1.5px solid #000;">
+      <tr>
+        <td style="width: 58%; padding: 8px 12px; vertical-align: top; border-right: 1px solid #000; font-size: 9px;">
+          <div style="font-weight: 800; text-transform: uppercase; margin-bottom: 4px;">Amount In Words:</div>
+          <div style="font-weight: 700; font-size: 10px; color: #0f172a; margin-bottom: 8px;">${numberToWordsINR(grandTotal)}</div>
+          <div style="font-weight: 700; color: #475569;">
+            &bull; Payment breakdown has ${paymentsList.length} recorded installment${paymentsList.length > 1 ? 's' : ''}.<br/>
+            &bull; Subject to acceptance of optical inspection and realization of payments.
+          </div>
+        </td>
+        <td style="width: 42%; padding: 6px 10px; font-size: 10px;">
+          <table style="width: 100%;">
+            <tr style="border-bottom: 1px solid #000;"><td style="padding: 3px 0; font-weight: 700;">PO Grand Total:</td><td style="text-align: right; font-weight: 700; font-family: monospace;">₹${fmtNum(grandTotal)}</td></tr>
+            <tr style="border-bottom: 1px solid #000;"><td style="padding: 3px 0; font-weight: 700;">Total Paid Out:</td><td style="text-align: right; font-weight: 700; font-family: monospace; color: #15803d;">₹${fmtNum(paidAmount)}</td></tr>
+            <tr style="border-bottom: 1.5px solid #000; background: #f8fafc;"><td style="padding: 4px 0; font-weight: 800;">Balance Due to Vendor:</td><td style="text-align: right; font-weight: 800; font-family: monospace; color: ${balanceDue > 0 ? '#b91c1c' : '#15803d'};">₹${fmtNum(balanceDue)}</td></tr>
+          </table>
+          <div style="text-align: right; margin-top: 16px;">
+            <div style="font-size: 9.5px; font-weight: 700;">For ${wholesalerName}</div>
+            <div style="height: 34px;"></div>
+            <div style="font-size: 9px; font-weight: 800; border-top: 1px dashed #000; display: inline-block; padding-top: 2px;">Authorised Signatory</div>
+          </div>
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>`;
+  };
+
+  const handlePrintStatement = () => {
     try {
-      setDownloadingReceiptId(refKey);
-      await downloadPaymentReceipt(refKey, `VendorPayoutReceipt-${txn.referenceNumber || refKey}`);
-      toast.success('Payout receipt downloaded successfully');
+      const html = generateVendorStatementHTML();
+      const safeName = (vendor.firm || vendor.name || 'vendor').replace(/[^a-z0-9]/gi, '-').toLowerCase();
+      printHTMLDocument(html, `VendorStatement-${safeName}`);
+      toast.success('Vendor statement opened for printing / PDF saving');
     } catch (err) {
-      toast.error(err.message || 'Failed to download receipt');
-    } finally {
-      setDownloadingReceiptId(null);
+      toast.error('Failed to generate vendor statement: ' + err.message);
     }
   };
 
-  const handleDownloadLedgerStatement = async () => {
+  const handlePrintReceipt = (txn) => {
     try {
-      setDownloadingStatement(true);
-      const safeName = (vendor.firm || vendor.name || 'vendor').replace(/[^a-z0-9]/gi, '-').toLowerCase();
-      await downloadVendorLedgerStatement(
-        vendorId,
-        `VendorStatement-${safeName}`,
-        true,
-        filters
-      );
-      toast.success('Vendor ledger statement downloaded');
+      const html = generateVendorPayoutVoucherHTML(txn);
+      const refKey = txn.referenceNumber || txn.voucherId || txn._id || 'payout';
+      printHTMLDocument(html, `VendorPayoutVoucher-${refKey}`);
+      toast.success('Vendor payout voucher opened for printing / PDF saving');
     } catch (err) {
-      toast.error(err.message || 'Failed to download statement');
-    } finally {
-      setDownloadingStatement(false);
+      toast.error('Failed to generate payout voucher: ' + err.message);
     }
+  };
+
+  const handlePrintPurchaseOrder = (txnOrOrder) => {
+    try {
+      const html = generatePurchaseOrderHTML(txnOrOrder);
+      const refKey = txnOrOrder.orderNumber || txnOrOrder.referenceNumber || txnOrOrder.voucherId || 'PO';
+      printHTMLDocument(html, `PurchaseOrder-${refKey}`);
+      toast.success('Purchase order opened for printing / PDF saving');
+    } catch (err) {
+      toast.error('Failed to generate purchase order: ' + err.message);
+    }
+  };
+
+  const handleDownloadReceipt = async (txn) => {
+    // Instant client-side PDF opening
+    handlePrintReceipt(txn);
+  };
+
+  const handleDownloadLedgerStatement = async () => {
+    // Instant client-side PDF opening
+    handlePrintStatement();
   };
 
   const handleFilterMonth = (monthKey) => {
