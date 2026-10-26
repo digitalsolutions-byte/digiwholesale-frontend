@@ -114,6 +114,7 @@ export const PATHS = {
     REPORTS: {
         DAILY: '/reports/daily',
         MAIN: '/reports/main',
+        GST: '/reports/gst',
     },
 
     // TENANT MODULE (PLATFORM OWNER)
@@ -136,6 +137,7 @@ export const PATHS = {
         VENDOR_LEDGERS: '/accounting/vendor-ledgers',
         VENDOR_STATEMENT: '/accounting/vendor-statement/:vendorId',
         PAYMENTS: '/accounting/payments',
+        GST_REPORT: '/accounting/gst-report',
     },
     SETTINGS: '/settings',
 

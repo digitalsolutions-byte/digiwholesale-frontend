@@ -27,6 +27,7 @@ import ReturnRefund from '../pages/returns/ReturnRefund';
 import Exchange from '../pages/returns/Exchange';
 import DailyReport from '../pages/reports/DailyReport';
 import MainReport from '../pages/reports/MainReport';
+import GstReport from '../pages/reports/GstReport';
 import AddVendor from '../pages/vendor/AddVendor';
 import VendorList from '../pages/vendor/VendorList';
 import VendorOrder from '../pages/vendor/VendorOrder';
@@ -191,6 +192,7 @@ const SALES_MODULE = [
 const REPORTS_MODULE = [
     { path: PATHS.REPORTS.DAILY, element: DailyReport, page: 'DAILY_REPORT' },
     { path: PATHS.REPORTS.MAIN, element: MainReport, page: 'MAIN_REPORT' },
+    { path: PATHS.REPORTS.GST, element: GstReport, page: 'MAIN_REPORT' },
 ];
 
 // ── Tenants (Platform Owner) ──────────────────────────────────────────────────
@@ -220,6 +222,7 @@ const ACCOUNTING_MODULE = [
     { path: PATHS.ACCOUNTING.PAYMENTS, element: PaymentList },
     { path: PATHS.ACCOUNTING.CHEQUES, element: ChequeManagement },
     { path: PATHS.ACCOUNTING.AGING, element: AgingReport },
+    { path: PATHS.ACCOUNTING.GST_REPORT, element: GstReport },
 ];
 
 export const routesConfig = [
