@@ -1,11 +1,64 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { getPurchaseItemDetails, getVendorPurchaseOrders, updatePurchaseItem, deletePurchaseItem, createPurchaseInward, updateVendorRefIds, updatePurchaseReturnItemStatus, updateVendorPurchaseOrder } from '../../services/vendorOrderService';
+import { uploadMultipleDocuments } from '../../services/bucketService';
 import { toast } from 'react-toastify';
 import Swal from 'sweetalert2';
 import { PATHS } from '../../routes/paths';
+
+
+const calculatePurchaseTotals = (order) => {
+    let baseTotal = 0;
+    let gstTotal = 0;
+
+    if (order?.orders && Array.isArray(order.orders)) {
+        order.orders.forEach((subOrder) => {
+            const subItems = subOrder.items || [];
+            const subTaxable = subItems.reduce((sum, item) => {
+                const price = Number(item.price ?? item.unitRate ?? item.rate ?? item.mrp ?? 0);
+                const qty = Number(item.qty || 1);
+                const discount = Number(item.discountAmount || 0);
+                return sum + (price * qty) - discount;
+            }, 0);
+
+            baseTotal += subTaxable;
+
+            const cgstRate = Number(subOrder.cgst || 0);
+            const sgstRate = Number(subOrder.sgst || 0);
+            const igstRate = Number(subOrder.igst || 0);
+            const subOrderGstRate = cgstRate + sgstRate + igstRate;
+
+            if (subOrderGstRate > 0) {
+                gstTotal += (subTaxable * subOrderGstRate) / 100;
+            } else {
+                const itemGst = subItems.reduce((sum, item) => {
+                    const price = Number(item.price ?? item.unitRate ?? item.rate ?? item.mrp ?? 0);
+                    const qty = Number(item.qty || 1);
+                    const discount = Number(item.discountAmount || 0);
+                    const net = (price * qty) - discount;
+                    const gstRate = Number(item.gst ?? item.gstRate ?? 0);
+                    return sum + ((net * gstRate) / 100);
+                }, 0);
+                gstTotal += itemGst;
+            }
+        });
+    }
+
+    if (baseTotal === 0 && order?.totalAmount) {
+        baseTotal = Number(order.totalAmount || 0);
+        gstTotal = Number(order.gstAmount || 0);
+    }
+
+    const grandTotal = baseTotal + gstTotal;
+
+    return {
+        baseTotal,
+        gstTotal,
+        grandTotal
+    };
+};
 
 const PurchaseItemDetails = () => {
     const { id } = useParams();
@@ -20,6 +73,7 @@ const PurchaseItemDetails = () => {
     const [showInwardModal, setShowInwardModal] = useState(false);
     const [inwardRemarks, setInwardRemarks] = useState('');
     const [inwardItems, setInwardItems] = useState([]);
+    const [inwardInvoices, setInwardInvoices] = useState([]);
 
     // Edit Order Modal State
     const [showEditModal, setShowEditModal] = useState(false);
@@ -40,32 +94,38 @@ const PurchaseItemDetails = () => {
     const [submittingReturn, setSubmittingReturn] = useState(false);
     const [submittingInward, setSubmittingInward] = useState(false);
 
-    // Fetch Details
-    useEffect(() => {
-        const fetchDetails = async () => {
-            setLoadingDetails(true);
-            try {
-                const response = await getPurchaseItemDetails(id);
-                if (response.success && response.data) {
-                    const orderData = response.data.purchaseOrder || response.data;
-                    setOrderDetails(orderData);
+    // Inward receipt tracking fields
+    const [inwardReceivedBy, setInwardReceivedBy]     = useState('');
+    const [inwardReceivedOn, setInwardReceivedOn]     = useState('');
+    const [inwardReceivedFrom, setInwardReceivedFrom] = useState('');
 
-                    // Fetch vendor history if we have vendor ID
-                    const vendorId = orderData.vendor?.vendorId || orderData.vendorId?._id || orderData.vendorId;
-                    if (vendorId) {
-                        fetchVendorHistory(vendorId);
-                    }
-                } else {
-                    toast.error('Failed to load purchase item details');
+    // Fetch Details
+    const fetchDetails = useCallback(async () => {
+        setLoadingDetails(true);
+        try {
+            const response = await getPurchaseItemDetails(id);
+            if (response.success && response.data) {
+                const orderData = response.data.purchaseOrder || response.data;
+                setOrderDetails(orderData);
+
+                // Fetch vendor history if we have vendor ID
+                const vendorId = orderData.vendor?.vendorId || orderData.vendorId?._id || orderData.vendorId;
+                if (vendorId) {
+                    fetchVendorHistory(vendorId);
                 }
-            } catch (error) {
-                toast.error(error.message || 'Error loading details');
-            } finally {
-                setLoadingDetails(false);
+            } else {
+                toast.error('Failed to load purchase item details');
             }
-        };
-        fetchDetails();
+        } catch (error) {
+            toast.error(error.message || 'Error loading details');
+        } finally {
+            setLoadingDetails(false);
+        }
     }, [id]);
+
+    useEffect(() => {
+        fetchDetails();
+    }, [fetchDetails]);
 
     const fetchVendorHistory = async (vendorId) => {
         setLoadingHistory(true);
@@ -303,13 +363,17 @@ const PurchaseItemDetails = () => {
                     expectedQty: item.qty || 1,
                     receivedQty: item.qty || 1,
                     condition: 'GOOD',
-                    vendorRefId: vendorId,
+                    vendorRefId: item.vendorRefId || subOrder.vendorRefId || orderDetails.vendorRefId || (orderDetails.vendor?.vendorNumber) || '',
                     remarks: '',
                 });
             });
         });
         setInwardItems(items);
         setInwardRemarks('');
+        setInwardReceivedBy('');
+        setInwardReceivedOn(new Date().toISOString().split('T')[0]); // Default to today
+        setInwardReceivedFrom('');
+        setInwardInvoices([]);
         setShowInwardModal(true);
     };
 
@@ -328,11 +392,25 @@ const PurchaseItemDetails = () => {
             return;
         }
 
+        if (!inwardReceivedBy.trim()) {
+            toast.error('Please enter Received By (Name of receiver)');
+            return;
+        }
+
         setSubmittingInward(true);
         try {
+            let uploadedInvoices = [];
+            if (Array.isArray(inwardInvoices) && inwardInvoices.length > 0) {
+                uploadedInvoices = await uploadMultipleDocuments(inwardInvoices);
+            }
+
             const payload = {
                 purchaseOrderId: id,
                 remarks: inwardRemarks,
+                receivedBy:   inwardReceivedBy.trim()   || null,
+                receivedOn:   inwardReceivedOn          || new Date().toISOString().split('T')[0],
+                receivedFrom: inwardReceivedFrom.trim() || null,
+                invoices:     uploadedInvoices,
                 items: selectedItems.map(item => ({
                     itemId: item.itemId,
                     receivedQty: Number(item.receivedQty),
@@ -346,6 +424,8 @@ const PurchaseItemDetails = () => {
             if (response.success) {
                 toast.success('Items inwarded successfully!');
                 setShowInwardModal(false);
+                setInwardInvoices([]);
+                fetchDetails();
             } else {
                 toast.error(response.message || 'Failed to inward items');
             }
@@ -379,7 +459,7 @@ const PurchaseItemDetails = () => {
     }
 
     const vendorName = orderDetails.vendorId?.name || orderDetails.vendor?.vendorName || orderDetails.vendorId || 'Unknown Vendor';
-    const totalAmount = orderDetails.orders?.reduce((acc, subOrder) => acc + (subOrder.items?.reduce((sum, item) => sum + ((item.mrp || 0) * (item.qty || 1)), 0) || 0), 0) || 0;
+    const totals = calculatePurchaseTotals(orderDetails);
 
     const getInwardStatusColor = (status) => {
         switch (status) {
@@ -487,9 +567,14 @@ const PurchaseItemDetails = () => {
                             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Date</span>
                             <span className="text-sm font-semibold text-gray-800">{new Date(orderDetails.createdAt).toLocaleDateString()}</span>
                         </div>
-                        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-2">
-                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total</span>
-                            <span className="text-lg font-bold text-erp-accent">₹{totalAmount.toFixed(2)}</span>
+                        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-1">
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Amount (Inc. GST)</span>
+                            <span className="text-lg font-bold text-[#2980B9]">₹{totals.grandTotal.toFixed(2)}</span>
+                            <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
+                                <span>GST: <span className="font-bold text-emerald-600">₹{totals.gstTotal.toFixed(2)}</span></span>
+                                <span className="text-gray-300">•</span>
+                                <span>Base: ₹{totals.baseTotal.toFixed(2)}</span>
+                            </div>
                         </div>
                     </div>
 
@@ -656,6 +741,90 @@ const PurchaseItemDetails = () => {
 
                         {/* Modal Body (scrollable) */}
                         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+
+                            {/* ── Receipt Details ── */}
+                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/60 rounded-xl p-4 space-y-3">
+                                <p className="text-xs font-bold text-blue-800 uppercase tracking-wider flex items-center gap-1.5">
+                                    <Icon icon="lucide:clipboard-list" className="text-sm" />
+                                    Receipt Details
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">Received By <span className="text-red-400">*</span></label>
+                                        <input
+                                            type="text"
+                                            value={inwardReceivedBy}
+                                            onChange={e => setInwardReceivedBy(e.target.value)}
+                                            placeholder="Name of receiver"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">Received On <span className="text-red-400">*</span></label>
+                                        <input
+                                            type="date"
+                                            value={inwardReceivedOn}
+                                            max={new Date().toISOString().split('T')[0]}
+                                            onChange={e => setInwardReceivedOn(e.target.value)}
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">Received From</label>
+                                        <input
+                                            type="text"
+                                            value={inwardReceivedFrom}
+                                            onChange={e => setInwardReceivedFrom(e.target.value)}
+                                            placeholder="Vendor rep / courier"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Invoice / Challan Upload */}
+                            <div className="bg-[#eaf4fb]/40 border border-blue-200/60 rounded-xl p-4 space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                                        <Icon icon="lucide:paperclip" className="text-[#1F618D]" />
+                                        Invoices / Challans / Bills (Optional, max 5)
+                                    </label>
+                                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-gray-50 border border-[#2980B9]/30 text-[#1F618D] text-xs font-semibold rounded-lg cursor-pointer transition shadow-2xs">
+                                        <Icon icon="lucide:upload" className="text-xs" />
+                                        <span>Attach Files</span>
+                                        <input
+                                            type="file"
+                                            multiple
+                                            accept="application/pdf,image/*"
+                                            className="hidden"
+                                            onChange={e => {
+                                                const newFiles = Array.from(e.target.files || []);
+                                                setInwardInvoices(prev => [...prev, ...newFiles].slice(0, 5));
+                                                e.target.value = '';
+                                            }}
+                                        />
+                                    </label>
+                                </div>
+                                <p className="text-[11px] text-gray-400">Attach purchase invoices, delivery challans, or bills for this vendor purchase inward receipt</p>
+                                {inwardInvoices.length > 0 && (
+                                    <div className="flex flex-wrap gap-1.5 pt-1">
+                                        {inwardInvoices.map((f, fi) => (
+                                            <span key={fi} className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-blue-200 text-blue-800 text-[11px] font-medium rounded-lg shadow-2xs">
+                                                <Icon icon="lucide:file-text" className="text-[#1F618D]" />
+                                                <span className="truncate max-w-[160px]">{f.name}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setInwardInvoices(prev => prev.filter((_, idx) => idx !== fi))}
+                                                    className="text-blue-400 hover:text-red-500 ml-1 font-bold text-sm leading-none"
+                                                >
+                                                    ×
+                                                </button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
                             {/* Global Remarks */}
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">Overall Remarks</label>
@@ -733,8 +902,6 @@ const PurchaseItemDetails = () => {
                                                         className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition-all bg-white"
                                                     >
                                                         <option value="GOOD">GOOD</option>
-                                                        <option value="DAMAGED">DAMAGED</option>
-                                                        <option value="DEFECTIVE">DEFECTIVE</option>
                                                         <option value="PARTIAL">PARTIAL</option>
                                                     </select>
                                                 </div>

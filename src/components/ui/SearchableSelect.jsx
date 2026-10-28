@@ -41,7 +41,8 @@ const SearchableSelect = ({
                             onChange({
                                 target: {
                                     name,
-                                    value: newInputValue
+                                    value: newInputValue,
+                                    option: null
                                 }
                             });
                         }
@@ -64,7 +65,8 @@ const SearchableSelect = ({
                         onChange({
                             target: {
                                 name,
-                                value: val
+                                value: val,
+                                option: newValue
                             }
                         });
                     }

@@ -1,3 +1,4 @@
+import CustomerPaymentModal from './accounting/CustomerPaymentModal';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
@@ -58,6 +59,7 @@ const CustomerList = () => {
     const [expandedRows, setExpandedRows] = useState(new Set());
     const [activeActionMenu, setActiveActionMenu] = useState(null);
     const [selectedCustomerForDeactivate, setSelectedCustomerForDeactivate] = useState(null);
+    const [accountingPaymentCustomer, setAccountingPaymentCustomer] = useState(null);
     const [selectedCustomerForCorrection, setSelectedCustomerForCorrection] = useState(null);
     const [selectedCustomerForContactEdit, setSelectedCustomerForContactEdit] = useState(null);
     const [deactivateLoading, setDeactivateLoading] = useState(false);
@@ -799,6 +801,29 @@ const CustomerList = () => {
                         }}
                     >
                         <button
+                            onClick={() => { navigate(`/accounting/customer-statement/${activeActionMenu.id}`); setActiveActionMenu(null); }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-blue-600 hover:bg-blue-50 transition-colors"
+                        >
+                            <Icon icon="mdi:book-open-page-variant" className="text-lg" />
+                            Ledger Statement
+                        </button>
+                        <button
+                            onClick={() => {
+                                setAccountingPaymentCustomer({
+                                    _id: activeActionMenu.cust._id,
+                                    shopName: activeActionMenu.cust.shopName,
+                                    ownerName: activeActionMenu.cust.ownerName,
+                                    mobile: activeActionMenu.cust.mobileNo1 || activeActionMenu.cust.mobile,
+                                    currentBalance: 0
+                                });
+                                setActiveActionMenu(null);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-emerald-600 hover:bg-emerald-50 transition-colors"
+                        >
+                            <Icon icon="mdi:cash-plus" className="text-lg" />
+                            Collect Payment
+                        </button>
+                        <button
                             onClick={() => { navigate(`/customer/profile/${activeActionMenu.id}`); setActiveActionMenu(null); }}
                             className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-erp-accent/5 hover:text-erp-accent transition-colors"
                         >
@@ -916,7 +941,7 @@ const CustomerList = () => {
                                     <h3 className="text-erp-accent font-bold uppercase text-xs tracking-widest border-b pb-2">Registered Addresses</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         {([selectedCustomer?.billToAddress, ...(selectedCustomer?.customerShipToDetails || selectedCustomer?.address || [])].filter(Boolean)).map((addr, idx) => (
-                                            <div key={idx} className="bg-erp-accent/5/50 p-4 rounded-2xl border border-erp-accent/10">
+                                            <div key={idx} className="bg-blue-50/40 p-4 rounded-2xl border border-erp-accent/10">
                                                 <p className="font-bold text-gray-800 text-sm mb-2 italic">Address {idx + 1}</p>
                                                 <p className="text-xs text-gray-600 mb-1">{addr?.address || addr?.address1 || addr?.branchAddress}</p>
                                                 <p className="text-xs text-gray-600 mb-2">{addr?.city}, {addr?.state}, {addr?.country} - {addr?.zipCode}</p>

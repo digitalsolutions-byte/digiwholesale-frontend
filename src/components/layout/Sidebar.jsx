@@ -3,24 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, NavLink } from 'react-router-dom';
 import { useState, useEffect, useMemo } from 'react';
 import { Icon } from '@iconify/react';
-import {
-    Box,
-    Drawer,
-    List,
-    ListItem,
-    ListItemButton,
-    useMediaQuery,
-    ListItemIcon,
-    ListItemText,
-    Collapse,
-    Typography,
-    IconButton,
-    Tooltip,
-    Divider,
-    Avatar,
-    useTheme,
-    alpha
-} from '@mui/material';
+import { Box, Drawer, List, ListItem, ListItemButton, useMediaQuery, ListItemIcon, ListItemText, Collapse, Typography, IconButton, useTheme, alpha } from '@mui/material';
 import { logoutUser } from '../../services/authService';
 import { logOut, selectCurrentUser, selectCurrentTenant } from '../../store/slices/authSlice';
 import usePermissions from '../../hooks/usePermissions';
@@ -28,9 +11,6 @@ import { resetRegistration } from '../../store/slices/customerRegistrationSlice'
 import logo from '../../assets/logo.png';
 import { useFeatureFlags } from '../../context/FeatureFlagsContext';
 
-// ── Nav item definitions ─────────────────────────────────────────────────────
-// `page` must match a pageAccess[] key from the backend login response.
-// Items without a `page` key are visible to all authenticated users.
 const navItems = [
     { label: 'Dashboard', icon: 'lucide:layout-dashboard', path: PATHS.ROOT, page: 'DASHBOARD' },
     {
@@ -64,6 +44,7 @@ const navItems = [
         subItems: [
             { label: 'New Order', path: PATHS.CUSTOMER_CARE.NEW_ORDER, page: 'NEW_ORDER', isBold: true },
             { label: 'All Orders', path: PATHS.CUSTOMER_CARE.ALL_ORDERS, page: 'ALL_ORDERS' },
+            { label: 'Retailer Orders', path: PATHS.CUSTOMER_CARE.RETAILER_ORDERS, page: 'ALL_ORDERS' },
             { label: 'Draft Orders', path: PATHS.CUSTOMER_CARE.DRAFT_ORDERS, page: 'ALL_ORDERS' },
             { label: 'RX Orders', path: PATHS.CUSTOMER_CARE.RX_ORDERS, page: 'ALL_ORDERS' },
             { label: 'Processing Orders', path: PATHS.CUSTOMER_CARE.PENDING_ORDERS, page: 'PENDING_ORDERS' },
@@ -86,6 +67,7 @@ const navItems = [
         subItems: [
             { label: 'Daily Report', path: PATHS.REPORTS.DAILY, page: 'DAILY_REPORT' },
             { label: 'Main Report', path: PATHS.REPORTS.MAIN, page: 'MAIN_REPORT' },
+            { label: 'GST Reports', path: PATHS.REPORTS.GST, page: 'MAIN_REPORT' },
         ],
     },
     // {
@@ -108,23 +90,30 @@ const navItems = [
         label: 'Vendor',
         icon: 'lucide:truck',
         subItems: [
-            { label: 'Add Vendor', path: PATHS.VENDOR.ADD, page: 'ADD_VENDOR' },
-            { label: 'Vendor List', path: PATHS.VENDOR.LIST, page: 'VENDOR_LIST' },
-            // { label: 'Vendor Order', path: PATHS.VENDOR.ORDER, page: 'VENDOR_ORDER' },
-            { label: 'Purchase Orders', path: PATHS.VENDOR.PURCHASE_ITEMS, page: 'VENDOR_LIST' },
-
-            { label: 'Pending Inward', path: PATHS.VENDOR.PENDING_INWARD, page: 'VENDOR_LIST' },
-            { label: 'QC Pending', path: PATHS.VENDOR.QC_PENDING, page: 'VENDOR_LIST' },
-            // { label: 'Purchase QC done', path: PATHS.VENDOR.QC_LIST, page: 'VENDOR_LIST' },
-            { label: 'QC Passed', path: PATHS.VENDOR.QC_PASSED, page: 'VENDOR_LIST' },
-            { label: 'QC Failed (Awaiting Replacement)', path: PATHS.VENDOR.PURCHASE_RETURNS, page: 'VENDOR_LIST' },
-            // { label: 'Purchase Inwarded', path: PATHS.VENDOR.INWARD_LIST, page: 'VENDOR_LIST' },
-            { label: 'All Inwarded Items', path: PATHS.VENDOR.ALL_INWARDED_ITEMS, page: 'VENDOR_LIST' },
-            // { label: 'QC Failed Report', path: PATHS.VENDOR.QC_FAILED_REPORT, page: 'VENDOR_LIST' },
-
-            { label: 'Replacement Orders', path: PATHS.VENDOR.REPLACEMENT_ORDERS, page: 'VENDOR_LIST' },
-            { label: 'Damaged Items', path: PATHS.VENDOR.DAMAGED_ITEMS, page: 'VENDOR_LIST' },
-            { label: 'Shrinkage Items', path: PATHS.VENDOR.SHRINKAGE_ITEMS, page: 'VENDOR_LIST' },
+            {
+                label: 'Vendors Directory',
+                path: PATHS.VENDOR.LIST,
+                paths: [PATHS.VENDOR.LIST, PATHS.VENDOR.ADD],
+                page: 'VENDOR_LIST'
+            },
+            {
+                label: 'Purchases & Inward',
+                path: PATHS.VENDOR.PURCHASE_ITEMS,
+                paths: [PATHS.VENDOR.PURCHASE_ITEMS, PATHS.VENDOR.PENDING_INWARD, PATHS.VENDOR.ALL_INWARDED_ITEMS, PATHS.VENDOR.INWARD_LIST],
+                page: 'VENDOR_LIST'
+            },
+            {
+                label: 'Quality Check(QC)',
+                path: PATHS.VENDOR.QC_PENDING,
+                paths: [PATHS.VENDOR.QC_PENDING, PATHS.VENDOR.QC_PASSED, PATHS.VENDOR.PURCHASE_RETURNS, PATHS.VENDOR.QC_LIST, PATHS.VENDOR.QC_FAILED_REPORT],
+                page: 'VENDOR_LIST'
+            },
+            {
+                label: 'Replacements & Losses',
+                path: PATHS.VENDOR.REPLACEMENT_ORDERS,
+                paths: [PATHS.VENDOR.REPLACEMENT_ORDERS, PATHS.VENDOR.DAMAGED_ITEMS, PATHS.VENDOR.SHRINKAGE_ITEMS],
+                page: 'VENDOR_LIST'
+            },
         ],
     },
     // { label: 'Quality', icon: 'lucide:badge-check', path: PATHS.OPERATIONS.QC, page: 'QUALITY' },
@@ -133,8 +122,21 @@ const navItems = [
         label: 'Ecommerce',
         icon: 'lucide:store',
         subItems: [
-            { label: 'Sunglasses', path: PATHS.ECOMMERCE.SUNGLASSES, page: 'INVENTORY' },
-            { label: 'Frames', path: PATHS.ECOMMERCE.FRAMES, page: 'INVENTORY' },
+            { label: 'Sunglasses', path: PATHS.ECOMMERCE.SUNGLASSES },
+            { label: 'Frames', path: PATHS.ECOMMERCE.FRAMES },
+        ],
+    },
+    {
+        label: 'Accounts & Payments',
+        icon: 'lucide:coins',
+        subItems: [
+            // { label: 'Chart of Accounts', path: PATHS.ACCOUNTING.COA },
+            { label: 'Customer Ledgers', path: PATHS.ACCOUNTING.CUSTOMER_LEDGERS },
+            { label: 'Vendor Ledgers', path: PATHS.ACCOUNTING.VENDOR_LEDGERS },
+            { label: 'GST Reports', path: PATHS.REPORTS.GST },
+            // { label: 'Payments & Vouchers', path: PATHS.ACCOUNTING.PAYMENTS },
+            // { label: 'Cheque Clearance', path: PATHS.ACCOUNTING.CHEQUES },
+            // { label: '30/60/90 Aging Report', path: PATHS.ACCOUNTING.AGING },
         ],
     },
     { label: 'Virtual Try-On', icon: 'lucide:glasses', path: PATHS.GLASS_TRYON },
@@ -170,6 +172,14 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     const isSalesDept = deptName.includes('sales');
     const isFinanceDept = deptName.includes('finance');
 
+    const effectiveFlags = useMemo(() => {
+        return {
+            ...flags,
+            ...(tenant?.featureFlags || {}),
+            ...(user?.tenant?.featureFlags || {})
+        };
+    }, [flags, tenant, user]);
+
     const filteredNavItems = useMemo(() => {
         if (user?.EmployeeType === 'PLATFORM_OWNER') {
             return platformOwnerNavItems;
@@ -177,7 +187,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         return navItems
             .map(item => {
                 // Hide the Ecommerce group when the feature flag is disabled
-                if (item.label === 'Ecommerce' && !flags?.ecomFramesSunglasses) {
+                if (item.label === 'Ecommerce' && !effectiveFlags?.ecomFramesSunglasses) {
                     return null;
                 }
                 if (item.subItems) {
@@ -199,7 +209,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             })
             .filter(Boolean);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user, isSalesDept, isFinanceDept, flags]);  // re-filter whenever stored user, department, or feature flags change
+    }, [user, isSalesDept, isFinanceDept, effectiveFlags, hasPageAccess]);  // re-filter whenever stored user, department, or feature flags change
 
     useEffect(() => {
         const newOpenSubmenus = {};
@@ -232,7 +242,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
     const isParentActive = (item) => {
-        return item.subItems?.some(sub => sub.path === location.pathname);
+        return item.subItems?.some(sub => sub.path === location.pathname || (sub.paths && sub.paths.includes(location.pathname)));
     };
 
     const drawerWidth = 269;
@@ -274,19 +284,14 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                     },
                 }}
             >
-                {/* Logo & Wholesaler Header Area */}
-                <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                {/* Logo & Brand Header Area */}
+                <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                     <img
-                        src={tenant?.storeInformation?.storeLogo || logo}
-                        alt={tenant?.storeInformation?.storeName || "DigiOptics"}
-                        style={{ width: '100%', maxWidth: '220px', objectFit: 'contain' }}
+                        src={logo}
+                        alt="DigiOptics Wholesale"
+                        style={{ width: '100%', maxWidth: '200px', objectFit: 'contain' }}
                         onError={(e) => { e.target.onerror = null; e.target.src = logo; }}
                     />
-                    {tenant?.storeInformation?.storeName && (
-                        <Typography sx={{ fontSize: '13px', fontWeight: 800, color: '#1E293B', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'center', mt: 0.5 }}>
-                            {tenant.storeInformation.storeName}
-                        </Typography>
-                    )}
                 </Box>
 
                 {/* Nav Items */}
@@ -376,7 +381,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                                         <Collapse in={isOpenSub} timeout="auto" unmountOnExit>
                                             <List component="div" disablePadding sx={{ ml: 2, borderLeft: '1px solid', borderColor: 'divider', my: 1 }}>
                                                 {item.subItems.map((sub) => {
-                                                    const isSubActive = location.pathname === sub.path;
+                                                    const isSubActive = location.pathname === sub.path || (sub.paths && sub.paths.includes(location.pathname));
                                                     return (
                                                         <ListItemButton
                                                             key={sub.path}

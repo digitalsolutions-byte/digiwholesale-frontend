@@ -7,6 +7,8 @@ import './App.css';
 
 import { PATHS, routesConfig, getFirstAllowedRoute } from './routes/config';
 import ProtectedRoute from './components/ProtectedRoute';
+import DemoAgreementModal from './components/ui/DemoAgreementModal';
+import DemoWatermark from './components/ui/DemoWatermark';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { ThemeProvider } from '@mui/material/styles';
@@ -15,7 +17,6 @@ import { useTheme } from '@mui/material/styles';
 import { useEffect } from 'react';
 import { FeatureFlagsProvider } from './context/FeatureFlagsContext';
 
-// ── MUI → CSS variable sync ───────────────────────────────────────────────────
 const ThemeVariableSync = ({ children }) => {
     const theme = useTheme();
     useEffect(() => {
@@ -32,7 +33,6 @@ const ThemeVariableSync = ({ children }) => {
     return children;
 };
 
-// ── Unauthorized page ─────────────────────────────────────────────────────────
 const UnauthorizedPage = () => {
     const user = useSelector(selectCurrentUser);
     const targetRoute = getFirstAllowedRoute(user);
@@ -67,25 +67,10 @@ const UnauthorizedPage = () => {
     );
 };
 
-// ── Route renderer ────────────────────────────────────────────────────────────
 function App() {
     const isAuthenticated = useSelector(selectIsAuthenticated);
     const user            = useSelector(selectCurrentUser);
 
-    /**
-     * renderRoutes — recursive React Router builder.
-     *
-     * Per-route processing order:
-     *  1. Build base element: <Component {...props} />
-     *  2. Redirect logged-in users away from Login screens (public routes only).
-     *  3. If route has a `page` key → wrap in <ProtectedRoute page={page}>.
-     *     ProtectedRoute checks user.pageAccess[] and redirects to
-     *     /unauthorized on failure. No SUPERADMIN bypass, no role check.
-     *  4. Emit <Route> — with nested children if present.
-     *
-     * The guard (step 3) is applied to the element BEFORE the children
-     * branch, so layout wrapper routes never skip their own page check.
-     */
     const renderRoutes = (routes) => routes.map((route, index) => {
         const {
             element: Component,
@@ -94,13 +79,11 @@ function App() {
             isPublic,
             index: isIndexRoute,
             path,
-            page,   // pageAccess key — the ONLY access signal used
+            page,  
         } = route;
 
-        // Step 1 — base element
         let element = <Component {...routeProps} />;
 
-        // Step 2 — redirect already-authed users away from login pages
         if (isPublic && (path === PATHS.LOGIN || path === PATHS.CUSTOMER_LOGIN)) {
             element = !isAuthenticated
                 ? <Component />
@@ -111,7 +94,6 @@ function App() {
                 />;
         }
 
-        // Step 3 — page-access guard (applied regardless of children)
         if (!isPublic && page) {
             element = (
                 <ProtectedRoute page={page}>
@@ -120,7 +102,6 @@ function App() {
             );
         }
 
-        // Step 4 — emit route
         if (isIndexRoute) {
             return <Route key={`index-${index}`} index element={element} />;
         }
@@ -142,6 +123,9 @@ function App() {
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
                     <BrowserRouter>
                         <FeatureFlagsProvider>
+                            {/* Demo features only render for authenticated users — never on login page */}
+                            {isAuthenticated && <DemoAgreementModal />}
+                            {isAuthenticated && <DemoWatermark />}
                             <div className="app-root min-h-screen bg-gray-50 text-gray-900 font-sans">
                                 <Routes>
                                     {renderRoutes(routesConfig)}

@@ -27,6 +27,7 @@ import ReturnRefund from '../pages/returns/ReturnRefund';
 import Exchange from '../pages/returns/Exchange';
 import DailyReport from '../pages/reports/DailyReport';
 import MainReport from '../pages/reports/MainReport';
+import GstReport from '../pages/reports/GstReport';
 import AddVendor from '../pages/vendor/AddVendor';
 import VendorList from '../pages/vendor/VendorList';
 import VendorOrder from '../pages/vendor/VendorOrder';
@@ -54,6 +55,16 @@ import RegisterTenant from '../pages/tenants/RegisterTenant';
 import TenantList from '../pages/tenants/TenantList';
 import TenantDetails from '../pages/tenants/TenantDetails';
 import WholesalerSettings from '../pages/owner/WholesalerSettings';
+import IncomingRetailerOrders from '../pages/IncomingRetailerOrders';
+
+import ChartOfAccounts from '../pages/accounting/ChartOfAccounts';
+import CustomerLedgers from '../pages/accounting/CustomerLedgers';
+import CustomerKhataStatement from '../pages/accounting/CustomerKhataStatement';
+import VendorLedgers from '../pages/accounting/VendorLedgers';
+import VendorStatement from '../pages/accounting/VendorStatement';
+import PaymentList from '../pages/accounting/PaymentList';
+import ChequeManagement from '../pages/accounting/ChequeManagement';
+import AgingReport from '../pages/accounting/AgingReport';
 
 import CustomerLogin from '../pages/CustomerLogin';
 import CustomerLayout from '../components/layout/CustomerLayout';
@@ -71,23 +82,19 @@ import { useFeatureFlags } from '../context/FeatureFlagsContext';
 import { Navigate } from 'react-router-dom';
 
 const FeatureFlagRoute = ({ flag, element }) => {
-    const { flags } = useFeatureFlags();
-    return flags[flag] ? element : <Navigate to="/" replace />;
+    const { flags, loading } = useFeatureFlags();
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-[500px]">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#2980B9]" />
+            </div>
+        );
+    }
+    const isEnabled = Boolean(flags[flag]);
+    return isEnabled ? element : <Navigate to="/" replace />;
 };
 
 export { PATHS };
-
-/**
- * Route configuration.
- *
- * `page` — the pageAccess[] key that ProtectedRoute checks against
- *           user.pageAccess[].  If absent the route is open to all
- *           authenticated users.
- *
- * NO `requiredPermission` (old user.permissions{} system).
- * NO SUPERADMIN bypass anywhere.
- * Access is determined ONLY by user.pageAccess[].
- */
 
 import CustomerProfile from '../pages/CustomerProfile';
 
@@ -109,17 +116,18 @@ const CUSTOMER_MODULE = [
 const CUSTOMER_CARE_MODULE = [
     { path: PATHS.CUSTOMER_CARE.NEW_ORDER, element: OrderWizard, page: 'NEW_ORDER' },
     { path: PATHS.CUSTOMER_CARE.ALL_ORDERS, element: AllOrdersList, page: 'ALL_ORDERS' },
+    { path: PATHS.CUSTOMER_CARE.RETAILER_ORDERS, element: IncomingRetailerOrders, page: 'ALL_ORDERS' },
     { path: PATHS.CUSTOMER_CARE.DRAFT_ORDERS, element: DraftOrders, page: 'ALL_ORDERS' },
     { path: PATHS.CUSTOMER_CARE.RX_ORDERS, element: RxOrders, page: 'ALL_ORDERS' },
-    { path: PATHS.CUSTOMER_CARE.PENDING_ORDERS, element: AllOrdersList, page: 'PENDING_ORDERS', props: { isPendingOnly: true, defaultStatus: 'PENDING' } },
+    { path: PATHS.CUSTOMER_CARE.PENDING_ORDERS, element: AllOrdersList, page: 'PENDING_ORDERS', props: { isPendingOnly: true, defaultStatus: 'Processing' } },
     { path: PATHS.CUSTOMER_CARE.SERVICE_GOODS, element: OtherSales, page: 'OTHER_SALES' },
     { path: PATHS.CUSTOMER_CARE.VIEW_ORDERS, element: PlaceholderPage, page: 'ALL_ORDERS', props: { title: 'View Orders' } },
     { path: PATHS.CUSTOMER_CARE.UPGRADE_ORDERS, element: PlaceholderPage, page: 'ALL_ORDERS', props: { title: 'Upgrade Orders' } },
     { path: PATHS.CUSTOMER_CARE.UPDATE_CUSTOMERS, element: CustomerList, page: 'CUSTOMER_LIST' },
-    // Edit / view a specific order — no page key: open to any authenticated
-    // user who holds the URL (backend still validates ownership)
     { path: PATHS.CUSTOMER_CARE.EDIT_ORDER, element: OrderWizard },
     { path: PATHS.CUSTOMER_CARE.ORDER_DETAILS, element: OrderDetails },
+    { path: PATHS.CUSTOMER_CARE.ORDER_DETAILS_ALT, element: OrderDetails },
+    { path: '/orders/:id', element: OrderDetails },
 ];
 
 // ── Operations ────────────────────────────────────────────────────────────────
@@ -186,6 +194,7 @@ const SALES_MODULE = [
 const REPORTS_MODULE = [
     { path: PATHS.REPORTS.DAILY, element: DailyReport, page: 'DAILY_REPORT' },
     { path: PATHS.REPORTS.MAIN, element: MainReport, page: 'MAIN_REPORT' },
+    { path: PATHS.REPORTS.GST, element: GstReport, page: 'MAIN_REPORT' },
 ];
 
 // ── Tenants (Platform Owner) ──────────────────────────────────────────────────
@@ -207,7 +216,26 @@ const GLASS_TRYON_MODULE = [
     },
 ];
 
+const EXTERNAL_MODULE = [
+    {
+        path: PATHS.EXTERNAL?.RETAILER_ORDERS || '/external/retailer-orders',
+        element: IncomingRetailerOrders,
+    },
+];
+
 // ── Full config ───────────────────────────────────────────────────────────────
+const ACCOUNTING_MODULE = [
+    { path: PATHS.ACCOUNTING.COA, element: ChartOfAccounts },
+    { path: PATHS.ACCOUNTING.CUSTOMER_LEDGERS, element: CustomerLedgers },
+    { path: PATHS.ACCOUNTING.CUSTOMER_STATEMENT, element: CustomerKhataStatement },
+    { path: PATHS.ACCOUNTING.VENDOR_LEDGERS, element: VendorLedgers },
+    { path: PATHS.ACCOUNTING.VENDOR_STATEMENT, element: VendorStatement },
+    { path: PATHS.ACCOUNTING.PAYMENTS, element: PaymentList },
+    { path: PATHS.ACCOUNTING.CHEQUES, element: ChequeManagement },
+    { path: PATHS.ACCOUNTING.AGING, element: AgingReport },
+    { path: PATHS.ACCOUNTING.GST_REPORT, element: GstReport },
+];
+
 export const routesConfig = [
     // Public routes
     { path: PATHS.LOGIN, element: Login, isPublic: true },
@@ -254,6 +282,8 @@ export const routesConfig = [
                     ...REPORTS_MODULE,
                     ...TENANTS_MODULE,
                     ...GLASS_TRYON_MODULE,
+                    ...ACCOUNTING_MODULE,
+                    ...EXTERNAL_MODULE,
                     {
                         path: PATHS.ECOMMERCE.SUNGLASSES,
                         element: FeatureFlagRoute,

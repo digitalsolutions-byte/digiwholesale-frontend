@@ -147,7 +147,6 @@ export default function RegisterTenant() {
         storeName: '',
         address: '',
         storeTiming: '10 AM – 8 PM',
-        commissionPercentage: 5,
         expiryDate: '2027-12-31',
         emailApi: '',
         showAds: false,
@@ -178,7 +177,31 @@ export default function RegisterTenant() {
 
         // WhatsApp Config
         utilityProvider: 'META',
-        promotionProvider: 'META'
+        promotionProvider: 'META',
+
+        // Demo Mode & Security Watermark Flags
+        demoMode: false,
+        demoExpiry: '',
+
+        // Invoice / Billing Details
+        invoiceNo: '',
+        invoiceDate: new Date().toISOString().split('T')[0],
+        clientGSTIN: '',
+        clientStateName: '',
+        clientStateCode: '',
+        clientPAN: '',
+        hsnSac: '998313',
+        subscriptionAmount: '',
+        serverCostAmount: '',
+        cgstRate: 9,
+        sgstRate: 9,
+        igstRate: 18,
+        applyIGST: false,          // true = inter-state (IGST only), false = intra-state (CGST+SGST)
+        bankName: 'HDFC Bank',
+        bankAccountNo: '50200118392316',
+        bankBranch: 'Hauz Khas, New Delhi',
+        bankIFSC: 'HDFC0000467',
+        companyPAN: 'AAMCD1973C'
     });
 
     const handleChange = (e) => {
@@ -241,8 +264,8 @@ export default function RegisterTenant() {
             return;
         }
 
-        if (!formData.gstCertificate && !formData.panCard && !formData.aadhaarCard && !formData.storeLogo) {
-            toast.error('Please upload at least one document or logo (GST, PAN, or Aadhaar Card).');
+        if (!formData.gstCertificate && !(formData.panCard && formData.aadhaarCard)) {
+            toast.error('Please upload either GST Certificate OR both PAN Card & Aadhaar Card.');
             return;
         }
 
@@ -253,7 +276,40 @@ export default function RegisterTenant() {
 
         setSubmitting(true);
         try {
-            const res = await registerTenant(formData);
+            const isDemoOn = Boolean(formData.demoMode);
+          const demoExpVal = formData.demoExpiry || null;
+          const invoiceDetails = {
+              invoiceNo: formData.invoiceNo || '',
+              invoiceDate: formData.invoiceDate || new Date().toISOString().split('T')[0],
+              clientGSTIN: (formData.clientGSTIN || '').toUpperCase(),
+              clientStateName: formData.clientStateName || '',
+              clientStateCode: formData.clientStateCode || '',
+              clientPAN: (formData.clientPAN || '').toUpperCase(),
+              hsnSac: formData.hsnSac || '998313',
+              subscriptionAmount: Number(formData.subscriptionAmount) || 0,
+              serverCostAmount: Number(formData.serverCostAmount) || 0,
+              cgstRate: Number(formData.cgstRate) || 9,
+              sgstRate: Number(formData.sgstRate) || 9,
+              igstRate: Number(formData.igstRate) || 18,
+              applyIGST: Boolean(formData.applyIGST),
+              bankName: formData.bankName || 'HDFC Bank',
+              bankAccountNo: formData.bankAccountNo || '50200118392316',
+              bankBranch: formData.bankBranch || 'Hauz Khas, New Delhi',
+              bankIFSC: (formData.bankIFSC || 'HDFC0000467').toUpperCase(),
+              companyPAN: (formData.companyPAN || 'AAMCD1973C').toUpperCase()
+          };
+          const payload = {
+              ...formData,
+              demoMode: isDemoOn,
+              demoExpiry: demoExpVal,
+              featureFlags: {
+                  ...(formData.featureFlags || {}),
+                  demoMode: isDemoOn,
+                  demoExpiry: demoExpVal
+              },
+              invoiceDetails
+          };
+          const res = await registerTenant(payload);
             if (res.success) {
                 toast.success(res.message || 'Wholesaler created successfully!');
                 navigate(PATHS.TENANTS.LIST);
@@ -344,31 +400,16 @@ export default function RegisterTenant() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">COMMISSION (%) *</label>
+                                    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">EXPIRY DATE *</label>
                                     <input
-                                        type="number"
-                                        name="commissionPercentage"
-                                        value={formData.commissionPercentage}
+                                        type="date"
+                                        name="expiryDate"
+                                        value={formData.expiryDate}
                                         onChange={handleChange}
-                                        min="0"
-                                        max="100"
-                                        placeholder="% 0"
-                                        className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all"
+                                        className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all cursor-pointer"
                                         required
                                     />
                                 </div>
-                            </div>
-
-                            <div>
-                                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">EXPIRY DATE *</label>
-                                <input
-                                    type="date"
-                                    name="expiryDate"
-                                    value={formData.expiryDate}
-                                    onChange={handleChange}
-                                    className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all cursor-pointer"
-                                    required
-                                />
                             </div>
 
                             <div>
@@ -384,40 +425,57 @@ export default function RegisterTenant() {
                             </div>
 
                             {/* Options */}
-                            <div className="flex items-center gap-6 pt-2">
-                                <label className="flex items-center gap-2 cursor-pointer select-none">
-                                    <input
-                                        type="checkbox"
-                                        name="showAds"
-                                        checked={formData.showAds}
-                                        onChange={handleChange}
-                                        className="w-4 h-4 rounded border-slate-300 text-[#2980B9] focus:ring-0"
-                                    />
-                                    <span className="text-xs font-medium text-slate-700">Show Ads</span>
-                                </label>
+                            <div className="flex flex-wrap items-center gap-6 pt-2">
+                                {/* TODO: Show Ads, Has GST, Has AI — stored but no active logic yet; hidden until implemented */}
+                                {false && (
+                                    <>
+                                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                                            <input type="checkbox" name="showAds" checked={formData.showAds} onChange={handleChange} className="w-4 h-4 rounded border-slate-300 text-[#2980B9] focus:ring-0" />
+                                            <span className="text-xs font-medium text-slate-700">Show Ads</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                                            <input type="checkbox" name="hasGST" checked={formData.hasGST} onChange={handleChange} className="w-4 h-4 rounded border-slate-300 text-[#2980B9] focus:ring-0" />
+                                            <span className="text-xs font-medium text-slate-700">Has GST</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                                            <input type="checkbox" name="hasAI" checked={formData.hasAI} onChange={handleChange} className="w-4 h-4 rounded border-slate-300 text-[#2980B9] focus:ring-0" />
+                                            <span className="text-xs font-medium text-slate-700">Has AI</span>
+                                        </label>
+                                    </>
+                                )}
 
-                                <label className="flex items-center gap-2 cursor-pointer select-none">
+                                <label className="flex items-center gap-2 cursor-pointer select-none bg-amber-50 px-3 py-1 rounded-xl border border-amber-200 hover:bg-amber-100 transition-colors">
                                     <input
                                         type="checkbox"
-                                        name="hasGST"
-                                        checked={formData.hasGST}
+                                        name="demoMode"
+                                        checked={formData.demoMode || false}
                                         onChange={handleChange}
-                                        className="w-4 h-4 rounded border-slate-300 text-[#2980B9] focus:ring-0"
+                                        className="w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-0 cursor-pointer"
                                     />
-                                    <span className="text-xs font-medium text-slate-700">Has GST</span>
-                                </label>
-
-                                <label className="flex items-center gap-2 cursor-pointer select-none">
-                                    <input
-                                        type="checkbox"
-                                        name="hasAI"
-                                        checked={formData.hasAI}
-                                        onChange={handleChange}
-                                        className="w-4 h-4 rounded border-slate-300 text-[#2980B9] focus:ring-0"
-                                    />
-                                    <span className="text-xs font-medium text-slate-700">Has AI</span>
+                                    <span className="text-xs font-bold text-amber-900">Demo Mode</span>
                                 </label>
                             </div>
+
+                            {formData.demoMode ? (
+                                <div className="p-3.5 bg-amber-50/70 rounded-xl border border-amber-200 space-y-2 mt-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[11px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                                            <Icon icon="lucide:clock-4" className="text-amber-700 text-sm" />
+                                            Demo Access Expiry Date & Time (Optional)
+                                        </label>
+                                        <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-200">
+                                            Logins Blocked After Expiry
+                                        </span>
+                                    </div>
+                                    <input
+                                        type="datetime-local"
+                                        name="demoExpiry"
+                                        value={formData.demoExpiry || ''}
+                                        onChange={handleChange}
+                                        className="w-full sm:w-auto px-3.5 py-2 bg-white border border-amber-300 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:border-[#2980B9]"
+                                    />
+                                </div>
+                            ) : null}
                         </div>
                     </div>
 
@@ -486,50 +544,34 @@ export default function RegisterTenant() {
                             </div>
                         </div>
 
-                        {/* Loyalty & Referral Sub-card */}
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3 mt-2">
-                            <div className="flex items-center gap-2">
-                                <Icon icon="lucide:star" className="text-[#2980B9] text-sm" />
-                                <h3 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">LOYALTY & REFERRAL</h3>
-                            </div>
-                            <div className="grid grid-cols-3 gap-3">
-                                <div>
-                                    <label className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">RS / POINT</label>
-                                    <input
-                                        type="number"
-                                        name="rsPerPoint"
-                                        value={formData.rsPerPoint}
-                                        onChange={handleChange}
-                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 outline-none text-center"
-                                    />
+                        {/* TODO: Loyalty & Referral — stored & sent in login response but no auto-calculation logic yet; hidden until implemented */}
+                        {false && (
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3 mt-2">
+                                <div className="flex items-center gap-2">
+                                    <Icon icon="lucide:star" className="text-[#2980B9] text-sm" />
+                                    <h3 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">LOYALTY &amp; REFERRAL</h3>
                                 </div>
-                                <div>
-                                    <label className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">POINT VALUE</label>
-                                    <input
-                                        type="number"
-                                        name="pointValue"
-                                        value={formData.pointValue}
-                                        onChange={handleChange}
-                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 outline-none text-center"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">REFER PTS</label>
-                                    <input
-                                        type="number"
-                                        name="referPoints"
-                                        value={formData.referPoints}
-                                        onChange={handleChange}
-                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 outline-none text-center"
-                                    />
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div>
+                                        <label className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">RS / POINT</label>
+                                        <input type="number" name="rsPerPoint" value={formData.rsPerPoint} onChange={handleChange} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 outline-none text-center" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">POINT VALUE</label>
+                                        <input type="number" name="pointValue" value={formData.pointValue} onChange={handleChange} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 outline-none text-center" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">REFER PTS</label>
+                                        <input type="number" name="referPoints" value={formData.referPoints} onChange={handleChange} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 outline-none text-center" />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
                     </div>
 
                 </div>
 
-                {/* BOTTOM SECTION: Documents, Plan Cards & WhatsApp Config */}
+                {/* BOTTOM SECTION: Documents, Plan & WhatsApp Cards in one row */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
                     {/* 3. Logo & Documents */}
@@ -575,7 +617,7 @@ export default function RegisterTenant() {
                         />
 
                         <p className="text-[10px] text-slate-400 font-medium pt-1">
-                            * At least one of GST / PAN / Aadhar required
+                            * GST Certificate <span className="font-bold">OR</span> both PAN Card &amp; Aadhaar Card required
                         </p>
                     </div>
 
@@ -714,78 +756,186 @@ export default function RegisterTenant() {
                         )}
                     </div>
 
-                    {/* 5. WhatsApp Config */}
+                    {/* WhatsApp Integration */}
                     <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-100 shadow-xs space-y-5">
                         <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
                             <Icon icon="lucide:message-square" className="text-[#2980B9] text-xl" />
                             <h2 className="text-sm font-bold text-slate-800">WhatsApp Integration</h2>
                         </div>
-
-                        {/* Utility Messages Provider */}
                         <div className="space-y-2">
                             <label className="text-[10px] font-semibold text-slate-400 uppercase block">UTILITY MESSAGES PROVIDER</label>
                             <div className="grid grid-cols-2 gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData(p => ({ ...p, utilityProvider: 'META' }))}
-                                    className={`py-3 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${
-                                        formData.utilityProvider === 'META'
-                                            ? 'bg-[#2980B9] text-white shadow-xs'
-                                            : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
-                                    }`}
-                                >
-                                    <Icon icon="logos:whatsapp-icon" className="text-sm flex-shrink-0" />
-                                    <span>META</span>
+                                <button type="button" onClick={() => setFormData(p => ({ ...p, utilityProvider: 'META' }))} className={`py-3 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${formData.utilityProvider === 'META' ? 'bg-[#2980B9] text-white shadow-xs' : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'}`}>
+                                    <Icon icon="logos:whatsapp-icon" className="text-sm flex-shrink-0" /><span>META</span>
                                 </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData(p => ({ ...p, utilityProvider: 'NON_META' }))}
-                                    className={`py-3 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${
-                                        formData.utilityProvider === 'NON_META'
-                                            ? 'bg-[#2980B9] text-white shadow-xs'
-                                            : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
-                                    }`}
-                                >
-                                    <Icon icon="lucide:link" className="text-sm flex-shrink-0" />
-                                    <span>NON_META</span>
+                                <button type="button" onClick={() => setFormData(p => ({ ...p, utilityProvider: 'NON_META' }))} className={`py-3 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${formData.utilityProvider === 'NON_META' ? 'bg-[#2980B9] text-white shadow-xs' : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'}`}>
+                                    <Icon icon="lucide:link" className="text-sm flex-shrink-0" /><span>NON_META</span>
                                 </button>
                             </div>
                         </div>
-
-                        {/* Promotion Messages Provider */}
                         <div className="space-y-2">
                             <label className="text-[10px] font-semibold text-slate-400 uppercase block">PROMOTION MESSAGES PROVIDER</label>
                             <div className="grid grid-cols-2 gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData(p => ({ ...p, promotionProvider: 'META' }))}
-                                    className={`py-3 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${
-                                        formData.promotionProvider === 'META'
-                                            ? 'bg-[#2980B9] text-white shadow-xs'
-                                            : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
-                                    }`}
-                                >
-                                    <Icon icon="logos:whatsapp-icon" className="text-sm flex-shrink-0" />
-                                    <span>META</span>
+                                <button type="button" onClick={() => setFormData(p => ({ ...p, promotionProvider: 'META' }))} className={`py-3 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${formData.promotionProvider === 'META' ? 'bg-[#2980B9] text-white shadow-xs' : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'}`}>
+                                    <Icon icon="logos:whatsapp-icon" className="text-sm flex-shrink-0" /><span>META</span>
                                 </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData(p => ({ ...p, promotionProvider: 'NON_META' }))}
-                                    className={`py-3 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${
-                                        formData.promotionProvider === 'NON_META'
-                                            ? 'bg-[#2980B9] text-white shadow-xs'
-                                            : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
-                                    }`}
-                                >
-                                    <Icon icon="lucide:link" className="text-sm flex-shrink-0" />
-                                    <span>NON_META</span>
+                                <button type="button" onClick={() => setFormData(p => ({ ...p, promotionProvider: 'NON_META' }))} className={`py-3 px-3 rounded-xl font-semibold text-xs uppercase flex items-center justify-center gap-2 transition-all ${formData.promotionProvider === 'NON_META' ? 'bg-[#2980B9] text-white shadow-xs' : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'}`}>
+                                    <Icon icon="lucide:link" className="text-sm flex-shrink-0" /><span>NON_META</span>
                                 </button>
                             </div>
                         </div>
                     </div>
 
+                </div>
+
+                {/* Invoice / Billing Details Section */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs space-y-5">
+                    <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+                        <Icon icon="lucide:file-text" className="text-[#2980B9] text-xl" />
+                        <h2 className="text-sm font-bold text-slate-800">Invoice & Billing Details</h2>
+                        <span className="ml-auto px-2.5 py-0.5 bg-blue-50 text-[#2980B9] rounded-md text-[10px] font-bold uppercase">Used to Generate GST Invoice</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {/* Invoice No */}
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Invoice No.</label>
+                            <input type="text" name="invoiceNo" value={formData.invoiceNo} onChange={handleChange}
+                                placeholder="e.g. DIGI/01/26-27"
+                                className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                        </div>
+                        {/* Invoice Date */}
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Invoice Date</label>
+                            <input type="date" name="invoiceDate" value={formData.invoiceDate} onChange={handleChange}
+                                className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all cursor-pointer" />
+                        </div>
+                        {/* HSN/SAC */}
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">HSN / SAC Code</label>
+                            <input type="text" name="hsnSac" value={formData.hsnSac} onChange={handleChange}
+                                placeholder="998313"
+                                className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                        </div>
+                        {/* Tax Type */}
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Tax Type</label>
+                            <div className="flex gap-2 mt-1">
+                                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+                                    <input type="radio" name="applyIGST" checked={!formData.applyIGST}
+                                        onChange={() => setFormData(p => ({ ...p, applyIGST: false }))}
+                                        className="w-3.5 h-3.5 text-[#2980B9]" />
+                                    CGST + SGST
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+                                    <input type="radio" name="applyIGST" checked={formData.applyIGST}
+                                        onChange={() => setFormData(p => ({ ...p, applyIGST: true }))}
+                                        className="w-3.5 h-3.5 text-[#2980B9]" />
+                                    IGST
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Buyer Details */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Buyer GSTIN</label>
+                            <input type="text" name="clientGSTIN" value={formData.clientGSTIN} onChange={handleChange}
+                                placeholder="22AAAAA0000A1Z5"
+                                className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all uppercase" />
+                        </div>
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Buyer PAN</label>
+                            <input type="text" name="clientPAN" value={formData.clientPAN} onChange={handleChange}
+                                placeholder="ABCDE1234F"
+                                className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all uppercase" />
+                        </div>
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Buyer State Name</label>
+                            <input type="text" name="clientStateName" value={formData.clientStateName} onChange={handleChange}
+                                placeholder="Delhi"
+                                className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                        </div>
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Buyer State Code</label>
+                            <input type="text" name="clientStateCode" value={formData.clientStateCode} onChange={handleChange}
+                                placeholder="07"
+                                className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                        </div>
+                    </div>
+
+                    {/* Subscription Amounts */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Subscription Amount (₹)</label>
+                            <input type="number" name="subscriptionAmount" value={formData.subscriptionAmount} onChange={handleChange}
+                                placeholder="0.00" min="0"
+                                className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                        </div>
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Server Cost (₹)</label>
+                            <input type="number" name="serverCostAmount" value={formData.serverCostAmount} onChange={handleChange}
+                                placeholder="0.00" min="0"
+                                className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                        </div>
+                        {formData.applyIGST ? (
+                            <div>
+                                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">IGST Rate (%)</label>
+                                <input type="number" name="igstRate" value={formData.igstRate} onChange={handleChange}
+                                    placeholder="18" min="0" max="28"
+                                    className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                            </div>
+                        ) : (
+                            <>
+                                <div>
+                                    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">CGST Rate (%)</label>
+                                    <input type="number" name="cgstRate" value={formData.cgstRate} onChange={handleChange}
+                                        placeholder="9" min="0" max="14"
+                                        className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                                </div>
+                                <div>
+                                    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">SGST Rate (%)</label>
+                                    <input type="number" name="sgstRate" value={formData.sgstRate} onChange={handleChange}
+                                        placeholder="9" min="0" max="14"
+                                        className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                                </div>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Bank Details */}
+                    <div>
+                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                            <Icon icon="lucide:landmark" className="text-sm" /> Company Bank Details
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div>
+                                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Bank Name</label>
+                                <input type="text" name="bankName" value={formData.bankName} onChange={handleChange}
+                                    placeholder="HDFC Bank"
+                                    className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                            </div>
+                            <div>
+                                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Account No.</label>
+                                <input type="text" name="bankAccountNo" value={formData.bankAccountNo} onChange={handleChange}
+                                    placeholder="50200XXXXXXXXX"
+                                    className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                            </div>
+                            <div>
+                                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Branch</label>
+                                <input type="text" name="bankBranch" value={formData.bankBranch} onChange={handleChange}
+                                    placeholder="Hauz Khas, New Delhi"
+                                    className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all" />
+                            </div>
+                            <div>
+                                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">IFSC Code</label>
+                                <input type="text" name="bankIFSC" value={formData.bankIFSC} onChange={handleChange}
+                                    placeholder="HDFC0000467"
+                                    className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all uppercase" />
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Bottom Action Bar */}

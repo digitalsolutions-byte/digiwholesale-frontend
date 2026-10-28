@@ -40,7 +40,6 @@ const ToggleSwitch = ({ checked, onChange, disabled, loading }) => (
     </button>
 );
 
-// ── Status Badge ─────────────────────────────────────────────────────────────
 const StatusBadge = ({ active }) => (
     <span
         className={`
@@ -56,15 +55,20 @@ const StatusBadge = ({ active }) => (
     </span>
 );
 
-// ── Feature Row Component ─────────────────────────────────────────────────────
-const FeatureRow = ({ label, description, enabled, onToggle, toggling }) => (
-    <div className="flex items-center justify-between gap-6 py-5">
-        <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 flex-wrap">
-                <p className="text-sm font-semibold text-slate-800">{label}</p>
-                <StatusBadge active={enabled} />
+const FeatureRow = ({ label, description, enabled, onToggle, toggling, badgeText, badgeColor }) => (
+    <div className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1 max-w-xl">
+            <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-slate-800">{label}</span>
+                {badgeText ? (
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeColor}`}>
+                        {badgeText}
+                    </span>
+                ) : (
+                    <StatusBadge active={enabled} />
+                )}
             </div>
-            <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">{description}</p>
+            <p className="text-xs text-slate-500 leading-relaxed">{description}</p>
         </div>
         <div className="flex-shrink-0">
             <ToggleSwitch
@@ -77,13 +81,11 @@ const FeatureRow = ({ label, description, enabled, onToggle, toggling }) => (
     </div>
 );
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function WholesalerSettings() {
     const { id } = useParams();
     const navigate = useNavigate();
     const user = useSelector(selectCurrentUser);
 
-    // Access guard — only Platform Owner
     if (user?.EmployeeType !== 'PLATFORM_OWNER') {
         return <Navigate to={PATHS.UNAUTHORIZED} replace />;
     }
@@ -91,10 +93,11 @@ export default function WholesalerSettings() {
     const [pageLoading, setPageLoading] = useState(true);
     const [storeName, setStoreName] = useState('');
     const [tenantId, setTenantId] = useState('');
-    const [flags, setFlags] = useState({ ecomFramesSunglasses: false });
+    const [flags, setFlags] = useState({ ecomFramesSunglasses: false, demoMode: false, demoExpiry: null });
+    const [expiryInput, setExpiryInput] = useState('');
+    const [savingExpiry, setSavingExpiry] = useState(false);
     const [toggling, setToggling] = useState({});
 
-    // Fetch settings on mount
     useEffect(() => {
         const load = async () => {
             setPageLoading(true);
@@ -103,7 +106,25 @@ export default function WholesalerSettings() {
                 if (res?.success && res?.data) {
                     setStoreName(res.data.storeName || 'Wholesaler');
                     setTenantId(res.data.tenantId || '');
-                    setFlags({ ...{ ecomFramesSunglasses: false }, ...(res.data.featureFlags || {}) });
+                    const isDemoOn = Boolean(res.data.featureFlags?.demoMode || res.data.demoMode);
+                    const demoExpVal = res.data.featureFlags?.demoExpiry || res.data.demoExpiry || null;
+                    const fetchedFlags = { 
+                        ecomFramesSunglasses: false, 
+                        ...(res.data.featureFlags || {}), 
+                        demoMode: isDemoOn, 
+                        demoExpiry: demoExpVal 
+                    };
+                    setFlags(fetchedFlags);
+                    
+                    if (fetchedFlags.demoExpiry) {
+                        const dateObj = new Date(fetchedFlags.demoExpiry);
+                        if (!isNaN(dateObj.getTime())) {
+                            const formatted = new Date(dateObj.getTime() - dateObj.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                            setExpiryInput(formatted);
+                        }
+                    } else {
+                        setExpiryInput('');
+                    }
                 } else {
                     toast.error('Failed to load settings.');
                 }
@@ -116,25 +137,22 @@ export default function WholesalerSettings() {
         load();
     }, [id]);
 
-    // Optimistic toggle handler
     const handleToggle = async (flagKey) => {
         const previousValue = flags[flagKey];
         const newValue = !previousValue;
 
-        // Optimistic update
         setFlags(prev => ({ ...prev, [flagKey]: newValue }));
         setToggling(prev => ({ ...prev, [flagKey]: true }));
 
         try {
             const res = await updateTenantSettings(id, { [flagKey]: newValue });
             if (res?.success && res?.data?.featureFlags) {
-                setFlags({ ...{ ecomFramesSunglasses: false }, ...res.data.featureFlags });
+                setFlags(prev => ({ ...prev, ...res.data.featureFlags }));
                 toast.success('Feature updated successfully');
             } else {
                 throw new Error(res?.message || 'Update failed');
             }
         } catch (err) {
-            // Rollback on error
             setFlags(prev => ({ ...prev, [flagKey]: previousValue }));
             toast.error(err?.message || 'Failed to update feature. Please try again.');
         } finally {
@@ -142,7 +160,27 @@ export default function WholesalerSettings() {
         }
     };
 
-    // ── Loading skeleton ────────────────────────────────────────────────────
+    const handleSaveExpiry = async (valueToSave = expiryInput) => {
+        setSavingExpiry(true);
+        try {
+            const isoVal = valueToSave ? new Date(valueToSave).toISOString() : null;
+            const res = await updateTenantSettings(id, { demoExpiry: isoVal });
+            if (res?.success && res?.data?.featureFlags) {
+                setFlags(prev => ({ ...prev, ...res.data.featureFlags }));
+                if (!valueToSave) setExpiryInput('');
+                toast.success(valueToSave ? 'Demo expiry date saved successfully' : 'Demo expiry cleared');
+            } else {
+                throw new Error(res?.message || 'Failed to update expiry');
+            }
+        } catch (err) {
+            toast.error(err?.message || 'Failed to update demo expiry date');
+        } finally {
+            setSavingExpiry(false);
+        }
+    };
+
+    const isExpired = flags.demoExpiry ? new Date() > new Date(flags.demoExpiry) : false;
+
     if (pageLoading) {
         return (
             <div className="p-4 md:p-8 space-y-6 max-w-3xl mx-auto animate-pulse">
@@ -164,8 +202,6 @@ export default function WholesalerSettings() {
 
     return (
         <div className="p-4 md:p-8 space-y-6 max-w-3xl mx-auto font-sans animate-in fade-in duration-200">
-
-            {/* Breadcrumb */}
             <nav className="flex items-center gap-2 text-xs text-slate-400 font-medium">
                 <button
                     onClick={() => navigate(PATHS.TENANTS.LIST)}
@@ -180,7 +216,6 @@ export default function WholesalerSettings() {
                 <span className="text-[#2980B9] font-semibold">Settings</span>
             </nav>
 
-            {/* Page Header */}
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs">
                 <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
@@ -197,9 +232,7 @@ export default function WholesalerSettings() {
                 </div>
             </div>
 
-            {/* Feature Toggles Card */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
-                {/* Card Header */}
                 <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2.5">
                     <Icon icon="lucide:toggle-right" className="text-[#2980B9] text-lg" />
                     <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
@@ -207,7 +240,6 @@ export default function WholesalerSettings() {
                     </h2>
                 </div>
 
-                {/* Feature Rows */}
                 <div className="px-6 divide-y divide-slate-50">
                     <FeatureRow
                         label="E-com Frames-Sunglasses Page"
@@ -216,19 +248,75 @@ export default function WholesalerSettings() {
                         onToggle={() => handleToggle('ecomFramesSunglasses')}
                         toggling={toggling['ecomFramesSunglasses'] ?? false}
                     />
-                    {/* Future feature rows can be added here */}
+
+                    <FeatureRow
+                        label="Demo Mode & Watermark Access"
+                        description="When enabled, users of this wholesaler see the confidential demo watermark & popup. Login is allowed until demo expiry date."
+                        enabled={flags.demoMode ?? false}
+                        onToggle={() => handleToggle('demoMode')}
+                        toggling={toggling['demoMode'] ?? false}
+                        badgeText={flags.demoMode ? (isExpired ? 'DEMO EXPIRED' : 'DEMO ACTIVE') : null}
+                        badgeColor={isExpired ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'}
+                    />
                 </div>
 
-                {/* Card Footer note */}
+                {flags.demoMode && (
+                    <div className="px-6 py-4 bg-amber-50/40 border-t border-amber-100 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Icon icon="lucide:clock-4" className="text-amber-600 text-base" />
+                                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                                    Demo Access Expiry Date & Time
+                                </span>
+                            </div>
+                            {isExpired && (
+                                <span className="text-[11px] font-black text-red-600 bg-red-100 px-2.5 py-0.5 rounded-full border border-red-200">
+                                    Access Expired (Logins Blocked)
+                                </span>
+                            )}
+                        </div>
+                        <p className="text-xs text-slate-500">
+                            Set the deadline until which demo access remains valid. Once expired, users will be blocked from logging into this wholesaler account.
+                        </p>
+                        <div className="flex flex-wrap items-center gap-3 pt-1">
+                            <input
+                                type="datetime-local"
+                                value={expiryInput}
+                                onChange={e => setExpiryInput(e.target.value)}
+                                className="px-3 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-blue-100 shadow-xs"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => handleSaveExpiry()}
+                                disabled={savingExpiry}
+                                className="px-4 py-2 bg-[#2980B9] hover:bg-[#1F618D] text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                            >
+                                {savingExpiry ? <Icon icon="lucide:loader-2" className="animate-spin text-sm" /> : <Icon icon="lucide:save" className="text-sm" />}
+                                Save Expiry
+                            </button>
+                            {expiryInput && (
+                                <button
+                                    type="button"
+                                    onClick={() => handleSaveExpiry('')}
+                                    disabled={savingExpiry}
+                                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold rounded-xl transition flex items-center gap-1 cursor-pointer"
+                                >
+                                    <Icon icon="lucide:trash-2" className="text-xs text-red-500" />
+                                    Clear Limit
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 <div className="px-6 py-3 bg-slate-50/60 border-t border-slate-100">
                     <p className="text-[11px] text-slate-400 font-medium flex items-center gap-1.5">
                         <Icon icon="lucide:info" className="text-slate-300 text-sm flex-shrink-0" />
-                        Changes take effect immediately. The wholesaler must refresh their session to see updated access.
+                        Changes take effect immediately upon next login or session refresh.
                     </p>
                 </div>
             </div>
 
-            {/* Back button */}
             <button
                 onClick={() => navigate(PATHS.TENANTS.LIST)}
                 className="flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors"

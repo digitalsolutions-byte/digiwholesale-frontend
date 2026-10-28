@@ -1,3 +1,4 @@
+import VendorTabNav from '../../components/vendor/VendorTabNav';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
@@ -775,6 +776,7 @@ const PurchaseReturnList = () => {
 
     return (
         <div className="p-2 w-full h-full flex flex-col">
+            <VendorTabNav groupKey="QC" />
 
             {/* Header */}
             <div className="flex justify-between items-start mb-6">

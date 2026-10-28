@@ -30,6 +30,8 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { PATHS } from '../routes/paths';
 import { getOrderById, updateOrder } from '../services/orderService';
 import { uploadImage } from '../services/bucketService';
+import { getProductDisplayImage } from '../utils/productUtils';
+import { getBatchesForProduct } from '../services/batchService';
 
 const SectionCard = ({ children, className = '' }) => (
     <div className={`bg-white rounded-2xl border border-gray-100 shadow-[0_1px_4px_0_rgba(0,0,0,0.06)] ${className}`}>
@@ -209,9 +211,18 @@ const OrderWizard = () => {
     const [fetchingOrder, setFetchingOrder] = useState(!!id);
     const [activeProductIndex, setActiveProductIndex] = useState(0);
     const [expandedProductIndices, setExpandedProductIndices] = useState([]);
+    const [expandedGroups, setExpandedGroups] = useState({
+        specs: false,
+        powers: false,
+        tax: false,
+    });
+    const toggleGroup = (groupKey) => {
+        setExpandedGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }));
+    };
     const [itemModalIndex, setItemModalIndex] = useState(null);
     const [activeCategories, setActiveCategories] = useState([]);
     const [uploadingItemImages, setUploadingItemImages] = useState({});
+    const [includeDeliveryTime, setIncludeDeliveryTime] = useState(false);
 
     const handleItemImageUpload = async (index, file) => {
         if (!file) return;
@@ -266,6 +277,9 @@ const OrderWizard = () => {
         tintId: '',
         tintDetails: '',
         remarks: '',
+        batchId: '',
+        batchNumber: '',
+        availableBatches: [],
         hasMirror: 'no',
         vendorId: '',
         labName: '',
@@ -295,7 +309,7 @@ const OrderWizard = () => {
         expiry: '',
         productCode: '',
         image: '',
-        color: '',
+        color: 'BLACK',
         size: '',
         type: '',
         shape: '',
@@ -303,7 +317,8 @@ const OrderWizard = () => {
         dimensions: '',
         Brand: '',
         MRP: 0,
-        HSNSAC: ''
+        HSNSAC: '',
+        disposability: ''
     };
 
     // Initial Form Values
@@ -329,7 +344,7 @@ const OrderWizard = () => {
         };
 
         const extractColor = (item) => {
-            if (!item) return '';
+            if (!item) return 'BLACK';
             const c = item.color || item.selectedColor || item.colorName || item.colorHex;
             if (typeof c === 'string' && c.trim()) return c.trim();
             if (typeof c === 'object' && c) {
@@ -341,7 +356,7 @@ const OrderWizard = () => {
                 if (typeof c0 === 'object' && c0) return c0.color || c0.name || c0.hex || '';
             }
             if (item.rawProduct) return extractColor(item.rawProduct);
-            return '';
+            return 'BLACK';
         };
 
         if (Array.isArray(state?.cartItems) && state.cartItems.length > 0) {
@@ -388,8 +403,10 @@ const OrderWizard = () => {
                     discountAmount: item.discountAmount ?? 0,
                     itemStatus: item.itemStatus || 'ACTIVE',
                     coating: item.coating || '',
-                    photos: Array.isArray(item.photos) && item.photos.length > 0 ? item.photos : (item.image ? [item.image] : []),
-                    image: item.image || (item.photos?.[0]) || '',
+                    photos: Array.isArray(item.photos) && item.photos.length > 0
+                        ? item.photos
+                        : [getProductDisplayImage(item, item.color)].filter(img => img && img !== "/placeholder-product.png"),
+                    image: getProductDisplayImage(item, item.color) !== "/placeholder-product.png" ? getProductDisplayImage(item, item.color) : '',
                     vendor: item.vendor || { id: null, name: null },
                     vendorId: item.vendor?.id || item.vendorId || '',
                     orderSource: item.orderSource || 'INHOUSE',
@@ -459,8 +476,10 @@ const OrderWizard = () => {
                 discountAmount: prod.discountAmount ?? 0,
                 itemStatus: prod.itemStatus || 'ACTIVE',
                 coating: prod.coating || '',
-                photos: Array.isArray(prod.photos) && prod.photos.length > 0 ? prod.photos : (prod.image ? [prod.image] : []),
-                image: prod.image || (prod.photos?.[0]) || '',
+                photos: Array.isArray(prod.photos) && prod.photos.length > 0
+                    ? prod.photos
+                    : [getProductDisplayImage(prod, pColor)].filter(img => img && img !== "/placeholder-product.png"),
+                image: getProductDisplayImage(prod, pColor) !== "/placeholder-product.png" ? getProductDisplayImage(prod, pColor) : '',
                 vendor: prod.vendor || { id: null, name: null },
                 vendorId: prod.vendor?.id || prod.vendorId || '',
                 orderSource: prod.orderSource || 'INHOUSE',
@@ -560,7 +579,7 @@ const OrderWizard = () => {
     useEffect(() => {
         if (!id && location.state?.prefillProduct) {
             const prod = location.state.prefillProduct;
-            const colorVal = location.state.selectedColor || prod.color || (prod.colors?.[0]?.color) || '';
+            const colorVal = location.state.selectedColor || prod.color || (prod.colors?.[0]?.color) || 'BLACK';
             const qtyVal = location.state.selectedQty || 1;
 
             const matchedCategoryObj = (configs.category || []).find(c =>
@@ -599,8 +618,10 @@ const OrderWizard = () => {
             formik.setFieldValue('products.0.dimensions', prod.dimensions || '');
             formik.setFieldValue('products.0.availability', 'in-house');
             formik.setFieldValue('products.0.orderType', 'stock');
-            if (prod.image) {
-                formik.setFieldValue('products.0.photos', [prod.image]);
+            const prefillImg = getProductDisplayImage(prod, colorVal);
+            if (prefillImg && prefillImg !== "/placeholder-product.png") {
+                formik.setFieldValue('products.0.photos', [prefillImg]);
+                formik.setFieldValue('products.0.image', prefillImg);
             }
 
             if (pName) {
@@ -850,6 +871,7 @@ const OrderWizard = () => {
             return !!(p.productName || p.brandId || p.categoryId || p.brand || p.productId);
         });
         const sanitizedNewProducts = (newProducts || []).map(p => ({
+            color: p.color?.trim() || 'BLACK',
             ...p,
             powerTable: p.powerTable || {
                 R: { sph: p.sph || '', cyl: p.cyl || '', axis: p.axis || '', add: p.addition || '', dia: '70' },
@@ -928,8 +950,8 @@ const OrderWizard = () => {
             const tintData = getFieldData('tints', prod.tintId);
             const treatmentData = getFieldData('treatment', prod.treatmentId);
 
-            const isRx = prod.orderType === 'rx' || prod.availability === 'order' || prod.availability === 'order-to-whom' || !!prod.vendorId;
             const cat = determineCategory(categoryData?.name, productData?.name);
+            const isRx = String(prod.orderType || '').toLowerCase() === 'rx' && (cat === 'LENS' || cat === 'RX_LENS');
 
             // Calculate discount details
             const discountAmount = parseFloat(prod.discount) || 0;
@@ -947,6 +969,8 @@ const OrderWizard = () => {
 
             const baseItem = {
                 productId: prod.productId || undefined,
+                batchId: prod.batchId || undefined,
+                batchNumber: prod.batchNumber || undefined,
                 unit: (prod.unit || 'piece').toUpperCase(),
                 orderType: isRx ? 'RX' : 'STOCK',
                 itemName: prod.itemName || prod.productName || productData?.name || '',
@@ -955,12 +979,14 @@ const OrderWizard = () => {
                 discountPercent: discountPercent,
                 discountAmount: discountAmount,
                 price: price,
+                sellingPrice: price,
+                buyingPrice: parseFloat(prod.buyingPrice) || 0,
                 gst: parseFloat(prod.gstDetails?.gstPercent) || 0,
                 hsnSac: prod.HSNSAC || '',
                 mrp: parseFloat(prod.MRP) || 0,
                 brand: prod.brand || brandData?.name || prod.Brand || '',
                 code: prod.code || prod.Code || '',
-                color: prod.color || '',
+                color: prod.color?.trim() || 'BLACK',
                 size: prod.size || prod.Size || '',
                 shape: prod.shape || prod.Shape || '',
                 dimensions: prod.dimensions || prod.Dimensions || prod.size || prod.Size || '',
@@ -990,7 +1016,7 @@ const OrderWizard = () => {
 
             // Add stock-specific / contact lens fields
             if (cat === 'FRAME' || cat === 'SUNGLASS' || cat === 'CONTACT_LENS') {
-                baseItem.color = prod.color || '';
+                baseItem.color = prod.color?.trim() || 'BLACK';
             }
             if (cat === 'FRAME' || cat === 'SUNGLASS') {
                 baseItem.brand = brandData?.name || prod.Brand || prod.brand || '';
@@ -1005,7 +1031,7 @@ const OrderWizard = () => {
             }
 
             // If it is RX, populate nested rx object
-            if (prod.orderType === 'rx' || isRx) {
+            if (isRx) {
                 const powers = [];
                 const mapPower = (side) => {
                     const pSide = prod.powerTable?.[side] || {};
@@ -1274,12 +1300,18 @@ const OrderWizard = () => {
                     ? rawData.data
                     : (Array.isArray(rawData) ? rawData : (Array.isArray(response) ? response : []));
                 console.log('Fetched products:', items);
-                setProductNames(items.map(p => ({
-                    value: p._id || p.id || p.productName || '',
-                    label: p.productName || p.name || '',
-                    price: p.price || p.mrp || 0,
-                    raw: p
-                })));
+                setProductNames(items.map(p => {
+                    const sellingP = p.sellingPrice != null && Number(p.sellingPrice) > 0 ? Number(p.sellingPrice) : Number(p.price || p.mrp || 0);
+                    return {
+                        value: p._id || p.id || p.productName || '',
+                        label: p.productName || p.name || '',
+                        price: sellingP,
+                        sellingPrice: sellingP,
+                        buyingPrice: Number(p.buyingPrice || p.price || 0),
+                        mrp: Number(p.mrp || 0),
+                        raw: { ...p, sellingPrice: sellingP }
+                    };
+                }));
             } catch (error) {
                 console.error('Failed to fetch product names:', error);
             } finally {
@@ -1288,7 +1320,7 @@ const OrderWizard = () => {
         }, 300);
     };
 
-    const handleProductSelection = (index, selectedValue) => {
+    const handleProductSelection = (index, selectedValue, selectedOption = null) => {
         const prefix = `products.${index}.`;
 
         if (!selectedValue) {
@@ -1298,7 +1330,10 @@ const OrderWizard = () => {
             return;
         }
 
-        const option = productNames.find(p => p.value === selectedValue || p.label === selectedValue);
+        // Prefer explicitly passed option from selection event, fallback to search in productNames
+        const option = (selectedOption && typeof selectedOption === 'object' && selectedOption.raw)
+            ? selectedOption
+            : productNames.find(p => p.value === selectedValue || p.label === selectedValue);
 
         if (option && option.raw) {
             const rawProd = option.raw;
@@ -1331,7 +1366,12 @@ const OrderWizard = () => {
                 formik.setFieldValue(`${prefix}availability`, 'in-house');
             }
 
-            formik.setFieldValue(`${prefix}price`, rawProd.price || 0);
+            const customerSellingPrice = rawProd.sellingPrice != null && Number(rawProd.sellingPrice) > 0
+                ? Number(rawProd.sellingPrice)
+                : Number(rawProd.price || 0);
+            formik.setFieldValue(`${prefix}price`, customerSellingPrice);
+            formik.setFieldValue(`${prefix}sellingPrice`, customerSellingPrice);
+            formik.setFieldValue(`${prefix}buyingPrice`, Number(rawProd.buyingPrice || rawProd.price || 0));
             formik.setFieldValue(`${prefix}MRP`, rawProd.mrp || rawProd.MRP || 0);
             formik.setFieldValue(`${prefix}qty`, 1);
 
@@ -1348,17 +1388,19 @@ const OrderWizard = () => {
             });
 
             // Set other properties
-            formik.setFieldValue(`${prefix}color`, rawProd.color || '');
+            formik.setFieldValue(`${prefix}color`, rawProd.color || 'BLACK');
             formik.setFieldValue(`${prefix}size`, rawProd.size || '');
             formik.setFieldValue(`${prefix}type`, rawProd.type || '');
             formik.setFieldValue(`${prefix}shape`, rawProd.shape || '');
             formik.setFieldValue(`${prefix}material`, rawProd.material || '');
             formik.setFieldValue(`${prefix}dimensions`, rawProd.dimensions || '');
-            formik.setFieldValue(`${prefix}image`, rawProd.image || '');
+            const rawDisplayImg = getProductDisplayImage(rawProd, rawProd.color);
+            formik.setFieldValue(`${prefix}image`, rawDisplayImg !== "/placeholder-product.png" ? rawDisplayImg : '');
             formik.setFieldValue(`${prefix}code`, rawProd.productCode || rawProd.code || '');
             formik.setFieldValue(`${prefix}productCode`, rawProd.productCode || rawProd.code || '');
             formik.setFieldValue(`${prefix}HSNSAC`, rawProd.hsnSac || rawProd.HSNSAC || '');
             formik.setFieldValue(`${prefix}expiry`, rawProd.expiry || '');
+            formik.setFieldValue(`${prefix}disposability`, rawProd.disposability || '');
 
             // Map lens-specific fields with resolveIndex
             const idxVal = resolveIndex(rawProd.index, configs.index || []);
@@ -1410,6 +1452,12 @@ const OrderWizard = () => {
 
             // Fetch full product details from API to get ALL fields (expiry, coating, etc.)
             const productId = rawProd._id || rawProd.id;
+            // Capture prices already resolved from inventory search results (set synchronously above)
+            // so the async fetch never overwrites them with stale/zero values.
+            const resolvedSellingPrice = customerSellingPrice;
+            const resolvedMRP = Number(rawProd.mrp || rawProd.MRP || 0);
+            const resolvedBuyingPrice = Number(rawProd.buyingPrice || rawProd.price || 0);
+            const resolvedGstPercent = rawProd.gst !== undefined && rawProd.gst !== null ? rawProd.gst.toString() : '';
             if (productId) {
                 getProductById(productId).then(res => {
                     const fullProd = res?.data || res?.product || res;
@@ -1432,17 +1480,29 @@ const OrderWizard = () => {
                     set('brandId', brandInfo.brandId);
                     set('Brand', brandInfo.brandName);
                     set('brand', brandInfo.brandName);
-                    set('price', fullProd.price || 0);
-                    set('MRP', fullProd.mrp || fullProd.MRP || 0);
-                    set('color', fullProd.color || '');
+                    // Only update price/MRP from full product if the search-result price was 0,
+                    // otherwise keep the fresher inventory price already set synchronously.
+                    if (resolvedSellingPrice <= 0 && Number(fullProd.price) > 0) {
+                        formik.setFieldValue(`${prefix}price`, Number(fullProd.price));
+                        formik.setFieldValue(`${prefix}sellingPrice`, Number(fullProd.price));
+                    }
+                    if (resolvedMRP <= 0 && Number(fullProd.mrp || fullProd.MRP) > 0) {
+                        formik.setFieldValue(`${prefix}MRP`, Number(fullProd.mrp || fullProd.MRP));
+                    }
+                    if (resolvedBuyingPrice <= 0 && Number(fullProd.buyingPrice) > 0) {
+                        formik.setFieldValue(`${prefix}buyingPrice`, Number(fullProd.buyingPrice));
+                    }
+                    set('color', fullProd.color || 'BLACK');
                     set('size', fullProd.size || '');
                     set('type', fullProd.type || '');
                     set('shape', fullProd.shape || '');
                     set('material', fullProd.material || '');
                     set('dimensions', fullProd.dimensions || '');
-                    set('image', fullProd.image || '');
+                    const fullDisplayImg = getProductDisplayImage(fullProd, fullProd.color);
+                    set('image', fullDisplayImg !== "/placeholder-product.png" ? fullDisplayImg : '');
                     set('HSNSAC', fullProd.hsnSac || fullProd.HSNSAC || '');
                     set('expiry', fullProd.expiry || '');
+                    set('disposability', fullProd.disposability || '');
                     set('coating', fullProd.coating || '');
                     set('treatment', fullProd.treatment || '');
                     set('tint', fullProd.tint || '');
@@ -1468,10 +1528,20 @@ const OrderWizard = () => {
                         const matchedTint = configs.tints?.find(t => t.name?.toUpperCase() === fullProd.tint.toUpperCase());
                         set('tintId', matchedTint?._id || fullProd.tint);
                     }
-                    if (fullProd.gst !== undefined && fullProd.gst !== null) {
+                    // Keep the gst percent resolved from search box; fallback to full product only if search had none
+                    const gstToUse = resolvedGstPercent !== ''
+                        ? resolvedGstPercent
+                        : ((fullProd.gst !== undefined && fullProd.gst !== null) ? fullProd.gst.toString() : '');
+                    if (gstToUse) {
                         formik.setFieldValue(`${prefix}gstDetails`, {
-                            ...formik.values.products[index]?.gstDetails,
-                            gstPercent: fullProd.gst.toString()
+                            gstPercent: gstToUse,
+                            gstType: fullProd.gstType || '',
+                            gstMode: fullProd.gstMode || '',
+                            gstAmount: fullProd.gstAmount || '',
+                            loyaltyPoints: fullProd.loyaltyPoints || '',
+                            advance: fullProd.advance || '',
+                            transactionType: fullProd.transactionType || '',
+                            remarks: fullProd.remarks || ''
                         });
                     }
 
@@ -1502,10 +1572,45 @@ const OrderWizard = () => {
                 }).catch(err => {
                     console.error('Failed to fetch full product details:', err);
                 });
-            }
 
-        } else if (selectedValue) {
-            // Custom RX / freeSolo input
+                // Fetch available batches for product
+                getBatchesForProduct(productId).then(bRes => {
+                    const batchList = bRes?.data?.batches || bRes?.batches || [];
+                    formik.setFieldValue(`${prefix}availableBatches`, batchList);
+                    if (batchList.length > 0) {
+                        const defaultBatch = batchList[0];
+                        formik.setFieldValue(`${prefix}batchId`, defaultBatch._id);
+                        formik.setFieldValue(`${prefix}batchNumber`, defaultBatch.batchNumber);
+
+                        const sPrice = Number(defaultBatch.sellingPrice) > 0 
+                            ? Number(defaultBatch.sellingPrice) 
+                            : (Number(defaultBatch.costPrice) > 0 
+                                ? Number(defaultBatch.costPrice) 
+                                : (Number(defaultBatch.buyingPrice) > 0 
+                                    ? Number(defaultBatch.buyingPrice) 
+                                    : 0));
+                        const bPrice = Number(defaultBatch.buyingPrice) > 0 
+                            ? Number(defaultBatch.buyingPrice) 
+                            : (Number(defaultBatch.costPrice) > 0 
+                                ? Number(defaultBatch.costPrice) 
+                                : sPrice);
+
+                        // Only fallback to batch prices if the product prices were not already resolved from inventory search
+                        if (resolvedSellingPrice <= 0 && sPrice > 0) {
+                            formik.setFieldValue(`${prefix}price`, sPrice);
+                            formik.setFieldValue(`${prefix}sellingPrice`, sPrice);
+                        }
+                        if (resolvedBuyingPrice <= 0 && bPrice > 0) {
+                            formik.setFieldValue(`${prefix}buyingPrice`, bPrice);
+                        }
+                        if (resolvedMRP <= 0 && Number(defaultBatch.mrp) > 0) {
+                            formik.setFieldValue(`${prefix}MRP`, Number(defaultBatch.mrp));
+                        }
+                    }
+                }).catch(err => console.error('Failed to fetch product batches:', err));
+            }
+        } else {
+            // FreeSolo manual text entry: update product name only without picking wrong product details
             formik.setFieldValue(`${prefix}productId`, '');
             formik.setFieldValue(`${prefix}productName`, selectedValue);
             formik.setFieldValue(`${prefix}itemName`, selectedValue);
@@ -1799,9 +1904,9 @@ const OrderWizard = () => {
                 </div>
                 <div className="flex flex-wrap justify-between items-center w-full text-xs mt-2 pt-2 border-t border-dashed border-gray-100 gap-y-2">
                     <div className="flex flex-wrap gap-3 text-gray-600 font-bold">
-                        <span>Price: <span className="text-emerald-600">₹{raw.price}</span></span>
-                        <span>MRP: <span className="text-gray-500 line-through">₹{raw.mrp}</span></span>
-                        <span>GST: <span className="text-purple-600">{raw.gst}%</span></span>
+                        <span>Selling Price: <span className="text-emerald-600 font-extrabold">₹{raw.sellingPrice != null && Number(raw.sellingPrice) > 0 ? raw.sellingPrice : (raw.price || 0)}</span></span>
+                        <span>MRP: <span className="text-gray-400 line-through">₹{raw.mrp || 0}</span></span>
+                        <span>GST: <span className="text-purple-600">{raw.gst || 0}%</span></span>
                     </div>
                     {raw.qty !== undefined && (
                         <div className={`px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-black whitespace-nowrap ${raw.qty > 0 ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-red-50 text-red-500 border border-red-100'}`}>
@@ -1831,6 +1936,114 @@ const OrderWizard = () => {
         };
 
         // ── Derive a variant for credit used vs limit ────────────────────────────
+                const renderEstimatedDeliveryDateField = () => {
+            const rawDeliveryVal = formik.values.estimatedDeliveryDate || '';
+            let currentDatePart = '';
+            let currentTimePart = '';
+
+            if (rawDeliveryVal) {
+                if (rawDeliveryVal.includes('T')) {
+                    const [d, t] = rawDeliveryVal.split('T');
+                    currentDatePart = d || '';
+                    currentTimePart = t ? t.substring(0, 5) : '';
+                } else if (rawDeliveryVal.includes(' ')) {
+                    const [d, t] = rawDeliveryVal.split(' ');
+                    currentDatePart = d || '';
+                    currentTimePart = t ? t.substring(0, 5) : '';
+                } else {
+                    currentDatePart = rawDeliveryVal.substring(0, 10);
+                }
+            }
+
+            const handleDeliveryDateChange = (e) => {
+                const newDate = e.target.value;
+                if (!newDate) {
+                    formik.setFieldValue('estimatedDeliveryDate', '');
+                    return;
+                }
+                if (includeDeliveryTime && currentTimePart) {
+                    formik.setFieldValue('estimatedDeliveryDate', `${newDate}T${currentTimePart}`);
+                } else {
+                    formik.setFieldValue('estimatedDeliveryDate', newDate);
+                }
+            };
+
+            const handleDeliveryTimeChange = (e) => {
+                const newTime = e.target.value;
+                const dateToUse = currentDatePart || new Date().toISOString().split('T')[0];
+                if (newTime) {
+                    formik.setFieldValue('estimatedDeliveryDate', `${dateToUse}T${newTime}`);
+                } else {
+                    formik.setFieldValue('estimatedDeliveryDate', dateToUse);
+                }
+            };
+
+            const handleToggleDeliveryTime = () => {
+                const nextState = !includeDeliveryTime;
+                setIncludeDeliveryTime(nextState);
+                if (nextState) {
+                    const dateToUse = currentDatePart || new Date().toISOString().split('T')[0];
+                    const timeToUse = currentTimePart || '18:00';
+                    formik.setFieldValue('estimatedDeliveryDate', `${dateToUse}T${timeToUse}`);
+                } else {
+                    formik.setFieldValue('estimatedDeliveryDate', currentDatePart);
+                }
+            };
+
+            return (
+                <div className="flex flex-col gap-1.5 w-full">
+                    <div className="flex items-center justify-between ml-0.5">
+                        <span className="text-[0.825rem] font-bold uppercase tracking-[0.05em] text-gray-500">
+                            Estimated Delivery Date
+                        </span>
+                        {!isReadOnly && (
+                            <button
+                                type="button"
+                                onClick={handleToggleDeliveryTime}
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold transition-all border ${
+                                    includeDeliveryTime
+                                        ? 'bg-blue-50 text-blue-700 border-blue-300 ring-2 ring-blue-100'
+                                        : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100 hover:text-gray-700'
+                                }`}
+                                title={includeDeliveryTime ? "Click to remove time (Date only)" : "Click to add specific delivery time"}
+                            >
+                                <Icon icon="mdi:clock-outline" className="w-3.5 h-3.5" />
+                                <span>{includeDeliveryTime ? 'Time: ON' : '+ Add Time'}</span>
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        {/* Date Input - Always active */}
+                        <div className={includeDeliveryTime ? "w-7/12" : "w-full"}>
+                            <input
+                                type="date"
+                                name="estimatedDeliveryDate"
+                                value={currentDatePart}
+                                onChange={handleDeliveryDateChange}
+                                disabled={isReadOnly}
+                                className="w-full text-xs bg-[#f4f7fb] hover:bg-white border border-gray-200 focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 rounded-xl px-3 py-2.5 outline-none transition-all font-semibold text-gray-700 cursor-pointer disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                            />
+                        </div>
+
+                        {/* Time Input - Smoothly toggled */}
+                        {includeDeliveryTime && (
+                            <div className="w-5/12 animate-in fade-in slide-in-from-left-2 duration-200">
+                                <input
+                                    type="time"
+                                    name="estimatedDeliveryTime"
+                                    value={currentTimePart}
+                                    onChange={handleDeliveryTimeChange}
+                                    disabled={isReadOnly}
+                                    className="w-full text-xs bg-blue-50/40 hover:bg-white border border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-xl px-2.5 py-2.5 outline-none transition-all font-semibold text-gray-700 cursor-pointer disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                />
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
         const creditUsed = parseFloat(selectedCustomer?.creditUsed || 0);
         const creditLimit = parseFloat(selectedCustomer?.creditLimit || 0);
         const usedRatio = creditLimit > 0 ? creditUsed / creditLimit : 0;
@@ -1898,12 +2111,7 @@ const OrderWizard = () => {
                         name: "opticianName",
                         placeholder: "Enter optician's name"
                     })}
-                    {wrapInput(Input, {
-                        label: "Estimated Delivery Date",
-                        name: "estimatedDeliveryDate",
-                        type: "datetime-local",
-                        disabled: isReadOnly
-                    })}
+                    {renderEstimatedDeliveryDateField()}
                 </div>
 
             </div>
@@ -1970,7 +2178,7 @@ const OrderWizard = () => {
                                     const disabled = isSideDisabled(side);
                                     const active = product.powerMode === 'single' && product.selectedSide === side;
                                     const isSingle = product.powerMode === 'single';
-                                    const sideBg = side === 'R' ? 'bg-amber-50/30 border-amber-200/70' : 'bg-blue-50/30 border-blue-200/70';
+                                    const sideBg = side === 'R' ? 'bg-amber-50/60 border-amber-200' : 'bg-blue-50/60 border-blue-200';
                                     const sideTitleColor = side === 'R' ? 'text-amber-900' : 'text-blue-900';
                                     const badgeColor = side === 'R' ? 'bg-amber-500' : 'bg-blue-500';
 
@@ -2051,7 +2259,7 @@ const OrderWizard = () => {
 
                             {/* Prism Table (if enabled) */}
                             {product.hasPrism === 'yes' && (
-                                <div className="rounded-xl border border-erp-accent/20 p-3 bg-erp-accent/5/30 space-y-2">
+                                <div className="rounded-xl border border-erp-accent/20 p-3 bg-blue-50/40 space-y-2">
                                     <span className="text-[10px] font-black uppercase tracking-wider text-erp-accent">Prism Specification</span>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         {['R', 'L'].map((side) => {
@@ -2212,7 +2420,7 @@ const OrderWizard = () => {
                         })}
 
                         {/* Text Inputs Row Start */}
-                        {product.orderType === 'rx' && isLensCategory && wrapInput(Input, {
+                        {product.orderType === 'rx' && isLensCategory && !product.vendorId && wrapInput(Input, {
                             label: "Lab name",
                             name: `${prefix}labName`,
                             placeholder: "Enter lab name",
@@ -2453,98 +2661,243 @@ const OrderWizard = () => {
         <FieldArray name="products">
             {({ push, remove }) => (
                 <div className="w-full bg-white rounded-b-2xl">
-                    {/* Desktop Table View (>= md screens) */}
-                    <div className="hidden md:block w-full border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                    ﻿                    ﻿                    <div className="hidden md:block w-full border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                        {/* Quick View Controls Bar */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 bg-gradient-to-r from-slate-50 via-blue-50/30 to-slate-50 border-b border-gray-200">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                                    <Icon icon="mdi:table-cog" className="text-base text-erp-accent" />
+                                    Table View:
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setExpandedGroups({ specs: false, powers: false, tax: false })}
+                                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm ${
+                                        !expandedGroups.specs && !expandedGroups.powers && !expandedGroups.tax
+                                            ? 'bg-erp-accent text-white shadow-erp-accent/20 ring-2 ring-erp-accent/30'
+                                            : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                                    }`}
+                                >
+                                    <Icon icon="mdi:view-compact-outline" className="text-sm" />
+                                    Compact Mode (Zero Scroll)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setExpandedGroups({ specs: true, powers: true, tax: true })}
+                                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                                        expandedGroups.specs && expandedGroups.powers && expandedGroups.tax
+                                            ? 'bg-erp-accent text-white shadow-erp-accent/20 ring-2 ring-erp-accent/30'
+                                            : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                                    }`}
+                                >
+                                    <Icon icon="mdi:table-eye" className="text-sm" />
+                                    Full Table (All Columns)
+                                </button>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 text-xs">
+                                <span className="text-slate-500 text-[11px] font-medium mr-1 hidden sm:inline">Toggle Sections:</span>
+                                <button
+                                    type="button"
+                                    onClick={() => toggleGroup('specs')}
+                                    className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all flex items-center gap-1 ${
+                                        expandedGroups.specs
+                                            ? 'bg-blue-100 text-erp-accent border-erp-accent/40 font-semibold'
+                                            : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                                    }`}
+                                    title="Expand / Collapse Specs (Category, Availability, Vendor, Type)"
+                                >
+                                    Specs {expandedGroups.specs ? '▴ (Expanded)' : '▸ (Collapsed)'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => toggleGroup('powers')}
+                                    className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all flex items-center gap-1 ${
+                                        expandedGroups.powers
+                                            ? 'bg-blue-100 text-erp-accent border-erp-accent/40 font-semibold'
+                                            : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                                    }`}
+                                    title="Expand / Collapse Rx Power Columns (Sph, Cyl, Axis, Add)"
+                                >
+                                    Powers {expandedGroups.powers ? '▴ (Expanded)' : '▸ (Collapsed)'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => toggleGroup('tax')}
+                                    className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all flex items-center gap-1 ${
+                                        expandedGroups.tax
+                                            ? 'bg-blue-100 text-erp-accent border-erp-accent/40 font-semibold'
+                                            : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                                    }`}
+                                    title="Expand / Collapse Tax & Discount Columns"
+                                >
+                                    Tax & Disc {expandedGroups.tax ? '▴ (Expanded)' : '▸ (Collapsed)'}
+                                </button>
+                            </div>
+                        </div>
+
                         <div className="overflow-auto max-h-[60vh]">
-                            <table className="w-full min-w-max text-left border-collapse">
+                            <table className="w-full text-left border-collapse">
                                 <thead className="sticky top-0 z-10">
                                     <tr className="bg-gradient-to-r from-erp-accent to-blue-600 text-white text-[11px] uppercase tracking-wider">
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+                                        <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 min-w-[45px]">
                                             S. No.
                                         </th>
-                                        <th className="px-4 py-3.5 font-semibold whitespace-nowrap border-r border-white/20">
+                                        <th className="px-3 py-3 font-semibold whitespace-nowrap border-r border-white/20 min-w-[220px]">
                                             Particulars / Item
                                         </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            Category
+
+                                        {/* Specs Group Header */}
+                                        {expandedGroups.specs ? (
+                                            <>
+                                                <th className="px-3 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-blue-700/20">
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <span>Category</span>
+                                                        <button type="button" onClick={() => toggleGroup('specs')} className="p-0.5 rounded hover:bg-white/20 text-white/80" title="Collapse Specs Group">
+                                                            <Icon icon="mdi:chevron-left" className="text-xs" />
+                                                        </button>
+                                                    </div>
+                                                </th>
+                                                <th className="px-3 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-blue-700/20">
+                                                    Availability
+                                                </th>
+                                                <th className="px-3 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-blue-700/20">
+                                                    Vendor
+                                                </th>
+                                                <th className="px-3 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-blue-700/20">
+                                                    Order Type
+                                                </th>
+                                            </>
+                                        ) : (
+                                            <th className="px-3 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-blue-700/25 min-w-[180px]">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleGroup('specs')}
+                                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/15 hover:bg-white/25 text-white transition-all text-xs font-semibold cursor-pointer border border-white/20"
+                                                    title="Click to expand Category, Availability, Vendor & Type"
+                                                >
+                                                    <span>Specs & Vendor</span>
+                                                    <Icon icon="mdi:chevron-down" className="text-sm" />
+                                                </button>
+                                            </th>
+                                        )}
+
+                                        <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 min-w-[110px]">
+                                            Batch
                                         </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            Availability
-                                        </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            Vendor
-                                        </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            Order Type
-                                        </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+                                        <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 min-w-[55px]">
                                             Qty
                                         </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            Sph.
-                                        </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            Cyl.
-                                        </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            Axis
-                                        </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            Add
-                                        </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+
+                                        {/* Powers Group Header */}
+                                        {expandedGroups.powers ? (
+                                            <>
+                                                <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-amber-600/25">
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <span>Sph.</span>
+                                                        <button type="button" onClick={() => toggleGroup('powers')} className="p-0.5 rounded hover:bg-white/20 text-white/80" title="Collapse Power Columns">
+                                                            <Icon icon="mdi:chevron-left" className="text-xs" />
+                                                        </button>
+                                                    </div>
+                                                </th>
+                                                <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-amber-600/25">
+                                                    Cyl.
+                                                </th>
+                                                <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-amber-600/25">
+                                                    Axis
+                                                </th>
+                                                <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-amber-600/25">
+                                                    Add
+                                                </th>
+                                            </>
+                                        ) : (
+                                            <th className="px-2.5 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-amber-600/25 min-w-[125px]">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleGroup('powers')}
+                                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/15 hover:bg-white/25 text-white transition-all text-xs font-semibold cursor-pointer border border-white/20"
+                                                    title="Click to expand Sph, Cyl, Axis, Add columns"
+                                                >
+                                                    <span>Rx Powers</span>
+                                                    <Icon icon="mdi:chevron-down" className="text-sm" />
+                                                </button>
+                                            </th>
+                                        )}
+
+                                        <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 min-w-[70px]">
                                             Unit
                                         </th>
                                         <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            Price
+                                            Selling Price (₹)
                                         </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            Disc
+                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-emerald-700/30">
+                                            Buying Price (₹)
                                         </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            GST %
+                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-amber-700/30">
+                                            MRP (₹)
                                         </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
-                                            GST Amt
-                                        </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap border-r border-white/20">
+
+                                        {/* Tax & Disc Group Header */}
+                                        {expandedGroups.tax ? (
+                                            <>
+                                                <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-emerald-700/25 min-w-[65px]">
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <span>Disc</span>
+                                                        <button type="button" onClick={() => toggleGroup('tax')} className="p-0.5 rounded hover:bg-white/20 text-white/80" title="Collapse Tax & Disc Columns">
+                                                            <Icon icon="mdi:chevron-left" className="text-xs" />
+                                                        </button>
+                                                    </div>
+                                                </th>
+                                                <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-emerald-700/25 min-w-[60px]">
+                                                    GST %
+                                                </th>
+                                                <th className="px-2 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-emerald-700/25 min-w-[75px]">
+                                                    GST Amt
+                                                </th>
+                                            </>
+                                        ) : (
+                                            <th className="px-2.5 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-emerald-700/25 min-w-[110px]">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleGroup('tax')}
+                                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/15 hover:bg-white/25 text-white transition-all text-xs font-semibold cursor-pointer border border-white/20"
+                                                    title="Click to expand Discount and GST columns"
+                                                >
+                                                    <span>GST & Disc</span>
+                                                    <Icon icon="mdi:chevron-down" className="text-sm" />
+                                                </button>
+                                            </th>
+                                        )}
+
+                                        <th className="px-3 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 min-w-[95px]">
                                             Amount
                                         </th>
-                                        <th className="px-4 py-3.5 font-semibold text-center whitespace-nowrap">
+                                        <th className="px-2 py-3 font-semibold text-center whitespace-nowrap min-w-[80px]">
                                             Action
                                         </th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100">
+
+﻿                                <tbody className="divide-y divide-gray-100">
                                     {formik.values.products.map((product, index) => {
                                         const isActive = activeProductIndex === index;
-                                        const isExpanded = expandedProductIndices.includes(index);
                                         const isStock = product.orderType === 'stock';
 
                                         const categoryName = product.category || configs.category?.find(c => c._id === product.categoryId)?.name || '-';
-                                        const brandName = product.Brand || product.brand || configs.brand?.find(b => b._id === product.brandId)?.name || '-';
-                                        const catUpper = categoryName.toUpperCase();
-                                        const isLensItem = !catUpper || catUpper.includes('LENS') || catUpper.includes('GLASS') || catUpper.includes('RX') || product.orderType === 'rx';
-
-                                        const renderPowerField = (field) => {
-                                            if (product.powerMode === 'single') return product.powerTable[product.selectedSide]?.[field] || '';
-                                            return `${product.powerTable.R?.[field] || ''} / ${product.powerTable.L?.[field] || ''}`;
-                                        };
+                                        const vendorObj = configs.vendors?.find(v => (v._id && v._id === product.vendorId) || (v.vendorNumber && v.vendorNumber === product.vendorId));
+                                        const vendorName = vendorObj ? vendorObj.name : (product.vendor || product.vendorName || '');
 
                                         const renderEditablePowerCell = (field) => {
-                                            if (!isLensItem) return <span className="text-gray-300 font-normal italic">N/A</span>;
-                                            if (product.orderType === 'stock') {
-                                                const val = renderPowerField(field);
-                                                return val ? <span className="text-gray-700 font-semibold">{val}</span> : <span className="text-gray-300">—</span>;
-                                            }
+                                            const isSingleSide = product.powerTable?.singleEye;
+                                            const side = product.powerTable?.eyeSide || 'R';
 
-                                            if (product.powerMode === 'single') {
-                                                const side = product.selectedSide || 'R';
+                                            if (isSingleSide) {
                                                 return (
-                                                    <div className="flex justify-center" onClick={(e) => e.stopPropagation()}>
+                                                    <div className="flex items-center justify-center gap-1 min-w-[50px]" onClick={(e) => e.stopPropagation()}>
+                                                        <span className="text-[10px] font-bold text-erp-accent bg-blue-50 px-1 rounded">{side}</span>
                                                         <input
                                                             type="text"
-                                                            className="w-16 h-7 text-xs font-semibold text-center border border-gray-300 rounded-md outline-none focus:border-erp-accent focus:ring-1 focus:ring-erp-accent/20 bg-white"
+                                                            className="w-11 h-7 text-xs font-semibold text-center border border-gray-300 rounded-md outline-none focus:border-erp-accent focus:ring-1 focus:ring-erp-accent/20 bg-white"
                                                             value={product.powerTable[side]?.[field] || ''}
                                                             onChange={(e) => {
                                                                 const val = e.target.value;
@@ -2609,7 +2962,7 @@ const OrderWizard = () => {
                                                 >
                                                     {/* S. No. */}
                                                     <td className={`
-                                                    px-4 py-3 text-xs font-bold text-center
+                                                    px-2 py-3 text-xs font-bold text-center border-r border-gray-100 min-w-[45px]
                                                     ${product.orderType === 'rx'
                                                             ? 'bg-amber-100 text-amber-700'
                                                             : 'text-gray-600'
@@ -2619,11 +2972,11 @@ const OrderWizard = () => {
                                                     </td>
 
                                                     {/* Product Name */}
-                                                    <td className="px-3 py-2.5 min-w-[280px]">
+                                                    <td className="px-3 py-2 border-r border-gray-100 min-w-[220px]">
                                                         <SearchableSelect
                                                             name={`products.${index}.productName`}
                                                             value={{ value: product.productId || product.productName, label: product.productName || product.itemName || '' }}
-                                                            onChange={(e) => handleProductSelection(index, e.target.value)}
+                                                            onChange={(e) => handleProductSelection(index, e.target.value, e.target.option)}
                                                             onSearch={(q) => searchProductsForIndex(q, index)}
                                                             options={productNames}
                                                             loading={loadingProductNames}
@@ -2632,119 +2985,209 @@ const OrderWizard = () => {
                                                             renderOption={renderProductOption}
                                                             sx={{
                                                                 '& .MuiOutlinedInput-root': {
-                                                                    padding: '4px 8px !important',
+                                                                    padding: '2px 6px !important',
                                                                     fontSize: '0.8125rem',
-                                                                    borderRadius: '8px',
-                                                                    backgroundColor: 'white',
-                                                                    '&:hover': {
-                                                                        backgroundColor: '#f8fafc',
-                                                                    },
-                                                                    '&.Mui-focused': {
-                                                                        backgroundColor: 'white',
-                                                                    }
-                                                                },
-                                                                '& .MuiInputLabel-root': {
-                                                                    display: 'none',
                                                                 }
                                                             }}
+                                                            disabled={isReadOnly}
                                                         />
                                                     </td>
 
-                                                    {/* Category Select */}
+﻿                                                    {/* Specs Group (Category, Availability, Vendor, Order Type) */}
+                                                    {expandedGroups.specs ? (
+                                                        <>
+                                                            {/* Category Select */}
+                                                            <td className="px-2 py-2 border-r border-gray-100 min-w-[130px]">
+                                                                <select
+                                                                    className="w-full text-xs bg-white border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-medium text-gray-700 cursor-pointer disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                                                    name={`products.${index}.categoryId`}
+                                                                    value={
+                                                                        product.categoryId ||
+                                                                        configs.category?.find(c => c.name?.toUpperCase() === product.category?.toUpperCase())?._id ||
+                                                                        product.category ||
+                                                                        ''
+                                                                    }
+                                                                    onChange={(e) => {
+                                                                        const cId = e.target.value;
+                                                                        const cObj = configs.category?.find(c => c._id === cId || c.name === cId);
+                                                                        formik.setFieldValue(`products.${index}.categoryId`, cId);
+                                                                        formik.setFieldValue(`products.${index}.category`, cObj ? cObj.name : cId);
+                                                                    }}
+                                                                    disabled={isReadOnly}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    <option value="">Category</option>
+                                                                    {(Array.isArray(configs.category) ? configs.category : []).map(c => (
+                                                                        <option key={c._id || c.name} value={c._id}>{c.name}</option>
+                                                                    ))}
+                                                                    {product.category && !(configs.category || []).some(c => c._id === product.categoryId || c.name?.toUpperCase() === product.category?.toUpperCase()) && (
+                                                                        <option value={product.category}>{product.category}</option>
+                                                                    )}
+                                                                </select>
+                                                            </td>
+
+                                                            {/* Availability Select */}
+                                                            <td className="px-2 py-2 border-r border-gray-100 min-w-[115px]">
+                                                                <select
+                                                                    className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-1.5 py-1.5 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-semibold text-gray-700 cursor-pointer disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                                                    name={`products.${index}.availability`}
+                                                                    value={product.orderType === 'rx' ? 'order' : ((product.availability === 'order-to-whom' || product.availability === 'order') ? 'order' : (product.availability || 'in-house'))}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value;
+                                                                        formik.setFieldValue(`products.${index}.availability`, val);
+                                                                        if (val === 'in-house') {
+                                                                            formik.setFieldValue(`products.${index}.vendorId`, '');
+                                                                        }
+                                                                    }}
+                                                                    disabled={product.orderType === 'rx' || isReadOnly}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    <option value="in-house">In-House</option>
+                                                                    <option value="order">Order</option>
+                                                                </select>
+                                                            </td>
+
+                                                            {/* Vendor Select */}
+                                                            <td className="px-2 py-2 border-r border-gray-100 min-w-[140px]">
+                                                                <select
+                                                                    className={`w-full text-xs bg-white border rounded-lg px-2 py-1.5 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-medium text-gray-700 cursor-pointer disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed ${
+                                                                        (product.availability === 'order' || product.availability === 'order-to-whom' || product.orderType === 'rx') && !product.vendorId
+                                                                            ? 'border-amber-400 bg-amber-50/30'
+                                                                            : 'border-gray-200'
+                                                                    }`}
+                                                                    name={`products.${index}.vendorId`}
+                                                                    value={product.vendorId || ''}
+                                                                    onChange={(e) => {
+                                                                        const vId = e.target.value;
+                                                                        formik.setFieldValue(`products.${index}.vendorId`, vId);
+                                                                    }}
+                                                                    disabled={(product.availability !== 'order' && product.availability !== 'order-to-whom' && product.orderType !== 'rx') || isReadOnly}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    <option value="">{(product.availability === 'order' || product.availability === 'order-to-whom' || product.orderType === 'rx') ? 'Select Vendor *' : 'N/A (In-House)'}</option>
+                                                                    {(Array.isArray(configs.vendors) ? configs.vendors : []).map(v => (
+                                                                        <option key={v._id || v.vendorNumber} value={v._id || v.vendorNumber}>
+                                                                            {v.name}
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
+                                                            </td>
+
+                                                            {/* Order Type Select */}
+                                                            <td className="px-2 py-2 border-r border-gray-100 min-w-[90px]">
+                                                                <select
+                                                                    className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-1.5 py-1.5 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all cursor-pointer font-medium text-gray-700"
+                                                                    name={`products.${index}.orderType`}
+                                                                    value={product.orderType || 'stock'}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value;
+                                                                        formik.handleChange(e);
+                                                                        formik.setFieldValue(`products.${index}.productMode`, val);
+                                                                        if (val === 'rx') {
+                                                                            formik.setFieldValue(`products.${index}.availability`, 'order');
+                                                                        }
+                                                                    }}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    <option value="stock">Stock</option>
+                                                                    {(!product.category && !product.categoryId || product.category?.toUpperCase().includes('LENS') || (configs.category?.find(c => c._id === product.categoryId)?.name?.toUpperCase().includes('LENS'))) && <option value="rx">Rx</option>}
+                                                                </select>
+                                                            </td>
+                                                        </>
+                                                    ) : (
+                                                        <td
+                                                            className="px-2.5 py-2 cursor-pointer hover:bg-blue-50/50 transition-colors border-r border-gray-100"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                toggleGroup('specs');
+                                                            }}
+                                                            title="Click to expand Category, Availability, Vendor & Order Type"
+                                                        >
+                                                            <div className="flex flex-col gap-0.5 min-w-[170px] max-w-[190px]">
+                                                                <div className="flex items-center justify-between gap-1">
+                                                                    <span className="font-semibold text-slate-800 text-[11px] truncate max-w-[110px]" title={categoryName}>
+                                                                        {categoryName && categoryName !== '-' ? categoryName : <span className="text-amber-500 font-medium">Select Cat*</span>}
+                                                                    </span>
+                                                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                                                        product.orderType === 'rx' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                                                                    }`}>
+                                                                        {product.orderType || 'stock'}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex items-center justify-between gap-1 text-[11px]">
+                                                                    <span className="truncate max-w-[130px] text-gray-600 flex items-center gap-1">
+                                                                        <Icon icon="mdi:store-outline" className="text-xs text-gray-400 flex-shrink-0" />
+                                                                        {vendorName ? (
+                                                                            <span className="truncate font-medium text-slate-700">{vendorName}</span>
+                                                                        ) : (product.availability === 'order' || product.availability === 'order-to-whom' || product.orderType === 'rx') ? (
+                                                                            <span className="text-amber-600 font-semibold">Select Vendor*</span>
+                                                                        ) : (
+                                                                            <span className="text-gray-500">In-House</span>
+                                                                        )}
+                                                                    </span>
+                                                                    <span className="text-[10px] text-erp-accent font-semibold flex items-center gap-0.5 opacity-70 hover:opacity-100">
+                                                                        Edit <Icon icon="mdi:chevron-right" className="text-xs" />
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                    )}
+
+                                                    {/* Batch Select */}
                                                     <td className="px-2 py-2 min-w-[130px]">
                                                         <select
-                                                            className="w-full text-xs bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-medium text-gray-700 cursor-pointer"
-                                                            name={`products.${index}.categoryId`}
-                                                            value={
-                                                                product.categoryId ||
-                                                                (configs.category?.find(c => c.name?.toUpperCase() === (product.category || '').toUpperCase())?._id) ||
-                                                                product.category ||
-                                                                ''
-                                                            }
+                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all cursor-pointer font-medium text-gray-700 disabled:bg-gray-100 disabled:text-gray-400"
+                                                            name={`products.${index}.batchId`}
+                                                            value={product.batchId || ''}
                                                             onChange={(e) => {
-                                                                const cId = e.target.value;
-                                                                const cObj = configs.category?.find(c => c._id === cId || c.name === cId);
-                                                                formik.setFieldValue(`products.${index}.categoryId`, cId);
-                                                                formik.setFieldValue(`products.${index}.category`, cObj ? cObj.name : cId);
-                                                            }}
-                                                            disabled={isReadOnly}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            <option value="">Category</option>
-                                                            {(Array.isArray(configs.category) ? configs.category : []).map(c => (
-                                                                <option key={c._id || c.name} value={c._id}>{c.name}</option>
-                                                            ))}
-                                                            {product.category && !(configs.category || []).some(c => c._id === product.categoryId || c.name?.toUpperCase() === product.category?.toUpperCase()) && (
-                                                                <option value={product.category}>{product.category}</option>
-                                                            )}
-                                                        </select>
-                                                    </td>
+                                                                const bId = e.target.value;
+                                                                const bObj = (product.availableBatches || []).find(b => b._id === bId);
+                                                                formik.setFieldValue(`products.${index}.batchId`, bId);
+                                                                formik.setFieldValue(`products.${index}.batchNumber`, bObj ? bObj.batchNumber : '');
 
-                                                    {/* Availability Select */}
-                                                    <td className="px-2 py-2 min-w-[135px]">
-                                                        <select
-                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-semibold text-gray-700 cursor-pointer disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-                                                            name={`products.${index}.availability`}
-                                                            value={product.orderType === 'rx' ? 'order' : ((product.availability === 'order-to-whom' || product.availability === 'order') ? 'order' : (product.availability || 'in-house'))}
-                                                            onChange={(e) => {
-                                                                const val = e.target.value;
-                                                                formik.setFieldValue(`products.${index}.availability`, val);
-                                                                if (val === 'in-house') {
-                                                                    formik.setFieldValue(`products.${index}.vendorId`, '');
+                                                                const targetBatch = bObj || (product.availableBatches && product.availableBatches[0]);
+                                                                if (targetBatch) {
+                                                                    const sPrice = Number(targetBatch.sellingPrice) > 0
+                                                                        ? Number(targetBatch.sellingPrice)
+                                                                        : (Number(targetBatch.costPrice) > 0
+                                                                            ? Number(targetBatch.costPrice)
+                                                                            : (Number(targetBatch.buyingPrice) > 0
+                                                                                ? Number(targetBatch.buyingPrice)
+                                                                                : 0));
+                                                                    const bPrice = Number(targetBatch.buyingPrice) > 0
+                                                                        ? Number(targetBatch.buyingPrice)
+                                                                        : (Number(targetBatch.costPrice) > 0
+                                                                            ? Number(targetBatch.costPrice)
+                                                                            : sPrice);
+
+                                                                    if (sPrice > 0) {
+                                                                        formik.setFieldValue(`products.${index}.price`, sPrice);
+                                                                        formik.setFieldValue(`products.${index}.sellingPrice`, sPrice);
+                                                                    }
+                                                                    if (bPrice > 0) {
+                                                                        formik.setFieldValue(`products.${index}.buyingPrice`, bPrice);
+                                                                    }
+                                                                    if (Number(targetBatch.mrp) > 0) {
+                                                                        formik.setFieldValue(`products.${index}.MRP`, Number(targetBatch.mrp));
+                                                                    }
                                                                 }
                                                             }}
-                                                            disabled={product.orderType === 'rx' || isReadOnly}
+                                                            disabled={isReadOnly || product.orderType === 'rx'}
                                                             onClick={(e) => e.stopPropagation()}
                                                         >
-                                                            <option value="in-house">In-House</option>
-                                                            <option value="order">Order</option>
-                                                        </select>
-                                                    </td>
-
-                                                    {/* Vendor Select */}
-                                                    <td className="px-2 py-2 min-w-[155px]">
-                                                        <select
-                                                            className={`w-full text-xs bg-white border rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-medium text-gray-700 cursor-pointer disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed ${
-                                                                (product.availability === 'order' || product.availability === 'order-to-whom' || product.orderType === 'rx') && !product.vendorId
-                                                                    ? 'border-amber-400 bg-amber-50/30'
-                                                                    : 'border-gray-200'
-                                                            }`}
-                                                            name={`products.${index}.vendorId`}
-                                                            value={product.vendorId || ''}
-                                                            onChange={(e) => {
-                                                                const vId = e.target.value;
-                                                                formik.setFieldValue(`products.${index}.vendorId`, vId);
-                                                            }}
-                                                            disabled={(product.availability !== 'order' && product.availability !== 'order-to-whom' && product.orderType !== 'rx') || isReadOnly}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            <option value="">{(product.availability === 'order' || product.availability === 'order-to-whom' || product.orderType === 'rx') ? 'Select Vendor *' : 'N/A (In-House)'}</option>
-                                                            {(Array.isArray(configs.vendors) ? configs.vendors : []).map(v => (
-                                                                <option key={v._id || v.vendorNumber} value={v._id || v.vendorNumber}>
-                                                                    {v.name}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    </td>
-
-                                                    {/* Order Type Select */}
-                                                    <td className="px-3 py-2.5 min-w-[100px]">
-                                                        <select
-                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all cursor-pointer font-medium text-gray-700"
-                                                            name={`products.${index}.orderType`}
-                                                            value={product.orderType || 'stock'}
-                                                            onChange={(e) => {
-                                                                const val = e.target.value;
-                                                                formik.handleChange(e);
-                                                                formik.setFieldValue(`products.${index}.productMode`, val);
-                                                                if (val === 'rx') {
-                                                                    formik.setFieldValue(`products.${index}.availability`, 'order');
-                                                                }
-                                                            }}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            <option value="stock">Stock</option>
-                                                            {(!product.category && !product.categoryId || product.category?.toUpperCase().includes('LENS') || (configs.category?.find(c => c._id === product.categoryId)?.name?.toUpperCase().includes('LENS'))) && <option value="rx">Rx</option>}
+                                                            <option value="">{product.availableBatches?.length ? "Auto (Oldest)" : "No Batch"}</option>
+                                                            {(product.availableBatches || []).map(b => {
+                                                                const dispPrice = Number(b.sellingPrice) > 0 
+                                                                    ? b.sellingPrice 
+                                                                    : (Number(b.costPrice) > 0 
+                                                                        ? b.costPrice 
+                                                                        : (Number(b.buyingPrice) > 0 ? b.buyingPrice : ''));
+                                                                return (
+                                                                    <option key={b._id} value={b._id}>
+                                                                        {b.batchNumber} ({b.availableQty} avail{dispPrice ? ` | ₹${dispPrice}` : ''})
+                                                                    </option>
+                                                                );
+                                                            })}
                                                         </select>
                                                     </td>
 
@@ -2752,7 +3195,7 @@ const OrderWizard = () => {
                                                     <td className="px-3 py-2.5 min-w-[80px]">
                                                         <input
                                                             type="number"
-                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-semibold text-gray-800"
+                                                            className="w-14 h-8 text-xs text-center mx-auto bg-white border border-gray-200 rounded-lg px-1 py-1 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-bold text-gray-800"
                                                             name={`products.${index}.qty`}
                                                             value={product.qty}
                                                             onChange={formik.handleChange}
@@ -2760,24 +3203,72 @@ const OrderWizard = () => {
                                                         />
                                                     </td>
 
-                                                    {/* Power Fields */}
-                                                    <td className="px-2 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap min-w-[100px]">
-                                                        {renderEditablePowerCell('sph')}
-                                                    </td>
-                                                    <td className="px-2 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap min-w-[100px]">
-                                                        {renderEditablePowerCell('cyl')}
-                                                    </td>
-                                                    <td className="px-2 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap min-w-[100px]">
-                                                        {renderEditablePowerCell('axis')}
-                                                    </td>
-                                                    <td className="px-2 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap min-w-[100px]">
-                                                        {renderEditablePowerCell('add')}
-                                                    </td>
+                                                    {/* Powers Group (Sph, Cyl, Axis, Add) */}
+                                                    {expandedGroups.powers ? (
+                                                        <>
+                                                            <td className="px-1.5 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap border-r border-gray-100 min-w-[85px]">
+                                                                {renderEditablePowerCell('sph')}
+                                                            </td>
+                                                            <td className="px-1.5 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap border-r border-gray-100 min-w-[85px]">
+                                                                {renderEditablePowerCell('cyl')}
+                                                            </td>
+                                                            <td className="px-1.5 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap border-r border-gray-100 min-w-[85px]">
+                                                                {renderEditablePowerCell('axis')}
+                                                            </td>
+                                                            <td className="px-1.5 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap border-r border-gray-100 min-w-[85px]">
+                                                                {renderEditablePowerCell('add')}
+                                                            </td>
+                                                        </>
+                                                    ) : (
+                                                        <td
+                                                            className="px-2 py-2 cursor-pointer hover:bg-amber-50/40 transition-colors border-r border-gray-100 text-center"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                toggleGroup('powers');
+                                                            }}
+                                                            title="Click to expand Rx Power columns"
+                                                        >
+                                                            {product.orderType === 'rx' ? (() => {
+                                                                const rSph = product.powerTable?.R?.sph;
+                                                                const rCyl = product.powerTable?.R?.cyl;
+                                                                const lSph = product.powerTable?.L?.sph;
+                                                                const lCyl = product.powerTable?.L?.cyl;
+                                                                const hasPowers = rSph || rCyl || lSph || lCyl;
 
-                                                    {/* Unit */}
-                                                    <td className="px-3 py-2.5 min-w-[90px]">
+                                                                if (!hasPowers) {
+                                                                    return (
+                                                                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-semibold">
+                                                                            <Icon icon="mdi:plus-circle-outline" className="text-xs" /> Set Powers
+                                                                        </span>
+                                                                    );
+                                                                }
+
+                                                                return (
+                                                                    <div className="flex flex-col gap-0.5 text-[10px] font-semibold min-w-[115px]">
+                                                                        <div className="flex items-center justify-between px-1.5 py-0.5 rounded bg-amber-50/80 text-amber-900 border border-amber-200/60">
+                                                                            <span className="font-bold text-amber-700">R:</span>
+                                                                            <span>{rSph || '0.00'} / {rCyl || '0.00'}</span>
+                                                                            <span className="text-gray-400 text-[9px]">Ax:{product.powerTable?.R?.axis || '0'}</span>
+                                                                        </div>
+                                                                        <div className="flex items-center justify-between px-1.5 py-0.5 rounded bg-blue-50/80 text-blue-900 border border-blue-200/60">
+                                                                            <span className="font-bold text-blue-700">L:</span>
+                                                                            <span>{lSph || '0.00'} / {lCyl || '0.00'}</span>
+                                                                            <span className="text-gray-400 text-[9px]">Ax:{product.powerTable?.L?.axis || '0'}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })() : (
+                                                                <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-gray-100 text-gray-500 border border-gray-200/60">
+                                                                    <Icon icon="mdi:package-variant-closed" className="text-xs" /> Stock
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                    )}
+
+                                                    {/* Unit Select */}
+                                                    <td className="px-2 py-2 border-r border-gray-100 min-w-[70px] text-center">
                                                         <select
-                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-semibold text-gray-700 cursor-pointer"
+                                                            className="w-20 h-8 text-xs text-center mx-auto bg-white border border-gray-200 rounded-lg px-1 py-1 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-semibold text-gray-700 cursor-pointer"
                                                             name={`products.${index}.unit`}
                                                             value={product.unit || 'piece'}
                                                             onChange={formik.handleChange}
@@ -2790,10 +3281,10 @@ const OrderWizard = () => {
                                                     </td>
 
                                                     {/* Price Input */}
-                                                    <td className="px-3 py-2.5 min-w-[110px]">
+                                                    <td className="px-2 py-2 border-r border-gray-100 min-w-[80px] text-center">
                                                         <input
                                                             type="number"
-                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-semibold text-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                                            className="w-20 h-8 text-xs text-center mx-auto bg-white border border-gray-200 rounded-lg px-1.5 py-1 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-bold text-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
                                                             name={`products.${index}.price`}
                                                             value={product.price}
                                                             onChange={formik.handleChange}
@@ -2801,47 +3292,98 @@ const OrderWizard = () => {
                                                             onClick={(e) => e.stopPropagation()}
                                                         />
                                                     </td>
-
-                                                    {/* Discount Input */}
-                                                    <td className="px-3 py-2.5 min-w-[90px]">
+                                                    {/* Buying Price Input */}
+                                                    <td className="px-2 py-2 border-r border-gray-100 min-w-[80px] text-center bg-emerald-50/30">
                                                         <input
                                                             type="number"
-                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-semibold text-gray-800"
-                                                            name={`products.${index}.discount`}
-                                                            value={product.discount}
+                                                            className="w-20 h-8 text-xs text-center mx-auto bg-white border border-emerald-200 rounded-lg px-1.5 py-1 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-400/20 transition-all font-bold text-emerald-800 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                                            name={`products.${index}.buyingPrice`}
+                                                            value={product.buyingPrice || 0}
                                                             onChange={formik.handleChange}
+                                                            disabled={isReadOnly}
                                                             onClick={(e) => e.stopPropagation()}
+                                                            placeholder="Buying ₹"
+                                                        />
+                                                    </td>
+                                                    {/* MRP Input */}
+                                                    <td className="px-2 py-2 border-r border-gray-100 min-w-[80px] text-center bg-amber-50/30">
+                                                        <input
+                                                            type="number"
+                                                            className="w-20 h-8 text-xs text-center mx-auto bg-white border border-amber-200 rounded-lg px-1.5 py-1 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-400/20 transition-all font-bold text-amber-800 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                                            name={`products.${index}.MRP`}
+                                                            value={product.MRP || 0}
+                                                            onChange={formik.handleChange}
+                                                            disabled={isReadOnly}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            placeholder="MRP ₹"
                                                         />
                                                     </td>
 
-                                                    {/* GST % Input */}
-                                                    <td className="px-3 py-2.5 min-w-[90px]">
-                                                        <input
-                                                            type="number"
-                                                            className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg px-2 py-2 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-semibold text-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-                                                            name={`products.${index}.gstDetails.gstPercent`}
-                                                            value={product.gstDetails?.gstPercent}
-                                                            onChange={formik.handleChange}
-                                                            disabled={isStock || isReadOnly}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        />
-                                                    </td>
-
-                                                    {/* GST Amount */}
-                                                    <td className="px-4 py-3 text-xs font-semibold text-gray-700 text-center whitespace-nowrap min-w-[90px]">
-                                                        <span className="text-emerald-600">₹{gstAmt.toFixed(2)}</span>
-                                                    </td>
+                                                    {/* Tax & Discount Group (Disc, GST %, GST Amt) */}
+                                                    {expandedGroups.tax ? (
+                                                        <>
+                                                            <td className="px-2 py-2 border-r border-gray-100 min-w-[65px] text-center">
+                                                                <input
+                                                                    type="number"
+                                                                    className="w-16 h-8 text-xs text-center mx-auto bg-white border border-gray-200 rounded-lg px-1 py-1 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-bold text-gray-800"
+                                                                    name={`products.${index}.discount`}
+                                                                    value={product.discount}
+                                                                    onChange={formik.handleChange}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                />
+                                                            </td>
+                                                            <td className="px-2 py-2 border-r border-gray-100 min-w-[60px] text-center">
+                                                                <input
+                                                                    type="number"
+                                                                    className="w-14 h-8 text-xs text-center mx-auto bg-white border border-gray-200 rounded-lg px-1 py-1 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-bold text-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                                                    name={`products.${index}.gstDetails.gstPercent`}
+                                                                    value={product.gstDetails?.gstPercent}
+                                                                    onChange={formik.handleChange}
+                                                                    disabled={isStock || isReadOnly}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                />
+                                                            </td>
+                                                            <td className="px-2 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap border-r border-gray-100 min-w-[75px]">
+                                                                <span className="text-emerald-600">₹{gstAmt.toFixed(2)}</span>
+                                                            </td>
+                                                        </>
+                                                    ) : (
+                                                        <td
+                                                            className="px-2.5 py-2 cursor-pointer hover:bg-emerald-50/50 transition-colors border-r border-gray-100 text-center"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                toggleGroup('tax');
+                                                            }}
+                                                            title="Click to expand Discount and GST"
+                                                        >
+                                                            <div className="flex flex-col items-center justify-center gap-0.5 min-w-[100px] text-xs">
+                                                                <span className="text-emerald-700 font-bold flex items-center gap-1 text-[11px]">
+                                                                    <span className="text-[10px] font-normal text-gray-500">+{gstPercent}%:</span>
+                                                                    ₹{gstAmt.toFixed(2)}
+                                                                </span>
+                                                                {Number(product.discount) > 0 ? (
+                                                                    <span className="text-[10px] text-amber-600 font-semibold">
+                                                                        Disc: -₹{Number(product.discount).toFixed(2)}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
+                                                                        Disc: ₹0 <Icon icon="mdi:pencil-outline" className="text-[10px]" />
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    )}
 
                                                     {/* Total Amount */}
-                                                    <td className="px-4 py-3 text-center whitespace-nowrap min-w-[120px]">
-                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-blue-50 text-erp-accent font-bold text-sm">
+                                                    <td className="px-3 py-2 text-center whitespace-nowrap border-r border-gray-100 min-w-[95px]">
+                                                        <span className="inline-flex items-center px-2 py-1 rounded-lg bg-blue-50 text-erp-accent font-bold text-xs">
                                                             ₹{totalAmount.toFixed(2)}
                                                         </span>
                                                     </td>
 
                                                     {/* Actions */}
-                                                    <td className="px-4 py-3 text-center whitespace-nowrap min-w-[100px]">
-                                                        <div className="flex items-center justify-center gap-1.5">
+                                                    <td className="px-2 py-2 text-center whitespace-nowrap min-w-[80px]">
+                                                        <div className="flex items-center justify-center gap-1">
                                                             <button
                                                                 type="button"
                                                                 onClick={(e) => {
@@ -2849,9 +3391,9 @@ const OrderWizard = () => {
                                                                     setItemModalIndex(index);
                                                                 }}
                                                                 title="Configure Item Details / Prescription"
-                                                                className="p-2 rounded-lg bg-erp-accent/10 text-erp-accent hover:bg-erp-accent hover:text-white transition-all duration-200"
+                                                                className="p-1.5 rounded-lg bg-erp-accent/10 text-erp-accent hover:bg-erp-accent hover:text-white transition-all duration-200"
                                                             >
-                                                                <Icon icon="mdi:square-edit-outline" className="text-lg" />
+                                                                <Icon icon="mdi:square-edit-outline" className="text-base" />
                                                             </button>
                                                             <button
                                                                 type="button"
@@ -2861,9 +3403,9 @@ const OrderWizard = () => {
                                                                         setDeleteModalState({ isOpen: true, indexToRemove: index });
                                                                     }
                                                                 }}
-                                                                className="p-2 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition-all duration-200"
+                                                                className="p-1.5 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition-all duration-200"
                                                             >
-                                                                <Icon icon="mdi:trash-can-outline" className="text-lg" />
+                                                                <Icon icon="mdi:trash-can-outline" className="text-base" />
                                                             </button>
                                                         </div>
                                                     </td>
@@ -2875,6 +3417,7 @@ const OrderWizard = () => {
                             </table>
                         </div>
                     </div>
+
 
                     {/* Mobile Vertical Cards View (< md screens) */}
                     <div className="block md:hidden space-y-4">
@@ -2954,7 +3497,7 @@ const OrderWizard = () => {
                                             <SearchableSelect
                                                 name={`products.${index}.productName`}
                                                 value={{ value: product.productId || product.productName, label: product.productName || product.itemName || '' }}
-                                                onChange={(e) => handleProductSelection(index, e.target.value)}
+                                                onChange={(e) => handleProductSelection(index, e.target.value, e.target.option)}
                                                 onSearch={(q) => searchProductsForIndex(q, index)}
                                                 options={productNames}
                                                 loading={loadingProductNames}
@@ -3055,6 +3598,68 @@ const OrderWizard = () => {
                                                 </select>
                                             </div>
 
+                                            {/* Batch Selection for Mobile */}
+                                            {product.orderType !== 'rx' && (
+                                                <div className="col-span-2">
+                                                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                                        Batch Allocation
+                                                    </label>
+                                                    <select
+                                                        className="w-full text-xs bg-white border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-[#2980B9] font-semibold text-slate-700 disabled:bg-gray-100 disabled:text-gray-400"
+                                                        name={`products.${index}.batchId`}
+                                                        value={product.batchId || ''}
+                                                        onChange={(e) => {
+                                                            const bId = e.target.value;
+                                                            const bObj = (product.availableBatches || []).find(b => b._id === bId);
+                                                            formik.setFieldValue(`products.${index}.batchId`, bId);
+                                                            formik.setFieldValue(`products.${index}.batchNumber`, bObj ? bObj.batchNumber : '');
+
+                                                            const targetBatch = bObj || (product.availableBatches && product.availableBatches[0]);
+                                                            if (targetBatch) {
+                                                                const sPrice = Number(targetBatch.sellingPrice) > 0
+                                                                    ? Number(targetBatch.sellingPrice)
+                                                                    : (Number(targetBatch.costPrice) > 0
+                                                                        ? Number(targetBatch.costPrice)
+                                                                        : (Number(targetBatch.buyingPrice) > 0
+                                                                            ? Number(targetBatch.buyingPrice)
+                                                                            : 0));
+                                                                const bPrice = Number(targetBatch.buyingPrice) > 0
+                                                                    ? Number(targetBatch.buyingPrice)
+                                                                    : (Number(targetBatch.costPrice) > 0
+                                                                        ? Number(targetBatch.costPrice)
+                                                                        : sPrice);
+
+                                                                if (sPrice > 0) {
+                                                                    formik.setFieldValue(`products.${index}.price`, sPrice);
+                                                                    formik.setFieldValue(`products.${index}.sellingPrice`, sPrice);
+                                                                }
+                                                                if (bPrice > 0) {
+                                                                    formik.setFieldValue(`products.${index}.buyingPrice`, bPrice);
+                                                                }
+                                                                if (Number(targetBatch.mrp) > 0) {
+                                                                    formik.setFieldValue(`products.${index}.MRP`, Number(targetBatch.mrp));
+                                                                }
+                                                            }
+                                                        }}
+                                                        disabled={isReadOnly}
+                                                    >
+                                                        <option value="">{product.availableBatches?.length ? "Auto (Oldest)" : "No Batch"}</option>
+                                                        {(product.availableBatches || []).map(b => {
+                                                            const dispPrice = Number(b.sellingPrice) > 0 
+                                                                ? b.sellingPrice 
+                                                                : (Number(b.costPrice) > 0 
+                                                                    ? b.costPrice 
+                                                                    : (Number(b.buyingPrice) > 0 ? b.buyingPrice : ''));
+                                                            return (
+                                                                <option key={b._id} value={b._id}>
+                                                                    {b.batchNumber} ({b.availableQty} avail{dispPrice ? ` | ₹${dispPrice}` : ''})
+                                                                </option>
+                                                            );
+                                                        })}
+                                                    </select>
+                                                </div>
+                                            )}
+
                                          {/* Frame / Sunglass Size & Dimensions inputs for Mobile */}
                                          {(product.category === 'FRAME' || product.category === 'SUNGLASS' || (configs.category?.find(c => c._id === product.categoryId)?.name?.toUpperCase() === 'FRAME') || (configs.category?.find(c => c._id === product.categoryId)?.name?.toUpperCase() === 'SUNGLASS')) && (
                                              <div className="grid grid-cols-2 gap-3">
@@ -3127,7 +3732,7 @@ const OrderWizard = () => {
                                             </div>
                                             <div>
                                                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                                                    Price (₹)
+                                                    Selling Price (₹)
                                                 </label>
                                                 <input
                                                     type="number"
@@ -3137,6 +3742,37 @@ const OrderWizard = () => {
                                                     onChange={formik.handleChange}
                                                     disabled={product.orderType === 'stock' || isReadOnly}
                                                 />
+                                            </div>
+                                            {/* Buying Price & MRP Row */}
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-emerald-700 uppercase tracking-wider mb-1">
+                                                        Buying Price (₹)
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        className="w-full text-xs font-semibold text-center bg-emerald-50 border border-emerald-200 rounded-xl px-2 py-2.5 outline-none focus:border-emerald-500"
+                                                        name={`products.${index}.buyingPrice`}
+                                                        value={product.buyingPrice || 0}
+                                                        onChange={formik.handleChange}
+                                                        disabled={isReadOnly}
+                                                        placeholder="Vendor buying cost"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-amber-700 uppercase tracking-wider mb-1">
+                                                        MRP (₹)
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        className="w-full text-xs font-semibold text-center bg-amber-50 border border-amber-200 rounded-xl px-2 py-2.5 outline-none focus:border-amber-500"
+                                                        name={`products.${index}.MRP`}
+                                                        value={product.MRP || 0}
+                                                        onChange={formik.handleChange}
+                                                        disabled={isReadOnly}
+                                                        placeholder="Max retail price"
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
 

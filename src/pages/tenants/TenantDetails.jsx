@@ -151,7 +151,6 @@ export default function TenantDetails() {
             storeName: '',
             address: '',
             storeTiming: '10 AM – 8 PM',
-            commissionPercentage: 5,
             expiryDate: '',
             emailApi: '',
             showAds: false,
@@ -184,6 +183,12 @@ export default function TenantDetails() {
         whatsappConfig: {
             utilityProvider: 'META',
             promotionProvider: 'META'
+        },
+        demoMode: false,
+        demoExpiry: '',
+        featureFlags: {
+            demoMode: false,
+            demoExpiry: ''
         }
     });
 
@@ -200,7 +205,6 @@ export default function TenantDetails() {
                             storeName: t.storeInformation?.storeName || '',
                             address: t.storeInformation?.address || '',
                             storeTiming: t.storeInformation?.storeTiming || '10 AM – 8 PM',
-                            commissionPercentage: t.storeInformation?.commissionPercentage ?? 5,
                             expiryDate: t.storeInformation?.expiryDate ? t.storeInformation.expiryDate.split('T')[0] : '',
                             emailApi: t.storeInformation?.emailApi || '',
                             showAds: !!t.storeInformation?.showAds,
@@ -233,6 +237,13 @@ export default function TenantDetails() {
                         whatsappConfig: {
                             utilityProvider: t.whatsappConfig?.utilityProvider || 'META',
                             promotionProvider: t.whatsappConfig?.promotionProvider || 'META'
+                        },
+                        demoMode: Boolean(t.demoMode || t.featureFlags?.demoMode),
+                        demoExpiry: t.demoExpiry || t.featureFlags?.demoExpiry || '',
+                        featureFlags: {
+                            ecomFramesSunglasses: Boolean(t.featureFlags?.ecomFramesSunglasses),
+                            demoMode: Boolean(t.demoMode || t.featureFlags?.demoMode),
+                            demoExpiry: t.demoExpiry || t.featureFlags?.demoExpiry || ''
                         }
                     });
                 }
@@ -252,6 +263,28 @@ export default function TenantDetails() {
             [section]: {
                 ...prev[section],
                 [field]: value
+            }
+        }));
+    };
+
+    const handleDemoModeToggle = (checked) => {
+        setFormData(prev => ({
+            ...prev,
+            demoMode: checked,
+            featureFlags: {
+                ...(prev.featureFlags || {}),
+                demoMode: checked
+            }
+        }));
+    };
+
+    const handleDemoExpiryChange = (val) => {
+        setFormData(prev => ({
+            ...prev,
+            demoExpiry: val,
+            featureFlags: {
+                ...(prev.featureFlags || {}),
+                demoExpiry: val
             }
         }));
     };
@@ -305,7 +338,19 @@ export default function TenantDetails() {
         e.preventDefault();
         setSubmitting(true);
         try {
-            const res = await updateTenant(id, formData);
+            const isDemoOn = Boolean(formData.featureFlags?.demoMode || formData.demoMode);
+            const demoExpVal = formData.featureFlags?.demoExpiry || formData.demoExpiry || null;
+            const payload = {
+                ...formData,
+                demoMode: isDemoOn,
+                demoExpiry: demoExpVal,
+                featureFlags: {
+                    ...(formData.featureFlags || {}),
+                    demoMode: isDemoOn,
+                    demoExpiry: demoExpVal
+                }
+            };
+            const res = await updateTenant(id, payload);
             if (res.success) {
                 toast.success('Wholesaler tenant details updated successfully!');
                 navigate(PATHS.TENANTS.LIST);
@@ -403,15 +448,7 @@ export default function TenantDetails() {
                                 className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold outline-none focus:border-[#2980B9]"
                             />
                         </div>
-                        <div>
-                            <label className="text-[11px] font-bold text-gray-500 uppercase block mb-1">Commission %</label>
-                            <input
-                                type="number"
-                                value={formData.storeInformation.commissionPercentage}
-                                onChange={(e) => handleNestedChange('storeInformation', 'commissionPercentage', Number(e.target.value))}
-                                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold outline-none focus:border-[#2980B9]"
-                            />
-                        </div>
+
                         <div>
                             <label className="text-[11px] font-bold text-gray-500 uppercase block mb-1">Expiry Date</label>
                             <input
@@ -442,34 +479,76 @@ export default function TenantDetails() {
                         </div>
                     </div>
 
-                    <div className="pt-3 border-t border-gray-100 flex flex-wrap items-center gap-6">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={formData.storeInformation.hasGST}
-                                onChange={(e) => handleNestedChange('storeInformation', 'hasGST', e.target.checked)}
-                                className="w-4 h-4 rounded text-[#2980B9] focus:ring-[#2980B9]"
-                            />
-                            <span className="text-xs font-bold text-gray-700">GST Invoice Enabled</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={formData.storeInformation.showAds}
-                                onChange={(e) => handleNestedChange('storeInformation', 'showAds', e.target.checked)}
-                                className="w-4 h-4 rounded text-[#2980B9] focus:ring-[#2980B9]"
-                            />
-                            <span className="text-xs font-bold text-gray-700">Show Ads / Banner</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={formData.storeInformation.hasAI}
-                                onChange={(e) => handleNestedChange('storeInformation', 'hasAI', e.target.checked)}
-                                className="w-4 h-4 rounded text-[#2980B9] focus:ring-[#2980B9]"
-                            />
-                            <span className="text-xs font-bold text-gray-700">AI Features Enabled</span>
-                        </label>
+                    <div className="pt-3 border-t border-gray-100 space-y-3">
+                        <div className="flex flex-wrap items-center gap-6">
+                            {/* TODO: Show Ads, Has GST, Has AI — hidden to match Register Wholesaler page */}
+                            {false && (
+                                <>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.storeInformation.hasGST}
+                                            onChange={(e) => handleNestedChange('storeInformation', 'hasGST', e.target.checked)}
+                                            className="w-4 h-4 rounded text-[#2980B9] focus:ring-[#2980B9]"
+                                        />
+                                        <span className="text-xs font-bold text-gray-700">GST Invoice Enabled</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.storeInformation.showAds}
+                                            onChange={(e) => handleNestedChange('storeInformation', 'showAds', e.target.checked)}
+                                            className="w-4 h-4 rounded text-[#2980B9] focus:ring-[#2980B9]"
+                                        />
+                                        <span className="text-xs font-bold text-gray-700">Show Ads / Banner</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.storeInformation.hasAI}
+                                            onChange={(e) => handleNestedChange('storeInformation', 'hasAI', e.target.checked)}
+                                            className="w-4 h-4 rounded text-[#2980B9] focus:ring-[#2980B9]"
+                                        />
+                                        <span className="text-xs font-bold text-gray-700">AI Features Enabled</span>
+                                    </label>
+                                </>
+                            )}
+
+                            <label className="flex items-center gap-2 cursor-pointer bg-amber-50 px-3 py-1 rounded-xl border border-amber-200 hover:bg-amber-100 transition-colors">
+                                <input
+                                    type="checkbox"
+                                    checked={Boolean(formData.demoMode || formData.featureFlags?.demoMode)}
+                                    onChange={(e) => handleDemoModeToggle(e.target.checked)}
+                                    className="w-4 h-4 rounded text-amber-600 focus:ring-0 cursor-pointer"
+                                />
+                                <span className="text-xs font-bold text-amber-900">Demo Mode</span>
+                            </label>
+                        </div>
+
+                        {Boolean(formData.demoMode || formData.featureFlags?.demoMode) ? (
+                            <div className="p-3.5 bg-amber-50/80 rounded-xl border border-amber-200 space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-[11px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                                        <Icon icon="lucide:clock-4" className="text-amber-700 text-sm" />
+                                        Demo Access Expiry Date & Time
+                                    </label>
+                                    {formData.featureFlags?.demoExpiry && new Date() > new Date(formData.featureFlags.demoExpiry) && (
+                                        <span className="text-[10px] font-extrabold text-red-700 bg-red-100 px-2.5 py-0.5 rounded-full border border-red-200">
+                                            ACCESS EXPIRED
+                                        </span>
+                                    )}
+                                </div>
+                                <input
+                                    type="datetime-local"
+                                    value={formData.featureFlags?.demoExpiry ? new Date(new Date(formData.featureFlags.demoExpiry).getTime() - new Date(formData.featureFlags.demoExpiry).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''}
+                                    onChange={(e) => handleDemoExpiryChange(e.target.value ? new Date(e.target.value).toISOString() : '')}
+                                    className="w-full sm:w-auto px-3.5 py-2 bg-white border border-amber-300 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:border-[#2980B9]"
+                                />
+                                <p className="text-[10px] text-amber-700 font-medium">
+                                    * Once this expiry timestamp passes, users logging into this wholesaler account will be automatically blocked.
+                                </p>
+                            </div>
+                        ) : null}
                     </div>
                 </div>
 
@@ -513,42 +592,44 @@ export default function TenantDetails() {
                     </div>
                 </div>
 
-                {/* Loyalty & Referral Program Rules */}
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
-                    <h2 className="text-sm font-black uppercase tracking-wider text-gray-700 flex items-center gap-2 border-b pb-3 border-gray-100">
-                        <Icon icon="lucide:gift" className="text-[#2980B9] text-lg" />
-                        Loyalty &amp; Referral Rules
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label className="text-[11px] font-bold text-gray-500 uppercase block mb-1">Spend Per 1 Point (₹)</label>
-                            <input
-                                type="number"
-                                value={formData.loyalty.rsPerPoint}
-                                onChange={(e) => handleNestedChange('loyalty', 'rsPerPoint', Number(e.target.value))}
-                                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold outline-none focus:border-[#2980B9]"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-[11px] font-bold text-gray-500 uppercase block mb-1">Point Redeem Value (₹)</label>
-                            <input
-                                type="number"
-                                value={formData.loyalty.pointValue}
-                                onChange={(e) => handleNestedChange('loyalty', 'pointValue', Number(e.target.value))}
-                                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold outline-none focus:border-[#2980B9]"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-[11px] font-bold text-gray-500 uppercase block mb-1">Referral Bonus Points</label>
-                            <input
-                                type="number"
-                                value={formData.loyalty.referPoints}
-                                onChange={(e) => handleNestedChange('loyalty', 'referPoints', Number(e.target.value))}
-                                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold outline-none focus:border-[#2980B9]"
-                            />
+                {/* TODO: Loyalty & Referral Program Rules — hidden to match Register Wholesaler page */}
+                {false && (
+                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                        <h2 className="text-sm font-black uppercase tracking-wider text-gray-700 flex items-center gap-2 border-b pb-3 border-gray-100">
+                            <Icon icon="lucide:gift" className="text-[#2980B9] text-lg" />
+                            Loyalty &amp; Referral Rules
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label className="text-[11px] font-bold text-gray-500 uppercase block mb-1">Spend Per 1 Point (₹)</label>
+                                <input
+                                    type="number"
+                                    value={formData.loyalty.rsPerPoint}
+                                    onChange={(e) => handleNestedChange('loyalty', 'rsPerPoint', Number(e.target.value))}
+                                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold outline-none focus:border-[#2980B9]"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[11px] font-bold text-gray-500 uppercase block mb-1">Point Redeem Value (₹)</label>
+                                <input
+                                    type="number"
+                                    value={formData.loyalty.pointValue}
+                                    onChange={(e) => handleNestedChange('loyalty', 'pointValue', Number(e.target.value))}
+                                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold outline-none focus:border-[#2980B9]"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[11px] font-bold text-gray-500 uppercase block mb-1">Referral Bonus Points</label>
+                                <input
+                                    type="number"
+                                    value={formData.loyalty.referPoints}
+                                    onChange={(e) => handleNestedChange('loyalty', 'referPoints', Number(e.target.value))}
+                                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold outline-none focus:border-[#2980B9]"
+                                />
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
 
                 {/* KYC & Documents */}
                 <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
@@ -683,6 +764,55 @@ export default function TenantDetails() {
                                 <option value="OTHER">Other Provider</option>
                             </select>
                         </div>
+                    </div>
+                </div>
+
+                                {/* Demo Mode & Watermark Access */}
+                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b pb-3 border-gray-100">
+                        <h2 className="text-sm font-black uppercase tracking-wider text-gray-700 flex items-center gap-2">
+                            <Icon icon="lucide:shield-lock" className="text-[#2980B9] text-lg" />
+                            Demo Mode & Watermark Access
+                        </h2>
+                        {Boolean(formData.demoMode || formData.featureFlags?.demoMode) && (
+                            <span className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border ${
+                                formData.featureFlags?.demoExpiry && new Date() > new Date(formData.featureFlags.demoExpiry)
+                                    ? 'bg-red-50 text-red-700 border-red-200'
+                                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}>
+                                {formData.featureFlags?.demoExpiry && new Date() > new Date(formData.featureFlags.demoExpiry) ? 'DEMO EXPIRED' : 'DEMO ACTIVE'}
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="space-y-4">
+                        <label className="flex items-start gap-3 cursor-pointer select-none">
+                            <input
+                                type="checkbox"
+                                checked={Boolean(formData.demoMode || formData.featureFlags?.demoMode)}
+                                onChange={(e) => handleDemoModeToggle(e.target.checked)}
+                                className="mt-0.5 w-4 h-4 rounded text-[#2980B9] focus:ring-[#2980B9]"
+                            />
+                            <div>
+                                <span className="text-xs font-bold text-gray-800 uppercase tracking-wider block">Enable Demo Mode & Security Watermark</span>
+                                <span className="text-xs text-gray-500 font-medium">When checked, users of this wholesaler will see the confidential demo watermark & popup upon login.</span>
+                            </div>
+                        </label>
+
+                        {Boolean(formData.demoMode || formData.featureFlags?.demoMode) && (
+                            <div className="p-4 bg-amber-50/50 rounded-xl border border-amber-200/70 space-y-2">
+                                <label className="text-[11px] font-bold text-gray-700 uppercase block">
+                                    Demo Access Expiry Date & Time (Optional)
+                                </label>
+                                <input
+                                    type="datetime-local"
+                                    value={formData.featureFlags?.demoExpiry ? new Date(new Date(formData.featureFlags.demoExpiry).getTime() - new Date(formData.featureFlags.demoExpiry).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''}
+                                    onChange={(e) => handleDemoExpiryChange(e.target.value ? new Date(e.target.value).toISOString() : '')}
+                                    className="px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs font-semibold outline-none focus:border-[#2980B9]"
+                                />
+                                <p className="text-[10px] text-gray-500 font-medium">Logins for this wholesaler will be blocked automatically after this timestamp.</p>
+                            </div>
+                        )}
                     </div>
                 </div>
 

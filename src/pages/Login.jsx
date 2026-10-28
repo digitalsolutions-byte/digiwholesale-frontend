@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Icon } from '@iconify/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
@@ -29,16 +29,26 @@ import logo from '../assets/logo.png';
 
 const Login = () => {
     const [showPassword, setShowPassword] = useState(false);
+    const [subscriptionExpiredMessage, setSubscriptionExpiredMessage] = useState(null);
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const theme = useTheme();
+
+    // Check if user was redirected from an expired active session
+    useEffect(() => {
+        const storedMsg = sessionStorage.getItem('digioptics_expired_login_message');
+        if (storedMsg) {
+            setSubscriptionExpiredMessage(storedMsg);
+            sessionStorage.removeItem('digioptics_expired_login_message');
+        }
+    }, []);
+
     const greeting = useMemo(() => {
         const hour = new Date().getHours();
         if (hour < 12) return 'Hi, Good morning';
         if (hour < 18) return 'Hi, Good afternoon';
         return 'Hi, Good evening';
     }, []);
-
 
     const validationSchema = Yup.object({
         loginId: Yup.string().required('Email or Username is required'),
@@ -50,6 +60,7 @@ const Login = () => {
         validationSchema: validationSchema,
         onSubmit: async (values) => {
             try {
+                setSubscriptionExpiredMessage(null);
                 const response = await loginUser({ loginId: values.loginId, password: values.password });
                 if (response.success) {
                     dispatch(setCredentials({
@@ -58,18 +69,32 @@ const Login = () => {
                         token: response.data.tokens?.accessToken,
                         refreshToken: response.data.tokens?.refreshToken
                     }));
+                    localStorage.removeItem('digioptics_demo_acknowledged');
+                    sessionStorage.removeItem('digioptics_login_expiry_dismissed');
+
+                    if (response.data?.tenant?.demoMode || response.data?.tenant?.featureFlags?.demoMode || response.data?.user?.demoMode) {
+                        localStorage.setItem('digioptics_demo_mode', 'true');
+                    } else {
+                        localStorage.removeItem('digioptics_demo_mode');
+                    }
+
                     toast.success('Login Successful');
                     navigate(PATHS.WELCOME, { state: { from: 'login' } });
                 } else {
                     toast.error(response.message || 'Login failed');
                 }
             } catch (err) {
-                toast.error(err.message || 'An error occurred during login');
+                const errMsg = err.message || 'An error occurred during login';
+                if (errMsg.toLowerCase().includes('expired') || err.response?.data?.error?.code === 'SUBSCRIPTION_EXPIRED') {
+                    setSubscriptionExpiredMessage(errMsg);
+                }
+                toast.error(errMsg);
             }
         },
     });
 
     return (
+        <>
         <Box sx={{
             minHeight: '100vh',
             display: 'flex',
@@ -167,6 +192,55 @@ const Login = () => {
                         </Box>
 
                         <Stack component="form" onSubmit={formik.handleSubmit} spacing={3}>
+                            {subscriptionExpiredMessage && (
+                                <div className="p-4 rounded-2xl bg-rose-50 border-2 border-rose-300 text-rose-900 space-y-2.5 animate-in fade-in duration-300">
+                                    <div className="flex items-start gap-2.5">
+                                        <Icon icon="lucide:lock" className="text-xl text-rose-600 flex-shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-xs font-black uppercase tracking-wide text-rose-800">
+                                                Panel Access Disabled
+                                            </p>
+                                            <p className="text-xs text-rose-900 font-medium leading-relaxed mt-0.5">
+                                                {subscriptionExpiredMessage}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="pt-1 flex flex-col gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <a
+                                                href="https://wa.me/919315806662?text=Hi%20DigiBySR%2C%20our%20wholesaler%20subscription%20has%20expired%20and%20panel%20access%20is%20blocked.%20Please%20help%20us%20renew."
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="px-3 py-1.5 text-[11px] font-black text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg inline-flex items-center gap-1 shadow-2xs transition-colors"
+                                            >
+                                                <Icon icon="lucide:message-circle" className="text-xs" />
+                                                WhatsApp (+91 93158 06662)
+                                            </a>
+                                            <a
+                                                href="tel:+919650560526"
+                                                className="px-3 py-1.5 text-[11px] font-bold text-blue-900 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded-lg inline-flex items-center gap-1 shadow-2xs transition-colors"
+                                            >
+                                                <Icon icon="lucide:phone-call" className="text-xs text-blue-600" />
+                                                +91 96505 60526
+                                            </a>
+                                            <a
+                                                href="tel:+918368942780"
+                                                className="px-3 py-1.5 text-[11px] font-bold text-indigo-900 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-lg inline-flex items-center gap-1 shadow-2xs transition-colors"
+                                            >
+                                                <Icon icon="lucide:phone" className="text-xs text-indigo-600" />
+                                                +91 836 894 2780
+                                            </a>
+                                        </div>
+                                        <div className="text-[10px] text-slate-500 font-medium flex items-center gap-2 flex-wrap pt-0.5">
+                                            <span className="font-bold text-slate-600">Support Emails:</span>
+                                            <a href="mailto:sid@digibysr.com" className="text-blue-600 hover:underline">sid@digibysr.com</a>
+                                            <span>•</span>
+                                            <a href="mailto:suryansh@digibysr.com" className="text-blue-600 hover:underline">suryansh@digibysr.com</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             <Input
                                 label="Email or Username"
                                 name="loginId"
@@ -217,9 +291,8 @@ const Login = () => {
                 </Typography>
             </Container>
         </Box>
+        </>
     );
 };
 
 export default Login;
-
-

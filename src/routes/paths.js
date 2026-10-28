@@ -32,6 +32,7 @@ export const PATHS = {
     CUSTOMER_CARE: {
         NEW_ORDER: '/new-order',
         ALL_ORDERS: '/orders/all',
+        RETAILER_ORDERS: '/orders/retailer-orders',
         RX_ORDERS: '/orders/rx',
         PENDING_ORDERS: '/orders/pending',
         ORDER_STATUS: '/orders/status',
@@ -41,6 +42,7 @@ export const PATHS = {
         UPDATE_CUSTOMERS: '/customer/list',
         EDIT_ORDER: '/order/edit/:id',
         ORDER_DETAILS: '/order/view/:id',
+        ORDER_DETAILS_ALT: '/orders/:id',
         DRAFT_ORDERS: '/orders/draft-list',
     },
 
@@ -112,6 +114,7 @@ export const PATHS = {
     REPORTS: {
         DAILY: '/reports/daily',
         MAIN: '/reports/main',
+        GST: '/reports/gst',
     },
 
     // TENANT MODULE (PLATFORM OWNER)
@@ -129,5 +132,23 @@ export const PATHS = {
     },
     // VIRTUAL GLASS TRY-ON
     GLASS_TRYON: '/glass-tryon',
-    SETTINGS: '/settings'
+
+    // ACCOUNTING & PAYMENTS MODULE
+    ACCOUNTING: {
+        COA: '/accounting/chart-of-accounts',
+        CUSTOMER_LEDGERS: '/accounting/customer-ledgers',
+        CUSTOMER_STATEMENT: '/accounting/customer-statement/:customerId',
+        VENDOR_LEDGERS: '/accounting/vendor-ledgers',
+        VENDOR_STATEMENT: '/accounting/vendor-statement/:vendorId',
+        PAYMENTS: '/accounting/payments',
+        CHEQUES: '/accounting/cheques',
+        AGING: '/accounting/aging-report',
+        GST_REPORT: '/accounting/gst-report',
+    },
+    SETTINGS: '/settings',
+
+    // EXTERNAL / CROSS-PLATFORM MODULE
+    EXTERNAL: {
+        RETAILER_ORDERS: '/external/retailer-orders',
+    },
 };

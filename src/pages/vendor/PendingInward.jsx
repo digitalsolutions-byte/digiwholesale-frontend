@@ -1,7 +1,9 @@
+import VendorTabNav from '../../components/vendor/VendorTabNav';
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { getPendingInwardItems, createPurchaseInward } from '../../services/vendorOrderService';
+import { uploadMultipleDocuments } from '../../services/bucketService';
 import { toast } from 'react-toastify';
 
 const categoryIcon = {
@@ -18,13 +20,28 @@ const PendingInward = () => {
     const [pagination, setPagination] = useState(null);
     const [page, setPage] = useState(1);
 
-    // Inward Modal State
     const [selectedItem, setSelectedItem] = useState(null);
     const [receivedQty, setReceivedQty] = useState(1);
     const [condition, setCondition] = useState('GOOD');
     const [vendorRefId, setVendorRefId] = useState('');
     const [remarks, setRemarks] = useState('');
     const [submittingInward, setSubmittingInward] = useState(false);
+    const [invoiceFiles, setInvoiceFiles] = useState([]);
+
+    const [receivedBy, setReceivedBy]       = useState('');
+    const [receivedOn, setReceivedOn]       = useState('');
+    const [receivedFrom, setReceivedFrom]   = useState('');
+
+    // Contact Lens required fields
+    const [coating, setCoating]             = useState('');
+    const [disposability, setDisposability] = useState('');
+    const [expiry, setExpiry]               = useState('');
+
+    const isContactLens = (cat) => {
+        if (!cat) return false;
+        const c = (cat || '').trim().toUpperCase().replace(/[\s_]+/g, ' ');
+        return c === 'CONTACT LENS' || c === 'CONTACT_LENS';
+    };
 
     const fetchItems = useCallback(async () => {
         setLoading(true);
@@ -53,6 +70,13 @@ const PendingInward = () => {
         setCondition('GOOD');
         setVendorRefId(item.vendorRefId || '');
         setRemarks('');
+        setReceivedBy('');
+        setReceivedOn(new Date().toISOString().split('T')[0]);
+        setReceivedFrom('');
+        setCoating(item.coating || '');
+        setDisposability(item.disposability || '');
+        setExpiry(item.expiry ? new Date(item.expiry).toISOString().split('T')[0] : '');
+        setInvoiceFiles([]);
     };
 
     const handleSubmitInward = async () => {
@@ -61,18 +85,47 @@ const PendingInward = () => {
             toast.error('Received Quantity must be greater than 0');
             return;
         }
+        if (!receivedBy.trim()) {
+            toast.error('Please enter Received By (Name of receiver)');
+            return;
+        }
+        // Validate Contact Lens required fields
+        if (isContactLens(selectedItem.category)) {
+            const missing = [];
+            if (!coating.trim())       missing.push('Coating');
+            if (!disposability.trim()) missing.push('Disposability');
+            if (!expiry)               missing.push('Expiry Date');
+            if (missing.length > 0) {
+                toast.error(`${missing.join(', ')} ${missing.length > 1 ? 'are' : 'is'} required for Contact Lens`);
+                return;
+            }
+        }
 
         setSubmittingInward(true);
         try {
+            let uploadedInvoices = [];
+            if (Array.isArray(invoiceFiles) && invoiceFiles.length > 0) {
+                uploadedInvoices = await uploadMultipleDocuments(invoiceFiles);
+            }
+
             const payload = {
                 purchaseOrderId: selectedItem.purchaseOrderId,
                 remarks: remarks || `Direct inward receipt for item ${selectedItem.itemName}`,
+                receivedBy:   receivedBy.trim()   || null,
+                receivedOn:   receivedOn          || new Date().toISOString().split('T')[0],
+                receivedFrom: receivedFrom.trim() || null,
+                invoices:     uploadedInvoices,
                 items: [{
-                    itemId: selectedItem.itemId || selectedItem._id,
-                    receivedQty: Number(receivedQty),
-                    condition: condition,
-                    vendorRefId: vendorRefId,
-                    remarks: remarks,
+                    itemId:       selectedItem.itemId || selectedItem._id,
+                    receivedQty:  Number(receivedQty),
+                    condition:    condition,
+                    vendorRefId:  vendorRefId,
+                    remarks:      remarks,
+                    ...(isContactLens(selectedItem.category) && {
+                        coating,
+                        disposability,
+                        expiry: expiry || null,
+                    }),
                 }],
             };
 
@@ -80,6 +133,7 @@ const PendingInward = () => {
             if (res.success) {
                 toast.success('Item inwarded successfully!');
                 setSelectedItem(null);
+                setInvoiceFiles([]);
                 fetchItems();
             } else {
                 toast.error(res.message || 'Failed to inward item');
@@ -104,6 +158,7 @@ const PendingInward = () => {
 
     return (
         <div className="p-2 w-full h-full flex flex-col gap-4">
+            <VendorTabNav groupKey="PURCHASES_INWARD" />
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
@@ -316,61 +371,73 @@ const PendingInward = () => {
 
             {/* Inward Modal */}
             {selectedItem && createPortal(
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSelectedItem(null)} />
-                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
-                        
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setSelectedItem(null)} />
+                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto flex flex-col max-h-[92vh] overflow-hidden">
+
                         {/* Header */}
-                        <div className="p-5 border-b border-gray-100 bg-[#eaf4fb] flex items-center justify-between">
+                        <div className="flex-shrink-0 px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-[#1F618D] to-[#2980B9] flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-[#1F618D] flex items-center justify-center">
-                                    <Icon icon="lucide:package-check" className="text-white text-xl" />
+                                <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+                                    <Icon icon="lucide:package-check" className="text-white text-lg" />
                                 </div>
                                 <div>
-                                    <h2 className="text-base font-bold text-[#1F618D]">Inward Item Receipt</h2>
-                                    <p className="text-xs text-[#2980B9] mt-0.5">Order #{selectedItem.orderNumber}</p>
+                                    <h2 className="text-sm font-bold text-white">Inward Item Receipt</h2>
+                                    <p className="text-[11px] text-sky-200 mt-0.5">Order #{selectedItem.orderNumber}</p>
                                 </div>
                             </div>
-                            <button onClick={() => setSelectedItem(null)} className="p-2 hover:bg-white/50 rounded-lg transition-colors">
-                                <Icon icon="lucide:x" className="text-gray-500" />
+                            <button onClick={() => setSelectedItem(null)} className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
+                                <Icon icon="lucide:x" className="text-white text-base" />
                             </button>
                         </div>
 
-                        {/* Body */}
-                        <div className="p-6 space-y-4">
-                            <div className="bg-[#eaf4fb]/30 border border-[#2980B9]/15 rounded-xl p-3">
-                                <p className="text-xs font-bold text-gray-700">{selectedItem.itemName}</p>
-                                <p className="text-[11px] text-gray-500 mt-1">
-                                    Total Ordered: <strong>{selectedItem.qty} {selectedItem.unit}</strong> | Remaining: <strong>{selectedItem.qty - (selectedItem.receivedQty || 0)}</strong>
-                                </p>
+                        {/* Scrollable Body */}
+                        <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
+
+                            {/* Item summary banner */}
+                            <div className="bg-[#eaf4fb] border border-[#2980B9]/20 rounded-xl p-3 flex items-start gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-[#1F618D] flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <Icon icon={categoryIcon[selectedItem.category] || 'lucide:box'} className="text-white text-sm" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-bold text-[#1F618D] truncate">{selectedItem.itemName}</p>
+                                    <p className="text-[11px] text-gray-500 mt-0.5">
+                                        Ordered: <strong className="text-gray-700">{selectedItem.qty} {selectedItem.unit}</strong>
+                                        <span className="mx-1.5 text-gray-300">·</span>
+                                        Remaining: <strong className="text-[#1F618D]">{selectedItem.qty - (selectedItem.receivedQty || 0)}</strong>
+                                    </p>
+                                    <p className="text-[11px] text-gray-400 mt-0.5">{selectedItem.category?.replace('_', ' ')} · {selectedItem.brand || '—'}</p>
+                                </div>
                             </div>
 
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Received Qty</label>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    max={selectedItem.qty - (selectedItem.receivedQty || 0)}
-                                    value={receivedQty}
-                                    onChange={e => setReceivedQty(e.target.value)}
-                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]"
-                                />
+                            {/* Row: Received Qty + Condition */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Received Qty <span className="text-red-400">*</span></label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max={selectedItem.qty - (selectedItem.receivedQty || 0)}
+                                        value={receivedQty}
+                                        onChange={e => setReceivedQty(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-bold text-[#1F618D] focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Condition</label>
+                                    <select
+                                        value={condition}
+                                        onChange={e => setCondition(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9] bg-white"
+                                    >
+                                        <option value="GOOD">Good</option>
+                                        <option value="PARTIAL">Partial</option>
+                                        <option value="DAMAGED">Damaged</option>
+                                    </select>
+                                </div>
                             </div>
 
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Condition</label>
-                                <select
-                                    value={condition}
-                                    onChange={e => setCondition(e.target.value)}
-                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9] bg-white"
-                                >
-                                    <option value="GOOD">Good</option>
-                                    <option value="DAMAGED">Damaged</option>
-                                    <option value="DEFECTIVE">Defective</option>
-                                    <option value="PARTIAL">Partial</option>
-                                </select>
-                            </div>
-
+                            {/* Vendor Ref ID */}
                             <div>
                                 <label className="block text-xs font-semibold text-gray-600 mb-1.5">Vendor Ref ID / Invoice #</label>
                                 <input
@@ -378,34 +445,112 @@ const PendingInward = () => {
                                     value={vendorRefId}
                                     onChange={e => setVendorRefId(e.target.value)}
                                     placeholder="Enter reference ID"
-                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]"
                                 />
                             </div>
 
+                            {/* Receipt Details */}
+                            <div className="bg-[#eaf4fb]/40 border border-[#2980B9]/15 rounded-xl p-4 space-y-3">
+                                <p className="text-[11px] font-bold text-[#1F618D] uppercase tracking-wider flex items-center gap-1.5">
+                                    <Icon icon="lucide:clipboard-list" className="text-sm" />
+                                    Receipt Details
+                                </p>
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Received By <span className="text-red-400">*</span></label>
+                                    <input
+                                        type="text"
+                                        value={receivedBy}
+                                        onChange={e => setReceivedBy(e.target.value)}
+                                        placeholder="Name of person who received the goods"
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">Received On <span className="text-red-400">*</span></label>
+                                        <input
+                                            type="date"
+                                            value={receivedOn}
+                                            max={new Date().toISOString().split('T')[0]}
+                                            onChange={e => setReceivedOn(e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">Received From</label>
+                                        <input
+                                            type="text"
+                                            value={receivedFrom}
+                                            onChange={e => setReceivedFrom(e.target.value)}
+                                            placeholder="Courier / delivery rep"
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Invoice Upload */}
+                            <div className="bg-[#eaf4fb]/40 border border-[#2980B9]/20 rounded-xl p-4 space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                                        <Icon icon="lucide:paperclip" className="text-[#1F618D]" />
+                                        Invoices / Challans / Bills <span className="text-gray-400 font-normal">(Optional, max 5)</span>
+                                    </label>
+                                    <label className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white hover:bg-gray-50 border border-[#2980B9]/30 text-[#1F618D] text-[11px] font-semibold rounded-lg cursor-pointer transition shadow-sm">
+                                        <Icon icon="lucide:upload" className="text-xs" />
+                                        Attach Files
+                                        <input
+                                            type="file"
+                                            multiple
+                                            accept="application/pdf,image/*"
+                                            className="hidden"
+                                            onChange={e => {
+                                                const newFiles = Array.from(e.target.files || []);
+                                                setInvoiceFiles(prev => [...prev, ...newFiles].slice(0, 5));
+                                                e.target.value = '';
+                                            }}
+                                        />
+                                    </label>
+                                </div>
+                                {invoiceFiles.length > 0 && (
+                                    <div className="flex flex-wrap gap-1.5 pt-1">
+                                        {invoiceFiles.map((f, fi) => (
+                                            <span key={fi} className="inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-blue-200 text-blue-800 text-[11px] font-medium rounded-lg">
+                                                <Icon icon="lucide:file-text" className="text-[#1F618D] text-xs" />
+                                                <span className="truncate max-w-[120px]">{f.name}</span>
+                                                <button type="button" onClick={() => setInvoiceFiles(prev => prev.filter((_, idx) => idx !== fi))}
+                                                    className="text-blue-400 hover:text-red-500 ml-0.5 font-bold leading-none">×</button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Remarks */}
                             <div>
                                 <label className="block text-xs font-semibold text-gray-600 mb-1.5">Remarks</label>
                                 <textarea
                                     rows={2}
                                     value={remarks}
                                     onChange={e => setRemarks(e.target.value)}
-                                    placeholder="Any notes about condition..."
-                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9] resize-none"
+                                    placeholder="Any notes about condition or delivery..."
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9] resize-none"
                                 />
                             </div>
                         </div>
 
                         {/* Footer */}
-                        <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-3">
+                        <div className="flex-shrink-0 px-5 py-3.5 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
                             <button onClick={() => setSelectedItem(null)}
-                                className="px-5 py-2.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                                className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-200 rounded-lg transition-colors border border-gray-200">
                                 Cancel
                             </button>
                             <button
                                 onClick={handleSubmitInward}
                                 disabled={submittingInward}
-                                className="px-6 py-2.5 text-xs font-bold text-white bg-[#1F618D] hover:bg-[#174e71] rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+                                className="px-5 py-2 text-xs font-bold text-white bg-[#1F618D] hover:bg-[#174e71] rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm"
                             >
-                                {submittingInward ? <Icon icon="lucide:loader-2" className="animate-spin" /> : <Icon icon="lucide:check" />}
+                                {submittingInward ? <Icon icon="lucide:loader-2" className="animate-spin text-sm" /> : <Icon icon="lucide:check" className="text-sm" />}
                                 Submit Inward
                             </button>
                         </div>

@@ -48,6 +48,8 @@ const CustomerLogin = () => {
                         user: response.data.user,
                         token: response.data.tokens.accessToken
                     }));
+                    localStorage.removeItem('digioptics_demo_acknowledged');
+                    if (response.data?.tenant?.demoMode || response.data?.tenant?.featureFlags?.demoMode || response.data?.user?.demoMode) { localStorage.setItem('digioptics_demo_mode', 'true'); } else { localStorage.removeItem('digioptics_demo_mode'); }
                     toast.success('Login Successful');
                     navigate('/customer-portal', { replace: true });
                 } else {
@@ -60,6 +62,8 @@ const CustomerLogin = () => {
     });
 
     return (
+        <>
+
         <Box sx={{
             minHeight: '100vh',
             display: 'flex',
@@ -214,6 +218,7 @@ const CustomerLogin = () => {
                 </Typography>
             </Container>
         </Box>
+        </>
     );
 };
 

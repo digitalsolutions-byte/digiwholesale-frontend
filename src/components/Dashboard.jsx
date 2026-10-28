@@ -1,3 +1,6 @@
+import useSubscriptionExpiry from '../hooks/useSubscriptionExpiry';
+import SubscriptionExpiryBanner from './subscription/SubscriptionExpiryBanner';
+import SubscriptionRenewalModal from './subscription/SubscriptionRenewalModal';
 import React, { useState, useEffect } from 'react';
 import api from '../services/apiInstance';
 import { Icon } from '@iconify/react';
@@ -62,6 +65,8 @@ const Dashboard = () => {
     const user = useSelector(selectCurrentUser);
     const [analytics, setAnalytics] = useState(null);
     const [loading, setLoading] = useState(true);
+    const expiryMeta = useSubscriptionExpiry();
+    const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
 
     if (user?.EmployeeType === 'PLATFORM_OWNER') {
         return <PlatformOwnerDashboard />;

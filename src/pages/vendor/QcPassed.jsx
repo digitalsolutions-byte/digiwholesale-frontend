@@ -1,13 +1,17 @@
+import VendorTabNav from '../../components/vendor/VendorTabNav';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Icon } from '@iconify/react';
 import { getQcPassedItems } from '../../services/vendorOrderService';
 import { toast } from 'react-toastify';
 
 const categoryIcon = {
-    LENS:         'lucide:eye',
-    FRAME:        'lucide:glasses',
-    CONTACT_LENS: 'lucide:circle-dot',
+    LENS:           'lucide:eye',
+    FRAME:          'lucide:glasses',
+    CONTACT_LENS:   'lucide:circle-dot',
+    'CONTACT LENS': 'lucide:circle-dot',
 };
+
+const normalizeCat = c => (c ? c.replace(/[\s_]+/g, '_').toUpperCase() : '');
 
 const QcPassed = () => {
     const [items, setItems] = useState([]);
@@ -44,12 +48,13 @@ const QcPassed = () => {
             item.vendorName?.toLowerCase().includes(q) ||
             item.orderNumber?.toLowerCase().includes(q) ||
             item.code?.toLowerCase().includes(q);
-        const matchesCategory = !categoryFilter || item.category === categoryFilter;
+        const matchesCategory = !categoryFilter || normalizeCat(item.category) === normalizeCat(categoryFilter);
         return matchesSearch && matchesCategory;
     });
 
     return (
         <div className="p-2 w-full h-full flex flex-col gap-4">
+            <VendorTabNav groupKey="QC" />
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
@@ -79,8 +84,10 @@ const QcPassed = () => {
             {!loading && items.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     {['LENS', 'FRAME', 'CONTACT_LENS'].map(cat => {
-                        const count = items.filter(i => i.category === cat).length;
-                        const totalQty = items.filter(i => i.category === cat).reduce((s, i) => s + (i.receivedQty || i.qty || 0), 0);
+                        const count = items.filter(i => normalizeCat(i.category) === normalizeCat(cat)).length;
+                        const totalQty = items
+                            .filter(i => normalizeCat(i.category) === normalizeCat(cat))
+                            .reduce((s, i) => s + (i.passedQty ?? i.receivedQty ?? i.qty ?? 0), 0);
                         if (!count) return null;
                         return (
                             <div key={cat} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
@@ -193,7 +200,7 @@ const QcPassed = () => {
                                             </td>
                                             <td className="px-4 py-2">
                                                 <div className="flex items-center gap-1">
-                                                    <span className="text-xs font-bold text-[#1F618D]">{item.receivedQty ?? item.qty ?? 0}</span>
+                                                    <span className="text-xs font-bold text-[#1F618D]">{item.passedQty ?? item.receivedQty ?? item.qty ?? 0}</span>
                                                     <span className="text-[10px] text-gray-400">{item.unit}</span>
                                                 </div>
                                             </td>

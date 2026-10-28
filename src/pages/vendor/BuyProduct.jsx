@@ -28,6 +28,12 @@ const BuyProduct = () => {
         requiredByDate: '',
         description: '',
         vendorIds: [],
+        mrp: '',
+        buyingPrice: '',
+        sellingPrice: '',
+        coating: '',
+        disposability: '',
+        expiry: '',
     });
 
     // ── Vendor Select State ──
@@ -96,6 +102,9 @@ const BuyProduct = () => {
             category: prod.category || '',
             brand: prod.brand || '',
             unit: prod.unit || 'PIECE',
+            buyingPrice: prod.buyingPrice || prod.price || '',
+            sellingPrice: prod.sellingPrice || '',
+            mrp: prod.mrp || prod.price || '',
         }));
         setShowDropdown(false);
         setProductSearchResults([]);
@@ -146,6 +155,12 @@ const BuyProduct = () => {
             return;
         }
 
+        if (form.category?.toUpperCase() === 'CONTACT_LENS') {
+            if (!form.coating.trim()) { toast.error('Coating is required for Contact Lens'); return; }
+            if (!form.disposability.trim()) { toast.error('Disposability is required for Contact Lens'); return; }
+            if (!form.expiry) { toast.error('Expiry Date is required for Contact Lens'); return; }
+        }
+
         try {
             setSubmitting(true);
             const payload = {
@@ -158,7 +173,13 @@ const BuyProduct = () => {
                 requiredQty: Number(form.requiredQty),
                 requiredByDate: form.requiredByDate,
                 description: form.description,
-                vendorIds: form.vendorIds
+                vendorIds: form.vendorIds,
+                mrp: form.mrp ? Number(form.mrp) : undefined,
+                buyingPrice: form.buyingPrice ? Number(form.buyingPrice) : undefined,
+                sellingPrice: form.sellingPrice ? Number(form.sellingPrice) : undefined,
+                coating: form.coating || undefined,
+                disposability: form.disposability || undefined,
+                expiry: form.expiry || undefined,
             };
 
             const data = await vendorProposalService.createProposal(payload);
@@ -351,7 +372,11 @@ const BuyProduct = () => {
                                 value={form.category}
                                 onChange={(e) => {
                                     const newCat = e.target.value;
-                                    setForm(p => ({ ...p, category: newCat }));
+                                    setForm(p => ({
+                                        ...p,
+                                        category: newCat,
+                                        ...(newCat?.toUpperCase() !== 'CONTACT_LENS' ? { coating: '', disposability: '', expiry: '' } : {}),
+                                    }));
                                     if (productSearch) {
                                         handleSearchProducts(productSearch, newCat);
                                     }
@@ -391,6 +416,40 @@ const BuyProduct = () => {
                             </select>
                         </div>
                     </div>
+
+                    {form.category?.toUpperCase() === 'CONTACT_LENS' && (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 mt-1 border-t border-rose-100 bg-rose-50/40 rounded-xl p-3">
+                            <div>
+                                <label className="text-xs font-bold text-rose-700 block mb-1">Coating <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. HMC / ARC"
+                                    value={form.coating}
+                                    onChange={(e) => setForm(p => ({ ...p, coating: e.target.value }))}
+                                    className={`w-full px-3.5 py-2.5 bg-white border rounded-xl text-xs font-semibold text-gray-800 outline-none focus:border-rose-400 ${!form.coating.trim() ? 'border-rose-300' : 'border-gray-200'}`}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-rose-700 block mb-1">Disposability <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text"
+                                    placeholder="Daily / Monthly / Yearly"
+                                    value={form.disposability}
+                                    onChange={(e) => setForm(p => ({ ...p, disposability: e.target.value }))}
+                                    className={`w-full px-3.5 py-2.5 bg-white border rounded-xl text-xs font-semibold text-gray-800 outline-none focus:border-rose-400 ${!form.disposability.trim() ? 'border-rose-300' : 'border-gray-200'}`}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-rose-700 block mb-1">Expiry Date <span className="text-red-500">*</span></label>
+                                <input
+                                    type="date"
+                                    value={form.expiry}
+                                    onChange={(e) => setForm(p => ({ ...p, expiry: e.target.value }))}
+                                    className={`w-full px-3.5 py-2.5 bg-white border rounded-xl text-xs font-semibold text-gray-800 outline-none focus:border-rose-400 ${!form.expiry ? 'border-rose-300' : 'border-gray-200'}`}
+                                />
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* 2. Requirement Details */}
@@ -434,6 +493,52 @@ const BuyProduct = () => {
                                 onChange={(e) => setForm(p => ({ ...p, description: e.target.value }))}
                                 className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-800 outline-none focus:border-[#2980B9] focus:bg-white resize-none"
                             />
+                        </div>
+                    </div>
+                </div>
+
+                {/* 2.5 Target Pricing (Optional) */}
+                <div className="space-y-3 pt-2">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-violet-700 flex items-center gap-2 border-b border-violet-100 pb-2">
+                        <Icon icon="lucide:indian-rupee" className="text-base" />
+                        Target / Estimated Pricing <span className="text-[10px] font-normal text-gray-400 normal-case ml-1">(Optional — helps vendor quote accurately)</span>
+                    </h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label className="text-xs font-bold text-emerald-700 block mb-1">Target Buying Price (₹)</label>
+                            <input
+                                type="number"
+                                min="0"
+                                placeholder="Expected vendor price"
+                                value={form.buyingPrice}
+                                onChange={(e) => setForm(p => ({ ...p, buyingPrice: e.target.value }))}
+                                className="w-full px-3.5 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-900 outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                            />
+                            <p className="text-[10px] text-gray-400 mt-0.5 ml-1">What you expect to pay to the vendor</p>
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-violet-700 block mb-1">Planned Selling Price (₹)</label>
+                            <input
+                                type="number"
+                                min="0"
+                                placeholder="Planned customer price"
+                                value={form.sellingPrice}
+                                onChange={(e) => setForm(p => ({ ...p, sellingPrice: e.target.value }))}
+                                className="w-full px-3.5 py-2.5 bg-violet-50 border border-violet-200 rounded-xl text-xs font-bold text-violet-900 outline-none focus:border-violet-500 focus:bg-white transition-all"
+                            />
+                            <p className="text-[10px] text-gray-400 mt-0.5 ml-1">Price you plan to sell to customer</p>
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-amber-700 block mb-1">MRP (₹)</label>
+                            <input
+                                type="number"
+                                min="0"
+                                placeholder="Max retail price"
+                                value={form.mrp}
+                                onChange={(e) => setForm(p => ({ ...p, mrp: e.target.value }))}
+                                className="w-full px-3.5 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs font-bold text-amber-900 outline-none focus:border-amber-500 focus:bg-white transition-all"
+                            />
+                            <p className="text-[10px] text-gray-400 mt-0.5 ml-1">Maximum retail / printed price</p>
                         </div>
                     </div>
                 </div>

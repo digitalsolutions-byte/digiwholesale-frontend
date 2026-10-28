@@ -1,4 +1,5 @@
 import api from "../services/apiInstance";
+import { Icon } from "@iconify/react";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { fetchSettings } from "../store/slices/settingsSlice";
@@ -19,11 +20,14 @@ import JsBarcode from "jsbarcode";
 import QRCode from "qrcode"; // npm install qrcode
 
 import * as XLSX from "xlsx";
-import { FiUpload, FiDownload, FiCheckCircle, FiAlertCircle } from "react-icons/fi";
+import { FiUpload, FiDownload, FiCheckCircle, FiAlertCircle, FiAlertTriangle, FiTrendingUp, FiTruck, FiUser, FiClock, FiFileText, FiPaperclip } from "react-icons/fi";
 
 import { createPortal } from "react-dom";
+import { getProductDisplayImage } from "../utils/productUtils";
+import { getBatchesForProduct, allocateManualBatch } from "../services/batchService";
+import { uploadMultipleDocuments } from "../services/bucketService";
+import LensMatrixModal from "../components/ui/LensMatrixModal";
 
-// ─── shared primitives ────────────────────────────────────────────────────────
 const Modal = ({ children, onClose, maxWidth = "max-w-5xl" }) => {
     return createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -92,6 +96,7 @@ function RowCheckbox({ checked, onChange, indeterminate = false }) {
             type="checkbox"
             checked={checked}
             onChange={onChange}
+            onClick={(e) => e.stopPropagation()}
             className="w-3.5 h-3.5 rounded accent-[#2980b9] cursor-pointer"
         />
     );
@@ -203,9 +208,13 @@ export default function Inventory() {
     const dispatch = useDispatch();
     const [showAddProductModal, setShowAddProductModal] = useState(false);
     const [showLensRangeModal, setShowLensRangeModal] = useState(false);
+    const [showLensMatrixModal, setShowLensMatrixModal] = useState(false);
     const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
     const [vendors, setVendors] = useState([]);
     const settings = useSelector((state) => state.settings.data);
+    // Increment this to tell InventoryTable to re-fetch without a page reload
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const triggerInventoryRefresh = () => setRefreshTrigger(prev => prev + 1);
 
     useEffect(() => {
         dispatch(fetchSettings());
@@ -232,23 +241,62 @@ export default function Inventory() {
         }).then((result) => { if (result.isConfirmed) window.location.reload(); });
     };
 
-    const [productCodeSuffix, setProductCodeSuffix] = useState("DO");
+    const createEmptyColor = () => ({
+        color: "",
+        qty: "",
+        productColorImage: "",
+        imageFile: null,
+        previewUrl: ""
+    });
 
     const emptyRow = {
         id: uuidv4(), date: "", productCode: "", productName: "", category: "",
         brand: "", color: "", size: "", type: "", shape: "", sph: "", cyl: "",
-        index: "", axis: "", addition: "", coating: "", expiry: "", pairOrSingle: "Single",
-        price: "", gst: "0", hsnSac: "", mrp: "", discount: "0", qty: "", vendor: "",
-        image: null, material: "", dimensions: "",
-        colors: [{ color: "", qty: "" }]
+        index: "", axis: "", addition: "", coating: "", disposability: "", expiry: "", pairOrSingle: "Single",
+        price: "", buyingPrice: "", sellingPrice: "", gst: "0", hsnSac: "", mrp: "", discount: "0", qty: "", vendor: "",
+        material: "", dimensions: "",
+        colors: [createEmptyColor()],
+        // Batch allocation fields
+        allocateBatch: true,
+        batchNumber: "",
+        batchQty: "",
+        batchRemarks: "",
+        invoices: []  // File[] — invoice/challan files for this product batch
     };
 
     const [rows, setRows] = useState([emptyRow]);
-    const addRow = () => setRows([...rows, { ...emptyRow, id: uuidv4() }]);
-    const removeRow = (id) => { if (rows.length === 1) return; setRows(prev => prev.filter(r => r.id !== id)); };
+    const cleanupColorPreviews = (rowsList) => {
+        if (!Array.isArray(rowsList)) return;
+        rowsList.forEach(r => {
+            if (Array.isArray(r?.colors)) {
+                r.colors.forEach(c => {
+                    if (c?.previewUrl) {
+                        try { URL.revokeObjectURL(c.previewUrl); } catch (e) { /* ignore */ }
+                    }
+                });
+            }
+        });
+    };
 
-    const LENS_FIELDS = ["sph", "cyl", "index", "axis", "coating", "expiry", "pairOrSingle"];
+    const addRow = () => setRows([...rows, { ...emptyRow, id: uuidv4(), colors: [createEmptyColor()] }]);
+    const removeRow = (id) => {
+        if (rows.length === 1) return;
+        setRows(prev => {
+            const toRemove = prev.find(r => r.id === id);
+            if (toRemove) cleanupColorPreviews([toRemove]);
+            return prev.filter(r => r.id !== id);
+        });
+    };
+
+    const handleCloseAddProductModal = () => {
+        cleanupColorPreviews(rows);
+        setShowAddProductModal(false);
+        triggerInventoryRefresh();
+    };
+
+    const LENS_FIELDS = ["sph", "cyl", "index", "axis", "coating", "disposability", "expiry", "pairOrSingle"];
     const isLensCategory = (v) => Boolean(v && (v.toLowerCase().includes("lens") || v.toLowerCase().includes("glass") || v.toLowerCase().includes("contact lens")));
+    const isContactLens = (v) => Boolean(v && v.trim().toUpperCase().replace(/[\s_]+/g, "_") === "CONTACT_LENS");
     const isFrameCategory = (v) => Boolean(v && v.toLowerCase().includes("frame"));
     const isRequireImageCategory = (v) => Boolean(v && (v.toLowerCase().includes("frame") || v.toLowerCase().includes("sunglass")));
 
@@ -296,11 +344,38 @@ export default function Inventory() {
     const handleColorChange = (rowIndex, colorIndex, field, value) => {
         const copy = [...rows];
         const colorsCopy = [...(copy[rowIndex].colors || [])];
-        colorsCopy[colorIndex] = { ...colorsCopy[colorIndex], [field]: value };
+        const currentColor = colorsCopy[colorIndex] || createEmptyColor();
+
+        if (field === "imageFile") {
+            if (currentColor.previewUrl) {
+                try { URL.revokeObjectURL(currentColor.previewUrl); } catch (e) { /* ignore */ }
+            }
+            const file = value;
+            const previewUrl = file ? URL.createObjectURL(file) : "";
+            colorsCopy[colorIndex] = {
+                ...currentColor,
+                imageFile: file,
+                previewUrl: previewUrl,
+                productColorImage: ""
+            };
+        } else if (field === "removeImage") {
+            if (currentColor.previewUrl) {
+                try { URL.revokeObjectURL(currentColor.previewUrl); } catch (e) { /* ignore */ }
+            }
+            colorsCopy[colorIndex] = {
+                ...currentColor,
+                imageFile: null,
+                previewUrl: "",
+                productColorImage: ""
+            };
+        } else {
+            colorsCopy[colorIndex] = { ...currentColor, [field]: value };
+        }
+
         copy[rowIndex].colors = colorsCopy;
         
         const totalQty = colorsCopy.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
-        if (totalQty > 0) {
+        if (totalQty > 0 || colorsCopy.some(item => item.qty !== "")) {
             copy[rowIndex].qty = totalQty;
         }
         setRows(copy);
@@ -315,16 +390,20 @@ export default function Inventory() {
 
     const addColorRow = (rowIndex) => {
         const copy = [...rows];
-        copy[rowIndex].colors = [...(copy[rowIndex].colors || []), { color: "", qty: "" }];
+        copy[rowIndex].colors = [...(copy[rowIndex].colors || []), createEmptyColor()];
         setRows(copy);
     };
 
     const removeColorRow = (rowIndex, colorIndex) => {
         const copy = [...rows];
         if (copy[rowIndex].colors?.length > 1) {
+            const toRemove = copy[rowIndex].colors[colorIndex];
+            if (toRemove?.previewUrl) {
+                try { URL.revokeObjectURL(toRemove.previewUrl); } catch (e) { /* ignore */ }
+            }
             copy[rowIndex].colors = copy[rowIndex].colors.filter((_, idx) => idx !== colorIndex);
             const totalQty = copy[rowIndex].colors.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
-            if (totalQty > 0) copy[rowIndex].qty = totalQty;
+            copy[rowIndex].qty = totalQty;
             setRows(copy);
         }
     };
@@ -336,10 +415,30 @@ export default function Inventory() {
             if (!row.productName?.trim()) return `Product Name is required (Row ${i + 1})`;
             if (!row.category) return `Category is required (Row ${i + 1})`;
             if (!row.brand) return `Brand is required (Row ${i + 1})`;
-            if (isRequireImageCategory(row.category) && !row.image) return `Product Image is required for Frame and Sunglass products (Row ${i + 1})`;
-            if (row.price === "" || Number(row.price) <= 0) return `Price must be > 0 (Row ${i + 1})`;
-            if (row.mrp === "" || Number(row.mrp) <= 0) return `MRP must be > 0 (Row ${i + 1})`;
+            const buyingP = row.buyingPrice !== "" && row.buyingPrice != null ? Number(row.buyingPrice) : (row.price !== "" ? Number(row.price) : NaN);
+            if (isNaN(buyingP) || buyingP < 0) return `Buying Price must be >= 0 (Row ${i + 1})`;
+            const mrpVal = Number(row.mrp);
+            if (isNaN(mrpVal) || mrpVal <= 0) return `MRP must be > 0 (Row ${i + 1})`;
+            const sellingP = row.sellingPrice !== "" && row.sellingPrice != null ? Number(row.sellingPrice) : mrpVal;
+            if (isNaN(sellingP) || sellingP <= 0) return `Selling Price must be > 0 (Row ${i + 1})`;
             if (row.qty === "" || Number(row.qty) <= 0) return `Quantity must be > 0 (Row ${i + 1})`;
+
+            if (isRequireImageCategory(row.category) && Array.isArray(row.colors)) {
+                for (let cIdx = 0; cIdx < row.colors.length; cIdx++) {
+                    const c = row.colors[cIdx];
+                    if (!c.color || !c.color.trim()) {
+                        return `Color is required for row ${cIdx + 1} (Product #${i + 1})`;
+                    }
+                    if (c.qty === "" || Number(c.qty) <= 0) {
+                        return `Valid quantity (> 0) is required for color "${c.color}" (Product #${i + 1})`;
+                    }
+                }
+            }
+            if (isContactLens(row.category)) {
+                if (!row.coating?.trim()) return `Coating is required for Contact Lens (Row ${i + 1})`;
+                if (!row.disposability?.trim()) return `Disposability is required for Contact Lens (Row ${i + 1})`;
+                if (!row.expiry) return `Expiry Date is required for Contact Lens (Row ${i + 1})`;
+            }
         }
         return null;
     };
@@ -350,17 +449,66 @@ export default function Inventory() {
         if (errorMessage) { toast.error(errorMessage); return; }
         try {
             const formData = new FormData();
-            const formattedRows = rows.map(r => ({
-                ...r,
-                productCodeSuffix: isLensCategory(r.category) ? productCodeSuffix : undefined
-            }));
-            formData.append("products", JSON.stringify(formattedRows));
-            rows.forEach((row, index) => { if (row.image instanceof File) formData.append(`productImage_${index}`, row.image); });
+
+            // Step 1: Upload invoices per row (files → GCS urls)
+            const invoiceUploadResults = await Promise.all(
+                rows.map(async (product) => {
+                    if (Array.isArray(product.invoices) && product.invoices.length > 0) {
+                        return await uploadMultipleDocuments(product.invoices);
+                    }
+                    return [];
+                })
+            );
+
+            // Step 2: Clean products JSON (omit imageFile, previewUrl, invoices File objects)
+            const sanitizedProducts = rows.map((product, pIndex) => {
+                const { image, invoices: _invoiceFiles, ...rest } = product;
+                const buyingVal = Number(product.buyingPrice !== "" && product.buyingPrice != null ? product.buyingPrice : (product.price || 0));
+                const mrpVal = Number(product.mrp || 0);
+                const sellingVal = Number(product.sellingPrice !== "" && product.sellingPrice != null ? product.sellingPrice : (product.price || mrpVal));
+
+                return {
+                    ...rest,
+                    price: buyingVal,
+                    buyingPrice: buyingVal,
+                    sellingPrice: sellingVal,
+                    mrp: mrpVal,
+                    colors: (product.colors || []).map((c) => ({
+                        color: c.color,
+                        qty: Number(c.qty) || 0,
+                        productColorImage: typeof c.productColorImage === 'string' ? c.productColorImage : ""
+                    })),
+                    // Batch allocation
+                    allocateBatch: product.allocateBatch !== false,
+                    batchNumber: product.batchNumber?.trim() || "",
+                    batchQty: product.batchQty !== "" && product.batchQty !== null && product.batchQty !== undefined
+                        ? Number(product.batchQty) : "",
+                    batchRemarks: product.batchRemarks?.trim() || "",
+                    invoices: invoiceUploadResults[pIndex] || []
+                };
+            });
+            formData.append("products", JSON.stringify(sanitizedProducts));
+
+            // Step 3: Append color binary images using indexed keys: productColorImage_${pIndex}_${cIndex}
+            rows.forEach((product, pIndex) => {
+                if (Array.isArray(product.colors)) {
+                    product.colors.forEach((colorItem, cIndex) => {
+                        if (colorItem.imageFile instanceof File) {
+                            formData.append(`productColorImage_${pIndex}_${cIndex}`, colorItem.imageFile);
+                        }
+                    });
+                }
+            });
+
+            // Step 4: Send POST request
             const res = await api.post("/api/digi/product", formData, { headers: { "Content-Type": "multipart/form-data" } });
             if (res.data.success) {
                 toast.success("Products added successfully");
-                setRows([{ ...emptyRow, id: uuidv4() }]);
+                cleanupColorPreviews(rows);
+                setRows([{ ...emptyRow, id: uuidv4(), colors: [createEmptyColor()] }]);
                 setShowAddProductModal(false);
+                // Refresh the table immediately — no page reload needed
+                triggerInventoryRefresh();
             } else { toast.error(res.data.message || "Something went wrong"); }
         } catch (error) {
             toast.error(error.response?.data?.message || "Failed to save products");
@@ -389,6 +537,10 @@ export default function Inventory() {
                         <button onClick={() => setShowLensRangeModal(true)}
                             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white border border-blue-300 hover:bg-blue-50 text-blue-600 text-xs font-semibold rounded-xl transition shadow-sm">
                             <FiPlus size={13} /> Lens Range
+                        </button>
+                        <button onClick={() => setShowLensMatrixModal(true)}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-xl transition shadow-sm">
+                            <FiGrid size={13} /> Lens Matrix & History
                         </button>
                     </div>
 
@@ -430,31 +582,18 @@ export default function Inventory() {
                 toDate={toDate} setToDate={setToDate}
                 keyword={keyword} setKeyword={setKeyword}
                 triggerSearch={triggerSearch} setTriggerSearch={setTriggerSearch}
+                refreshTrigger={refreshTrigger}
             />
 
             {/* ── Add Product Modal ── */}
             {showAddProductModal && (
-                <Modal onClose={() => setShowAddProductModal(false)} maxWidth="max-w-7xl">
-                    <ModalHeader title="Add Product" subtitle="Fill in product details below" icon={FiPlus} onClose={() => setShowAddProductModal(false)} />
+                <Modal onClose={handleCloseAddProductModal} maxWidth="max-w-7xl">
+                    <ModalHeader title="Add Product" subtitle="Fill in product details below" icon={FiPlus} onClose={handleCloseAddProductModal} />
                     <form onSubmit={submitAddProductForm} className="flex-1 min-h-0 flex flex-col">
                         <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
-                            {rows.some(r => isLensCategory(r.category)) && (
-                                <div className="bg-[#FFFDF5] border border-amber-200/80 rounded-2xl p-4 mb-3">
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">
-                                        Product Code Suffix
-                                    </label>
-                                    <input
-                                        type="text"
-                                        className={`${inputCls} max-w-xs`}
-                                        placeholder="DO"
-                                        value={productCodeSuffix}
-                                        onChange={e => setProductCodeSuffix(e.target.value)}
-                                    />
-                                </div>
-                            )}
-
                             {rows.map((row, i) => {
                                 const isLens = isLensCategory(row.category);
+                                const isContactLensRow = isContactLens(row.category);
                                 const isFrame = isFrameCategory(row.category);
 
                                 return (
@@ -475,7 +614,7 @@ export default function Inventory() {
                                             <FieldInput label="Code *">
                                                 <input type="text" value={row.productCode} className={inputCls} placeholder="e.g. PRD001" onChange={e => handleChange(i, "productCode", e.target.value)} />
                                             </FieldInput>
-                                            <FieldInput label="Name *">
+                                            <FieldInput label="Product Name *">
                                                 <input type="text" value={row.productName} className={inputCls} placeholder="Product name" onChange={e => handleChange(i, "productName", e.target.value)} />
                                             </FieldInput>
                                             <FieldInput label="Category *">
@@ -506,15 +645,18 @@ export default function Inventory() {
 
 
                                             {isLens && (<>
-                                                <FieldInput label="SPH"><input type="text" value={row.sph} className={inputCls} onChange={e => handleChange(i, "sph", e.target.value)} /></FieldInput>
-                                                <FieldInput label="CYL"><input type="text" value={row.cyl} className={inputCls} onChange={e => handleChange(i, "cyl", e.target.value)} /></FieldInput>
-                                                <FieldInput label="Index"><input type="text" value={row.index} className={inputCls} onChange={e => handleChange(i, "index", e.target.value)} /></FieldInput>
-                                                <FieldInput label="Axis"><input type="text" value={row.axis} className={inputCls} onChange={e => handleChange(i, "axis", e.target.value)} /></FieldInput>
+                                                <FieldInput label="SPH"><input type="number" step="0.01" value={row.sph} className={inputCls} onChange={e => handleChange(i, "sph", e.target.value)} /></FieldInput>
+                                                <FieldInput label="CYL"><input type="number" step="0.01" value={row.cyl} className={inputCls} onChange={e => handleChange(i, "cyl", e.target.value)} /></FieldInput>
+                                                <FieldInput label="Index"><input type="number" step="0.01" value={row.index} className={inputCls} onChange={e => handleChange(i, "index", e.target.value)} /></FieldInput>
+                                                <FieldInput label="Axis"><input type="number" step="1" value={row.axis} className={inputCls} onChange={e => handleChange(i, "axis", e.target.value)} /></FieldInput>
 
-                                                <FieldInput label="Addition"><input type="text" value={row.addition} className={inputCls} onChange={e => handleChange(i, "addition", e.target.value)} /></FieldInput>
+                                                <FieldInput label="Addition"><input type="number" step="0.01" value={row.addition} className={inputCls} onChange={e => handleChange(i, "addition", e.target.value)} /></FieldInput>
 
-                                                <FieldInput label="Coating"><input type="text" value={row.coating} className={inputCls} onChange={e => handleChange(i, "coating", e.target.value)} /></FieldInput>
-                                                <FieldInput label="Expiry"><input type="date" value={row.expiry} className={inputCls} onChange={e => handleChange(i, "expiry", e.target.value)} /></FieldInput>
+                                                <FieldInput label={isContactLensRow ? "Coating *" : "Coating"}><input type="text" value={row.coating} className={inputCls} onChange={e => handleChange(i, "coating", e.target.value)} /></FieldInput>
+                                                {isContactLensRow && (
+                                                    <FieldInput label="Disposability *"><input type="text" placeholder="Daily / Monthly" value={row.disposability} className={inputCls} onChange={e => handleChange(i, "disposability", e.target.value)} /></FieldInput>
+                                                )}
+                                                <FieldInput label={isContactLensRow ? "Expiry *" : "Expiry"}><input type="date" value={row.expiry} className={inputCls} onChange={e => handleChange(i, "expiry", e.target.value)} /></FieldInput>
                                                 <FieldInput label="Pair / Single">
                                                     <select value={row.pairOrSingle || "Single"} className={selectCls} onChange={e => handleChange(i, "pairOrSingle", e.target.value)}>
                                                         <option value="Single">Single</option>
@@ -523,19 +665,35 @@ export default function Inventory() {
                                                 </FieldInput>
                                             </>)}
 
-                                            <FieldInput label="Price *">
-                                                <input type="number" value={row.price} className={inputCls} placeholder="0" onChange={e => handleChange(i, "price", e.target.value)} />
+                                            <FieldInput label="Buying Price (₹) *">
+                                                <input
+                                                    type="number"
+                                                    value={row.buyingPrice !== "" ? row.buyingPrice : row.price}
+                                                    className={inputCls}
+                                                    placeholder="e.g. 50"
+                                                    onChange={e => {
+                                                        handleChange(i, "buyingPrice", e.target.value);
+                                                        handleChange(i, "price", e.target.value);
+                                                    }}
+                                                />
                                             </FieldInput>
-                                            <FieldInput label="GST %">
-                                                <select value={row.gst} className={selectCls} onChange={e => handleChange(i, "gst", e.target.value)}>
-                                                    {settings?.gst?.map((p, idx) => <option key={idx} value={p}>{p}%</option>)}
-                                                </select>
+                                            <FieldInput label="Selling Price (₹) *">
+                                                <input
+                                                    type="number"
+                                                    value={row.sellingPrice}
+                                                    className={inputCls}
+                                                    placeholder="e.g. 90"
+                                                    onChange={e => handleChange(i, "sellingPrice", e.target.value)}
+                                                />
                                             </FieldInput>
-                                            <FieldInput label="HSN/SAC">
-                                                <input type="text" value={row.hsnSac} className={inputCls} placeholder="HSN code" onChange={e => handleChange(i, "hsnSac", e.target.value)} />
-                                            </FieldInput>
-                                            <FieldInput label="MRP *">
-                                                <input type="number" value={row.mrp} className={inputCls} placeholder="0" onChange={e => handleChange(i, "mrp", e.target.value)} />
+                                            <FieldInput label="MRP (₹) *">
+                                                <input
+                                                    type="number"
+                                                    value={row.mrp}
+                                                    className={inputCls}
+                                                    placeholder="e.g. 100"
+                                                    onChange={e => handleChange(i, "mrp", e.target.value)}
+                                                />
                                             </FieldInput>
                                             <FieldInput label="Discount (₹)">
                                                 <input type="number" value={row.discount} className={inputCls} placeholder="0" onChange={e => handleChange(i, "discount", e.target.value)} />
@@ -553,25 +711,137 @@ export default function Inventory() {
                                                     ))}
                                                 </select>
                                             </FieldInput>
+                                            <FieldInput label="HSN / SAC Code">
+                                                <input type="text" value={row.hsnSac} className={inputCls} placeholder="e.g. 9001" onChange={e => handleChange(i, "hsnSac", e.target.value)} />
+                                            </FieldInput>
+                                            <FieldInput label="GST %">
+                                                <select value={row.gst} className={selectCls} onChange={e => handleChange(i, "gst", e.target.value)}>
+                                                    <option value="0">0%</option>
+                                                    {(settings?.gst && settings.gst.length > 0 ? settings.gst : [5, 12, 18, 28]).map((p, idx) => <option key={idx} value={p}>{p}%</option>)}
+                                                </select>
+                                            </FieldInput>
 
-                                            {isRequireImageCategory(row.category) && (
-                                                <div className="col-span-full mt-3 pt-3 border-t border-gray-200/80 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    {/* Colors & Quantity */}
-                                                    <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-2xs space-y-2.5">
-                                                        <div className="flex items-center justify-between">
-                                                            <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
-                                                                <span className="w-2 h-2 rounded-full bg-[#2980b9]"></span>
-                                                                Colors & Quantity
+                                            {/* ── Batch Allocation Section ── */}
+                                            <div className="col-span-full mt-1">
+                                                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/70 rounded-2xl p-4">
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="w-2.5 h-2.5 rounded-full bg-[#2980b9]" />
+                                                            <label className="text-[11px] font-bold text-[#1a5276] uppercase tracking-wider">
+                                                                Batch Allocation <span className="text-gray-400 font-normal normal-case">(Optional)</span>
                                                             </label>
-                                                            <span className="text-[10px] text-gray-400 font-medium">
-                                                                Total: {row.colors?.reduce((sum, item) => sum + (Number(item.qty) || 0), 0) || 0} Pcs
+                                                        </div>
+                                                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                                                            <span className="text-[11px] font-semibold text-gray-500">
+                                                                {row.allocateBatch ? 'Enabled' : 'Skip batch'}
+                                                            </span>
+                                                            <div
+                                                                onClick={() => handleChange(i, 'allocateBatch', !row.allocateBatch)}
+                                                                className={`relative w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer ${
+                                                                    row.allocateBatch ? 'bg-[#2980b9]' : 'bg-gray-300'
+                                                                }`}
+                                                            >
+                                                                <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${
+                                                                    row.allocateBatch ? 'translate-x-4' : 'translate-x-0'
+                                                                }`} />
+                                                            </div>
+                                                        </label>
+                                                    </div>
+                                                    {row.allocateBatch && (
+                                                       <>
+                                                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                            <FieldInput label="Batch Number">
+                                                                <input
+                                                                    type="text"
+                                                                    value={row.batchNumber}
+                                                                    className={inputCls}
+                                                                    placeholder="Auto-generated if blank"
+                                                                    onChange={e => handleChange(i, 'batchNumber', e.target.value)}
+                                                                />
+                                                            </FieldInput>
+                                                            <FieldInput label={`Batch Qty (Max: ${row.qty || 0})`}>
+                                                                <input
+                                                                    type="number"
+                                                                    min="1"
+                                                                    max={row.qty || undefined}
+                                                                    value={row.batchQty}
+                                                                    className={inputCls}
+                                                                    placeholder={`Default: full qty (${row.qty || 0})`}
+                                                                    onChange={e => handleChange(i, 'batchQty', e.target.value)}
+                                                                />
+                                                            </FieldInput>
+                                                            <FieldInput label="Batch Remarks">
+                                                                <input
+                                                                    type="text"
+                                                                    value={row.batchRemarks}
+                                                                    className={inputCls}
+                                                                    placeholder="e.g. Initial stock"
+                                                                    onChange={e => handleChange(i, 'batchRemarks', e.target.value)}
+                                                                />
+                                                            </FieldInput>
+                                                        </div>
+                                                    {/* Invoice / Challan Upload */}
+                                                    <div className="mt-3">
+                                                            <label className="text-[10px] font-bold text-gray-600 uppercase tracking-wide block mb-1.5 flex items-center gap-1.5">
+                                                                <FiFileText size={11} className="text-[#2980b9]" /> Invoice / Challan (optional, max 5)
+                                                            </label>
+                                                            <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#eaf4fb] hover:bg-[#d5eaf6] border border-[#2980b9]/30 text-[#1F618D] text-[11px] font-semibold rounded-lg cursor-pointer transition">
+                                                                <FiUpload size={11} />
+                                                                Attach Files
+                                                                <input type="file" multiple accept="application/pdf,image/*" className="hidden"
+                                                                    onChange={e => {
+                                                                        const newFiles = Array.from(e.target.files || []);
+                                                                        handleChange(i, 'invoices', [...(row.invoices || []), ...newFiles].slice(0, 5));
+                                                                        e.target.value = '';
+                                                                    }}
+                                                                />
+                                                            </label>
+                                                            {(row.invoices || []).length > 0 && (
+                                                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                                                    {row.invoices.map((f, fi) => (
+                                                                        <span key={fi} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-medium rounded-full">
+                                                                            <FiFileText size={9} />
+                                                                            {f.name.length > 18 ? f.name.slice(0, 15) + '…' : f.name}
+                                                                            <button type="button" onClick={() => handleChange(i, 'invoices', row.invoices.filter((_, idx) => idx !== fi))} className="text-blue-400 hover:text-red-500 ml-0.5">×</button>
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        </>
+                                                        )}
+
+                                                    {!row.allocateBatch && (
+                                                        <p className="text-[11px] text-gray-400 mt-1">
+                                                            No batch will be created. You can allocate batches later from the Inventory section.
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {(isRequireImageCategory(row.category) || row.category) && (
+                                                <div className="col-span-full mt-3 pt-3 border-t border-gray-200/80">
+                                                    <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-2xs space-y-3">
+                                                        <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="w-2.5 h-2.5 rounded-full bg-[#2980b9]"></span>
+                                                                <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider">
+                                                                    Colors & Variants
+                                                                </label>
+                                                                <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full font-medium hidden sm:inline-block">
+                                                                    {isRequireImageCategory(row.category) ? "Color, stock quantity & color-specific image" : "Optional — add color variants if applicable"}
+                                                                </span>
+                                                            </div>
+                                                            <span className="text-[10px] text-gray-500 font-semibold bg-gray-100/80 px-2.5 py-1 rounded-lg">
+                                                                Total: <strong className="text-gray-800 font-bold">{row.colors?.reduce((sum, item) => sum + (Number(item.qty) || 0), 0) || 0}</strong> Pcs
                                                             </span>
                                                         </div>
 
-                                                        <div className="space-y-2">
+                                                        <div className="space-y-2.5">
                                                             {row.colors?.map((cItem, cIdx) => (
-                                                                <div key={cIdx} className="flex items-center gap-2">
-                                                                    <div className="flex items-center gap-2 bg-gray-50 border border-gray-300 rounded-xl p-1.5 pr-3 flex-1 focus-within:border-[#2980b9] focus-within:ring-2 focus-within:ring-[#2980b9]/20 transition">
+                                                                <div key={cIdx} className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 p-2.5 bg-gray-50/80 rounded-xl border border-gray-200/80 hover:border-gray-300 transition">
+                                                                    {/* Color Picker + Name/Hex */}
+                                                                    <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-xl p-1.5 pr-3 flex-1 min-w-[200px] focus-within:border-[#2980b9] focus-within:ring-2 focus-within:ring-[#2980b9]/20 transition">
                                                                         <input
                                                                             type="color"
                                                                             value={parseColorToHex(cItem.color)}
@@ -582,108 +852,98 @@ export default function Inventory() {
                                                                         <input
                                                                             type="text"
                                                                             className="w-full text-xs font-semibold bg-transparent text-gray-800 outline-none placeholder:text-gray-400"
-                                                                            placeholder="Color name or Hex (e.g. red, #464D59)"
+                                                                            placeholder="Color name or Hex (e.g. red, #3B82F6)"
                                                                             value={cItem.color}
                                                                             onChange={e => handleColorChange(i, cIdx, "color", e.target.value)}
                                                                         />
                                                                     </div>
-                                                                    <input
-                                                                        type="number"
-                                                                        min="0"
-                                                                        className={`${inputCls} max-w-[100px] font-bold`}
-                                                                        placeholder="Qty"
-                                                                        value={cItem.qty}
-                                                                        onChange={e => handleColorChange(i, cIdx, "qty", e.target.value)}
-                                                                    />
+
+                                                                    {/* Qty Input */}
+                                                                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                                        <label className="text-[10px] font-bold text-gray-400 uppercase">Qty</label>
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            className={`${inputCls} w-24 font-bold bg-white`}
+                                                                            placeholder="Qty"
+                                                                            value={cItem.qty}
+                                                                            onChange={e => handleColorChange(i, cIdx, "qty", e.target.value)}
+                                                                        />
+                                                                    </div>
+
+                                                                    {/* Color-specific Image Upload & Preview */}
+                                                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                                                        {(cItem.previewUrl || cItem.productColorImage) ? (
+                                                                            <div className="relative group w-10 h-10 rounded-xl overflow-hidden border border-gray-200 bg-white flex items-center justify-center shadow-xs">
+                                                                                <img
+                                                                                    src={cItem.previewUrl || cItem.productColorImage}
+                                                                                    alt={`Color ${cItem.color} preview`}
+                                                                                    className="w-full h-full object-contain p-0.5"
+                                                                                />
+                                                                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                                                                                    <label className="p-1 text-white hover:text-[#2980b9] cursor-pointer transition" title="Change color image">
+                                                                                        <FiUpload size={12} />
+                                                                                        <input
+                                                                                            type="file"
+                                                                                            accept="image/*"
+                                                                                            className="hidden"
+                                                                                            onChange={e => {
+                                                                                                if (e.target.files && e.target.files[0]) {
+                                                                                                    handleColorChange(i, cIdx, "imageFile", e.target.files[0]);
+                                                                                                }
+                                                                                            }}
+                                                                                        />
+                                                                                    </label>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => handleColorChange(i, cIdx, "removeImage")}
+                                                                                        className="p-1 text-white hover:text-red-400 transition"
+                                                                                        title="Remove color image"
+                                                                                    >
+                                                                                        <FiTrash2 size={12} />
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <label className="flex items-center gap-1.5 px-3 py-2 bg-white border border-dashed border-gray-300 hover:border-[#2980b9] hover:bg-[#2980b9]/5 rounded-xl text-xs font-semibold text-gray-600 hover:text-[#2980b9] cursor-pointer transition shadow-2xs">
+                                                                                <FiImage size={13} className="text-[#2980b9]" />
+                                                                                <span>Upload Image</span>
+                                                                                <input
+                                                                                    type="file"
+                                                                                    accept="image/*"
+                                                                                    className="hidden"
+                                                                                    onChange={e => {
+                                                                                        if (e.target.files && e.target.files[0]) {
+                                                                                            handleColorChange(i, cIdx, "imageFile", e.target.files[0]);
+                                                                                        }
+                                                                                    }}
+                                                                                />
+                                                                            </label>
+                                                                        )}
+                                                                    </div>
+
+                                                                    {/* Remove Color Row Button */}
                                                                     {row.colors.length > 1 && (
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => removeColorRow(i, cIdx)}
-                                                                            className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition"
-                                                                            title="Remove color"
+                                                                            className="p-2 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 transition flex-shrink-0"
+                                                                            title="Remove variant"
                                                                         >
                                                                             <FiTrash2 size={14} />
                                                                         </button>
                                                                     )}
                                                                 </div>
                                                             ))}
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => addColorRow(i)}
-                                                                className="mt-1 px-3.5 py-1.5 border border-dashed border-[#2980b9] text-[#2980b9] hover:bg-blue-50 text-xs font-bold rounded-xl transition flex items-center gap-1.5"
-                                                            >
-                                                                <FiPlus size={13} /> + Color
-                                                            </button>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Product Image Upload & Preview */}
-                                                    <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-2xs space-y-2.5 flex flex-col justify-between">
-                                                        <div className="flex items-center justify-between">
-                                                            <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
-                                                                <FiImage className="text-[#2980b9]" size={14} />
-                                                                Product Image <span className="text-red-500">*</span>
-                                                            </label>
-                                                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                                                                Required
-                                                            </span>
                                                         </div>
 
-                                                        {row.image ? (
-                                                            <div className="relative group rounded-xl overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center min-h-[120px] p-2 flex-1">
-                                                                <img
-                                                                    src={row.image instanceof File ? URL.createObjectURL(row.image) : row.image}
-                                                                    alt="Product Preview"
-                                                                    className="max-h-36 max-w-full object-contain rounded-lg shadow-sm"
-                                                                />
-                                                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                                                    <label className="p-2 bg-white text-gray-700 hover:text-[#2980b9] rounded-xl cursor-pointer shadow-md transition text-xs font-semibold flex items-center gap-1">
-                                                                        <FiUpload size={14} />
-                                                                        <span>Change</span>
-                                                                        <input
-                                                                            type="file"
-                                                                            accept="image/*"
-                                                                            className="hidden"
-                                                                            onChange={e => {
-                                                                                if (e.target.files && e.target.files[0]) {
-                                                                                    handleChange(i, "image", e.target.files[0]);
-                                                                                }
-                                                                            }}
-                                                                        />
-                                                                    </label>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => handleChange(i, "image", null)}
-                                                                        className="p-2 bg-red-600 text-white rounded-xl shadow-md hover:bg-red-700 transition text-xs font-semibold flex items-center gap-1"
-                                                                    >
-                                                                        <FiTrash2 size={14} />
-                                                                        <span>Remove</span>
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        ) : (
-                                                            <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 hover:border-[#2980b9] bg-gray-50/50 hover:bg-blue-50/30 rounded-xl cursor-pointer transition text-center group flex-1 min-h-[120px]">
-                                                                <div className="w-10 h-10 rounded-full bg-blue-50 text-[#2980b9] flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                                                                    <FiUpload size={18} />
-                                                                </div>
-                                                                <span className="text-xs font-bold text-gray-700 group-hover:text-[#2980b9] transition">
-                                                                    Click to upload product image
-                                                                </span>
-                                                                <span className="text-[10px] text-gray-400 mt-0.5">
-                                                                    PNG, JPG, WEBP (Required)
-                                                                </span>
-                                                                <input
-                                                                    type="file"
-                                                                    accept="image/*"
-                                                                    className="hidden"
-                                                                    onChange={e => {
-                                                                        if (e.target.files && e.target.files[0]) {
-                                                                            handleChange(i, "image", e.target.files[0]);
-                                                                        }
-                                                                    }}
-                                                                />
-                                                            </label>
-                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => addColorRow(i)}
+                                                            className="mt-1 px-3.5 py-1.5 border border-dashed border-[#2980b9] text-[#2980b9] hover:bg-blue-50 text-xs font-bold rounded-xl transition flex items-center gap-1.5"
+                                                        >
+                                                            <FiPlus size={13} /> + Color Variant
+                                                        </button>
                                                     </div>
                                                 </div>
                                             )}
@@ -697,7 +957,7 @@ export default function Inventory() {
                             </button>
                         </div>
                         <ModalFooter>
-                            <button type="button" onClick={() => setShowAddProductModal(false)}
+                            <button type="button" onClick={handleCloseAddProductModal}
                                 className="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition">
                                 Cancel
                             </button>
@@ -719,6 +979,15 @@ export default function Inventory() {
                     settings={settings}
                     vendors={vendors}
                     onClose={() => setShowLensRangeModal(false)}
+                    onSuccess={triggerInventoryRefresh}
+                />
+            )}
+
+            {showLensMatrixModal && (
+                <LensMatrixModal
+                    isOpen={showLensMatrixModal}
+                    onClose={() => setShowLensMatrixModal(false)}
+                    onRefreshInventory={triggerInventoryRefresh}
                 />
             )}
         </div>
@@ -771,6 +1040,7 @@ const StepCell = ({ row, field, label, onRangeChange }) => {
             <input
                 type="number"
                 min="0.01"
+                max="4.00"
                 step="0.01"
                 placeholder="0.25"
                 value={row[field]}
@@ -798,7 +1068,7 @@ const makeEmptyRangeRow = () => ({
     errors: {},
 });
 
-export function LensRangeModal({ settings, vendors, onClose }) {
+export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
     const DEFAULT_STEP = 0.25;
     const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -821,7 +1091,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
     const [form, setForm] = useState({
         productName: "", category: "", brand: "",
         coating: "", material: "", index: "",
-        price: "", mrp: "", gst: "12", hsnSac: "9001",
+        price: "", buyingPrice: "", sellingPrice: "", mrp: "", gst: "12", hsnSac: "9001",
         qty: "", discount: "0",
         vendorNumber: "", vendorName: "",
         prefix: "DO",
@@ -841,7 +1111,11 @@ export function LensRangeModal({ settings, vendors, onClose }) {
     const handleFormChange = (e) => {
         const { name, value } = e.target;
         setForm(prev => {
-            const next = { ...prev, [name]: value };
+            const next = {
+                ...prev,
+                [name]: value,
+                ...(name === "buyingPrice" ? { price: value } : {}),
+            };
             if (name === "category") {
                 if (value && !isLensCat(value)) {
                     setCategoryError("Only Lens, Glass, or Contact Lens categories are allowed here.");
@@ -861,11 +1135,41 @@ export function LensRangeModal({ settings, vendors, onClose }) {
             const errors = { ...row.errors };
 
             if (field === "sphStep" || field === "cylStep" || field === "addStep") {
-                if (value !== "" && !isPositiveStep(value)) {
-                    errors[field] = "Step must be > 0";
+                const num = parseFloat(value);
+                if (value !== "") {
+                    if (!isPositiveStep(value)) {
+                        errors[field] = "Step must be > 0";
+                    } else if (num > 4) {
+                        errors[field] = `Use decimal (e.g. 0.25, not ${value})`;
+                    } else {
+                        delete errors[field];
+                    }
                 } else {
                     delete errors[field];
                 }
+
+                // Re-validate associated range fields immediately with the new step
+                const newStep = parseFloat(value) || DEFAULT_STEP;
+                const relatedFields = field === "sphStep"
+                    ? ["sphFrom", "sphTo"]
+                    : field === "cylStep"
+                        ? ["cylFrom", "cylTo"]
+                        : ["additionFrom", "additionTo"];
+
+                for (const rf of relatedFields) {
+                    const rVal = row[rf];
+                    if (rVal !== "" && !isNaN(parseFloat(rVal))) {
+                        if (!isValidStep(rVal, newStep)) {
+                            const nearest = (Math.round(parseFloat(rVal) / newStep) * newStep).toFixed(2);
+                            errors[rf] = `Must be a multiple of ${newStep} (nearest: ${nearest})`;
+                        } else {
+                            delete errors[rf];
+                        }
+                    } else {
+                        delete errors[rf];
+                    }
+                }
+
                 return { ...row, [field]: value, errors };
             }
 
@@ -997,7 +1301,11 @@ export function LensRangeModal({ settings, vendors, onClose }) {
                 return toast.error(`Row ${ri + 1}: Check SPH/CYL range — values must be valid multiples of their steps.`);
             combos.forEach(c => allCombos.push({
                 ...c, rowIndex: ri,
-                price: form.price, mrp: form.mrp, qty: form.qty
+                buyingPrice: form.buyingPrice,
+                sellingPrice: form.sellingPrice,
+                price: form.buyingPrice || form.price,
+                mrp: form.mrp,
+                qty: form.qty
             }));
         }
         if (allCombos.length === 0) return toast.error("No combinations generated. Fill at least one range row.");
@@ -1040,31 +1348,39 @@ export function LensRangeModal({ settings, vendors, onClose }) {
 
         for (let i = 0; i < previewRows.length; i++) {
             const r = previewRows[i];
-            if (!r.price || Number(r.price) <= 0) return toast.error(`Row ${i + 1}: Price must be > 0`);
+            const bPrice = r.buyingPrice !== "" && r.buyingPrice != null ? r.buyingPrice : r.price;
+            if (!bPrice || Number(bPrice) <= 0) return toast.error(`Row ${i + 1}: Buying Price must be > 0`);
+            if (!r.sellingPrice || Number(r.sellingPrice) <= 0) return toast.error(`Row ${i + 1}: Selling Price must be > 0`);
             if (!r.mrp || Number(r.mrp) <= 0) return toast.error(`Row ${i + 1}: MRP must be > 0`);
             if (!r.qty || Number(r.qty) <= 0) return toast.error(`Row ${i + 1}: Qty must be > 0`);
         }
 
-        const products = previewRows.map(({ sph, cyl, addition, price, mrp, qty }, i) => ({
-            productCode: `${i + 1}${form.prefix.trim().toUpperCase() || "DO"}`,
-            productName: form.productName.trim().toUpperCase(),
-            category: form.category.trim().toUpperCase(),
-            brand: form.brand,
-            coating: form.coating,
-            material: form.material,
-            addition: addition || "",
-            index: form.index,
-            sph,
-            cyl,
-            price: Number(price),
-            mrp: Number(mrp),
-            gst: Number(form.gst),
-            hsnSac: form.hsnSac,
-            qty: Number(qty),
-            discount: Number(form.discount) || 0,
-            vendorNumber: form.vendorNumber,
-            vendorName: form.vendorName,
-        }));
+        const products = previewRows.map(({ sph, cyl, addition, buyingPrice, sellingPrice, price, mrp, qty }, i) => {
+            const bVal = Number(buyingPrice !== "" && buyingPrice != null ? buyingPrice : (price || 0));
+            const sVal = Number(sellingPrice !== "" && sellingPrice != null ? sellingPrice : (mrp || 0));
+            return {
+                productCode: `${i + 1}${form.prefix.trim().toUpperCase() || "DO"}`,
+                productName: form.productName.trim().toUpperCase(),
+                category: form.category.trim().toUpperCase(),
+                brand: form.brand,
+                coating: form.coating,
+                material: form.material,
+                addition: addition || "",
+                index: form.index,
+                sph,
+                cyl,
+                price: bVal,
+                buyingPrice: bVal,
+                sellingPrice: sVal,
+                mrp: Number(mrp),
+                gst: Number(form.gst),
+                hsnSac: form.hsnSac,
+                qty: Number(qty),
+                discount: Number(form.discount) || 0,
+                vendorNumber: form.vendorNumber,
+                vendorName: form.vendorName,
+            };
+        });
 
         setSubmitting(true);
         try {
@@ -1074,6 +1390,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
             });
             if (res.data.success) {
                 toast.success(`${res.data.count} lens products created successfully.`);
+                if (onSuccess) onSuccess();
                 onClose();
             } else {
                 toast.error(res.data.message || "Upload failed.");
@@ -1212,9 +1529,10 @@ export function LensRangeModal({ settings, vendors, onClose }) {
                             Default Pricing
                             <span className="normal-case font-normal text-gray-400 ml-1">(editable per row in preview)</span>
                         </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
                             {[
-                                { label: "Price *", name: "price", type: "number", placeholder: "0" },
+                                { label: "Buying Price *", name: "buyingPrice", type: "number", placeholder: "0" },
+                                { label: "Selling Price *", name: "sellingPrice", type: "number", placeholder: "0" },
                                 { label: "MRP *", name: "mrp", type: "number", placeholder: "0" },
                                 { label: "HSN/SAC", name: "hsnSac", type: "text", placeholder: "9001" },
                                 { label: "Discount (₹)", name: "discount", type: "number", placeholder: "0" },
@@ -1437,7 +1755,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
                                         </span>
                                     )}
                                     <span className="normal-case font-normal text-gray-400 ml-1 text-[10px]">
-                                        (Price, MRP, Qty editable)
+                                        (Buying Price, Selling Price, MRP, Qty editable)
                                     </span>
                                 </h3>
                                 <div className="relative flex-shrink-0">
@@ -1464,7 +1782,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
                                 <table className="w-full text-xs border-collapse">
                                     <thead>
                                         <tr className="bg-gray-100 border-b border-gray-200">
-                                            {["#", "Code", "Product Name", "SPH", "CYL", "Addition", "Price ✎", "MRP ✎", "Qty ✎", ""].map(h => (
+                                            {["#", "Code", "Product Name", "SPH", "CYL", "Addition", "Buying Price ✎", "Selling Price ✎", "MRP ✎", "Qty ✎", ""].map(h => (
                                                 <th key={h} className="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">
                                                     {h}
                                                 </th>
@@ -1474,7 +1792,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
                                     <tbody>
                                         {filteredPreviewRows.length === 0 ? (
                                             <tr>
-                                                <td colSpan={9} className="px-4 py-8 text-center text-xs text-gray-400">
+                                                <td colSpan={11} className="px-4 py-8 text-center text-xs text-gray-400">
                                                     No rows match "
                                                     <span className="font-semibold text-gray-500">{previewSearch}</span>"
                                                 </td>
@@ -1501,22 +1819,40 @@ export function LensRangeModal({ settings, vendors, onClose }) {
                                                         </td>
                                                         <td className="px-2 py-1">
                                                             <input
-                                                                type="number" value={row.price}
-                                                                onChange={e => handlePreviewEdit(origIdx, "price", e.target.value)}
+                                                                type="number"
+                                                                value={row.buyingPrice !== undefined ? row.buyingPrice : (row.price || "")}
+                                                                onChange={e => {
+                                                                    handlePreviewEdit(origIdx, "buyingPrice", e.target.value);
+                                                                    handlePreviewEdit(origIdx, "price", e.target.value);
+                                                                }}
+                                                                placeholder="0"
                                                                 className="w-20 px-2 py-1 text-xs border border-orange-200 rounded-lg outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-100 bg-orange-50 text-gray-700 text-center"
                                                             />
                                                         </td>
                                                         <td className="px-2 py-1">
                                                             <input
-                                                                type="number" value={row.mrp}
+                                                                type="number"
+                                                                value={row.sellingPrice !== undefined ? row.sellingPrice : ""}
+                                                                onChange={e => handlePreviewEdit(origIdx, "sellingPrice", e.target.value)}
+                                                                placeholder="0"
+                                                                className="w-20 px-2 py-1 text-xs border border-orange-200 rounded-lg outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-100 bg-orange-50 text-gray-700 text-center"
+                                                            />
+                                                        </td>
+                                                        <td className="px-2 py-1">
+                                                            <input
+                                                                type="number"
+                                                                value={row.mrp}
                                                                 onChange={e => handlePreviewEdit(origIdx, "mrp", e.target.value)}
+                                                                placeholder="0"
                                                                 className="w-20 px-2 py-1 text-xs border border-orange-200 rounded-lg outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-100 bg-orange-50 text-gray-700 text-center"
                                                             />
                                                         </td>
                                                         <td className="px-2 py-1">
                                                             <input
-                                                                type="number" value={row.qty}
+                                                                type="number"
+                                                                value={row.qty}
                                                                 onChange={e => handlePreviewEdit(origIdx, "qty", e.target.value)}
+                                                                placeholder="1"
                                                                 className="w-16 px-2 py-1 text-xs border border-orange-200 rounded-lg outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-100 bg-orange-50 text-gray-700 text-center"
                                                             />
                                                         </td>
@@ -1540,7 +1876,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
                                 {previewSearch && filteredPreviewRows.length !== previewRows.length
                                     ? `Showing ${filteredPreviewRows.length} of ${previewRows.length} products — `
                                     : `Showing all ${previewRows.length} products — `}
-                                edit Price, MRP or Qty inline, or delete unwanted rows before submitting.
+                                edit Buying Price, Selling Price, MRP or Qty inline, or delete unwanted rows before submitting.
                             </p>
                         </div>
                     )}
@@ -1578,7 +1914,7 @@ export function LensRangeModal({ settings, vendors, onClose }) {
 }
 
 // ─── InventoryTable ───────────────────────────────────────────────────────────
-function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, setKeyword, triggerSearch, setTriggerSearch }) {
+function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, setKeyword, triggerSearch, setTriggerSearch, refreshTrigger }) {
     const [data, setData] = useState([]);
     const [filteredData, setFilteredData] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
@@ -1587,14 +1923,27 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
     const [globalFilter, setGlobalFilter] = useState("");
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
-    // const [vendors, setVendors] = useState([]);
 
     const [openEditProductModal, setOpenEditProductModal] = useState(false);
     const [openInventoryModal, setOpenInventoryModal] = useState(false);
     const [openInventoryHistoryTableModal, setOpenInventoryHistoryTableModal] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
 
+    const handleOpenProductDetailsModal = (product) => {
+        setSelectedProduct(product);
+        setOpenInventoryHistoryTableModal(true);
+    };
+
     const settings = useSelector((state) => state.settings.data);
+    const dispatch = useDispatch();
+    // Ensure settings (categories, GST) are loaded even if this component mounts independently
+    useEffect(() => { dispatch(fetchSettings()); }, [dispatch]);
+    const [vendors, setVendors] = useState([]);
+    useEffect(() => {
+        api.get("/api/vendor")
+            .then(res => { if (res.data?.success) setVendors(res.data.vendors || []); })
+            .catch(err => console.error("Failed to fetch vendors:", err));
+    }, []);
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
     const [totalPages, setTotalPages] = useState(1);
@@ -1604,8 +1953,121 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
     const [openBarcodeModal, setOpenBarcodeModal] = useState(false);
     const [barcodeProduct, setBarcodeProduct] = useState(null);
 
+    const [openBatchModal, setOpenBatchModal] = useState(false);
+    const [batchProduct, setBatchProduct] = useState(null);
+    const [productBatches, setProductBatches] = useState([]);
+    const [batchSummary, setBatchSummary] = useState({ totalStock: 0, allocatedQty: 0, unallocatedQty: 0 });
+    const [loadingBatches, setLoadingBatches] = useState(false);
+    const [allocatingBatch, setAllocatingBatch] = useState(false);
+    const [batchFormData, setBatchFormData] = useState({
+        batchNumber: '',
+        qty: '',
+        costPrice: '',
+        buyingPrice: '',
+        sellingPrice: '',
+        mrp: '',
+        remarks: ''
+    });
+
+    const fetchBatchesForSelectedProduct = useCallback(async (productId) => {
+        if (!productId) return;
+        setLoadingBatches(true);
+        try {
+            const res = await getBatchesForProduct(productId, 'ALL');
+            const batchList = res?.data?.batches || res?.batches || [];
+            const totalStock = res?.data?.totalStock ?? res?.totalStock ?? 0;
+            const allocatedQty = res?.data?.allocatedQty ?? res?.allocatedQty ?? 0;
+            const unallocatedQty = res?.data?.unallocatedQty ?? res?.unallocatedQty ?? 0;
+
+            setProductBatches(batchList);
+            setBatchSummary({ totalStock, allocatedQty, unallocatedQty });
+            setBatchFormData(prev => ({
+                ...prev,
+                qty: unallocatedQty > 0 ? unallocatedQty : 0,
+                buyingPrice: prev.buyingPrice !== '' ? prev.buyingPrice : (res?.data?.buyingPrice ?? ''),
+                sellingPrice: prev.sellingPrice !== '' ? prev.sellingPrice : (res?.data?.sellingPrice ?? ''),
+                mrp: prev.mrp !== '' ? prev.mrp : (res?.data?.mrp ?? '')
+            }));
+        } catch (err) {
+            console.error("Failed to load product batches:", err);
+        } finally {
+            setLoadingBatches(false);
+        }
+    }, []);
+
+    const handleOpenBatchModal = (product) => {
+        setBatchProduct(product);
+        setBatchSummary({ totalStock: product.qty || 0, allocatedQty: 0, unallocatedQty: product.qty || 0 });
+        const bPrice = product.buyingPrice != null ? product.buyingPrice : (product.price || '');
+        const sPrice = product.sellingPrice != null ? product.sellingPrice : (product.price || '');
+        const mPrice = product.mrp != null ? product.mrp : '';
+        setBatchFormData({
+            batchNumber: '',
+            qty: product.qty || 1,
+            costPrice: bPrice,
+            buyingPrice: bPrice,
+            sellingPrice: sPrice,
+            mrp: mPrice,
+            remarks: 'Manual batch allocation from Inventory'
+        });
+        setOpenBatchModal(true);
+        fetchBatchesForSelectedProduct(product._id);
+    };
+
+    const handleAllocateBatchSubmit = async (e) => {
+        e.preventDefault();
+        if (!batchProduct?._id) return;
+
+        const reqQty = Number(batchFormData.qty) || 0;
+        if (reqQty <= 0) {
+            toast.error("Please enter a valid allocated quantity (> 0)");
+            return;
+        }
+        if (reqQty > batchSummary.unallocatedQty) {
+            toast.error(`Allocated quantity (${reqQty}) cannot exceed remaining unallocated quantity (${batchSummary.unallocatedQty})`);
+            return;
+        }
+
+        setAllocatingBatch(true);
+        try {
+            const bPrice = batchFormData.buyingPrice !== '' ? Number(batchFormData.buyingPrice) : (Number(batchFormData.costPrice) || 0);
+            const sPrice = batchFormData.sellingPrice !== '' ? Number(batchFormData.sellingPrice) : 0;
+            const mPrice = batchFormData.mrp !== '' ? Number(batchFormData.mrp) : 0;
+
+            const res = await allocateManualBatch({
+                productId: batchProduct._id,
+                batchNumber: batchFormData.batchNumber,
+                qty: reqQty,
+                costPrice: bPrice,
+                buyingPrice: bPrice,
+                sellingPrice: sPrice,
+                mrp: mPrice,
+                remarks: batchFormData.remarks
+            });
+            toast.success(res?.message || "Batch allocated successfully!");
+            setBatchFormData({ 
+                batchNumber: '', 
+                qty: 0, 
+                costPrice: bPrice, 
+                buyingPrice: bPrice, 
+                sellingPrice: sPrice, 
+                mrp: mPrice, 
+                remarks: '' 
+            });
+            fetchBatchesForSelectedProduct(batchProduct._id);
+        } catch (err) {
+            toast.error(err?.message || "Failed to allocate batch");
+        } finally {
+            setAllocatingBatch(false);
+        }
+    };
+
     // ── Row selection state ───────────────────────────────────────────────────
     // Map of rowId (_id) → product object for selected rows
+    // ── Table View & Collapsible Column Section State (Zero Scroll Mode) ──────
+    const [expandedGroups, setExpandedGroups] = useState({ powers: false, specs: false });
+    const toggleGroup = (groupKey) => setExpandedGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }));
+
     const [selectedRows, setSelectedRows] = useState({});
     // Pre-filled products array for bulk modals
     const [bulkStockProducts, setBulkStockProducts] = useState(null);   // null = not open
@@ -1672,6 +2134,17 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
 
     useEffect(() => { fetchProducts(1, false); }, []);
 
+    // Re-fetch when parent signals a change (product added/bulk-uploaded)
+    useEffect(() => {
+        if (refreshTrigger > 0) {
+            // Reset search state AND the quick-search filter so fresh data is visible
+            setIsSearching(false);
+            setFilteredData([]);
+            setGlobalFilter(""); // clear the quick search box
+            fetchProducts(1, false);
+        }
+    }, [refreshTrigger]);
+
     const handleLoadMore = () => {
         if (!hasMore || loadingMore) return;
         const nextPage = page + 1;
@@ -1693,6 +2166,7 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                 setData(prev => prev.filter(p => p._id !== product._id));
                 setFilteredData(prev => prev.filter(p => p._id !== product._id));
                 setSelectedRows(prev => { const n = { ...prev }; delete n[product._id]; return n; });
+                setTotalProducts(prev => Math.max(0, prev - 1));
                 Swal.fire({ icon: "success", title: "Deleted!", timer: 1500, showConfirmButton: false });
             }
         } catch (error) {
@@ -1700,17 +2174,83 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
         }
     };
 
-    const emptyInventoryRow = { productCode: "", qty: "", expiry: "", price: "", gst: "0", total: "", mrp: "" /*, vendorId: "", vendorName: "" */ };
+    const handleDeleteBulkProducts = async () => {
+        const idsToDelete = Object.keys(selectedRows);
+        if (idsToDelete.length === 0) return;
+
+        const result = await Swal.fire({
+            title: "Delete Selected Products?",
+            text: `Are you sure you want to permanently delete ${idsToDelete.length} selected product(s)? This action cannot be undone.`,
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#dc2626",
+            cancelButtonColor: "#6b7280",
+            confirmButtonText: `Yes, delete ${idsToDelete.length} product(s)`,
+        });
+
+        if (!result.isConfirmed) return;
+
+        try {
+            Swal.fire({ title: "Deleting selected products...", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            const res = await api.post("/api/digi/product/delete-bulk", { ids: idsToDelete });
+            if (res.data.success) {
+                const deletedIdSet = new Set(idsToDelete);
+                const actualDeleted = res.data.deletedCount || idsToDelete.length;
+                setData(prev => prev.filter(p => !deletedIdSet.has(p._id)));
+                setFilteredData(prev => prev.filter(p => !deletedIdSet.has(p._id)));
+                setSelectedRows({});
+                setTotalProducts(prev => Math.max(0, prev - actualDeleted));
+                Swal.fire({
+                    icon: "success",
+                    title: "Deleted!",
+                    text: `${actualDeleted} product(s) deleted successfully.`,
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            }
+        } catch (error) {
+            Swal.fire({
+                icon: "error",
+                title: "Error Deleting Products",
+                text: error.response?.data?.message || error.message || "Failed to delete selected products."
+            });
+        }
+    };
+
+    const emptyInventoryRow = {
+        productCode: "",
+        productName: "",
+        qty: "",
+        batchNumber: "",
+        expiry: "",
+        inwardDate: new Date().toISOString().split("T")[0],
+        buyingPrice: "",
+        sellingPrice: "",
+        price: "",
+        gst: "0",
+        total: "",
+        mrp: "",
+        vendorId: "",
+        vendorName: "",
+        coating: "",
+        disposability: "",
+        remarks: "",
+        invoices: []  // File[] — invoice/challan files for this inward
+    };
     const [inventoryRows, setInventoryRows] = useState([{ ...emptyInventoryRow }]);
+    const [submittingInventory, setSubmittingInventory] = useState(false);
 
     const updateRow = (index, field, value) => {
         setInventoryRows(prev => prev.map((row, i) => {
             if (i !== index) return row;
             const updatedRow = { ...row, [field]: field === "qty" ? Math.floor(Number(value)) : value };
+            if (field === "buyingPrice") {
+                updatedRow.price = value;
+            }
             const qty = Number(updatedRow.qty) || 0;
-            const price = Number(updatedRow.price) || 0;
+            const cost = Number(updatedRow.buyingPrice || updatedRow.price) || 0;
             const gst = Number(updatedRow.gst) || 0;
-            updatedRow.total = (qty * price * (1 + gst / 100)).toFixed(2);
+            updatedRow.total = (qty * cost * (1 + gst / 100)).toFixed(2);
             return updatedRow;
         }));
     };
@@ -1718,13 +2258,32 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
     const addInventoryRow = () => setInventoryRows(prev => [...prev, { ...emptyInventoryRow }]);
     const removeInventoryRow = (index) => setInventoryRows(prev => prev.length === 1 ? prev : prev.filter((_, i) => i !== index));
 
+    const isContactLens = (cat) => {
+        if (!cat) return false;
+        const c = cat.trim().toUpperCase().replace(/[\s_]+/g, " ");
+        return c === "CONTACT LENS" || c === "CONTACT_LENS";
+    };
+
     const validateInventoryRows = () => {
         for (let i = 0; i < inventoryRows.length; i++) {
             const row = inventoryRows[i];
             if (!row.productCode?.trim()) return `Product Code is required (Row ${i + 1})`;
             if (!row.qty || Number(row.qty) <= 0) return `Quantity must be > 0 (Row ${i + 1})`;
-            if (row.price === "" || Number(row.price) < 0) return `Price must be > 0 (Row ${i + 1})`;
-            if (row.mrp === "" || Number(row.mrp) < 0) return `MRP must be > 0 (Row ${i + 1})`;
+            const buyingP = row.buyingPrice !== "" ? Number(row.buyingPrice) : Number(row.price);
+            if (isNaN(buyingP) || buyingP < 0) return `Buying Price must be >= 0 (Row ${i + 1})`;
+            const sellingP = row.sellingPrice !== "" ? Number(row.sellingPrice) : Number(row.price);
+            if (isNaN(sellingP) || sellingP < 0) return `Selling Price must be >= 0 (Row ${i + 1})`;
+            if (row.mrp === "" || Number(row.mrp) < 0) return `MRP must be >= 0 (Row ${i + 1})`;
+
+            // Contact Lens: coating, disposability, expiry are required
+            const productCategory = row.category ||
+                (bulkProducts?.[i]?.category) ||
+                "";
+            if (isContactLens(productCategory)) {
+                if (!row.coating?.trim())       return `Coating is required for Contact Lens (Row ${i + 1})`;
+                if (!row.disposability?.trim()) return `Disposability is required for Contact Lens (Row ${i + 1})`;
+                if (!row.expiry)                return `Expiry Date is required for Contact Lens (Row ${i + 1})`;
+            }
         }
         return null;
     };
@@ -1733,17 +2292,76 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
         e.preventDefault();
         const err = validateInventoryRows();
         if (err) { Swal.fire({ icon: "error", title: "Validation Error", text: err }); return; }
+        setSubmittingInventory(true);
         try {
-            const res = await api.post("/api/digi/product/add/inventory", { items: inventoryRows });
+            // Upload invoice files for each row (if any)
+            const itemsWithUploadedInvoices = await Promise.all(
+                inventoryRows.map(async (row) => {
+                    let uploadedInvoices = [];
+                    if (Array.isArray(row.invoices) && row.invoices.length > 0) {
+                        uploadedInvoices = await uploadMultipleDocuments(row.invoices);
+                    }
+                    const { invoices: _files, ...rest } = row;
+                    return { ...rest, invoices: uploadedInvoices };
+                })
+            );
+
+            const res = await api.post("/api/digi/product/add/inventory", { items: itemsWithUploadedInvoices });
             if (res.data.success) {
-                Swal.fire({ icon: "success", title: "Success", text: "Inventory added successfully" });
+                // Real-time table state update
+                if (res.data.updated && Array.isArray(res.data.updated)) {
+                    const updatedMap = new Map(res.data.updated.map(u => [u.productCode, u]));
+                    setData(prev => prev.map(p => {
+                        const u = updatedMap.get(p.productCode);
+                        if (!u) return p;
+                        return {
+                            ...p,
+                            qty: u.qty,
+                            buyingPrice: u.buyingPrice,
+                            sellingPrice: u.sellingPrice,
+                            mrp: u.mrp,
+                            price: u.buyingPrice,
+                            vendor: u.vendor || p.vendor,
+                            expiry: u.expiry || p.expiry
+                        };
+                    }));
+                    setFilteredData(prev => prev.map(p => {
+                        const u = updatedMap.get(p.productCode);
+                        if (!u) return p;
+                        return {
+                            ...p,
+                            qty: u.qty,
+                            buyingPrice: u.buyingPrice,
+                            sellingPrice: u.sellingPrice,
+                            mrp: u.mrp,
+                            price: u.buyingPrice,
+                            vendor: u.vendor || p.vendor,
+                            expiry: u.expiry || p.expiry
+                        };
+                    }));
+                }
+
+                // Keep pagination and background metrics synced
+                fetchProducts(page, false, fetchLimit);
+
+                Swal.fire({
+                    icon: "success",
+                    title: "Inventory & Batch Created!",
+                    text: res.data.message || "Stock level updated and new batch created successfully."
+                });
                 setOpenInventoryModal(false);
                 setBulkStockProducts(null);
                 setInventoryRows([{ ...emptyInventoryRow }]);
                 clearSelection();
             }
         } catch (error) {
-            Swal.fire({ icon: "error", title: "Error", text: error.message || error.response?.data?.message || "Something went wrong" });
+            Swal.fire({
+                icon: "error",
+                title: "Error Adding Inventory",
+                text: error.response?.data?.message || error.message || "Something went wrong"
+            });
+        } finally {
+            setSubmittingInventory(false);
         }
     };
 
@@ -1755,15 +2373,22 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
         try {
             setLoading(true); setPage(1);
             const res = await api.post("/api/digi/product/search", { startDate: fromDate || undefined, endDate: toDate || undefined, keyword: keyword || undefined });
-            if (res.data.success) { setFilteredData(res.data.products || []); setIsSearching(true); }
-            else toast.info(res.data.message);
+            if (res.data.success) {
+                setFilteredData(res.data.products || []);
+                setIsSearching(true);
+            } else {
+                setFilteredData([]);
+                setIsSearching(true);
+                toast.info(res.data.message || "No products found matching your filter");
+            }
         } catch (err) { toast.error(err.response?.data?.message || "Search failed"); }
         finally { setLoading(false); }
     };
 
     const handleResetSearch = () => {
         setFromDate(""); setToDate(""); setKeyword("");
-        setFilteredData([]); setIsSearching(false); setPage(1);
+        setFilteredData([]); setIsSearching(false); setGlobalFilter(""); setPage(1);
+        fetchProducts(1, false);
     };
 
     useEffect(() => {
@@ -1777,9 +2402,18 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
         const preFilled = selectedProductsList.map(p => ({
             ...emptyInventoryRow,
             productCode: p.productCode || "",
+            productName: p.productName || "",
             mrp: p.mrp ? String(p.mrp) : "",
-            price: p.price ? String(p.price) : "",
+            buyingPrice: p.buyingPrice != null ? String(p.buyingPrice) : (p.price ? String(p.price) : ""),
+            sellingPrice: p.sellingPrice != null ? String(p.sellingPrice) : (p.price ? String(p.price) : ""),
+            price: p.buyingPrice != null ? String(p.buyingPrice) : (p.price ? String(p.price) : ""),
             gst: p.gst ? String(p.gst) : "0",
+            vendorId: p.vendor?.id || "",
+            vendorName: p.vendor?.name || "",
+            batchNumber: "",
+            inwardDate: new Date().toISOString().split("T")[0],
+            expiry: p.expiry ? new Date(p.expiry).toISOString().split("T")[0] : "",
+            remarks: "Bulk stock inward"
         }));
         setInventoryRows(preFilled.length > 0 ? preFilled : [{ ...emptyInventoryRow }]);
         setBulkStockProducts(selectedProductsList);
@@ -1790,6 +2424,41 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
     const openBulkBarcode = () => {
         setBulkBarcodeProducts(selectedProductsList);
         setOpenBarcodeModal(true);
+    };
+
+    // Column dimension and alignment metadata to keep compact fields from expanding
+    const INVENTORY_COLUMN_META = {
+        select: { width: "40px", minWidth: "40px", maxWidth: "40px", align: "text-center", px: "px-1" },
+        actions: { width: "155px", minWidth: "155px", maxWidth: "160px", align: "text-center", px: "px-1" },
+        createdAt: { width: "85px", minWidth: "80px", maxWidth: "90px", align: "text-center font-medium text-gray-600 text-xs", px: "px-1.5" },
+        productCode: { width: "105px", minWidth: "100px", maxWidth: "115px", align: "text-center", px: "px-1.5" },
+        productName: { width: "200px", minWidth: "160px", maxWidth: "250px", align: "text-left font-bold text-gray-800", px: "px-2" },
+        category: { width: "110px", minWidth: "95px", maxWidth: "125px", align: "text-left font-semibold text-gray-700 uppercase text-[11px]", px: "px-2" },
+        brand: { width: "105px", minWidth: "90px", maxWidth: "120px", align: "text-left font-semibold text-gray-600 uppercase text-[11px]", px: "px-2" },
+        image: { width: "70px", minWidth: "65px", maxWidth: "75px", align: "text-center", px: "px-1" },
+        qty: { width: "55px", minWidth: "50px", maxWidth: "60px", align: "text-center font-bold text-gray-900", px: "px-1" },
+        buyingPrice: { width: "90px", minWidth: "80px", maxWidth: "100px", align: "text-center font-semibold text-amber-700", px: "px-1.5" },
+        sellingPrice: { width: "90px", minWidth: "80px", maxWidth: "100px", align: "text-center font-bold text-emerald-700", px: "px-1.5" },
+        mrp: { width: "70px", minWidth: "60px", maxWidth: "80px", align: "text-center font-medium text-gray-600", px: "px-1" },
+        gst: { width: "55px", minWidth: "50px", maxWidth: "60px", align: "text-center font-semibold text-blue-700", px: "px-1" },
+        powersSummary: { width: "125px", minWidth: "115px", maxWidth: "135px", align: "text-center font-mono font-medium text-amber-800 bg-amber-50/20", px: "px-2" },
+        specsSummary: { width: "140px", minWidth: "125px", maxWidth: "155px", align: "text-center font-medium text-gray-700 bg-blue-50/20", px: "px-2" },
+        sph: { width: "55px", minWidth: "50px", maxWidth: "65px", align: "text-center font-mono font-medium text-gray-700", px: "px-1" },
+        cyl: { width: "55px", minWidth: "50px", maxWidth: "65px", align: "text-center font-mono font-medium text-gray-700", px: "px-1" },
+        axis: { width: "50px", minWidth: "45px", maxWidth: "60px", align: "text-center font-mono font-medium text-gray-700", px: "px-1" },
+        addition: { width: "50px", minWidth: "45px", maxWidth: "60px", align: "text-center font-mono font-medium text-gray-700", px: "px-1" },
+        dimensions: { width: "100px", minWidth: "90px", maxWidth: "115px", align: "text-center font-medium text-gray-600", px: "px-1.5" },
+        material: { width: "90px", minWidth: "80px", maxWidth: "100px", align: "text-center font-medium text-gray-600", px: "px-1.5" },
+        color: { width: "75px", minWidth: "65px", maxWidth: "85px", align: "text-center font-medium text-gray-600", px: "px-1" },
+        shape: { width: "80px", minWidth: "70px", maxWidth: "90px", align: "text-center font-medium text-gray-600", px: "px-1" },
+        size: { width: "55px", minWidth: "50px", maxWidth: "60px", align: "text-center font-medium text-gray-600", px: "px-1" },
+        type: { width: "75px", minWidth: "65px", maxWidth: "85px", align: "text-center font-medium text-gray-600", px: "px-1" },
+        index: { width: "55px", minWidth: "50px", maxWidth: "60px", align: "text-center font-medium text-gray-600", px: "px-1" },
+        coating: { width: "95px", minWidth: "85px", maxWidth: "105px", align: "text-center font-medium text-gray-600", px: "px-1.5" },
+        expiry: { width: "80px", minWidth: "75px", maxWidth: "90px", align: "text-center font-medium text-gray-600", px: "px-1.5" },
+        price: { width: "75px", minWidth: "65px", maxWidth: "85px", align: "text-center font-medium text-gray-700", px: "px-1" },
+        hsnSac: { width: "75px", minWidth: "70px", maxWidth: "85px", align: "text-center font-mono text-gray-600", px: "px-1" },
+        delete: { width: "45px", minWidth: "40px", maxWidth: "50px", align: "text-center", px: "px-1" },
     };
 
     const columns = useMemo(() => [
@@ -1822,19 +2491,34 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
             cell: ({ row }) => {
                 const product = row.original;
                 return (
-                    <div className="flex items-center justify-center gap-0.5">
+                    <div className="flex items-center justify-center gap-1">
                         <button onClick={e => { e.stopPropagation(); setSelectedProduct(product); setOpenEditProductModal(true); }}
-                            className="p-1.5 rounded-lg hover:bg-[#2980b9]/10 text-[#2980b9] transition" title="Edit">
-                            <FiEdit2 size={14} />
+                            className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition shadow-2xs" title="Edit Product">
+                            <FiEdit2 size={13} />
                         </button>
                         <button onClick={e => {
                             e.stopPropagation();
-                            setInventoryRows([{ ...emptyInventoryRow, productCode: product.productCode, mrp: product.mrp ? String(product.mrp) : "", price: product.price ? String(product.price) : "", gst: product.gst ? String(product.gst) : "0" }]);
-                            setBulkStockProducts(null);
+                            setInventoryRows([{
+                                ...emptyInventoryRow,
+                                productCode: product.productCode || "",
+                                productName: product.productName || "",
+                                mrp: product.mrp ? String(product.mrp) : "",
+                                buyingPrice: product.buyingPrice != null ? String(product.buyingPrice) : (product.price ? String(product.price) : ""),
+                                sellingPrice: product.sellingPrice != null ? String(product.sellingPrice) : (product.price ? String(product.price) : ""),
+                                price: product.buyingPrice != null ? String(product.buyingPrice) : (product.price ? String(product.price) : ""),
+                                gst: product.gst ? String(product.gst) : "0",
+                                vendorId: product.vendor?.id || "",
+                                vendorName: product.vendor?.name || "",
+                                batchNumber: "",
+                                inwardDate: new Date().toISOString().split("T")[0],
+                                expiry: product.expiry ? new Date(product.expiry).toISOString().split("T")[0] : "",
+                                remarks: "Stock added via inventory"
+                            }]);
+                            setBulkStockProducts([product]);
                             setOpenInventoryModal(true);
                         }}
-                            className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-500 transition" title="Add Stock">
-                            <FiShoppingCart size={14} />
+                            className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition shadow-2xs" title="Add Stock & Allocate Batch">
+                            <FiShoppingCart size={13} />
                         </button>
                         <button onClick={e => {
                             e.stopPropagation();
@@ -1842,57 +2526,187 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                             setBarcodeProduct(product);
                             setOpenBarcodeModal(true);
                         }}
-                            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition" title="Print Barcode">
-                            <BsUpcScan size={14} />
+                            className="p-1.5 rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white transition shadow-2xs" title="Print Barcode">
+                            <BsUpcScan size={13} />
                         </button>
-                        <button onClick={e => { e.stopPropagation(); setOpenInventoryHistoryTableModal(true); setSelectedProduct(product); }}
-                            className="p-1.5 rounded-lg hover:bg-[#2980b9]/10 text-[#2980b9] transition" title="Inventory History">
-                            <FiInfo size={14} />
+                        <button onClick={e => { e.stopPropagation(); handleOpenProductDetailsModal(product); }}
+                            className="p-1.5 rounded-lg bg-cyan-50 text-cyan-600 hover:bg-cyan-600 hover:text-white transition shadow-2xs" title="Product Details & Receiving History">
+                            <FiInfo size={13} />
+                        </button>
+                        <button onClick={e => { e.stopPropagation(); handleOpenBatchModal(product); }}
+                            className="p-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white transition shadow-2xs" title="Assign / View Batches">
+                            <FiLayers size={13} />
                         </button>
                     </div>
                 );
             },
         },
         { header: "Date", accessorKey: "createdAt", cell: ({ getValue }) => getValue() ? new Date(getValue()).toLocaleDateString("en-IN") : "-" },
-        { header: "Code", accessorKey: "productCode" },
-        { header: "Name", accessorKey: "productName" },
-        { header: "Category", accessorKey: "category" },
-        { header: "Brand", accessorKey: "brand" },
+        {
+            header: "Code",
+            accessorKey: "productCode",
+            cell: ({ getValue, row }) => (
+                <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleOpenProductDetailsModal(row.original); }}
+                    className="font-mono text-xs font-bold text-[#2980b9] hover:text-[#1a5276] hover:underline cursor-pointer transition text-center truncate block w-full"
+                    title={getValue() || "Click to view product details & receiving history"}
+                >
+                    {getValue()}
+                </button>
+            ),
+        },
+        {
+            header: "Product Name",
+            accessorKey: "productName",
+            cell: ({ getValue, row }) => (
+                <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleOpenProductDetailsModal(row.original); }}
+                    className="font-semibold text-gray-900 hover:text-[#2980b9] hover:underline cursor-pointer transition text-left truncate block w-full"
+                    title={getValue() || "Click to view product details & receiving history"}
+                >
+                    {getValue()}
+                </button>
+            ),
+        },
+        { header: "Category", accessorKey: "category", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+        { header: "Brand", accessorKey: "brand", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
         {
             header: "Image", accessorKey: "image",
             cell: ({ row }) => {
                 const product = row.original;
-                if (!product.image) return <span className="text-gray-300">—</span>;
+                const displayImg = getProductDisplayImage(product);
+                const hasColors = Array.isArray(product.colors) && product.colors.length > 0;
                 return (
-                    <div className="flex justify-center">
-                        <button onClick={e => { e.stopPropagation(); window.open(product.image, "_blank"); }}
-                            className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-500 transition" title="View Image">
-                            <FiImage size={14} />
-                        </button>
+                    <div className="flex items-center justify-center gap-1.5">
+                        {displayImg && displayImg !== "/placeholder-product.png" ? (
+                            <button
+                                onClick={e => { e.stopPropagation(); window.open(displayImg, "_blank"); }}
+                                className="w-8 h-8 rounded-lg overflow-hidden border border-gray-200 hover:border-[#2980b9] bg-white flex items-center justify-center p-0.5 shadow-2xs transition shrink-0"
+                                title="Click to view full image"
+                            >
+                                <img
+                                    src={displayImg}
+                                    alt={product.productName}
+                                    className="w-full h-full object-contain"
+                                    onError={(e) => { e.currentTarget.src = "/placeholder-product.png"; }}
+                                />
+                            </button>
+                        ) : (
+                            <span className="text-gray-300">—</span>
+                        )}
+                        {hasColors && (
+                            <div className="flex items-center gap-0.5 flex-wrap max-w-[32px]">
+                                {product.colors.slice(0, 2).map((c, idx) => (
+                                    <span
+                                        key={idx}
+                                        title={`Color: ${c.color} | Qty: ${c.qty}`}
+                                        className="w-3 h-3 rounded-full border border-gray-300 shadow-2xs"
+                                        style={{ backgroundColor: c.color }}
+                                    />
+                                ))}
+                                {product.colors.length > 2 && (
+                                    <span className="text-[9px] font-bold text-gray-400">+{product.colors.length - 2}</span>
+                                )}
+                            </div>
+                        )}
                     </div>
                 );
             },
         },
-        { header: "Qty", accessorKey: "qty" },
-        { header: "MRP", accessorKey: "mrp", cell: ({ getValue }) => `₹${getValue()}` },
-        { header: "GST %", accessorKey: "gst", cell: ({ getValue }) => `${getValue()}%` },
-        { header: "SPH", accessorKey: "sph", cell: ({ getValue }) => getValue() || "—" },
-        { header: "CYL", accessorKey: "cyl", cell: ({ getValue }) => getValue() || "—" },
-        { header: "Axis", accessorKey: "axis", cell: ({ getValue }) => getValue() || "—" },
+        { header: "Qty", accessorKey: "qty", cell: ({ getValue }) => getValue() ?? 0 },
+        {
+            header: "Buying Price",
+            accessorKey: "buyingPrice",
+            cell: ({ row }) => {
+                const val = row.original.buyingPrice != null ? row.original.buyingPrice : (row.original.price ?? 0);
+                return `₹${val}`;
+            }
+        },
+        {
+            header: "Selling Price",
+            accessorKey: "sellingPrice",
+            cell: ({ row }) => {
+                const val = row.original.sellingPrice != null ? row.original.sellingPrice : (row.original.price ?? 0);
+                return `₹${val}`;
+            }
+        },
+        { header: "MRP", accessorKey: "mrp", cell: ({ getValue }) => `₹${getValue() ?? 0}` },
+        { header: "GST %", accessorKey: "gst", cell: ({ getValue }) => `${getValue() ?? 0}%` },
 
-        { header: "Add.", accessorKey: "addition", cell: ({ getValue }) => getValue() || "—" },
-        { header: "Dimensions", accessorKey: "dimensions", cell: ({ getValue }) => getValue() || "—" },
-        { header: "Material", accessorKey: "material", cell: ({ getValue }) => getValue() || "—" },
+        // ── Powers Section (Collapsible) ──────────────────────────────────────
+        ...(expandedGroups.powers ? [
+            { header: "SPH", accessorKey: "sph", cell: ({ getValue }) => getValue() || "—" },
+            { header: "CYL", accessorKey: "cyl", cell: ({ getValue }) => getValue() || "—" },
+            { header: "Axis", accessorKey: "axis", cell: ({ getValue }) => getValue() || "—" },
+            { header: "Add.", accessorKey: "addition", cell: ({ getValue }) => getValue() || "—" },
+        ] : [
+            {
+                header: () => (
+                    <button
+                        type="button"
+                        onClick={() => toggleGroup('powers')}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-white transition text-xs font-semibold cursor-pointer border border-white/20"
+                        title="Click to expand SPH, CYL, Axis, Add columns"
+                    >
+                        <span>Rx Powers</span>
+                        <Icon icon="mdi:chevron-down" className="text-sm" />
+                    </button>
+                ),
+                id: "powersSummary",
+                cell: ({ row }) => {
+                    const p = row.original;
+                    const hasP = p.sph || p.cyl || p.axis || p.addition;
+                    if (!hasP) return <span className="text-gray-300">—</span>;
+                    return (
+                        <span className="font-mono text-xs text-amber-800 font-semibold" title={`Sph: ${p.sph || '-'} | Cyl: ${p.cyl || '-'} | Axis: ${p.axis || '-'} | Add: ${p.addition || '-'}`}>
+                            {p.sph || '0'} / {p.cyl || '0'}
+                        </span>
+                    );
+                }
+            }
+        ]),
 
-        { header: "Color", accessorKey: "color", cell: ({ getValue }) => getValue() || "—" },
-        { header: "Shape", accessorKey: "shape", cell: ({ getValue }) => getValue() || "—" },
-        { header: "Size", accessorKey: "size", cell: ({ getValue }) => getValue() || "—" },
-        { header: "Type", accessorKey: "type", cell: ({ getValue }) => getValue() || "—" },
-        { header: "Index", accessorKey: "index", cell: ({ getValue }) => getValue() || "—" },
-        { header: "Coating", accessorKey: "coating", cell: ({ getValue }) => getValue() || "—" },
-        { header: "Expiry", accessorKey: "expiry", cell: ({ getValue }) => getValue() ? new Date(getValue()).toLocaleDateString("en-IN") : "—" },
-        { header: "Price", accessorKey: "price", cell: ({ getValue }) => `₹${getValue()}` },
-        { header: "HSN/SAC", accessorKey: "hsnSac", cell: ({ getValue }) => getValue() || "—" },
+        // ── Specs & Details Section (Collapsible) ─────────────────────────────
+        ...(expandedGroups.specs ? [
+            { header: "Dimensions", accessorKey: "dimensions", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+            { header: "Material", accessorKey: "material", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+            { header: "Color", accessorKey: "color", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+            { header: "Shape", accessorKey: "shape", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+            { header: "Size", accessorKey: "size", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+            { header: "Type", accessorKey: "type", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+            { header: "Index", accessorKey: "index", cell: ({ getValue }) => getValue() || "—" },
+            { header: "Coating", accessorKey: "coating", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+            { header: "Expiry", accessorKey: "expiry", cell: ({ getValue }) => getValue() ? new Date(getValue()).toLocaleDateString("en-IN") : "—" },
+            { header: "HSN/SAC", accessorKey: "hsnSac", cell: ({ getValue }) => <span className="truncate block" title={getValue() || ""}>{getValue() || "—"}</span> },
+        ] : [
+            {
+                header: () => (
+                    <button
+                        type="button"
+                        onClick={() => toggleGroup('specs')}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-white transition text-xs font-semibold cursor-pointer border border-white/20"
+                        title="Click to expand Specs, Dimensions, Material, Coating & Expiry"
+                    >
+                        <span>Specs & Details</span>
+                        <Icon icon="mdi:chevron-down" className="text-sm" />
+                    </button>
+                ),
+                id: "specsSummary",
+                cell: ({ row }) => {
+                    const p = row.original;
+                    const parts = [p.dimensions, p.material, p.coating, p.expiry ? new Date(p.expiry).toLocaleDateString("en-IN") : null].filter(Boolean);
+                    if (parts.length === 0) return <span className="text-gray-300">—</span>;
+                    return (
+                        <span className="text-xs text-gray-700 font-medium truncate block" title={parts.join(" | ")}>
+                            {parts[0]}
+                        </span>
+                    );
+                }
+            }
+        ]),
+
         {
             header: "Delete", id: "delete",
             cell: ({ row }) => (
@@ -1905,7 +2719,7 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
             ),
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    ], [selectedRows]);
+    ], [selectedRows, expandedGroups]);
 
     const table = useReactTable({
         data: isSearching ? filteredData : data,
@@ -1960,6 +2774,14 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                             <FiPrinter size={13} /> Print Labels ({selectedCount})
                         </button>
 
+                        {/* Bulk Delete */}
+                        <button
+                            onClick={handleDeleteBulkProducts}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-xl transition shadow-sm"
+                        >
+                            <FiTrash2 size={13} /> Delete Selected ({selectedCount})
+                        </button>
+
                     </div>
                 ) : (
                     <div /> // placeholder to keep search on right
@@ -1970,47 +2792,197 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                     <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={13} />
                     <input type="text" value={globalFilter ?? ""} onChange={e => setGlobalFilter(e.target.value)}
                         placeholder="Quick search..."
-                        className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-[#2980b9]/40 focus:ring-2 focus:ring-[#2980b9]/20 transition text-gray-600 placeholder:text-gray-300" />
+                        className="w-full pl-8 pr-7 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-[#2980b9]/40 focus:ring-2 focus:ring-[#2980b9]/20 transition text-gray-600 placeholder:text-gray-300" />
+                    {globalFilter && (
+                        <button
+                            onClick={() => setGlobalFilter("")}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+                            title="Clear search"
+                        >
+                            <FiX size={13} />
+                        </button>
+                    )}
                 </div>
             </div>
 
-            {/* Table */}
-            <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
-                <table className="w-full text-sm border-collapse">
-                    <thead className="sticky top-0 z-10 bg-gray-200">
+            {/* Table View Bar (Compact / Zero Scroll Mode & Section Toggles) */}
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-slate-50 border-t border-gray-100 text-xs">
+                <div className="flex items-center gap-2">
+                    <span className="text-gray-500 font-bold text-[11px] uppercase tracking-wide">TABLE VIEW:</span>
+                    <button
+                        type="button"
+                        onClick={() => setExpandedGroups({ powers: false, specs: false })}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                            !expandedGroups.powers && !expandedGroups.specs
+                                ? 'bg-erp-accent text-white shadow-sm ring-2 ring-erp-accent/30'
+                                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                        }`}
+                    >
+                        <Icon icon="mdi:view-compact-outline" className="text-sm" />
+                        Compact Mode (Zero Scroll)
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setExpandedGroups({ powers: true, specs: true })}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                            expandedGroups.powers && expandedGroups.specs
+                                ? 'bg-erp-accent text-white shadow-sm ring-2 ring-erp-accent/30'
+                                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                        }`}
+                    >
+                        <Icon icon="mdi:table-eye" className="text-sm" />
+                        Full Table (All Columns)
+                    </button>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                    <span className="text-gray-500 font-medium mr-1 hidden sm:inline">Toggle Sections:</span>
+                    <button
+                        type="button"
+                        onClick={() => toggleGroup('powers')}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all flex items-center gap-1 cursor-pointer ${
+                            expandedGroups.powers
+                                ? 'bg-blue-100 text-erp-accent border-erp-accent/40 font-semibold'
+                                : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                        }`}
+                        title="Expand / Collapse SPH, CYL, Axis, Add columns"
+                    >
+                        Powers {expandedGroups.powers ? '▴ (Expanded)' : '▸ (Collapsed)'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => toggleGroup('specs')}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all flex items-center gap-1 cursor-pointer ${
+                            expandedGroups.specs
+                                ? 'bg-blue-100 text-erp-accent border-erp-accent/40 font-semibold'
+                                : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                        }`}
+                        title="Expand / Collapse Dimensions, Material, Coating, Expiry"
+                    >
+                        Specs {expandedGroups.specs ? '▴ (Expanded)' : '▸ (Collapsed)'}
+                    </button>
+                </div>
+            </div>
+
+            {/* Table Container */}
+            <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)] min-h-[420px] pb-3 custom-scrollbar border-t border-gray-100">
+                <table className="w-max min-w-full text-sm border-collapse">
+                    <thead className="sticky top-0 z-30 shadow-sm">
                         {table.getHeaderGroups().map(hg => (
-                            <tr key={hg.id} className="bg-gray-200 border-b border-gray-100">
-                                {hg.headers.map(h => (
-                                    <th key={h.id} className="px-4 py-3 text-center text-xs font-semibold text-gray-800 whitespace-nowrap uppercase  ">
-                                        {flexRender(h.column.columnDef.header, h.getContext())}
-                                    </th>
-                                ))}
+                            <tr key={hg.id} className="bg-gradient-to-r from-erp-accent to-blue-600 text-white text-[11px] uppercase tracking-wider font-semibold">
+                                {hg.headers.map(h => {
+                                    const colStyle = INVENTORY_COLUMN_META[h.column.id] || { width: "80px", minWidth: "60px", maxWidth: "120px", align: "text-center", px: "px-1.5" };
+                                    const isStickySelect = h.column.id === "select";
+                                    const isStickyActions = h.column.id === "actions";
+
+                                    let stickyClasses = "";
+                                    let stickyStyle = {};
+                                    if (isStickySelect) {
+                                        stickyClasses = "sticky left-0 z-40 bg-erp-accent border-r border-white/20";
+                                        stickyStyle = { left: 0 };
+                                    } else if (isStickyActions) {
+                                        stickyClasses = "sticky left-[40px] z-40 bg-erp-accent border-r border-white/20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.15)]";
+                                        stickyStyle = { left: "40px" };
+                                    }
+
+                                    return (
+                                        <th
+                                            key={h.id}
+                                            style={{
+                                                width: colStyle.width,
+                                                minWidth: colStyle.minWidth,
+                                                maxWidth: colStyle.maxWidth,
+                                                ...stickyStyle,
+                                            }}
+                                            className={`${colStyle.px} ${colStyle.align} py-3 font-semibold text-white whitespace-nowrap overflow-hidden text-ellipsis border-r border-white/20 ${stickyClasses}`}
+                                        >
+                                            {flexRender(h.column.columnDef.header, h.getContext())}
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         ))}
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-gray-100">
                         {table.getRowModel().rows.length === 0 && (
-                            <tr><td colSpan={columns.length} className="py-14 text-center text-gray-400 text-sm">No products found</td></tr>
+                            <tr>
+                                <td colSpan={columns.length} className="py-14 text-center text-gray-400 text-sm">
+                                    <div className="flex flex-col items-center justify-center gap-2.5">
+                                        <p className="font-medium text-gray-500">No products found</p>
+                                        {(isSearching || globalFilter || fromDate || toDate || keyword) ? (
+                                            <button
+                                                type="button"
+                                                onClick={handleResetSearch}
+                                                className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl text-xs font-bold transition shadow-xs"
+                                            >
+                                                Clear search filters & reload all
+                                            </button>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() => fetchProducts(1, false)}
+                                                className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition shadow-xs"
+                                            >
+                                                Reload Inventory
+                                            </button>
+                                        )}
+                                    </div>
+                                </td>
+                            </tr>
                         )}
-                        {table.getRowModel().rows.map(row => {
+                        {table.getRowModel().rows.map((row, rIdx) => {
                             const isChecked = !!selectedRows[row.original._id];
+                            const isEven = rIdx % 2 === 0;
+                            const rowBgClass = isChecked 
+                                ? "bg-blue-50/90 hover:bg-blue-100/90 shadow-[inset_3px_0_0_0_#2980b9]" 
+                                : (isEven ? "bg-white hover:bg-blue-50/40" : "bg-gray-50/30 hover:bg-blue-50/40");
+
                             return (
                                 <tr key={row.id}
-                                    className={`border-b border-gray-50 text-center transition-colors cursor-pointer
-                                        ${isChecked ? "bg-[#2980b9]/10/70 hover:bg-[#2980b9]/10" : "hover:bg-[#2980b9]/10"}`}
-                                    onClick={() => toggleRow(row.original)}
+                                    className={`transition-colors cursor-pointer group ${rowBgClass}`}
+                                    onClick={() => handleOpenProductDetailsModal(row.original)}
                                 >
-                                    {row.getVisibleCells().map(cell => (
-                                        <td key={cell.id}
-                                            className="px-4 py-2.5 text-gray-700 whitespace-nowrap text-sm"
-                                            onClick={e => {
-                                                // Don't toggle row when clicking action buttons
-                                                if (cell.column.id === "actions" || cell.column.id === "delete") e.stopPropagation();
-                                            }}
-                                        >
-                                            {flexRender(cell.column.columnDef.cell ?? cell.column.columnDef.accessorKey, cell.getContext())}
-                                        </td>
-                                    ))}
+                                    {row.getVisibleCells().map(cell => {
+                                        const colStyle = INVENTORY_COLUMN_META[cell.column.id] || { width: "80px", minWidth: "60px", maxWidth: "120px", align: "text-center", px: "px-1.5" };
+                                        const isStickySelect = cell.column.id === "select";
+                                        const isStickyActions = cell.column.id === "actions";
+
+                                        let stickyClasses = "";
+                                        let stickyStyle = {};
+                                        if (isStickySelect) {
+                                            stickyClasses = `sticky left-0 z-20 border-r border-gray-100 ${isChecked ? 'bg-blue-50' : (isEven ? 'bg-white group-hover:bg-blue-50/60' : 'bg-gray-50 group-hover:bg-blue-50/60')}`;
+                                            stickyStyle = { left: 0 };
+                                        } else if (isStickyActions) {
+                                            stickyClasses = `sticky left-[40px] z-20 border-r border-gray-200/80 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)] ${isChecked ? 'bg-blue-50' : (isEven ? 'bg-white group-hover:bg-blue-50/60' : 'bg-gray-50 group-hover:bg-blue-50/60')}`;
+                                            stickyStyle = { left: "40px" };
+                                        }
+
+                                        return (
+                                            <td
+                                                key={cell.id}
+                                                style={{
+                                                    width: colStyle.width,
+                                                    minWidth: colStyle.minWidth,
+                                                    maxWidth: colStyle.maxWidth,
+                                                    ...stickyStyle,
+                                                }}
+                                                className={`${colStyle.px} ${colStyle.align} py-2.5 text-gray-700 whitespace-nowrap text-xs overflow-hidden text-ellipsis border-r border-gray-100/60 ${stickyClasses}`}
+                                                onClick={e => {
+                                                    // Checkbox column toggles row selection without opening popup
+                                                    if (cell.column.id === "select") {
+                                                        e.stopPropagation();
+                                                        toggleRow(row.original);
+                                                    }
+                                                    // Don't trigger row click when clicking action buttons or delete cell
+                                                    if (cell.column.id === "actions" || cell.column.id === "delete") {
+                                                        e.stopPropagation();
+                                                    }
+                                                }}
+                                            >
+                                                {flexRender(cell.column.columnDef.cell ?? cell.column.columnDef.accessorKey, cell.getContext())}
+                                            </td>
+                                        );
+                                    })}
                                 </tr>
                             );
                         })}
@@ -2022,7 +2994,10 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-4 border-t border-gray-100 bg-gray-50/50">
                 <div className="flex items-center gap-3 flex-wrap">
                     <span className="text-xs text-gray-500 font-medium">
-                        Showing <span className="font-bold text-gray-800">{data.length > 0 ? (page - 1) * fetchLimit + 1 : 0}</span> to <span className="font-bold text-gray-800">{Math.min(page * fetchLimit, totalProducts)}</span> of <span className="font-bold text-gray-800">{totalProducts}</span> products
+                        {isSearching
+                            ? <>Showing <span className="font-bold text-gray-800">{filteredData.length}</span> search results</>
+                            : <>Showing <span className="font-bold text-gray-800">{data.length > 0 ? (page - 1) * fetchLimit + 1 : 0}</span> to <span className="font-bold text-gray-800">{(page - 1) * fetchLimit + data.length}</span> of <span className="font-bold text-gray-800">{totalProducts}</span> products</>
+                        }
                     </span>
                     <div className="flex items-center gap-1.5 ml-2">
                         <span className="text-xs text-gray-400">Per page:</span>
@@ -2116,8 +3091,18 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
 
             {/* Modals */}
             {openEditProductModal && (
-                <EditProductModal product={selectedProduct} settings={settings}
-                    onClose={() => { setOpenEditProductModal(false); setSelectedProduct(null); }} />
+                <EditProductModal
+                    product={selectedProduct}
+                    settings={settings}
+                    onClose={() => { setOpenEditProductModal(false); setSelectedProduct(null); }}
+                    onSuccess={(updatedProduct) => {
+                        // Real-time update — no page refresh needed
+                        setData(prev => prev.map(p => p._id === updatedProduct._id ? { ...p, ...updatedProduct } : p));
+                        setFilteredData(prev => prev.map(p => p._id === updatedProduct._id ? { ...p, ...updatedProduct } : p));
+                        setOpenEditProductModal(false);
+                        setSelectedProduct(null);
+                    }}
+                />
             )}
 
             {openInventoryModal && (
@@ -2127,14 +3112,42 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                     addRow={addInventoryRow} removeRow={removeInventoryRow}
                     handleInventorySubmit={handleInventorySubmit}
                     settings={settings}
-                    // vendors={vendors}
+                    vendors={vendors}
                     bulkProducts={bulkStockProducts}
+                    isSubmitting={submittingInventory}
                 />
             )}
 
             {openInventoryHistoryTableModal && (
-                <InventoryHistoryModal product={selectedProduct}
-                    onClose={() => { setSelectedProduct(null); setOpenInventoryHistoryTableModal(false); }} />
+                <ProductDetailsHistoryModal
+                    product={selectedProduct}
+                    vendors={vendors}
+                    onClose={() => { setSelectedProduct(null); setOpenInventoryHistoryTableModal(false); }}
+                    onOpenEdit={(prod) => {
+                        setOpenInventoryHistoryTableModal(false);
+                        setSelectedProduct(prod);
+                        setOpenEditProductModal(true);
+                    }}
+                    onOpenBatches={(prod) => {
+                        setOpenInventoryHistoryTableModal(false);
+                        handleOpenBatchModal(prod);
+                    }}
+                />
+            )}
+
+            {openBatchModal && (
+                <BatchManagementModal
+                    isOpen={openBatchModal}
+                    onClose={() => { setOpenBatchModal(false); setBatchProduct(null); }}
+                    product={batchProduct}
+                    batches={productBatches}
+                    summary={batchSummary}
+                    loading={loadingBatches}
+                    allocating={allocatingBatch}
+                    formData={batchFormData}
+                    setFormData={setBatchFormData}
+                    onAllocateSubmit={handleAllocateBatchSubmit}
+                />
             )}
 
             {openBarcodeModal && (
@@ -2152,53 +3165,141 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
 
 
 // ─── Edit Product Modal ───────────────────────────────────────────────────────
-function EditProductModal({ product, settings, onClose }) {
+function EditProductModal({ product, settings, onClose, onSuccess }) {
     const toInputDate = (v) => v ? new Date(v).toISOString().split("T")[0] : "";
 
     const [formData, setFormData] = useState({
         createdAt: "", productCode: "", productName: "", category: "", brand: "",
         color: "", size: "", type: "", shape: "", sph: "", cyl: "", index: "",
-        axis: "", coating: "", expiry: "", price: "", gst: "0", hsnSac: "", mrp: "", qty: "",
+        axis: "", coating: "", disposability: "", expiry: "", buyingPrice: "", sellingPrice: "", price: "", gst: "0", hsnSac: "", mrp: "", qty: "",
+        addition: "", material: "", dimensions: "",
+        vendorId: "", vendorName: "",
     });
     const [selectedImage, setSelectedImage] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
     const [saving, setSaving] = useState(false);
+    const [vendors, setVendors] = useState([]);
+
+    // Fetch vendors for the vendor dropdown
+    useEffect(() => {
+        api.get("/api/vendor", { params: { page: 1, limit: 1000 } })
+            .then(res => { if (res.data.success) setVendors(res.data.vendors || []); })
+            .catch(() => {});
+    }, []);
+    useEffect(() => {
+        if (!vendors.length) return;
+        if (formData.vendorId) {
+            const byId = vendors.find(v => v._id?.toString() === formData.vendorId?.toString());
+            if (byId) { setFormData(prev => ({ ...prev, vendorName: byId.name || prev.vendorName })); return; }
+        }
+        if (!formData.vendorId && formData.vendorName) {
+            const byName = vendors.find(v => (v.name || "").toUpperCase() === (formData.vendorName || "").toUpperCase());
+            if (byName) setFormData(prev => ({ ...prev, vendorId: byName._id?.toString() || "" }));
+        }
+    }, [vendors]);
 
     useEffect(() => {
         if (product) {
+            const initialColor = product.color 
+                || (Array.isArray(product.colors) && product.colors.find(c => c?.color)?.color)
+                || (Array.isArray(product.colors) && product.colors[0]?.color)
+                || "";
             setFormData({
                 createdAt: toInputDate(product.createdAt), productCode: product.productCode || "",
                 productName: product.productName || "", category: product.category || "",
-                brand: product.brand || "", color: product.color || "", size: product.size || "",
+                brand: product.brand || "", color: initialColor, size: product.size || "",
                 type: product.type || "", shape: product.shape || "", sph: product.sph || "",
                 cyl: product.cyl || "", index: product.index || "", axis: product.axis || "",
-                coating: product.coating || "", expiry: toInputDate(product.expiry),
-                price: product.price || "", gst: product.gst || "0", hsnSac: product.hsnSac || "",
+                coating: product.coating || "", disposability: product.disposability || "", expiry: toInputDate(product.expiry),
+                buyingPrice: product.buyingPrice != null ? product.buyingPrice : (product.price || ""),
+                sellingPrice: product.sellingPrice != null ? product.sellingPrice : (product.price || ""),
+                price: product.price || "", gst: product.gst ?? "0", hsnSac: product.hsnSac || "",
                 mrp: product.mrp || "", qty: product.qty || "",
-
-                addition: product.addition || "", material: product.material || "", dimensions: product.dimensions || ""
+                addition: product.addition || "", material: product.material || "", dimensions: product.dimensions || "",
+                // Pre-fill vendor
+                vendorId: (product.vendor?.id ?? product.vendor?._id ?? "")?.toString() || "",
+                vendorName: product.vendor?.name || product.vendorName || "",
             });
+            // Reset image preview when switching products
+            setSelectedImage(null);
+            setImagePreview(null);
         }
     }, [product]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData(prev => ({
+            ...prev,
+            [name]: value,
+            ...(name === "buyingPrice" ? { price: value } : {}),
+            // When vendor dropdown changes, also update vendorName
+            ...(name === "vendorId"
+                ? { vendorName: vendors.find(v => v._id === value)?.name || value }
+                : {}),
+        }));
+    };
+
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error("File size must not exceed 5 MB");
+            e.target.value = "";
+            return;
+        }
+        setSelectedImage(file);
+        setImagePreview(URL.createObjectURL(file));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setSaving(true);
         try {
+            if (isEditContactLens) {
+                if (!formData.coating?.trim()) { toast.error("Coating is required for Contact Lens"); setSaving(false); return; }
+                if (!formData.disposability?.trim()) { toast.error("Disposability is required for Contact Lens"); setSaving(false); return; }
+                if (!formData.expiry) { toast.error("Expiry Date is required for Contact Lens"); setSaving(false); return; }
+            }
             const dataToSend = new FormData();
             Object.keys(formData).forEach(key => dataToSend.append(key, formData[key]));
             dataToSend.append("productId", product._id);
             if (selectedImage instanceof File) dataToSend.append("image", selectedImage);
             const res = await api.put(`/api/digi/product`, dataToSend, { headers: { "Content-Type": "multipart/form-data" } });
-            if (res.data.success) { toast.success("Product updated successfully"); onClose(); }
-            else toast.error(res.data.message || "Update failed");
-        } catch (err) { toast.error("Something went wrong"); }
-        finally { setSaving(false); }
+            if (res.data.success) {
+                toast.success("Product updated successfully");
+                // Pass updated product back so parent can update state in-place
+                let updatedProduct = res.data.product || { ...product, ...formData };
+                if (formData.color) {
+                    const colorVal = formData.color.trim();
+                    updatedProduct = {
+                        ...updatedProduct,
+                        color: colorVal,
+                        colors: (Array.isArray(updatedProduct.colors) && updatedProduct.colors.length > 0)
+                            ? updatedProduct.colors.map((c, i) => i === 0 ? { ...c, color: colorVal } : c)
+                            : [{ color: colorVal, qty: Number(formData.qty) || 0, productColorImage: updatedProduct.image || "" }]
+                    };
+                }
+                if (onSuccess) onSuccess(updatedProduct);
+                else onClose();
+            } else {
+                toast.error(res.data.message || "Update failed");
+            }
+        } catch (err) {
+            toast.error(err?.response?.data?.message || "Something went wrong");
+        } finally {
+            setSaving(false);
+        }
     };
+
+    // Build category options: always include current value even if not in settings list
+    const categoryOptions = (() => {
+        const base = settings?.allCategories || [];
+        const current = formData.category;
+        if (current && !base.includes(current)) return [current, ...base];
+        return base;
+    })();
+
+    const isEditContactLens = Boolean(formData.category && formData.category.trim().toUpperCase().replace(/[\s_]+/g, "_") === "CONTACT_LENS");
 
     const fields = [
         { name: "createdAt", label: "Date", type: "date" },
@@ -2213,16 +3314,16 @@ function EditProductModal({ product, settings, onClose }) {
         { name: "cyl", label: "CYL", type: "text" },
         { name: "index", label: "Index", type: "text" },
         { name: "axis", label: "Axis", type: "text" },
-        { name: "coating", label: "Coating", type: "text" },
-        { name: "expiry", label: "Expiry", type: "date" },
-        { name: "price", label: "Price", type: "number" },
+        { name: "coating", label: isEditContactLens ? "Coating *" : "Coating", type: "text", required: isEditContactLens },
+        { name: "disposability", label: isEditContactLens ? "Disposability *" : "Disposability", type: "text", required: isEditContactLens },
+        { name: "expiry", label: isEditContactLens ? "Expiry *" : "Expiry", type: "date", required: isEditContactLens },
+        { name: "buyingPrice", label: "Buying Price (₹)", type: "number" },
+        { name: "sellingPrice", label: "Selling Price (₹)", type: "number" },
+        { name: "mrp", label: "MRP (₹)", type: "number" },
         { name: "hsnSac", label: "HSN/SAC", type: "text" },
-        { name: "mrp", label: "MRP", type: "number" },
-
         { name: "addition", label: "ADD.", type: "text" },
         { name: "material", label: "MATERIAL", type: "text" },
         { name: "dimensions", label: "DIMENSIONS", type: "text" },
-
         { name: "qty", label: "Quantity", type: "number" },
     ];
 
@@ -2236,38 +3337,65 @@ function EditProductModal({ product, settings, onClose }) {
                         {fields.map(f => (
                             <FieldInput key={f.name} label={f.label}>
                                 <input name={f.name} type={f.type} value={formData[f.name]}
-                                    onChange={handleChange} className={inputCls} />
+                                    onChange={handleChange} className={inputCls} required={f.required || false} />
                             </FieldInput>
                         ))}
+
+                        {/* Category dropdown — always shows current value */}
                         <FieldInput label="Category">
                             <select name="category" value={formData.category} onChange={handleChange} className={selectCls}>
-                                <option value="">Select</option>
-                                {settings?.allCategories?.map((cat, idx) => <option key={idx} value={cat}>{cat}</option>)}
+                                <option value="">Select Category</option>
+                                {categoryOptions.map((cat, idx) => <option key={idx} value={cat}>{cat}</option>)}
                             </select>
                         </FieldInput>
+
+                        {/* GST dropdown */}
                         <FieldInput label="GST %">
                             <select name="gst" value={formData.gst} onChange={handleChange} className={selectCls}>
+                                <option value="0">0%</option>
                                 {settings?.gst?.map((p, idx) => <option key={idx} value={p}>{p}%</option>)}
                             </select>
                         </FieldInput>
+
+                        {/* Vendor dropdown */}
+                        <FieldInput label="Vendor">
+                            <select name="vendorId" value={formData.vendorId?.toString() || ""} onChange={handleChange} className={selectCls}>
+                                <option value="">No Vendor / Unknown</option>
+                                {vendors.map(v => (
+                                    <option key={v._id?.toString()} value={v._id?.toString()}>
+                                        {v.name}{v.firm ? ` — ${v.firm}` : ""}
+                                    </option>
+                                ))}
+                            </select>
+                        </FieldInput>
+
+                        {/* Product Image with live preview */}
                         <FieldInput label="Product Image (Max 5 MB)">
-                            <div className="flex items-center gap-2">
-                                {product?.image && (
-                                    <button type="button" onClick={() => window.open(product.image, "_blank")}
-                                        className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-500 transition flex-shrink-0">
-                                        <FiImage size={14} />
-                                    </button>
+                            <div className="flex flex-col gap-2">
+                                {/* Preview: show newly selected image OR existing image */}
+                                {(imagePreview || (() => { const d = getProductDisplayImage(product); return d && d !== "/placeholder-product.png" ? d : null; })()) && (
+                                    <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 bg-gray-50 flex-shrink-0">
+                                        <img
+                                            src={imagePreview || getProductDisplayImage(product)}
+                                            alt="preview"
+                                            className="w-full h-full object-cover"
+                                        />
+                                        {imagePreview && (
+                                            <div className="absolute top-0.5 right-0.5 bg-green-500 text-white rounded-full p-0.5">
+                                                <FiCheckCircle size={8} />
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
-                                <input type="file" accept="image/*" onChange={e => {
-                                    const file = e.target.files[0];
-                                    if (file && file.size > 5 * 1024 * 1024) {
-                                        toast.error("File size must not exceed 5 MB");
-                                        e.target.value = "";
-                                        return;
-                                    }
-                                    setSelectedImage(file);
-                                }}
-                                    className={inputCls} />
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleImageChange}
+                                    className={inputCls}
+                                />
+                                {imagePreview && (
+                                    <p className="text-[10px] text-green-600 font-medium">New image selected — will be uploaded on save</p>
+                                )}
                             </div>
                         </FieldInput>
                     </div>
@@ -2288,97 +3416,448 @@ function EditProductModal({ product, settings, onClose }) {
 
 
 // ─── Inventory Modal ──────────────────────────────────────────────────────────
-// bulkProducts: array of product objects (when opened from bulk selection), or null
-const InventoryModal = ({ open, onClose, inventoryRows, updateRow, addRow, removeRow, handleInventorySubmit, settings, vendors, bulkProducts }) => {
+// bulkProducts: array of product objects (when opened from bulk selection or single row), or null
+const InventoryModal = ({
+    open,
+    onClose,
+    inventoryRows,
+    updateRow,
+    addRow,
+    removeRow,
+    handleInventorySubmit,
+    settings,
+    vendors = [],
+    bulkProducts,
+    isSubmitting = false
+}) => {
     if (!open) return null;
+
+    const isSingle = Array.isArray(bulkProducts) && bulkProducts.length === 1;
+    const singleProduct = isSingle ? bulkProducts[0] : null;
+
+    // Calculate overall totals
+    const totalUnits = inventoryRows.reduce((sum, r) => sum + (Number(r.qty) || 0), 0);
+    const totalCost = inventoryRows.reduce((sum, r) => sum + (Number(r.total) || 0), 0);
 
     return (
         <Modal onClose={onClose} maxWidth="max-w-5xl">
             <ModalHeader
-                title="Add Inventory"
-                subtitle={bulkProducts
-                    ? `Bulk stock update · ${bulkProducts.length} product${bulkProducts.length > 1 ? "s" : ""} selected`
-                    : "Update stock levels"
+                title={isSingle ? "Add Stock & Inward Batch" : (bulkProducts?.length > 1 ? "Bulk Stock Inward & Batches" : "Add Inventory")}
+                subtitle={isSingle
+                    ? `Inward stock & assign batch pricing for ${singleProduct.productName || singleProduct.productCode}`
+                    : (bulkProducts?.length > 1
+                        ? `Create batches and inward stock for ${bulkProducts.length} selected products`
+                        : "Inward stock levels and create batches"
+                    )
                 }
                 icon={FiShoppingCart}
                 onClose={onClose}
             />
 
-
             <form onSubmit={handleInventorySubmit} className="flex-1 min-h-0 flex flex-col">
-                <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-3">
-                    {inventoryRows.map((row, index) => (
-                        <div key={index} className="bg-gray-50 rounded-2xl border border-gray-100 p-4">
-                            <div className="flex items-center justify-between mb-3">
-                                <span className="text-[10px] font-bold text-[#2980b9] uppercase tracking-widest">
-                                    Row #{index + 1}
-                                    {bulkProducts?.[index]?.productCode && (
-                                        <span className="ml-2 font-mono text-gray-400 normal-case font-normal">
-                                            — {bulkProducts[index].productCode}
-                                        </span>
+                <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+                    {/* Single Product Highlight Banner */}
+                    {isSingle && singleProduct && (
+                        <div className="bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-white rounded-2xl border border-blue-100/80 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs">
+                            <div className="flex items-center gap-3.5">
+                                <div className="w-12 h-12 rounded-xl bg-white border border-blue-200/60 shadow-xs flex items-center justify-center p-1 overflow-hidden shrink-0">
+                                    {singleProduct.images?.[0] ? (
+                                        <img src={singleProduct.images[0]} alt="" className="w-full h-full object-contain" />
+                                    ) : (
+                                        <FiPackage className="text-[#2980b9]" size={22} />
                                     )}
-                                </span>
-                                {inventoryRows.length > 1 && (
-                                    <button type="button" onClick={() => removeRow(index)}
-                                        className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 transition">
-                                        <FiTrash2 size={13} />
-                                    </button>
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-mono text-xs font-bold text-[#2980b9] bg-white px-2 py-0.5 rounded-md border border-blue-200">
+                                            {singleProduct.productCode}
+                                        </span>
+                                        {singleProduct.category && (
+                                            <span className="text-[11px] font-semibold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md">
+                                                {singleProduct.category}
+                                            </span>
+                                        )}
+                                        {singleProduct.brand && (
+                                            <span className="text-[11px] font-semibold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md">
+                                                {singleProduct.brand}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <h3 className="text-sm font-bold text-gray-900 mt-1">
+                                        {singleProduct.productName || "Product"}
+                                    </h3>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 self-stretch sm:self-auto justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-blue-100">
+                                <div className="text-right">
+                                    <span className="text-[10px] uppercase font-bold text-gray-400 block tracking-wider">Current Stock</span>
+                                    <span className="text-sm font-extrabold text-gray-800">{singleProduct.qty || 0} units</span>
+                                </div>
+                                {Number(inventoryRows[0]?.qty) > 0 && (
+                                    <>
+                                        <div className="text-gray-300 font-bold text-lg">➔</div>
+                                        <div className="text-right bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+                                            <span className="text-[10px] uppercase font-bold text-emerald-600 block tracking-wider">New Total Stock</span>
+                                            <span className="text-sm font-extrabold text-emerald-700">
+                                                {(Number(singleProduct.qty) || 0) + Number(inventoryRows[0]?.qty)} units
+                                                <span className="text-[11px] font-semibold text-emerald-600 ml-1">(+{inventoryRows[0]?.qty})</span>
+                                            </span>
+                                        </div>
+                                    </>
                                 )}
                             </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-3">
-                                <FieldInput label="Product Code">
-                                    <input type="text" value={row.productCode} onChange={e => updateRow(index, "productCode", e.target.value)}
-                                        className={inputCls} placeholder="Code" />
-                                </FieldInput>
-                                <FieldInput label="Quantity">
-                                    <input type="number" min="0" step="1" value={row.qty} onChange={e => updateRow(index, "qty", e.target.value)}
-                                        className={inputCls} placeholder="0" />
-                                </FieldInput>
-                                <FieldInput label="Expiry">
-                                    <input type="date" value={row.expiry} onChange={e => updateRow(index, "expiry", e.target.value)} className={inputCls} />
-                                </FieldInput>
-                                <FieldInput label="Price">
-                                    <input type="number" value={row.price} onChange={e => updateRow(index, "price", e.target.value)}
-                                        className={inputCls} placeholder="0" />
-                                </FieldInput>
-                                <FieldInput label="Tax %">
-                                    <select value={row.gst} onChange={e => updateRow(index, "gst", e.target.value)} className={selectCls}>
-                                        {settings?.gst?.map((g, idx) => <option key={idx} value={g}>{g}%</option>)}
-                                    </select>
-                                </FieldInput>
-                                <FieldInput label="Total">
-                                    <input type="number" value={row.total} readOnly className={`${inputCls} bg-[#2980b9]/10 text-emerald-600 font-semibold`} />
-                                </FieldInput>
-                                <FieldInput label="MRP">
-                                    <input type="number" value={row.mrp} onChange={e => updateRow(index, "mrp", e.target.value)}
-                                        className={inputCls} placeholder="0" />
-                                </FieldInput>
-                                {/* <FieldInput label="Vendor">
-                                    <select onChange={e => {
-                                        const vendorId = e.target.value || null;
-                                        const vendorName = e.target.options[e.target.selectedIndex].text;
-                                        updateRow(index, "vendorId", vendorId);
-                                        updateRow(index, "vendorName", vendorName);
-                                    }} className={selectCls}>
-                                        <option value="">Select</option>
-                                        {vendors?.map(v => <option key={v._id} value={v._id}>{v.name}</option>)}
-                                    </select>
-                                </FieldInput> */}
-                            </div>
                         </div>
-                    ))}
+                    )}
 
-                    <button type="button" onClick={addRow}
-                        className="w-full py-3 border-2 border-dashed border-[#2980b9]/40 hover:border-[#2980b9]/60 text-[#2980b9] hover:text-[#2980b9]/90 text-xs font-semibold rounded-2xl transition flex items-center justify-center gap-2">
-                        <FiPlus size={14} /> Add Row
-                    </button>
+                    {/* Inventory Rows */}
+                    {inventoryRows.map((row, index) => {
+                        const associatedProduct = bulkProducts?.[index] || (isSingle ? singleProduct : null);
+                        return (
+                            <div key={index} className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 hover:border-[#2980b9]/40 transition space-y-4">
+                                {/* Row Header */}
+                                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="w-6 h-6 rounded-lg bg-[#2980b9]/10 text-[#2980b9] text-xs font-bold flex items-center justify-center">
+                                            {index + 1}
+                                        </span>
+                                        {associatedProduct ? (
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-mono text-xs font-bold text-gray-800">
+                                                    {associatedProduct.productCode}
+                                                </span>
+                                                <span className="text-xs font-medium text-gray-600 truncate max-w-[200px] sm:max-w-md">
+                                                    {associatedProduct.productName}
+                                                </span>
+                                                <span className="text-[11px] text-gray-400">
+                                                    (Stock: {associatedProduct.qty || 0})
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <span className="text-xs font-semibold text-gray-500">Inward Item #{index + 1}</span>
+                                        )}
+                                    </div>
+
+                                    {inventoryRows.length > 1 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => removeRow(index)}
+                                            className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-500 transition"
+                                            title="Remove this item"
+                                        >
+                                            <FiTrash2 size={14} />
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Section 1: Batch & Quantity */}
+                                <div>
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                        <div className="w-1.5 h-3.5 bg-[#2980b9] rounded-full" />
+                                        <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                                            Batch Details & Quantity
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                                        {!associatedProduct && (
+                                            <FieldInput label="Product Code *">
+                                                <input
+                                                    type="text"
+                                                    value={row.productCode}
+                                                    onChange={e => updateRow(index, "productCode", e.target.value.toUpperCase())}
+                                                    className={inputCls}
+                                                    placeholder="e.g. PRD-101"
+                                                    required
+                                                />
+                                            </FieldInput>
+                                        )}
+                                        <FieldInput label="Batch Number">
+                                            <input
+                                                type="text"
+                                                value={row.batchNumber}
+                                                onChange={e => updateRow(index, "batchNumber", e.target.value.toUpperCase())}
+                                                className={inputCls}
+                                                placeholder="Auto-generate (e.g. BTCN1)"
+                                            />
+                                            <p className="text-[10px] text-gray-400 mt-1">Leave blank to auto-generate</p>
+                                        </FieldInput>
+                                        <FieldInput label="Inward Quantity *">
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                step="1"
+                                                value={row.qty}
+                                                onChange={e => updateRow(index, "qty", e.target.value)}
+                                                className={inputCls}
+                                                placeholder="Units to add"
+                                                required
+                                            />
+                                            <p className="text-[10px] text-gray-400 mt-1">Quantity added to stock</p>
+                                        </FieldInput>
+                                        <FieldInput label="Inward Date">
+                                            <input
+                                                type="date"
+                                                value={row.inwardDate}
+                                                onChange={e => updateRow(index, "inwardDate", e.target.value)}
+                                                className={inputCls}
+                                            />
+                                            <p className="text-[10px] text-gray-400 mt-1">Date received into inventory</p>
+                                        </FieldInput>
+                                    </div>
+                                </div>
+
+                                {/* Section 2: Batch Pricing & Costing */}
+                                <div>
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                        <div className="w-1.5 h-3.5 bg-emerald-500 rounded-full" />
+                                        <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                                            Batch Pricing & Valuation
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                                        <FieldInput label="Buying Price (₹) *">
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={row.buyingPrice !== undefined ? row.buyingPrice : row.price}
+                                                onChange={e => updateRow(index, "buyingPrice", e.target.value)}
+                                                className={inputCls}
+                                                placeholder="0.00"
+                                                required
+                                            />
+                                            <p className="text-[10px] text-gray-400 mt-1">Batch unit cost</p>
+                                        </FieldInput>
+                                        <FieldInput label="Selling Price (₹) *">
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={row.sellingPrice !== undefined ? row.sellingPrice : row.price}
+                                                onChange={e => updateRow(index, "sellingPrice", e.target.value)}
+                                                className={inputCls}
+                                                placeholder="0.00"
+                                                required
+                                            />
+                                            <p className="text-[10px] text-gray-400 mt-1">Batch unit price</p>
+                                        </FieldInput>
+                                        <FieldInput label="MRP (₹) *">
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={row.mrp}
+                                                onChange={e => updateRow(index, "mrp", e.target.value)}
+                                                className={inputCls}
+                                                placeholder="0.00"
+                                                required
+                                            />
+                                            <p className="text-[10px] text-gray-400 mt-1">Max retail price</p>
+                                        </FieldInput>
+                                        <FieldInput label="Tax / GST %">
+                                            <select
+                                                value={row.gst}
+                                                onChange={e => updateRow(index, "gst", e.target.value)}
+                                                className={selectCls}
+                                            >
+                                                {(settings?.gst && settings.gst.length > 0 ? settings.gst : [0, 5, 12, 18, 28]).map((g, idx) => (
+                                                    <option key={idx} value={g}>{g}%</option>
+                                                ))}
+                                            </select>
+                                            <p className="text-[10px] text-gray-400 mt-1">Applicable GST</p>
+                                        </FieldInput>
+                                        <FieldInput label="Total Batch Value">
+                                            <div className="flex items-center h-[38px] px-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 font-bold text-sm">
+                                                ₹{row.total || "0.00"}
+                                            </div>
+                                            <p className="text-[10px] text-emerald-600 mt-1">Qty × Cost + GST</p>
+                                        </FieldInput>
+                                    </div>
+                                </div>
+
+                                {/* Section 3: Vendor & Additional Details */}
+                                <div>
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                        <div className="w-1.5 h-3.5 bg-amber-500 rounded-full" />
+                                        <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                                            Vendor & Traceability
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                        <FieldInput label="Vendor">
+                                            <select
+                                                value={row.vendorId || ""}
+                                                onChange={e => {
+                                                    const vId = e.target.value || "";
+                                                    const vName = e.target.options[e.target.selectedIndex]?.text || "";
+                                                    updateRow(index, "vendorId", vId);
+                                                    updateRow(index, "vendorName", vId ? vName : "");
+                                                }}
+                                                className={selectCls}
+                                            >
+                                                <option value="">Select Vendor (Optional)</option>
+                                                {vendors?.map(v => (
+                                                    <option key={v._id || v.id} value={v._id || v.id}>
+                                                        {v.name || v.vendorName || v.companyName}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <p className="text-[10px] text-gray-400 mt-1">Source supplier/vendor</p>
+                                        </FieldInput>
+                                        <FieldInput label={isContactLens(associatedProduct?.category || row.category) ? "Expiry Date *" : "Expiry Date"}>
+                                            <input
+                                                type="date"
+                                                value={row.expiry || ""}
+                                                onChange={e => updateRow(index, "expiry", e.target.value)}
+                                                className={`${inputCls} ${isContactLens(associatedProduct?.category || row.category) && !row.expiry ? "border-red-400 ring-1 ring-red-300" : ""}`}
+                                                required={isContactLens(associatedProduct?.category || row.category)}
+                                            />
+                                            <p className={`text-[10px] mt-1 ${isContactLens(associatedProduct?.category || row.category) ? "text-red-500" : "text-gray-400"}`}>
+                                                {isContactLens(associatedProduct?.category || row.category) ? "Required for Contact Lens" : "Leave empty if not applicable"}
+                                            </p>
+                                        </FieldInput>
+                                        <FieldInput label="Remarks / Invoice Ref">
+                                            <input
+                                                type="text"
+                                                value={row.remarks || ""}
+                                                onChange={e => updateRow(index, "remarks", e.target.value)}
+                                                className={inputCls}
+                                                placeholder="e.g. PO #123 / Inv #456 / Inward"
+                                            />
+                                            <p className="text-[10px] text-gray-400 mt-1">Reference note for this batch</p>
+                                        </FieldInput>
+                                    </div>
+
+                                    {/* Contact Lens Required Fields: Coating & Disposability */}
+                                    {isContactLens(associatedProduct?.category || row.category) && (
+                                        <div className="mt-3 pt-3 border-t border-orange-100">
+                                            <div className="flex items-center gap-1.5 mb-2">
+                                                <div className="w-1.5 h-3.5 bg-orange-500 rounded-full" />
+                                                <span className="text-[11px] font-bold text-orange-600 uppercase tracking-wider">
+                                                    Contact Lens Details (Required)
+                                                </span>
+                                            </div>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <FieldInput label="Coating *">
+                                                    <input
+                                                        type="text"
+                                                        value={row.coating || ""}
+                                                        onChange={e => updateRow(index, "coating", e.target.value)}
+                                                        className={`${inputCls} ${!row.coating?.trim() ? "border-red-400 ring-1 ring-red-300" : "border-green-400"}`}
+                                                        placeholder="e.g. UV Coating, Anti-Reflective"
+                                                        required
+                                                    />
+                                                    <p className="text-[10px] text-red-500 mt-1">Required for Contact Lens</p>
+                                                </FieldInput>
+                                                <FieldInput label="Disposability *">
+                                                    <input
+                                                        type="text"
+                                                        value={row.disposability || ""}
+                                                        onChange={e => updateRow(index, "disposability", e.target.value)}
+                                                        className={`${inputCls} ${!row.disposability?.trim() ? "border-red-400 ring-1 ring-red-300" : "border-green-400"}`}
+                                                        placeholder="e.g. Daily, Monthly, Yearly"
+                                                        required
+                                                    />
+                                                    <p className="text-[10px] text-red-500 mt-1">Required for Contact Lens</p>
+                                                </FieldInput>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Invoice / Challan Upload */}
+                                    <div className="mt-3 pt-2.5 border-t border-gray-100">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                            <div>
+                                                <label className="text-[11px] font-bold text-gray-700 flex items-center gap-1.5">
+                                                    <FiPaperclip size={12} className="text-[#2980b9]" /> Invoice / Challan / Bill (Optional, max 5)
+                                                </label>
+                                                <p className="text-[10px] text-gray-400">Attach purchase invoices, bills, or delivery challans for this inward</p>
+                                            </div>
+                                            <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#eaf4fb] hover:bg-[#d5eaf6] border border-[#2980b9]/30 text-[#1F618D] text-xs font-semibold rounded-lg cursor-pointer transition self-start sm:self-auto">
+                                                <FiUpload size={12} />
+                                                <span>Attach Files</span>
+                                                <input
+                                                    type="file"
+                                                    multiple
+                                                    accept="application/pdf,image/*"
+                                                    className="hidden"
+                                                    onChange={e => {
+                                                        const newFiles = Array.from(e.target.files || []);
+                                                        const updated = [...(row.invoices || []), ...newFiles].slice(0, 5);
+                                                        updateRow(index, "invoices", updated);
+                                                        e.target.value = '';
+                                                    }}
+                                                />
+                                            </label>
+                                        </div>
+                                        {(row.invoices || []).length > 0 && (
+                                            <div className="flex flex-wrap gap-1.5 mt-2">
+                                                {row.invoices.map((f, fi) => (
+                                                    <span key={fi} className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 border border-blue-200 text-blue-800 text-[11px] font-medium rounded-lg">
+                                                        <FiFileText size={11} className="text-[#2980b9]" />
+                                                        <span className="truncate max-w-[160px]">{f.name}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => updateRow(index, "invoices", row.invoices.filter((_, idx) => idx !== fi))}
+                                                            className="text-blue-400 hover:text-red-500 ml-1 font-bold"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+
+                    {!isSingle && (
+                        <button
+                            type="button"
+                            onClick={addRow}
+                            className="w-full py-3 border-2 border-dashed border-[#2980b9]/40 hover:border-[#2980b9]/60 hover:bg-[#2980b9]/5 text-[#2980b9] text-xs font-semibold rounded-2xl transition flex items-center justify-center gap-2"
+                        >
+                            <FiPlus size={15} /> Add Another Product Row
+                        </button>
+                    )}
                 </div>
 
                 <ModalFooter>
-                    <button type="button" onClick={onClose}
-                        className="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition">Cancel</button>
-                    <button type="submit"
-                        className="px-5 py-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white text-xs font-semibold rounded-xl transition shadow-sm">Submit</button>
+                    <div className="flex-1 flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+                        <span>Items: <strong className="text-gray-800">{inventoryRows.length}</strong></span>
+                        <span>•</span>
+                        <span>Total Units: <strong className="text-gray-800">{totalUnits}</strong></span>
+                        <span>•</span>
+                        <span>Total Value: <strong className="text-emerald-600 font-bold">₹{totalCost.toFixed(2)}</strong></span>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        disabled={isSubmitting}
+                        className="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="px-5 py-2 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-2 disabled:opacity-60"
+                    >
+                        {isSubmitting ? (
+                            <>
+                                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                <span>Processing Inward...</span>
+                            </>
+                        ) : (
+                            <>
+                                <FiShoppingCart size={14} />
+                                <span>Inward Stock & Create Batch</span>
+                            </>
+                        )}
+                    </button>
                 </ModalFooter>
             </form>
         </Modal>
@@ -2386,81 +3865,774 @@ const InventoryModal = ({ open, onClose, inventoryRows, updateRow, addRow, remov
 };
 
 
-// ─── Inventory History Modal ──────────────────────────────────────────────────
-const InventoryHistoryModal = ({ product, onClose }) => {
-    const [data, setData] = useState([]);
+// ─── Product Details & Receiving History Modal ─────────────────────────────────
+const ProductDetailsHistoryModal = ({ product, vendors = [], onClose, onOpenEdit, onOpenBatches }) => {
     const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState("RECEIVING"); // 'RECEIVING' | 'BATCHES' | 'SPECS'
+    const [productDetails, setProductDetails] = useState(product || null);
+    const [receivingHistory, setReceivingHistory] = useState([]);
+    const [batches, setBatches] = useState([]);
+    const [historySearch, setHistorySearch] = useState("");
+
+    const getVendorDisplayName = useCallback((vendorObj, fallback) => {
+        if (!vendorObj && !fallback) return "—";
+        if (typeof vendorObj === "string") {
+            const found = vendors.find(v => (v._id || v.id) === vendorObj);
+            return found ? (found.vendorName || found.name || found.companyName) : vendorObj;
+        }
+        if (vendorObj && typeof vendorObj === "object") {
+            if (vendorObj.name) return vendorObj.name;
+            const targetId = (vendorObj.id?._id || vendorObj.id || vendorObj._id)?.toString();
+            if (targetId) {
+                const found = vendors.find(v => (v._id || v.id)?.toString() === targetId);
+                return found ? (found.vendorName || found.name || found.companyName) : "—";
+            }
+        }
+        return fallback || "—";
+    }, [vendors]);
 
     useEffect(() => {
-        if (product?._id) fetchInventoryHistory();
-    }, [product]);
+        if (product?._id) {
+            fetchProductInventoryDetails();
+        }
+    }, [product?._id]);
 
-    const fetchInventoryHistory = async () => {
+    const fetchProductInventoryDetails = async () => {
         try {
             setLoading(true);
             const res = await api.get(`/api/digi/product/inventory/${product._id}`);
-            if (res.data.success) setData(Array.isArray(res.data.data) ? res.data.data : [res.data.data]);
-        } catch (err) { console.error(err); }
-        finally { setLoading(false); }
+            if (res.data.success && res.data.data) {
+                const resData = res.data.data;
+                if (resData.product) {
+                    setProductDetails(resData.product);
+                } else if (Array.isArray(resData) && resData[0]) {
+                    setProductDetails(resData[0]);
+                }
+                if (Array.isArray(resData.receivingHistory)) {
+                    setReceivingHistory(resData.receivingHistory);
+                }
+                if (Array.isArray(resData.batches)) {
+                    setBatches(resData.batches);
+                }
+            }
+        } catch (err) {
+            console.error("Failed to load product details & history:", err);
+            toast.error("Failed to load product details");
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const columns = useMemo(() => [
-        { header: "Created At", accessorKey: "createdAt", cell: ({ getValue }) => new Date(getValue()).toLocaleDateString("en-IN") },
-        { header: "Product Code", accessorKey: "productCode" },
-        { header: "Qty", accessorKey: "qty" },
-        { header: "Price", accessorKey: "price", cell: ({ getValue }) => `₹${getValue()}` },
-        { header: "MRP", accessorKey: "mrp", cell: ({ getValue }) => `₹${getValue()}` },
-        { header: "GST %", accessorKey: "gst" },
-        { header: "Total", accessorKey: "total", cell: ({ getValue }) => <span className="font-semibold text-emerald-600">₹{getValue()}</span> },
-        // { header: "Vendor", accessorKey: "vendorName" },
-    ], []);
+    const curr = productDetails || product || {};
+    const stockQty = Number(curr.qty || 0);
+    const buyingPrice = Number(curr.buyingPrice != null ? curr.buyingPrice : (curr.price || 0));
+    const sellingPrice = Number(curr.sellingPrice != null ? curr.sellingPrice : (curr.price || 0));
+    const mrp = Number(curr.mrp || 0);
+    const profitMargin = sellingPrice - buyingPrice;
+    const marginPercent = sellingPrice > 0 ? ((profitMargin / sellingPrice) * 100).toFixed(1) : 0;
+    const totalReceivedUnits = receivingHistory.reduce((sum, item) => sum + Number(item.receivedQty || 0), 0);
 
-    const table = useReactTable({ data, columns, getCoreRowModel: getCoreRowModel() });
+    const filteredHistory = useMemo(() => {
+        if (!historySearch.trim()) return receivingHistory;
+        const q = historySearch.toLowerCase();
+        return receivingHistory.filter(item =>
+            (item.vendorName && item.vendorName.toLowerCase().includes(q)) ||
+            (item.batchNumber && item.batchNumber.toLowerCase().includes(q)) ||
+            (item.invoiceNumber && item.invoiceNumber.toLowerCase().includes(q)) ||
+            (item.orderNumber && item.orderNumber.toLowerCase().includes(q)) ||
+            (item.receivedBy && item.receivedBy.toLowerCase().includes(q)) ||
+            (item.receivedFrom && item.receivedFrom.toLowerCase().includes(q)) ||
+            (item.failureReason && item.failureReason.toLowerCase().includes(q)) ||
+            (item.qcStatus && item.qcStatus.toLowerCase().includes(q))
+        );
+    }, [receivingHistory, historySearch]);
+
+    const formatDate = (val) => {
+        if (!val) return "—";
+        try {
+            return new Date(val).toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+            });
+        } catch {
+            return String(val);
+        }
+    };
+
+    const displayImg = getProductDisplayImage(curr);
 
     return (
-        <Modal onClose={onClose} maxWidth="max-w-4xl">
-            <ModalHeader title="Inventory History" subtitle={product?.productName} icon={FiInfo} onClose={onClose} />
-            <div className="flex-1 min-h-0 overflow-y-auto p-6">
+        <Modal onClose={onClose} maxWidth="max-w-6xl">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0 bg-white">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#2980b9]/10 flex items-center justify-center text-[#2980b9]">
+                        <FiPackage size={20} />
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <h2 className="text-base font-bold text-gray-800">{curr.productName}</h2>
+                            <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-blue-50 text-[#2980b9] font-bold border border-blue-100">
+                                {curr.productCode}
+                            </span>
+                            {curr.category && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-semibold uppercase">
+                                    {curr.category}
+                                </span>
+                            )}
+                            {curr.brand && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 font-semibold uppercase">
+                                    {curr.brand}
+                                </span>
+                            )}
+                        </div>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                            Product Receiving History, Batch Tracking & Inventory Breakdown
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <div className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 ${
+                        stockQty > 10 ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
+                        stockQty > 0 ? "bg-amber-50 text-amber-700 border border-amber-200" :
+                        "bg-red-50 text-red-700 border border-red-200"
+                    }`}>
+                        <span className={`w-2 h-2 rounded-full ${
+                            stockQty > 10 ? "bg-emerald-500" : stockQty > 0 ? "bg-amber-500" : "bg-red-500"
+                        }`} />
+                        <span>{stockQty > 0 ? `In Stock: ${stockQty} Units` : "Out of Stock"}</span>
+                    </div>
+
+                    <button onClick={onClose} className="p-2 rounded-full text-gray-400 hover:bg-gray-100 transition">
+                        <FiX size={18} />
+                    </button>
+                </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
+                {/* ── Summary KPI Cards ── */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+                    {/* Current Stock */}
+                    <div className="p-3.5 bg-gradient-to-br from-blue-50/80 to-indigo-50/40 border border-blue-100/80 rounded-2xl">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700/80 block mb-1">
+                            Current Stock
+                        </span>
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-xl font-extrabold text-blue-900">{stockQty}</span>
+                            <span className="text-[11px] text-blue-600 font-medium">units</span>
+                        </div>
+                    </div>
+
+                    {/* Buying Price (Cost) */}
+                    <div className="p-3.5 bg-gradient-to-br from-amber-50/80 to-orange-50/40 border border-amber-100/80 rounded-2xl">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700/80 block mb-1">
+                            Buying Price (Cost)
+                        </span>
+                        <div className="flex items-baseline gap-0.5">
+                            <span className="text-xl font-extrabold text-amber-900">₹{buyingPrice}</span>
+                        </div>
+                    </div>
+
+                    {/* Selling Price */}
+                    <div className="p-3.5 bg-gradient-to-br from-emerald-50/80 to-teal-50/40 border border-emerald-100/80 rounded-2xl">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700/80 block mb-1">
+                            Selling Price
+                        </span>
+                        <div className="flex items-baseline gap-0.5">
+                            <span className="text-xl font-extrabold text-emerald-900">₹{sellingPrice}</span>
+                        </div>
+                    </div>
+
+                    {/* MRP */}
+                    <div className="p-3.5 bg-gradient-to-br from-indigo-50/80 to-blue-50/40 border border-indigo-100/80 rounded-2xl">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700/80 block mb-1">
+                            MRP
+                        </span>
+                        <div className="flex items-baseline gap-0.5">
+                            <span className="text-xl font-extrabold text-indigo-900">₹{mrp}</span>
+                        </div>
+                    </div>
+
+                    {/* Profit Margin */}
+                    <div className="p-3.5 bg-gradient-to-br from-purple-50/80 to-pink-50/40 border border-purple-100/80 rounded-2xl">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700/80 block mb-1">
+                            Margin / Unit
+                        </span>
+                        <div className="flex items-baseline gap-1">
+                            <span className={`text-xl font-extrabold ${profitMargin >= 0 ? "text-purple-900" : "text-red-600"}`}>
+                                ₹{profitMargin}
+                            </span>
+                            <span className="text-[10px] font-bold text-purple-600">({marginPercent}%)</span>
+                        </div>
+                    </div>
+
+                    {/* Total Received Units */}
+                    <div className="p-3.5 bg-gradient-to-br from-cyan-50/80 to-sky-50/40 border border-cyan-100/80 rounded-2xl">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-700/80 block mb-1">
+                            Total Received
+                        </span>
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-xl font-extrabold text-cyan-900">{totalReceivedUnits || stockQty}</span>
+                            <span className="text-[11px] text-cyan-600 font-medium">units</span>
+                        </div>
+                    </div>
+
+                    {/* Primary Vendor */}
+                    <div className="p-3.5 bg-gradient-to-br from-gray-50 to-slate-100/60 border border-gray-200/70 rounded-2xl">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block mb-1">
+                            Primary Vendor
+                        </span>
+                        <span className="text-xs font-bold text-gray-800 block truncate" title={getVendorDisplayName(curr.vendor, curr.vendorName)}>
+                            {getVendorDisplayName(curr.vendor, curr.vendorName)}
+                        </span>
+                    </div>
+                </div>
+
+                {/* ── Tabs Navigation ── */}
+                <div className="flex items-center justify-between border-b border-gray-100 pb-2 flex-wrap gap-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab("RECEIVING")}
+                            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
+                                activeTab === "RECEIVING"
+                                    ? "bg-[#2980b9] text-white shadow-sm"
+                                    : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                            }`}
+                        >
+                            <FiTruck size={14} />
+                            <span>Receiving History</span>
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                                activeTab === "RECEIVING" ? "bg-white/25 text-white" : "bg-gray-200 text-gray-700"
+                            }`}>
+                                {receivingHistory.length}
+                            </span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab("BATCHES")}
+                            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
+                                activeTab === "BATCHES"
+                                    ? "bg-[#2980b9] text-white shadow-sm"
+                                    : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                            }`}
+                        >
+                            <FiLayers size={14} />
+                            <span>Assigned Batches</span>
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                                activeTab === "BATCHES" ? "bg-white/25 text-white" : "bg-gray-200 text-gray-700"
+                            }`}>
+                                {batches.length}
+                            </span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab("SPECS")}
+                            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
+                                activeTab === "SPECS"
+                                    ? "bg-[#2980b9] text-white shadow-sm"
+                                    : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                            }`}
+                        >
+                            <FiTag size={14} />
+                            <span>Product Specifications</span>
+                        </button>
+                    </div>
+
+                    {activeTab === "RECEIVING" && receivingHistory.length > 0 && (
+                        <div className="relative w-48 sm:w-64">
+                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={13} />
+                            <input
+                                type="text"
+                                placeholder="Search vendor, batch, invoice..."
+                                value={historySearch}
+                                onChange={e => setHistorySearch(e.target.value)}
+                                className="w-full pl-8 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#2980b9] focus:bg-white font-medium"
+                            />
+                        </div>
+                    )}
+                </div>
+
+                {/* ── Tab Content ── */}
                 {loading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <div className="w-6 h-6 border-2 border-[#2980b9]/40 border-t-transparent rounded-full animate-spin" />
+                    <div className="flex flex-col items-center justify-center py-16 gap-3">
+                        <div className="w-8 h-8 border-2 border-[#2980b9] border-t-transparent rounded-full animate-spin" />
+                        <span className="text-xs text-gray-400 font-semibold">Loading receiving history & details...</span>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto rounded-xl border border-gray-100">
-                        <table className="w-full text-sm border-collapse">
-                            <thead>
-                                {table.getHeaderGroups().map(hg => (
-                                    <tr key={hg.id} className="border-b border-gray-100">
-                                        {hg.headers.map(h => (
-                                            <th key={h.id} className="px-4 py-3 text-center text-xs font-semibold text-white bg-[#2980b9] whitespace-nowrap uppercase  ">
-                                                {h.column.columnDef.header}
-                                            </th>
-                                        ))}
-                                    </tr>
-                                ))}
-                            </thead>
-                            <tbody>
-                                {table.getRowModel().rows.length === 0 && (
-                                    <tr><td colSpan={columns.length} className="py-10 text-center text-gray-400">No inventory data found</td></tr>
+                    <>
+                        {/* TAB 1: RECEIVING HISTORY */}
+                        {activeTab === "RECEIVING" && (
+                            <div>
+                                {filteredHistory.length === 0 ? (
+                                    <div className="p-10 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                                        <FiTruck size={32} className="mx-auto text-gray-300 mb-2" />
+                                        <p className="text-xs font-bold text-gray-700">No Receiving Records Found</p>
+                                        <p className="text-[11px] text-gray-400 mt-1 max-w-sm mx-auto">
+                                            No vendor purchase inward or receiving logs were recorded for this item yet.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="overflow-x-auto rounded-2xl border border-gray-200 shadow-2xs">
+                                        <table className="w-full text-left text-xs border-collapse">
+                                            <thead className="bg-[#eaf4fb]/70 text-[#1F618D] font-bold text-[10px] uppercase tracking-wider border-b border-[#2980b9]/15">
+                                                <tr>
+                                                    <th className="px-4 py-3 whitespace-nowrap">Purchase Date</th>
+                                                    <th className="px-4 py-3 whitespace-nowrap">Received On</th>
+                                                    <th className="px-4 py-3 whitespace-nowrap">Batch / Invoice #</th>
+                                                    <th className="px-4 py-3 whitespace-nowrap">Vendor Name</th>
+                                                    <th className="px-4 py-3 text-center whitespace-nowrap">Batch Stock (Remaining)</th>
+                                                    <th className="px-4 py-3 text-center whitespace-nowrap">Qty Received</th>
+                                                    <th className="px-4 py-3 text-center whitespace-nowrap">QC Passed</th>
+                                                    <th className="px-4 py-3 text-center whitespace-nowrap">QC Failed</th>
+                                                    <th className="px-4 py-3 text-right whitespace-nowrap">Buying Price</th>
+                                                    <th className="px-4 py-3 text-right whitespace-nowrap">Selling Price</th>
+                                                    <th className="px-4 py-3 text-right whitespace-nowrap">MRP</th>
+                                                    <th className="px-4 py-3 whitespace-nowrap">Received By</th>
+                                                    <th className="px-4 py-3 whitespace-nowrap">Received From</th>
+                                                    <th className="px-4 py-3 text-center whitespace-nowrap">Condition</th>
+                                                    <th className="px-4 py-3 whitespace-nowrap">Remarks</th>
+                                                    <th className="px-4 py-3 text-center whitespace-nowrap">Invoices / Challans</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
+                                                {filteredHistory.map((item, idx) => (
+                                                    <tr key={item._id || idx} className="hover:bg-blue-50/30 transition-colors">
+                                                        {/* Purchase Date */}
+                                                        <td className="px-4 py-3 whitespace-nowrap text-gray-500 font-medium">
+                                                            {formatDate(item.dateOfPurchase)}
+                                                        </td>
+
+                                                        {/* Received On */}
+                                                        <td className="px-4 py-3 whitespace-nowrap">
+                                                            <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-[#1F618D] font-bold text-[11px]">
+                                                                {formatDate(item.receivedOn || item.inwardDate)}
+                                                            </span>
+                                                        </td>
+
+                                                        {/* Batch / Invoice # */}
+                                                        <td className="px-4 py-3 whitespace-nowrap">
+                                                            <span className="px-2 py-0.5 rounded-lg bg-gray-100 text-gray-800 font-mono font-bold text-[11px]">
+                                                                {item.batchNumber || item.invoiceNumber || "—"}
+                                                            </span>
+                                                        </td>
+
+                                                        {/* Vendor Name */}
+                                                        <td className="px-4 py-3 whitespace-nowrap font-bold text-gray-800">
+                                                            {item.vendorName && item.vendorName !== "—" ? item.vendorName : getVendorDisplayName(curr.vendor, "—")}
+                                                        </td>
+
+                                                        {/* Batch Stock (Remaining) */}
+                                                        <td className="px-4 py-3 text-center whitespace-nowrap">
+                                                            <span className={`px-2.5 py-1 rounded-lg text-xs font-extrabold inline-flex items-center gap-1.5 ${
+                                                                (item.availableQty != null ? item.availableQty : item.receivedQty) > 0
+                                                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                                                    : "bg-red-50 text-red-600 border border-red-200"
+                                                            }`}>
+                                                                <span>{item.availableQty != null ? item.availableQty : item.receivedQty}</span>
+                                                                <span className="text-[10px] font-normal text-gray-500">
+                                                                    avail
+                                                                </span>
+                                                            </span>
+                                                        </td>
+
+                                                        {/* Qty Received */}
+                                                        <td className="px-4 py-3 text-center whitespace-nowrap">
+                                                            <span className="text-sm font-extrabold text-blue-800">
+                                                                {item.receivedQty}
+                                                            </span>
+                                                            {item.orderedQty && item.orderedQty !== item.receivedQty && (
+                                                                <span className="text-[10px] text-gray-400 block">
+                                                                    (Ord: {item.orderedQty})
+                                                                </span>
+                                                            )}
+                                                        </td>
+
+                                                        {/* QC Passed */}
+                                                        <td className="px-4 py-3 text-center whitespace-nowrap">
+                                                            {item.passedQty != null ? (
+                                                                <span className={`px-2 py-0.5 rounded-full text-xs font-bold inline-flex items-center gap-1 ${
+                                                                    Number(item.passedQty) > 0
+                                                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                                                        : "text-gray-400"
+                                                                }`}>
+                                                                    <FiCheckCircle size={11} className={Number(item.passedQty) > 0 ? "text-emerald-600" : "text-gray-400"} />
+                                                                    <span>{item.passedQty}</span>
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-gray-400 text-xs">—</span>
+                                                            )}
+                                                        </td>
+
+                                                        {/* QC Failed */}
+                                                        <td className="px-4 py-3 text-center whitespace-nowrap">
+                                                            {Number(item.failedQty || 0) > 0 ? (
+                                                                <div className="flex flex-col items-center">
+                                                                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-200 inline-flex items-center gap-1" title={item.failureReason || "QC Failed"}>
+                                                                        <FiAlertTriangle size={11} className="text-red-500" />
+                                                                        <span>{item.failedQty}</span>
+                                                                    </span>
+                                                                    {item.failureReason && (
+                                                                        <span className="text-[10px] text-red-500 block truncate max-w-[110px] mt-0.5" title={item.failureReason}>
+                                                                            {item.failureReason}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-gray-300 text-xs font-medium">0</span>
+                                                            )}
+                                                        </td>
+
+                                                        {/* Buying Price */}
+                                                        <td className="px-4 py-3 text-right whitespace-nowrap font-semibold text-amber-700">
+                                                            ₹{item.buyingPrice != null ? item.buyingPrice : (curr.buyingPrice || "—")}
+                                                        </td>
+
+                                                        {/* Selling Price */}
+                                                        <td className="px-4 py-3 text-right whitespace-nowrap font-semibold text-emerald-700">
+                                                            ₹{item.sellingPrice != null ? item.sellingPrice : (curr.sellingPrice || "—")}
+                                                        </td>
+
+                                                        {/* MRP */}
+                                                        <td className="px-4 py-3 text-right whitespace-nowrap font-semibold text-indigo-700">
+                                                            ₹{item.mrp != null ? item.mrp : (curr.mrp || "—")}
+                                                        </td>
+
+                                                        {/* Received By */}
+                                                        <td className="px-4 py-3 whitespace-nowrap">
+                                                            <div className="flex items-center gap-1 text-gray-700 font-semibold">
+                                                                <FiUser size={12} className="text-gray-400" />
+                                                                <span>{item.receivedBy || "—"}</span>
+                                                            </div>
+                                                        </td>
+
+                                                        {/* Received From */}
+                                                        <td className="px-4 py-3 whitespace-nowrap text-gray-600">
+                                                            {item.receivedFrom || "—"}
+                                                        </td>
+
+                                                        {/* Condition */}
+                                                        <td className="px-4 py-3 text-center whitespace-nowrap">
+                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                                                item.condition === "GOOD" ? "bg-emerald-50 text-emerald-700" :
+                                                                item.condition === "DAMAGED" ? "bg-red-50 text-red-700" :
+                                                                "bg-amber-50 text-amber-700"
+                                                            }`}>
+                                                                {item.condition || "GOOD"}
+                                                            </span>
+                                                        </td>
+
+                                                        {/* Remarks */}
+                                                        <td className="px-4 py-3 text-gray-400 text-[11px] max-w-[150px] truncate" title={item.remarks}>
+                                                            {item.remarks || "—"}
+                                                        </td>
+
+                                                        {/* Invoices / Challans */}
+                                                        <td className="px-4 py-3 whitespace-nowrap text-center">
+                                                            {Array.isArray(item.invoices) && item.invoices.length > 0 ? (
+                                                                <div className="flex items-center justify-center gap-1 flex-wrap max-w-[160px] mx-auto">
+                                                                    {item.invoices.map((inv, invIdx) => (
+                                                                        <a
+                                                                            key={invIdx}
+                                                                            href={inv.url}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-[#1F618D] border border-blue-200 rounded-md text-[10px] font-semibold transition"
+                                                                            title={inv.originalName || `Invoice ${invIdx + 1}`}
+                                                                        >
+                                                                            <FiFileText size={10} className="text-[#2980b9]" />
+                                                                            <span className="truncate max-w-[70px]">{inv.originalName || `Inv ${invIdx + 1}`}</span>
+                                                                        </a>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-gray-300">—</span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 )}
-                                {table.getRowModel().rows.map(row => (
-                                    <tr key={row.id} className="border-b border-gray-50 hover:bg-[#2980b9]/10 transition-colors">
-                                        {row.getVisibleCells().map(cell => (
-                                            <td key={cell.id} className="px-4 py-2.5 text-gray-700 text-center whitespace-nowrap">
-                                                {cell.renderValue()}
-                                            </td>
-                                        ))}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                            </div>
+                        )}
+
+                        {/* TAB 2: ASSIGNED BATCHES */}
+                        {activeTab === "BATCHES" && (
+                            <div>
+                                {batches.length === 0 ? (
+                                    <div className="p-10 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                                        <FiLayers size={32} className="mx-auto text-gray-300 mb-2" />
+                                        <p className="text-xs font-bold text-gray-700">No Batches Allocated</p>
+                                        <p className="text-[11px] text-gray-400 mt-1 max-w-sm mx-auto">
+                                            No batch numbers have been assigned to this product yet. Click &quot;Assign / View Batches&quot; to allocate batches.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="overflow-x-auto rounded-2xl border border-gray-200 shadow-2xs">
+                                        <table className="w-full text-left text-xs border-collapse">
+                                            <thead className="bg-gray-50 text-gray-600 font-bold text-[10px] uppercase tracking-wider border-b border-gray-100">
+                                                <tr>
+                                                    <th className="px-4 py-3">Batch Number</th>
+                                                    <th className="px-4 py-3 text-center">Available Qty</th>
+                                                    <th className="px-4 py-3 text-center">Initial Qty</th>
+                                                    <th className="px-4 py-3 text-right">Buying Price (₹)</th>
+                                                    <th className="px-4 py-3 text-right">Selling Price (₹)</th>
+                                                    <th className="px-4 py-3 text-right">MRP (₹)</th>
+                                                    <th className="px-4 py-3 text-center">Status</th>
+                                                    <th className="px-4 py-3">Inward Date</th>
+                                                    <th className="px-4 py-3">Remarks</th>
+                                                    <th className="px-4 py-3 text-center">Invoices</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
+                                                {batches.map((b) => (
+                                                    <tr key={b._id} className="hover:bg-gray-50/50 transition-colors">
+                                                        <td className="px-4 py-3 font-mono font-bold text-[#2980b9]">
+                                                            <span className="px-2 py-0.5 bg-blue-50 border border-blue-100 rounded-lg">
+                                                                {b.batchNumber}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center font-bold text-emerald-600">
+                                                            {b.availableQty}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center text-gray-500 font-medium">
+                                                            {b.initialQty}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right font-semibold text-amber-700">
+                                                            ₹{b.buyingPrice != null ? b.buyingPrice : (b.costPrice || curr.buyingPrice || curr.price || 0)}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right font-semibold text-emerald-700">
+                                                            ₹{b.sellingPrice != null ? b.sellingPrice : (curr.sellingPrice || curr.price || 0)}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right font-semibold text-indigo-700">
+                                                            ₹{b.mrp != null ? b.mrp : (curr.mrp || 0)}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center">
+                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                                                                b.status === "OPEN" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"
+                                                            }`}>
+                                                                {b.status}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-gray-500 text-[11px]">
+                                                            {formatDate(b.inwardDate || b.createdAt)}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-gray-400 text-[11px] max-w-[150px] truncate" title={b.remarks}>
+                                                            {b.remarks || "—"}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center">
+                                                            {Array.isArray(b.invoices) && b.invoices.length > 0 ? (
+                                                                <div className="flex items-center justify-center gap-1 flex-wrap max-w-[140px] mx-auto">
+                                                                    {b.invoices.map((inv, invIdx) => (
+                                                                        <a
+                                                                            key={invIdx}
+                                                                            href={inv.url}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-[#1F618D] border border-blue-200 rounded-md text-[10px] font-semibold transition"
+                                                                            title={inv.originalName || `Invoice ${invIdx + 1}`}
+                                                                        >
+                                                                            <FiFileText size={10} className="text-[#2980b9]" />
+                                                                            <span className="truncate max-w-[60px]">{inv.originalName || `Inv ${invIdx + 1}`}</span>
+                                                                        </a>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-gray-300">—</span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* TAB 3: PRODUCT SPECIFICATIONS */}
+                        {activeTab === "SPECS" && (
+                            <div className="space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    {/* Left: Product Image & Basic Info */}
+                                    <div className="bg-gray-50 rounded-2xl border border-gray-100 p-5 flex flex-col items-center text-center">
+                                        <div className="w-36 h-36 rounded-2xl bg-white border border-gray-200 overflow-hidden flex items-center justify-center p-2 mb-4 shadow-sm">
+                                            {displayImg && displayImg !== "/placeholder-product.png" ? (
+                                                <img
+                                                    src={displayImg}
+                                                    alt={curr.productName}
+                                                    className="w-full h-full object-contain"
+                                                    onError={e => { e.currentTarget.src = "/placeholder-product.png"; }}
+                                                />
+                                            ) : (
+                                                <div className="flex flex-col items-center gap-1 text-gray-300">
+                                                    <FiPackage size={36} />
+                                                    <span className="text-[10px]">No image available</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <h3 className="text-sm font-bold text-gray-800">{curr.productName}</h3>
+                                        <span className="font-mono text-xs text-gray-400 mt-0.5">{curr.productCode}</span>
+
+                                        {Array.isArray(curr.colors) && curr.colors.length > 0 && (
+                                            <div className="mt-4 pt-4 border-t border-gray-200/60 w-full">
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">
+                                                    Color Variants
+                                                </span>
+                                                <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                                    {curr.colors.map((c, i) => (
+                                                        <span
+                                                            key={i}
+                                                            title={`Color: ${c.color} | Qty: ${c.qty}`}
+                                                            className="w-4 h-4 rounded-full border border-gray-300 shadow-2xs"
+                                                            style={{ backgroundColor: c.color }}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Right: Technical Attributes */}
+                                    <div className="md:col-span-2 space-y-4">
+                                        {/* Optical Specs */}
+                                        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-2xs">
+                                            <h4 className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                                <FiEye size={13} /> Optical Parameters
+                                            </h4>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">SPH</span>
+                                                    <span className="font-semibold text-gray-800">{curr.sph || "—"}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">CYL</span>
+                                                    <span className="font-semibold text-gray-800">{curr.cyl || "—"}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Axis</span>
+                                                    <span className="font-semibold text-gray-800">{curr.axis || "—"}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Addition</span>
+                                                    <span className="font-semibold text-gray-800">{curr.addition || "—"}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Index</span>
+                                                    <span className="font-semibold text-gray-800">{curr.index || "—"}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Coating</span>
+                                                    <span className="font-semibold text-gray-800">{curr.coating || "—"}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Physical & Dimensions */}
+                                        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-2xs">
+                                            <h4 className="text-xs font-bold text-purple-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                                <FiBox size={13} /> Physical & Material
+                                            </h4>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Color</span>
+                                                    <span className="font-semibold text-gray-800">{curr.color || "—"}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Shape</span>
+                                                    <span className="font-semibold text-gray-800">{curr.shape || "—"}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Size</span>
+                                                    <span className="font-semibold text-gray-800">{curr.size || "—"}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Type</span>
+                                                    <span className="font-semibold text-gray-800">{curr.type || "—"}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Material</span>
+                                                    <span className="font-semibold text-gray-800">{curr.material || "—"}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Dimensions</span>
+                                                    <span className="font-semibold text-gray-800">{curr.dimensions || "—"}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Commercial & Tax */}
+                                        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-2xs">
+                                            <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                                <FiDollarSign size={13} /> Commercial & Tax Details
+                                            </h4>
+                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">MRP</span>
+                                                    <span className="font-semibold text-gray-800">₹{curr.mrp || 0}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Cost Price</span>
+                                                    <span className="font-semibold text-gray-800">₹{curr.price || 0}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">GST Rate</span>
+                                                    <span className="font-semibold text-gray-800">{curr.gst || 0}%</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase block">HSN / SAC</span>
+                                                    <span className="font-semibold text-gray-800">{curr.hsnSac || "—"}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
-            <ModalFooter>
-                <button onClick={onClose}
-                    className="px-4 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition">Close</button>
-            </ModalFooter>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50/60 rounded-b-2xl flex-shrink-0">
+                <div className="flex items-center gap-2">
+                    {onOpenBatches && (
+                        <button
+                            type="button"
+                            onClick={() => onOpenBatches(curr)}
+                            className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition cursor-pointer"
+                        >
+                            <FiLayers size={14} />
+                            <span>Assign / View Batches</span>
+                        </button>
+                    )}
+                    {onOpenEdit && (
+                        <button
+                            type="button"
+                            onClick={() => onOpenEdit(curr)}
+                            className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-[#2980b9] bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl transition cursor-pointer"
+                        >
+                            <FiEdit2 size={14} />
+                            <span>Edit Product</span>
+                        </button>
+                    )}
+                </div>
+
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-5 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition cursor-pointer shadow-2xs"
+                >
+                    Close
+                </button>
+            </div>
         </Modal>
     );
 };
@@ -4190,3 +6362,251 @@ function BulkUploadModal({ onClose }) {
         </Modal>
     );
 }
+
+const BatchManagementModal = ({ isOpen, onClose, product, batches, summary, loading, allocating, formData, setFormData, onAllocateSubmit }) => {
+    if (!isOpen || !product) return null;
+
+    const { totalStock = 0, allocatedQty = 0, unallocatedQty = 0 } = summary || {};
+    const isUnallocatedEmpty = unallocatedQty <= 0;
+
+    return (
+        <Modal onClose={onClose} maxWidth="max-w-4xl">
+            <ModalHeader
+                title="Batch Allocation & Details"
+                subtitle={`${product.productName || 'Product'} (${product.productCode || 'N/A'})`}
+                onClose={onClose}
+                icon={FiLayers}
+            />
+            <div className="p-6 overflow-y-auto max-h-[75vh] flex flex-col gap-6">
+                {/* Stock Allocation Summary Banner */}
+                <div className="grid grid-cols-3 gap-3 bg-gray-50 border border-gray-100 rounded-2xl p-4">
+                    <div className="text-center border-r border-gray-200/80 pr-2">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Total Inventory Stock</span>
+                        <span className="text-lg font-black text-gray-800">{totalStock}</span>
+                    </div>
+                    <div className="text-center border-r border-gray-200/80 pr-2">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Allocated to Batches</span>
+                        <span className="text-lg font-black text-blue-600">{allocatedQty}</span>
+                    </div>
+                    <div className="text-center">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Remaining Unallocated</span>
+                        <span className={`text-lg font-black ${unallocatedQty > 0 ? 'text-emerald-600' : 'text-amber-600'}`}>{unallocatedQty}</span>
+                    </div>
+                </div>
+
+                {/* Allocate New Batch Form */}
+                <div className={`border rounded-2xl p-5 shadow-2xs transition-all ${isUnallocatedEmpty ? 'bg-amber-50/40 border-amber-200' : 'bg-gradient-to-r from-blue-50/70 to-indigo-50/70 border-blue-100'}`}>
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                            <FiPlus className={isUnallocatedEmpty ? "text-amber-600" : "text-[#2980b9]"} size={16} />
+                            <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Allocate New Batch Number</h3>
+                        </div>
+                        {isUnallocatedEmpty && (
+                            <span className="text-[11px] font-bold text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full">
+                                Stock Fully Allocated
+                            </span>
+                        )}
+                    </div>
+
+                    {isUnallocatedEmpty ? (
+                        <div className="p-3 bg-white/80 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2">
+                            <FiAlertCircle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                            <div>
+                                <p className="font-bold">No unallocated stock available!</p>
+                                <p className="text-[11px] text-amber-700 mt-0.5">
+                                    All {totalStock} units of this product are already assigned to active batches.
+                                    To create a new batch, please add more inventory stock or wait until existing batches are sold.
+                                </p>
+                            </div>
+                        </div>
+                    ) : (
+                        <form onSubmit={onAllocateSubmit} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Batch Number</label>
+                                <input
+                                    type="text"
+                                    placeholder="Auto (e.g. BTCN1)"
+                                    className="w-full px-3 py-2 text-xs font-semibold uppercase bg-white border border-gray-200 rounded-xl outline-none focus:border-[#2980b9] focus:ring-1 focus:ring-[#2980b9]/30"
+                                    value={formData.batchNumber}
+                                    onChange={e => setFormData(prev => ({ ...prev, batchNumber: e.target.value }))}
+                                />
+                                <span className="text-[9px] text-gray-400 mt-0.5 block">Leave blank for auto-generate</span>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">
+                                    Allocated Qty * <span className="text-emerald-600 font-semibold">(Max: {unallocatedQty})</span>
+                                </label>
+                                <input
+                                    type="number"
+                                    required
+                                    min="1"
+                                    max={unallocatedQty}
+                                    placeholder={`Max ${unallocatedQty}`}
+                                    className="w-full px-3 py-2 text-xs font-semibold bg-white border border-gray-200 rounded-xl outline-none focus:border-[#2980b9] focus:ring-1 focus:ring-[#2980b9]/30"
+                                    value={formData.qty}
+                                    onChange={e => setFormData(prev => ({ ...prev, qty: e.target.value }))}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Buying Price (₹)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="Buying Price"
+                                    className="w-full px-3 py-2 text-xs font-semibold bg-white border border-gray-200 rounded-xl outline-none focus:border-[#2980b9] focus:ring-1 focus:ring-[#2980b9]/30"
+                                    value={formData.buyingPrice ?? formData.costPrice ?? ''}
+                                    onChange={e => setFormData(prev => ({ ...prev, buyingPrice: e.target.value, costPrice: e.target.value }))}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Selling Price (₹)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="Selling Price"
+                                    className="w-full px-3 py-2 text-xs font-semibold bg-white border border-gray-200 rounded-xl outline-none focus:border-[#2980b9] focus:ring-1 focus:ring-[#2980b9]/30"
+                                    value={formData.sellingPrice ?? ''}
+                                    onChange={e => setFormData(prev => ({ ...prev, sellingPrice: e.target.value }))}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">MRP (₹)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="MRP"
+                                    className="w-full px-3 py-2 text-xs font-semibold bg-white border border-gray-200 rounded-xl outline-none focus:border-[#2980b9] focus:ring-1 focus:ring-[#2980b9]/30"
+                                    value={formData.mrp ?? ''}
+                                    onChange={e => setFormData(prev => ({ ...prev, mrp: e.target.value }))}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Remarks</label>
+                                <input
+                                    type="text"
+                                    placeholder="Allocation remarks..."
+                                    className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-xl outline-none focus:border-[#2980b9] focus:ring-1 focus:ring-[#2980b9]/30"
+                                    value={formData.remarks}
+                                    onChange={e => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
+                                />
+                            </div>
+                            <div className="col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-6 flex justify-end">
+                                <button
+                                    type="submit"
+                                    disabled={allocating || isUnallocatedEmpty}
+                                    className="flex items-center gap-2 px-5 py-2.5 bg-[#2980b9] hover:bg-[#2980b9]/90 text-white text-xs font-bold rounded-xl transition shadow-md disabled:opacity-50 cursor-pointer"
+                                >
+                                    {allocating ? (
+                                        <>
+                                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                            <span>Allocating...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <FiCheckSquare size={15} />
+                                            <span>Allocate Batch</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </form>
+                    )}
+                </div>
+
+                {/* Existing Batches List */}
+                <div>
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-2">
+                            <FiPackage size={14} className="text-gray-500" />
+                            Assigned Batches ({batches.length})
+                        </h3>
+                    </div>
+
+                    {loading ? (
+                        <div className="py-12 text-center text-gray-400 text-xs flex flex-col items-center gap-2">
+                            <div className="w-5 h-5 border-2 border-[#2980b9] border-t-transparent rounded-full animate-spin" />
+                            <span>Loading batches...</span>
+                        </div>
+                    ) : batches.length === 0 ? (
+                        <div className="p-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                            <FiAlertCircle size={28} className="mx-auto text-amber-400 mb-2" />
+                            <p className="text-xs font-bold text-gray-700">No Batches Assigned</p>
+                            <p className="text-[11px] text-gray-400 mt-0.5">This product currently does not have any batch allocated. Use the form above to assign a batch number.</p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto border border-gray-100 rounded-xl shadow-2xs">
+                            <table className="w-full text-left text-xs">
+                                <thead className="bg-gray-50/80 text-gray-500 font-bold uppercase tracking-wider text-[10px] border-b border-gray-100">
+                                    <tr>
+                                        <th className="px-4 py-3">Batch Number</th>
+                                        <th className="px-4 py-3 text-center">Available Qty</th>
+                                        <th className="px-4 py-3 text-center">Initial Qty</th>
+                                        <th className="px-4 py-3 text-right">Buying Price</th>
+                                        <th className="px-4 py-3 text-right">Selling Price</th>
+                                        <th className="px-4 py-3 text-right">MRP</th>
+                                        <th className="px-4 py-3 text-center">Status</th>
+                                        <th className="px-4 py-3">Inward Date</th>
+                                        <th className="px-4 py-3">Remarks</th>
+                                        <th className="px-4 py-3 text-center">Invoices</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
+                                    {batches.map(b => (
+                                        <tr key={b._id} className="hover:bg-gray-50/60 transition">
+                                            <td className="px-4 py-3 font-bold text-gray-900 font-mono">
+                                                <span className="px-2 py-0.5 bg-blue-50 text-[#2980b9] border border-blue-100 rounded-lg">
+                                                    {b.batchNumber}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-center font-bold text-emerald-600">{b.availableQty}</td>
+                                            <td className="px-4 py-3 text-center text-gray-500">{b.initialQty}</td>
+                                            <td className="px-4 py-3 text-right font-semibold text-amber-700">₹{Number(b.buyingPrice) > 0 ? b.buyingPrice : (Number(b.costPrice) > 0 ? b.costPrice : (product.buyingPrice || product.price || 0))}</td>
+                                            <td className="px-4 py-3 text-right font-semibold text-emerald-700">₹{Number(b.sellingPrice) > 0 ? b.sellingPrice : (product.sellingPrice || product.price || 0)}</td>
+                                            <td className="px-4 py-3 text-right font-semibold text-indigo-700">₹{Number(b.mrp) > 0 ? b.mrp : (product.mrp || 0)}</td>
+                                            <td className="px-4 py-3 text-center">
+                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${b.status === 'OPEN' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                    {b.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-gray-500 text-[11px]">{b.inwardDate ? new Date(b.inwardDate).toLocaleDateString('en-IN') : '—'}</td>
+                                            <td className="px-4 py-3 text-gray-400 text-[11px] max-w-[150px] truncate" title={b.remarks}>{b.remarks || '—'}</td>
+                                            <td className="px-4 py-3 text-center">
+                                                {Array.isArray(b.invoices) && b.invoices.length > 0 ? (
+                                                    <div className="flex items-center justify-center gap-1 flex-wrap max-w-[140px] mx-auto">
+                                                        {b.invoices.map((inv, invIdx) => (
+                                                            <a
+                                                                key={invIdx}
+                                                                href={inv.url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-[#1F618D] border border-blue-200 rounded-md text-[10px] font-semibold transition"
+                                                                title={inv.originalName || `Invoice ${invIdx + 1}`}
+                                                            >
+                                                                <FiFileText size={10} className="text-[#2980b9]" />
+                                                                <span className="truncate max-w-[60px]">{inv.originalName || `Inv ${invIdx + 1}`}</span>
+                                                            </a>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-300">—</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            </div>
+            <ModalFooter>
+                <button
+                    onClick={onClose}
+                    className="px-5 py-2 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition"
+                >
+                    Close
+                </button>
+            </ModalFooter>
+        </Modal>
+    );
+};

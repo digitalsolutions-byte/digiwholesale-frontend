@@ -38,6 +38,7 @@ const authSlice = createSlice({
             localStorage.removeItem('refreshToken');
             localStorage.removeItem('user');
             localStorage.removeItem('tenant');
+            localStorage.removeItem('featureFlags');
         },
     },
 });

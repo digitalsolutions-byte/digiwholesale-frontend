@@ -1,3 +1,4 @@
+import VendorTabNav from '../../components/vendor/VendorTabNav';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Icon } from '@iconify/react';
 import { getShrinkageItems } from '../../services/purchaseReturnService';
@@ -58,6 +59,7 @@ const ShrinkageItems = () => {
 
     return (
         <div className="p-2 w-full h-full flex flex-col gap-4">
+            <VendorTabNav groupKey="REPLACEMENTS_LOSSES" />
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
