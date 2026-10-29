@@ -81,12 +81,12 @@ export default function RegisterCustomer() {
         }),
         aadharCard: Yup.string().when('gstType', {
             is: (val) => val?.toLowerCase() === 'un-registered' || val?.toLowerCase() === 'unregistered',
-            then: (schema) => schema.matches(/^\d{12}$/, 'Aadhar No. must be 12 digits').required('Aadhar Card No. is required'),
+            then: (schema) => schema.test('aadhar-format', 'Aadhar No. must be 12 digits', val => !val || /^\d{12}$/.test(val)).nullable().optional(),
             otherwise: (schema) => schema.notRequired()
         }),
         panCard: Yup.string().when('gstType', {
             is: (val) => val?.toLowerCase() === 'un-registered' || val?.toLowerCase() === 'unregistered',
-            then: (schema) => schema.matches(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, 'Invalid PAN format (e.g., ABCDE1234F)').required('PAN Card No. is required'),
+            then: (schema) => schema.test('pan-format', 'Invalid PAN format (e.g., ABCDE1234F)', val => !val || /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(val)).nullable().optional(),
             otherwise: (schema) => schema.notRequired()
         }),
         billToAddress: Yup.object().shape({
@@ -118,7 +118,7 @@ export default function RegisterCustomer() {
         ownerName: Yup.string().required('Proprietor/Partner Name is required'),
         mobileNo1: Yup.string().matches(/^\d{10}$/, 'Mobile No. must be 10 digits').required('Mobile No. 1 is required'),
         mobileNo2: Yup.string().matches(/^\d{10}$/, 'Mobile No. must be 10 digits').nullable(),
-        businessEmail: Yup.string().email('Invalid email').required('Official Email is required'),
+        businessEmail: Yup.string().email('Invalid email').nullable().optional(),
         zoneRefId: Yup.string().required('Zone is required'),
         salesPersonRefId: Yup.string().required('Sales Person is required'),
     }), []);
@@ -190,12 +190,14 @@ export default function RegisterCustomer() {
                 businessType: getLabel(configs.businessTypes || [], values.businessTypeRefId),
                 salesPerson: getLabel(configs.salesPersons, values.salesPersonRefId, 'employeeName'),
                 gstType: getLabel(configs.gstTypes, values.gstTypeRefId),
+                gstTypeRefId: values.gstTypeRefId,
                 gstNumber: values.gstNumber,
                 gstCertificateImg: values.gstCertificateImg,
-                aadharCard: values.aadharCard,
-                aadharCardImg: values.aadharCardImg,
-                panCard: values.panCard,
-                panCardImg: values.panCardImg,
+                businessEmail: values.businessEmail?.trim() || undefined,
+                aadharCard: values.aadharCard?.trim() || undefined,
+                aadharCardImg: values.aadharCardImg || undefined,
+                panCard: values.panCard?.trim() || undefined,
+                panCardImg: values.panCardImg || undefined,
                 zone: getLabel(configs.zones, values.zoneRefId, 'zone'),
                 specificLab: getLabel(configs.specificLabs, values.specificLabRefId),
                 plant: getLabel(configs.plants, values.plantRefId),
@@ -207,6 +209,7 @@ export default function RegisterCustomer() {
                 finalDiscount: Number(values.finalDiscount) || 0,
                 IsGSTRegistered: values.gstType?.toLowerCase() !== 'un-registered' && values.gstType?.toLowerCase() !== 'unregistered',
                 isGSTRegistered: values.gstType?.toLowerCase() !== 'un-registered' && values.gstType?.toLowerCase() !== 'unregistered',
+                isGstRegistered: values.gstType?.toLowerCase() !== 'un-registered' && values.gstType?.toLowerCase() !== 'unregistered',
                 proprietorName: values.proprietorName || values.ownerName,
                 currentlyDealtBrands: values.currentlyDealtBrands || '',
                 brands: (values.brands || []).map(b => ({
@@ -514,6 +517,7 @@ export default function RegisterCustomer() {
                     }
                 });
 
+                let nextConfigs = null;
                 setConfigs(prev => {
                     const next = { ...prev, ...data };
                     next.zones = Array.isArray(zones) ? zones : [];
@@ -522,16 +526,11 @@ export default function RegisterCustomer() {
                             next[key] = [];
                         }
                     });
-
-                    const draftId = searchParams.get('draftId');
-                    const correctionId = searchParams.get('correctionId');
-                    const approvalId = searchParams.get('approvalId');
-
-                    // Initialization moved to separate effect
-
+                    nextConfigs = next;
                     return next;
                 });
                 setConfigsLoaded(true);
+                configsRef.current = nextConfigs;
                 configsLoadedRef.current = true;
             } catch (err) {
                 console.error('Config load error:', err);
@@ -607,14 +606,21 @@ export default function RegisterCustomer() {
             return errors;
         };
 
-        const formatLabel = (path) => {
-            return path
+        const formatLabel = (path, message) => {
+            const cleanPath = path.replace(/\[\d+\]/g, '');
+            const fieldName = cleanPath
                 .split('.')
                 .pop()
-                .replace(/\[\d+\]/g, '') // Remove [0] etc
                 .replace(/([A-Z])/g, ' $1')
                 .replace(/^./, str => str.toUpperCase())
                 .trim();
+
+            const shipMatch = path.match(/customerShipToDetails\[(\d+)\]/);
+            const prefix = shipMatch ? `Ship To ${parseInt(shipMatch[1], 10) + 1} - ` : '';
+            const billMatch = path.includes('billToAddress');
+            const billPrefix = billMatch ? 'Bill To - ' : '';
+
+            return `${prefix}${billPrefix}${fieldName}${message ? `: ${message}` : ''}`;
         };
 
         const getFieldsForStep = (stepIdx) => {
@@ -635,39 +641,50 @@ export default function RegisterCustomer() {
         if (activeStep < steps.length - 1) {
             if (isStepValid(activeStep)) {
                 setStep(activeStep + 1);
-            } else {
-                const errors = await formik.validateForm();
-                const flatErrors = getFlatErrors(errors);
-                const stepFields = getFieldsForStep(activeStep);
-                const stepErrors = flatErrors.filter(e => {
-                    const rootKey = e.path.split(/[.[\]]+/)[0];
-                    return stepFields.includes(rootKey);
-                });
-                const labels = [...new Set(stepErrors.map(e => formatLabel(e.path)))];
-
-                if (labels.length > 0) {
-                    toast.warning(`Please fix the following fields in ${steps[activeStep]}: ${labels.join(', ')}`);
-                } else {
-                    toast.warning(`Please complete all required fields in ${steps[activeStep]}`);
-                }
-
-                // Mark all invalid fields as touched deeply
-                const touched = {};
-                flatErrors.forEach(e => {
-                    // Deep set touched for Formik
-                    const parts = e.path.split(/[.[\]]+/).filter(Boolean);
-                    let current = touched;
-                    parts.forEach((part, i) => {
-                        if (i === parts.length - 1) {
-                            current[part] = true;
-                        } else {
-                            current[part] = current[part] || {};
-                            current = current[part];
-                        }
-                    });
-                });
-                formik.setTouched(touched);
+                return;
             }
+
+            const validationErrors = await formik.validateForm();
+            const flatErrors = getFlatErrors(validationErrors);
+            const stepFields = getFieldsForStep(activeStep);
+            const stepErrors = flatErrors.filter(e => {
+                const rootKey = e.path.split(/[.\[\]]+/)[0];
+                return stepFields.includes(rootKey);
+            });
+
+            // Re-evaluate validity with the freshly calculated validation errors
+            if (stepErrors.length === 0 && isStepValid(activeStep, validationErrors)) {
+                setStep(activeStep + 1);
+                return;
+            }
+
+            const labels = [...new Set(stepErrors.map(e => formatLabel(e.path, e.message)))];
+
+            if (labels.length > 0) {
+                toast.warning(`Please fix: ${labels.join(', ')}`);
+            } else {
+                toast.warning(`Please complete all required fields in ${steps[activeStep]}`);
+            }
+
+            // Mark all invalid fields as touched deeply
+            const touched = { ...formik.touched };
+            flatErrors.forEach(e => {
+                const parts = e.path.split(/[.\[\]]+/).filter(Boolean);
+                let current = touched;
+                parts.forEach((part, i) => {
+                    if (i === parts.length - 1) {
+                        current[part] = true;
+                    } else {
+                        const nextPart = parts[i + 1];
+                        const isNextIndex = /^\d+$/.test(nextPart);
+                        if (!current[part]) {
+                            current[part] = isNextIndex ? [] : {};
+                        }
+                        current = current[part];
+                    }
+                });
+            });
+            formik.setTouched(touched);
         } else {
             if (isReadOnlyMode) {
                 navigate(PATHS.APPROVALS);
@@ -918,7 +935,7 @@ export default function RegisterCustomer() {
                     isVerificationMode={hideVerify ? false : isVerificationMode}
                     isRejected={rejectedFields[props.name]}
                     onToggleRejection={(fieldName) => dispatch(toggleFieldRejection({ fieldName }))}
-                    error={fieldTouched && fieldError ? { message: fieldError } : null}
+                    error={fieldTouched && fieldError ? (typeof fieldError === 'string' ? { message: fieldError } : fieldError) : null}
                     onChange={(e) => {
                         if (customOnChange) customOnChange(e);
                         else formik.handleChange(e);
@@ -935,8 +952,9 @@ export default function RegisterCustomer() {
         );
     };
 
-    const isStepValid = (stepIdx = activeStep) => {
-        const { values, errors } = formik;
+    const isStepValid = (stepIdx = activeStep, currentErrors = formik.errors) => {
+        const { values } = formik;
+        const errors = currentErrors || {};
 
         switch (stepIdx) {
             case 0: // Firm/Company Details
@@ -946,14 +964,19 @@ export default function RegisterCustomer() {
                 if (values.gstType?.toLowerCase() !== 'un-registered' && values.gstType?.toLowerCase() !== 'unregistered') {
                     return !!values.firmName && !!values.gstNumber && !!values.gstCertificateImg && !errors.firmName && !errors.gstNumber;
                 }
-                return !!values.shopName && !!values.aadharCard && !!values.aadharCardImg && !!values.panCard && !!values.panCardImg && !errors.shopName && !errors.aadharCard && !errors.panCard;
+                return !!values.shopName && !errors.shopName && !errors.aadharCard && !errors.panCard;
 
             case 1: // Address Details
-                const billFields = ['branchName', 'contactPerson', 'contactNumber', 'city', 'state', 'zipCode'];
-                const billValid = billFields.every(f => !!values.billToAddress?.[f]) && !errors.billToAddress;
+                const billFields = ['branchName', 'contactPerson', 'contactNumber', 'address', 'city', 'state', 'zipCode'];
+                const hasBillErrors = errors.billToAddress && typeof errors.billToAddress === 'object' && Object.keys(errors.billToAddress).length > 0;
+                const billValid = billFields.every(f => !!values.billToAddress?.[f]) && !hasBillErrors;
+
+                if (typeof errors.customerShipToDetails === 'string') return false;
+
                 const shipValid = values.customerShipToDetails?.length > 0 && values.customerShipToDetails.every((addr, idx) => {
                     const hasFields = billFields.every(f => !!addr[f]);
-                    const hasErrors = errors.customerShipToDetails?.[idx] && billFields.some(f => !!errors.customerShipToDetails[idx][f]);
+                    const errObj = Array.isArray(errors.customerShipToDetails) ? errors.customerShipToDetails[idx] : null;
+                    const hasErrors = errObj && typeof errObj === 'object' && Object.keys(errObj).length > 0;
                     return hasFields && !hasErrors;
                 });
                 return billValid && shipValid;
@@ -965,7 +988,7 @@ export default function RegisterCustomer() {
 
             case 3: // Contact Information
                 const contactFields = ['ownerName', 'mobileNo1', 'zoneRefId', 'salesPersonRefId'];
-                return contactFields.every(f => !!values[f]) && !errors.ownerName && !errors.mobileNo1 && !errors.zoneRefId && !errors.salesPersonRefId;
+                return contactFields.every(f => !!values[f]) && !errors.ownerName && !errors.mobileNo1 && !errors.zoneRefId && !errors.salesPersonRefId && !errors.businessEmail;
 
             case 4: // Overview
                 return true;

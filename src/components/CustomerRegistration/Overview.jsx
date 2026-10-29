@@ -106,16 +106,24 @@ export const Overview = ({ formik, configs = {}, isSalesUser }) => {
                 </div>
             </SummaryCard>
 
-            <SummaryCard title="Cheque Details" icon="mdi:checkbook">
-                <DetailItem label="Remark" value={values.chequeRemark || 'N/A'} />
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-                    {(values.chequeDetails || []).map((c, i) => (
-                        <div key={i} className="space-y-2">
-                            <DetailItem label={`Cheque ${i + 1} No`} value={c.chequeNumber} />
-                            {c.chequeImage && <DocPreview label={`Cheque ${i + 1} Img`} src={c.chequeImage} />}
-                        </div>
-                    ))}
-                </div>
+            <SummaryCard title="Security / Cheque Details" icon="mdi:checkbook">
+                {values.chequeRemark ? (
+                    <DetailItem label="Remark / Reason" value={values.chequeRemark} />
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {(values.chequeDetails || [])
+                            .filter(c => c.chequeNumber || c.chequeImage)
+                            .map((c, i) => (
+                                <div key={i} className="space-y-2 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                    <DetailItem label={`Cheque ${i + 1} No`} value={c.chequeNumber || 'N/A'} />
+                                    {c.chequeImage && <DocPreview label={`Cheque ${i + 1} Img`} src={c.chequeImage} />}
+                                </div>
+                            ))}
+                        {!(values.chequeDetails || []).some(c => c.chequeNumber || c.chequeImage) && (
+                            <span className="text-xs text-gray-400 italic">No cheques submitted</span>
+                        )}
+                    </div>
+                )}
             </SummaryCard>
 
         </div>

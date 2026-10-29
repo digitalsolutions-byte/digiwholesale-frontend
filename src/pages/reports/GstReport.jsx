@@ -35,6 +35,9 @@ export default function GstReport() {
       wholesalerName: "Sid Optics",
       wholesalerGSTIN: "GST9876543210",
       wholesalerState: "DELHI",
+      totalOutputCount: 0,
+      totalInputCount: 0,
+      totalConsolidatedCount: 0,
     },
     summary: {
       totalOutputTaxable: 0,
@@ -55,231 +58,215 @@ export default function GstReport() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
-  // Fetch report
+  // Fetch report data
   const fetchReport = useCallback(async () => {
     try {
       setLoading(true);
       const params = {};
       if (filters.startDate) params.startDate = filters.startDate;
       if (filters.endDate) params.endDate = filters.endDate;
-      if (filters.gstRate !== "ALL") params.gstRate = filters.gstRate;
-      if (filters.productType !== "ALL") params.productType = filters.productType;
-      if (filters.taxType !== "ALL") params.taxType = filters.taxType;
-      if (filters.search) params.search = filters.search;
+      if (filters.gstRate && filters.gstRate !== "ALL") params.gstRate = filters.gstRate;
+      if (filters.productType && filters.productType !== "ALL") params.productType = filters.productType;
+      if (filters.taxType && filters.taxType !== "ALL") params.taxType = filters.taxType;
 
-      const data = await getGstReport(params);
-      if (data) {
-        setReportData(data);
-      }
+      const res = await getGstReport(params);
+      const d = (res?.meta || res?.outputReport || res?.summary)
+        ? res
+        : (res?.data?.data || res?.data || res || {});
+
+      setReportData({
+        meta: d.meta || {
+          wholesalerName: "Sid Optics",
+          wholesalerGSTIN: "GST9876543210",
+          wholesalerState: "DELHI",
+          totalOutputCount: (d.outputReport || []).length,
+          totalInputCount: (d.inputReport || []).length,
+          totalConsolidatedCount: (d.consolidatedReport || []).length,
+        },
+        summary: d.summary || {
+          totalOutputTaxable: 0,
+          totalOutputGst: 0,
+          totalOutputNet: 0,
+          totalInputTaxable: 0,
+          totalInputGst: 0,
+          totalInputNet: 0,
+          netGstPayable: 0,
+          netGstStatus: "PAYABLE",
+        },
+        outputReport: d.outputReport || [],
+        inputReport: d.inputReport || [],
+        consolidatedReport: d.consolidatedReport || [],
+      });
+      setPage(1);
     } catch (err) {
-      console.error("Error fetching GST Report:", err);
-      toast.error(err.message || "Failed to load GST reports");
+      console.error("Error fetching GST report:", err);
+      toast.error(err?.response?.data?.message || err?.message || "Failed to load GST reports");
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters.startDate, filters.endDate, filters.gstRate, filters.productType, filters.taxType]);
 
   useEffect(() => {
     fetchReport();
   }, [fetchReport]);
 
-  // Reset page when tab or filters change
-  useEffect(() => {
-    setPage(1);
-  }, [activeTab, filters]);
-
-  // Date Preset handlers
-  const handleDatePreset = (preset) => {
-    setDatePreset(preset);
+  // Date Preset handler
+  const handleDatePreset = (presetId) => {
+    setDatePreset(presetId);
     const now = new Date();
     let start = "";
-    let end = "";
+    let end = now.toISOString().split("T")[0];
 
-    const toYMD = (d) => {
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    };
+    const toYMD = (d) => d.toISOString().split("T")[0];
 
-    if (preset === "TODAY") {
-      start = toYMD(now);
-      end = toYMD(now);
-    } else if (preset === "YESTERDAY") {
-      const y = new Date(now);
-      y.setDate(y.getDate() - 1);
-      start = toYMD(y);
-      end = toYMD(y);
-    } else if (preset === "THIS_WEEK") {
-      const day = now.getDay() || 7; // Monday = 1
-      const mon = new Date(now);
-      mon.setDate(now.getDate() - (day - 1));
-      start = toYMD(mon);
-      end = toYMD(now);
-    } else if (preset === "THIS_MONTH") {
-      const first = new Date(now.getFullYear(), now.getMonth(), 1);
-      start = toYMD(first);
-      end = toYMD(now);
-    } else if (preset === "LAST_MONTH") {
-      const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const last = new Date(now.getFullYear(), now.getMonth(), 0);
-      start = toYMD(first);
-      end = toYMD(last);
-    } else if (preset === "THIS_QUARTER") {
-      const currQuarter = Math.floor(now.getMonth() / 3);
-      const first = new Date(now.getFullYear(), currQuarter * 3, 1);
-      start = toYMD(first);
-      end = toYMD(now);
-    } else if (preset === "THIS_FY") {
-      // Indian Financial Year: April 1 to March 31
-      const fyYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
-      const first = new Date(fyYear, 3, 1);
-      start = toYMD(first);
-      end = toYMD(now);
-    } else {
-      // ALL TIME
-      start = "";
-      end = "";
+    switch (presetId) {
+      case "TODAY":
+        start = end;
+        break;
+      case "YESTERDAY": {
+        const y = new Date();
+        y.setDate(y.getDate() - 1);
+        start = toYMD(y);
+        end = start;
+        break;
+      }
+      case "THIS_WEEK": {
+        const d = new Date();
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        const mon = new Date(d.setDate(diff));
+        start = toYMD(mon);
+        break;
+      }
+      case "THIS_MONTH": {
+        const m = new Date(now.getFullYear(), now.getMonth(), 1);
+        start = toYMD(m);
+        break;
+      }
+      case "LAST_MONTH": {
+        const mStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const mEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+        start = toYMD(mStart);
+        end = toYMD(mEnd);
+        break;
+      }
+      case "THIS_QUARTER": {
+        const currQ = Math.floor(now.getMonth() / 3);
+        const qStart = new Date(now.getFullYear(), currQ * 3, 1);
+        start = toYMD(qStart);
+        break;
+      }
+      case "THIS_FY": {
+        const fyYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+        start = `${fyYear}-04-01`;
+        break;
+      }
+      case "ALL_TIME":
+      default:
+        start = "";
+        end = "";
+        break;
     }
 
-    setFilters((prev) => ({ ...prev, startDate: start, endDate: end }));
+    setFilters((p) => ({ ...p, startDate: start, endDate: end }));
   };
 
-  // Download Excel Workbook
+  // Full XLSX Download via Backend Stream
   const handleDownloadFullWorkbook = async () => {
     try {
       setExporting(true);
-      await downloadGstWorkbook(filters);
-      toast.success("GST Workbook exported successfully!");
+      const params = {};
+      if (filters.startDate) params.startDate = filters.startDate;
+      if (filters.endDate) params.endDate = filters.endDate;
+      if (filters.gstRate && filters.gstRate !== "ALL") params.gstRate = filters.gstRate;
+      if (filters.productType && filters.productType !== "ALL") params.productType = filters.productType;
+      if (filters.taxType && filters.taxType !== "ALL") params.taxType = filters.taxType;
+
+      await downloadGstWorkbook(params);
+      toast.success("GST 3-Sheet Workbook downloaded successfully!");
     } catch (err) {
-      console.warn("Backend export failed, falling back to client-side sheetjs:", err);
-      exportClientWorkbook();
+      console.warn("Backend workbook export failed, falling back to client-side XLSX:", err);
+      try {
+        const wb = XLSX.utils.book_new();
+
+        // Sheet 1: Output
+        const outSheet = XLSX.utils.json_to_sheet(reportData.outputReport || []);
+        XLSX.utils.book_append_sheet(wb, outSheet, "GST Output Report");
+
+        // Sheet 2: Input
+        const inSheet = XLSX.utils.json_to_sheet(reportData.inputReport || []);
+        XLSX.utils.book_append_sheet(wb, inSheet, "GST Input Report");
+
+        // Sheet 3: Consolidated
+        const conSheet = XLSX.utils.json_to_sheet(reportData.consolidatedReport || []);
+        XLSX.utils.book_append_sheet(wb, conSheet, "GST Consolidated Report");
+
+        XLSX.writeFile(wb, `GST_Report_${Date.now()}.xlsx`);
+        toast.success("Downloaded GST Report (.xlsx)");
+      } catch (clientErr) {
+        toast.error("Export failed: " + (clientErr.message || "Unknown error"));
+      }
     } finally {
       setExporting(false);
     }
   };
 
-  // Client-side fallback workbook export
-  const exportClientWorkbook = () => {
-    try {
-      const wb = XLSX.utils.book_new();
-
-      const outData = (reportData.outputReport || []).map((r) => ({
-        "S.no.": r.sNo,
-        "Branch Name": r.branchName,
-        "Branch GST Number": r.branchGstNumber,
-        "Bill No": r.billNo,
-        "Order Date": r.orderDate,
-        "Invoice Date": r.invoiceDate,
-        "Created Date": r.createdDate,
-        "Name of the Party": r.partyName,
-        "Company Name": r.companyName,
-        "GST Number": r.gstNumber,
-        "State": r.state,
-        "Tax Type": r.taxType,
-        "Product Type": r.productType,
-        "HSN/SAC": r.hsnSac,
-        "Qty": r.qty,
-        "Total Number of Pieces": r.totalPieces,
-        "Total Retail Price": r.totalRetailPrice,
-        "Total Base Price": r.totalBasePrice,
-        "GST%": r.gstPercent,
-        "Total SGST (Rs.)": r.sgst,
-        "Total CGST (Rs.)": r.cgst,
-        "Total IGST (Rs.)": r.igst,
-        "Total GST (Rs.)": r.totalGst,
-        "Total Gross Amount (Rs.)": r.totalGross,
-        "Total Discount (Rs.)": r.totalDiscount,
-        "Total Net Amount (Rs.)": r.totalNetAmount,
-      }));
-
-      const inData = (reportData.inputReport || []).map((r) => ({
-        "S.no.": r.sNo,
-        "Branch Name": r.branchName,
-        "Branch GST Number": r.branchGstNumber,
-        "Bill No": r.billNo,
-        "Type": r.type,
-        "Created Date": r.createdDate,
-        "Purchase Date": r.purchaseDate,
-        "Name of the Party": r.partyName,
-        "GST Number": r.gstNumber,
-        "State": r.state,
-        "Quantity": r.quantity,
-        "Pieces Per Box": r.piecesPerBox,
-        "Total Number of Pieces": r.totalPieces,
-        "Total Retail Price": r.totalRetailPrice,
-        "HSN/SAC": r.hsnSac,
-        "Total Base Price": r.totalBasePrice,
-        "GST%": r.gstPercent,
-        "Total SGST (Rs.)": r.sgst,
-        "Total CGST (Rs.)": r.cgst,
-        "Total IGST (Rs.)": r.igst,
-        "Total GST (Rs.)": r.totalGst,
-        "Total Gross Amount (Rs.)": r.totalGross,
-        "Total Discount (Rs.)": r.totalDiscount,
-        "Total Net Amount (Rs.)": r.totalNetAmount,
-      }));
-
-      const consData = (reportData.consolidatedReport || []).map((r) => ({
-        "S.no.": r.sNo,
-        "HSN/SAC": r.hsnSac,
-        "Quantity": r.quantity,
-        "Total Retail Price": r.totalRetailPrice,
-        "Total Base Price": r.totalBasePrice,
-        "GST%": r.gstPercent,
-        "Total SGST (Rs.)": r.sgst,
-        "Total CGST (Rs.)": r.cgst,
-        "Total IGST (Rs.)": r.igst,
-        "Total GST (Rs.)": r.totalGst,
-        "Total Gross Amount (Rs.)": r.totalGross,
-        "Total Item Discount (Rs.)": r.totalDiscount,
-        "Total Net Amount (Rs.)": r.totalNetAmount,
-      }));
-
-      
-
-      XLSX.utils.book_append_sheet(wb, wsOut, "GST Output Report");
-      XLSX.utils.book_append_sheet(wb, wsIn, "GST Input Report");
-      XLSX.utils.book_append_sheet(wb, wsCons, "GST Consolidated Report");
-
-      XLSX.writeFile(wb, `GST_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
-      toast.success("Workbook downloaded successfully!");
-    } catch (e) {
-      console.error("Client export failed:", e);
-      toast.error("Failed to generate Excel file");
-    }
-  };
-
-  // Active records by tab
+  // Client-side text search filtering
   const currentRecords = useMemo(() => {
-    if (activeTab === "OUTPUT") return reportData.outputReport || [];
-    if (activeTab === "INPUT") return reportData.inputReport || [];
-    return reportData.consolidatedReport || [];
-  }, [activeTab, reportData]);
+    let list = [];
+    if (activeTab === "OUTPUT") list = reportData.outputReport || [];
+    else if (activeTab === "INPUT") list = reportData.inputReport || [];
+    else list = reportData.consolidatedReport || [];
+
+    const q = (filters.search || "").trim().toLowerCase();
+    if (!q) return list;
+
+    return list.filter((r) => {
+      const party = (r.partyName || r.nameOfTheParty || "").toLowerCase();
+      const comp = (r.companyName || "").toLowerCase();
+      const bill = (r.billNo || "").toLowerCase();
+      const gst = (r.gstNumber || "").toLowerCase();
+      const hsn = String(r.hsnSac || "").toLowerCase();
+      const branch = (r.branchName || "").toLowerCase();
+      const state = (r.state || "").toLowerCase();
+      return (
+        party.includes(q) ||
+        comp.includes(q) ||
+        bill.includes(q) ||
+        gst.includes(q) ||
+        hsn.includes(q) ||
+        branch.includes(q) ||
+        state.includes(q)
+      );
+    });
+  }, [activeTab, reportData, filters.search]);
 
   // Paginated records
   const paginatedRecords = useMemo(() => {
     if (pageSize === "ALL") return currentRecords;
-    const start = (page - 1) * pageSize;
-    return currentRecords.slice(start, start + pageSize);
+    const startIdx = (page - 1) * pageSize;
+    return currentRecords.slice(startIdx, startIdx + pageSize);
   }, [currentRecords, page, pageSize]);
 
-  const totalPages = pageSize === "ALL" ? 1 : Math.ceil(currentRecords.length / pageSize) || 1;
+  const totalPages = useMemo(() => {
+    if (pageSize === "ALL" || currentRecords.length === 0) return 1;
+    return Math.ceil(currentRecords.length / pageSize);
+  }, [currentRecords, pageSize]);
 
-  // Active Tab Totals Calculation
+  // Tab dynamic subtotals
   const tabTotals = useMemo(() => {
     return currentRecords.reduce(
       (acc, r) => {
         acc.qty += Number(r.qty || r.quantity || 0);
-        acc.pieces += Number(r.totalPieces || r.quantity || 0);
+        acc.pieces += Number(r.totalPieces || r.totalNumberOfPieces || 0);
         acc.retailPrice += Number(r.totalRetailPrice || 0);
         acc.basePrice += Number(r.totalBasePrice || 0);
-        acc.sgst += Number(r.sgst || 0);
-        acc.cgst += Number(r.cgst || 0);
-        acc.igst += Number(r.igst || 0);
+        acc.sgst += Number(r.sgst || r.totalSgst || 0);
+        acc.cgst += Number(r.cgst || r.totalCgst || 0);
+        acc.igst += Number(r.igst || r.totalIgst || 0);
         acc.totalGst += Number(r.totalGst || 0);
-        acc.gross += Number(r.totalGross || 0);
-        acc.discount += Number(r.totalDiscount || 0);
+        acc.gross += Number(r.totalGross || r.totalGrossAmount || 0);
+        acc.discount += Number(r.totalDiscount || r.totalItemDiscount || 0);
         acc.net += Number(r.totalNetAmount || 0);
         return acc;
       },
@@ -300,141 +287,137 @@ export default function GstReport() {
   }, [currentRecords]);
 
   return (
-    <div className="p-4 md:p-6 bg-slate-50 min-h-screen text-slate-800 space-y-6">
+    <div className="p-4 md:p-6 bg-[#F4F7F9] min-h-screen text-slate-800 space-y-6 font-sans">
       {/* ── 1. Top Header ────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-blue-600/10 text-blue-600 flex items-center justify-center font-bold">
-              <Icon icon="solar:document-text-bold" width={24} />
-            </div>
-            <div>
-              <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-[#2980B9]/10 text-[#2980B9] flex items-center justify-center font-bold shadow-inner">
+            <Icon icon="lucide:file-spreadsheet" width={24} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tight">
                 GST Reports &amp; Tax Filings
               </h1>
-              <p className="text-xs md:text-sm text-slate-500 font-medium">
-                Output (Sales), Input (Purchases) &amp; Consolidated HSN summaries for GSTR-1, GSTR-3B &amp; Reconciliation.
-              </p>
+              <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-sky-50 text-[#1F618D] border border-sky-100">
+                ERP Compliance
+              </span>
             </div>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              Output (Sales), Input (Purchases) &amp; Consolidated HSN summaries for GSTR-1, GSTR-3B &amp; Reconciliation.
+            </p>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <button
             onClick={fetchReport}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition border border-slate-200"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg transition border border-slate-200 shadow-sm disabled:opacity-50"
             title="Refresh Data"
           >
-            <Icon icon="solar:refresh-bold" className={loading ? "animate-spin" : ""} width={16} />
+            <Icon icon="lucide:refresh-cw" className={loading ? "animate-spin text-[#2980B9]" : "text-slate-500"} width={15} />
             <span>Refresh</span>
           </button>
 
-          <button
-            onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition border border-slate-200"
-          >
-            <Icon icon="solar:printer-bold" width={16} />
-            <span>Print View</span>
-          </button>
-
+        
           <button
             onClick={handleDownloadFullWorkbook}
             disabled={exporting}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm hover:shadow transition disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#2980B9] hover:bg-[#1F618D] text-white text-xs font-bold rounded-lg shadow-sm hover:shadow transition disabled:opacity-50"
           >
-            <Icon icon={exporting ? "eos-icons:loading" : "solar:file-download-bold"} width={18} />
+            <Icon icon={exporting ? "lucide:loader-2" : "lucide:download"} className={exporting ? "animate-spin" : ""} width={16} />
             <span>{exporting ? "Exporting..." : "Export Full GST Workbook (.xlsx)"}</span>
           </button>
         </div>
       </div>
 
       {/* ── 2. Financial Summary KPI Cards ──────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
         {/* Card 1: Output Taxable */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-[#2980B9]/40 transition flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider">
               Sales Taxable
             </span>
-            <span className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Icon icon="solar:cart-bold" width={14} />
+            <span className="w-7 h-7 rounded-lg bg-blue-50 text-[#2980B9] flex items-center justify-center">
+              <Icon icon="lucide:shopping-cart" width={15} />
             </span>
           </div>
-          <div className="mt-2 text-lg md:text-xl font-black font-mono text-slate-900">
+          <div className="mt-2.5 text-lg md:text-xl font-black font-mono text-slate-900">
             {fmtCurrency(reportData.summary.totalOutputTaxable)}
           </div>
-          <div className="mt-1 text-[11px] text-slate-500 font-medium">
-            {reportData.meta.totalOutputCount} Billed Items
+          <div className="mt-1 text-[11px] text-slate-500 font-semibold">
+            {reportData.meta.totalOutputCount || reportData.outputReport.length} Billed Items
           </div>
         </div>
 
         {/* Card 2: Output GST */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-amber-300 transition flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider">
               Output GST (Liability)
             </span>
-            <span className="w-6 h-6 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-              <Icon icon="solar:tag-price-bold" width={14} />
+            <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+              <Icon icon="lucide:badge-percent" width={15} />
             </span>
           </div>
-          <div className="mt-2 text-lg md:text-xl font-black font-mono text-amber-600">
+          <div className="mt-2.5 text-lg md:text-xl font-black font-mono text-amber-600">
             {fmtCurrency(reportData.summary.totalOutputGst)}
           </div>
-          <div className="mt-1 text-[11px] text-slate-500 font-medium">
+          <div className="mt-1 text-[11px] text-slate-500 font-semibold">
             Net Sales: {fmtCurrency(reportData.summary.totalOutputNet)}
           </div>
         </div>
 
         {/* Card 3: Input Taxable */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-[#2980B9]/40 transition flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider">
               Purchase Taxable
             </span>
-            <span className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-              <Icon icon="solar:box-bold" width={14} />
+            <span className="w-7 h-7 rounded-lg bg-sky-50 text-[#1F618D] flex items-center justify-center">
+              <Icon icon="lucide:package" width={15} />
             </span>
           </div>
-          <div className="mt-2 text-lg md:text-xl font-black font-mono text-slate-900">
+          <div className="mt-2.5 text-lg md:text-xl font-black font-mono text-slate-900">
             {fmtCurrency(reportData.summary.totalInputTaxable)}
           </div>
-          <div className="mt-1 text-[11px] text-slate-500 font-medium">
-            {reportData.meta.totalInputCount} Purchase Items
+          <div className="mt-1 text-[11px] text-slate-500 font-semibold">
+            {reportData.meta.totalInputCount || reportData.inputReport.length} Purchase Items
           </div>
         </div>
 
         {/* Card 4: Input GST */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-emerald-300 transition flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider">
               Input GST (ITC)
             </span>
-            <span className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <Icon icon="solar:shield-check-bold" width={14} />
+            <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <Icon icon="lucide:shield-check" width={15} />
             </span>
           </div>
-          <div className="mt-2 text-lg md:text-xl font-black font-mono text-emerald-600">
+          <div className="mt-2.5 text-lg md:text-xl font-black font-mono text-emerald-600">
             {fmtCurrency(reportData.summary.totalInputGst)}
           </div>
-          <div className="mt-1 text-[11px] text-slate-500 font-medium">
+          <div className="mt-1 text-[11px] text-slate-500 font-semibold">
             Net Purchases: {fmtCurrency(reportData.summary.totalInputNet)}
           </div>
         </div>
 
         {/* Card 5: Net Payable */}
-        <div className="col-span-2 md:col-span-1 bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+        <div className="col-span-2 md:col-span-1 bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 transition flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider">
               Net Tax {reportData.summary.netGstPayable >= 0 ? "Payable" : "Credit"}
             </span>
-            <span className={`w-6 h-6 rounded-lg flex items-center justify-center ${reportData.summary.netGstPayable >= 0 ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600"}`}>
-              <Icon icon="solar:wallet-money-bold" width={14} />
+            <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${reportData.summary.netGstPayable >= 0 ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-600"}`}>
+              <Icon icon="lucide:wallet" width={15} />
             </span>
           </div>
-          <div className={`mt-2 text-lg md:text-xl font-black font-mono ${reportData.summary.netGstPayable >= 0 ? "text-red-600" : "text-emerald-600"}`}>
+          <div className={`mt-2.5 text-lg md:text-xl font-black font-mono ${reportData.summary.netGstPayable >= 0 ? "text-rose-600" : "text-emerald-600"}`}>
             {fmtCurrency(Math.abs(reportData.summary.netGstPayable))}
           </div>
           <div className="mt-1 text-[11px] font-semibold text-slate-500">
@@ -444,12 +427,12 @@ export default function GstReport() {
       </div>
 
       {/* ── 3. Filters & Controls ────────────────────────────────── */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
         {/* Date presets */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs font-bold text-slate-500 mr-1 flex items-center gap-1">
-            <Icon icon="solar:calendar-bold" width={14} />
-            Period:
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500 mr-1 flex items-center gap-1.5">
+            <Icon icon="lucide:calendar" className="text-[#2980B9]" width={15} />
+            Presets:
           </span>
           {[
             { id: "ALL_TIME", label: "All Time" },
@@ -464,10 +447,10 @@ export default function GstReport() {
             <button
               key={preset.id}
               onClick={() => handleDatePreset(preset.id)}
-              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition ${
+              className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg border transition-all ${
                 datePreset === preset.id
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+                  ? "bg-[#2980B9] text-white border-[#2980B9] shadow-sm"
+                  : "bg-white text-slate-600 border-slate-200 hover:border-[#2980B9] hover:text-[#2980B9]"
               }`}
             >
               {preset.label}
@@ -476,10 +459,10 @@ export default function GstReport() {
         </div>
 
         {/* Input Controls Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-2.5 pt-2 border-t border-slate-100">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 pt-3 border-t border-slate-100">
           {/* Start Date */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 mb-1">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
               Start Date
             </label>
             <input
@@ -489,13 +472,13 @@ export default function GstReport() {
                 setDatePreset("CUSTOM");
                 setFilters((p) => ({ ...p, startDate: e.target.value }));
               }}
-              className="w-full text-xs font-medium px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full text-xs font-semibold px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-lg text-slate-700 outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/10 transition"
             />
           </div>
 
           {/* End Date */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 mb-1">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
               End Date
             </label>
             <input
@@ -505,19 +488,19 @@ export default function GstReport() {
                 setDatePreset("CUSTOM");
                 setFilters((p) => ({ ...p, endDate: e.target.value }));
               }}
-              className="w-full text-xs font-medium px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full text-xs font-semibold px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-lg text-slate-700 outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/10 transition"
             />
           </div>
 
           {/* GST Rate Filter */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 mb-1">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
               GST Rate
             </label>
             <select
               value={filters.gstRate}
               onChange={(e) => setFilters((p) => ({ ...p, gstRate: e.target.value }))}
-              className="w-full text-xs font-semibold px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full text-xs font-bold px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-lg text-slate-700 outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/10 transition"
             >
               <option value="ALL">All Rates</option>
               <option value="0">0% (Nil / Exempted)</option>
@@ -534,13 +517,13 @@ export default function GstReport() {
 
           {/* Product Type */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 mb-1">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
               Product Type
             </label>
             <select
               value={filters.productType}
               onChange={(e) => setFilters((p) => ({ ...p, productType: e.target.value }))}
-              className="w-full text-xs font-semibold px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full text-xs font-bold px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-lg text-slate-700 outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/10 transition"
             >
               <option value="ALL">All Types</option>
               <option value="FRAME">Frames</option>
@@ -552,13 +535,13 @@ export default function GstReport() {
 
           {/* Tax Type */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 mb-1">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
               Tax Type
             </label>
             <select
               value={filters.taxType}
               onChange={(e) => setFilters((p) => ({ ...p, taxType: e.target.value }))}
-              className="w-full text-xs font-semibold px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full text-xs font-bold px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-lg text-slate-700 outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/10 transition"
             >
               <option value="ALL">All (Inc / Exc)</option>
               <option value="EXCLUDED">EXCLUDED (Base + Tax)</option>
@@ -568,7 +551,7 @@ export default function GstReport() {
 
           {/* Search Box */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 mb-1">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
               Search Party / Bill / HSN
             </label>
             <div className="relative">
@@ -577,12 +560,12 @@ export default function GstReport() {
                 placeholder="Party, Bill #, GSTIN..."
                 value={filters.search}
                 onChange={(e) => setFilters((p) => ({ ...p, search: e.target.value }))}
-                className="w-full text-xs font-medium pl-8 pr-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full text-xs font-semibold pl-8 pr-3 py-2 bg-slate-50/70 border border-slate-200 rounded-lg text-slate-700 outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/10 transition"
               />
               <Icon
-                icon="solar:magnifer-linear"
-                width={14}
-                className="absolute left-2.5 top-2 text-slate-400"
+                icon="lucide:search"
+                width={15}
+                className="absolute left-2.5 top-2.5 text-slate-400"
               />
             </div>
           </div>
@@ -590,59 +573,62 @@ export default function GstReport() {
       </div>
 
       {/* ── 4. Tabs Navigation ─────────────────────────────────────── */}
-      <div className="flex items-center justify-between border-b border-slate-200 pb-1">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-2">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Tab 1: Output */}
           <button
-            onClick={() => setActiveTab("OUTPUT")}
-            className={`px-4 py-2.5 text-xs font-bold rounded-xl transition flex items-center gap-2 ${
+            onClick={() => { setActiveTab("OUTPUT"); setPage(1); }}
+            className={`px-4 py-2 text-xs font-extrabold uppercase tracking-wider rounded-lg transition-all flex items-center gap-2 ${
               activeTab === "OUTPUT"
-                ? "bg-blue-600 text-white shadow-sm"
-                : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+                ? "bg-[#1F618D] text-white shadow-sm"
+                : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 hover:border-[#2980B9]/40"
             }`}
           >
-            <Icon icon="solar:bill-check-bold" width={16} />
+            <Icon icon="lucide:arrow-up-right" width={16} />
             <span>GST Output Report (Sales)</span>
             <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                activeTab === "OUTPUT" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
+              className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+                activeTab === "OUTPUT" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-700 border border-slate-200"
               }`}
             >
               {reportData.outputReport.length}
             </span>
           </button>
 
+          {/* Tab 2: Input */}
           <button
-            onClick={() => setActiveTab("INPUT")}
-            className={`px-4 py-2.5 text-xs font-bold rounded-xl transition flex items-center gap-2 ${
+            onClick={() => { setActiveTab("INPUT"); setPage(1); }}
+            className={`px-4 py-2 text-xs font-extrabold uppercase tracking-wider rounded-lg transition-all flex items-center gap-2 ${
               activeTab === "INPUT"
-                ? "bg-blue-600 text-white shadow-sm"
-                : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+                ? "bg-[#1F618D] text-white shadow-sm"
+                : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 hover:border-[#2980B9]/40"
             }`}
           >
-            <Icon icon="solar:box-minimalistic-bold" width={16} />
+            <Icon icon="lucide:arrow-down-left" width={16} />
             <span>GST Input Report (Purchase)</span>
             <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                activeTab === "INPUT" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
+              className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+                activeTab === "INPUT" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-700 border border-slate-200"
               }`}
             >
               {reportData.inputReport.length}
             </span>
           </button>
 
+          {/* Tab 3: Consolidated */}
           <button
-            onClick={() => setActiveTab("CONSOLIDATED")}
-            className={`px-4 py-2.5 text-xs font-bold rounded-xl transition flex items-center gap-2 ${
+            onClick={() => { setActiveTab("CONSOLIDATED"); setPage(1); }}
+            className={`px-4 py-2 text-xs font-extrabold uppercase tracking-wider rounded-lg transition-all flex items-center gap-2 ${
               activeTab === "CONSOLIDATED"
-                ? "bg-blue-600 text-white shadow-sm"
-                : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+                ? "bg-[#1F618D] text-white shadow-sm"
+                : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 hover:border-[#2980B9]/40"
             }`}
           >
-            <Icon icon="solar:pie-chart-2-bold" width={16} />
+            <Icon icon="lucide:layers" width={16} />
             <span>GST Consolidated (HSN Summary)</span>
             <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                activeTab === "CONSOLIDATED" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
+              className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+                activeTab === "CONSOLIDATED" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-700 border border-slate-200"
               }`}
             >
               {reportData.consolidatedReport.length}
@@ -651,7 +637,7 @@ export default function GstReport() {
         </div>
 
         {/* Page size selector */}
-        <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+        <div className="flex items-center gap-2 text-xs text-slate-500 font-bold uppercase tracking-wider">
           <span>Show:</span>
           <select
             value={pageSize}
@@ -659,7 +645,7 @@ export default function GstReport() {
               setPageSize(e.target.value === "ALL" ? "ALL" : Number(e.target.value));
               setPage(1);
             }}
-            className="bg-white border border-slate-200 text-slate-700 font-semibold px-2 py-1 rounded-lg text-xs"
+            className="bg-white border border-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs outline-none focus:border-[#2980B9]"
           >
             <option value={10}>10</option>
             <option value={25}>25</option>
@@ -671,107 +657,107 @@ export default function GstReport() {
       </div>
 
       {/* ── 5. Main Tables ─────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         {loading ? (
           <div className="p-16 text-center text-slate-400">
-            <Icon icon="eos-icons:loading" width={36} className="mx-auto mb-2 text-blue-600" />
-            <p className="text-sm font-semibold text-slate-600">Calculating GST reports &amp; tax slabs...</p>
+            <Icon icon="lucide:loader-2" width={36} className="mx-auto mb-2 text-[#2980B9] animate-spin" />
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-600">Calculating GST reports &amp; tax slabs...</p>
           </div>
         ) : currentRecords.length === 0 ? (
           <div className="p-16 text-center text-slate-400">
-            <Icon icon="solar:document-medicine-linear" width={48} className="mx-auto mb-3 text-slate-300" />
-            <p className="text-sm font-semibold text-slate-700">No transactions recorded for the selected filter criteria.</p>
-            <p className="text-xs text-slate-400 mt-1">Try switching to &quot;All Time&quot; or clear the search filters.</p>
+            <Icon icon="lucide:file-question" width={48} className="mx-auto mb-3 text-slate-300" />
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-700">No transactions recorded for the selected filter criteria.</p>
+            <p className="text-xs text-slate-400 mt-1">Try switching to &quot;All Time&quot; or clearing the search filters.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto max-h-[640px]">
+          <div className="overflow-x-auto max-h-[640px] custom-scrollbar">
             {/* ── TAB 1: OUTPUT REPORT ── */}
             {activeTab === "OUTPUT" && (
-              <table className="w-full text-[11px] border-collapse text-left">
-                <thead className="bg-[#ea580c] text-white font-black sticky top-0 z-20 border-b-2 border-orange-800 shadow-md tracking-wide">
+              <table className="w-full text-xs border-collapse text-left">
+                <thead className="sticky top-0 z-20 bg-[#F8FAFC] border-b border-slate-200 backdrop-blur-sm shadow-sm">
                   <tr>
-                    <th className="py-2.5 px-2 text-center w-12 border-r border-orange-600/60">#</th>
-                    <th className="py-2.5 px-3 whitespace-nowrap border-r border-orange-600/60">Branch Name</th>
-                    <th className="py-2.5 px-3 whitespace-nowrap border-r border-orange-600/60">Branch GST</th>
-                    <th className="py-2.5 px-3 whitespace-nowrap border-r border-orange-600/60">Bill No</th>
-                    <th className="py-2.5 px-2.5 whitespace-nowrap text-center border-r border-orange-600/60">Order Date</th>
-                    <th className="py-2.5 px-2.5 whitespace-nowrap text-center border-r border-orange-600/60">Invoice Date</th>
-                    <th className="py-2.5 px-2.5 whitespace-nowrap text-center border-r border-orange-600/60">Created Date</th>
-                    <th className="py-2.5 px-3 whitespace-nowrap border-r border-orange-600/60">Name of Party</th>
-                    <th className="py-2.5 px-3 whitespace-nowrap border-r border-orange-600/60">Company Name</th>
-                    <th className="py-2.5 px-3 whitespace-nowrap border-r border-orange-600/60">GST Number</th>
-                    <th className="py-2.5 px-2.5 whitespace-nowrap border-r border-orange-600/60">State</th>
-                    <th className="py-2.5 px-2 whitespace-nowrap text-center border-r border-orange-600/60">Tax Type</th>
-                    <th className="py-2.5 px-2 whitespace-nowrap text-center border-r border-orange-600/60">Product</th>
-                    <th className="py-2.5 px-2.5 whitespace-nowrap text-center border-r border-orange-600/60">HSN/SAC</th>
-                    <th className="py-2.5 px-2 text-right border-r border-orange-600/60">Qty</th>
-                    <th className="py-2.5 px-2 text-right border-r border-orange-600/60">Pieces</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap border-r border-orange-600/60">Retail Price (₹)</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap border-r border-orange-600/60">Base Price (₹)</th>
-                    <th className="py-2.5 px-2 text-center border-r border-orange-600/60">GST%</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap border-r border-orange-600/60">SGST (₹)</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap border-r border-orange-600/60">CGST (₹)</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap border-r border-orange-600/60">IGST (₹)</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap border-r border-orange-600/60 bg-orange-800 text-white font-black">Total GST (₹)</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap border-r border-orange-600/60">Gross (₹)</th>
-                    <th className="py-2.5 px-2.5 text-right whitespace-nowrap border-r border-orange-600/60">Discount (₹)</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap bg-orange-900 text-white font-black">Net Amount (₹)</th>
+                    <th className="py-3 px-2 text-center w-12 border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider whitespace-nowrap">#</th>
+                    <th className="py-3 px-3 whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Branch Name</th>
+                    <th className="py-3 px-3 whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Branch GST</th>
+                    <th className="py-3 px-3 whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Bill No</th>
+                    <th className="py-3 px-2.5 whitespace-nowrap text-center border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Order Date</th>
+                    <th className="py-3 px-2.5 whitespace-nowrap text-center border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Invoice Date</th>
+                    <th className="py-3 px-2.5 whitespace-nowrap text-center border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Created Date</th>
+                    <th className="py-3 px-3 whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Name of Party</th>
+                    <th className="py-3 px-3 whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Company Name</th>
+                    <th className="py-3 px-3 whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">GST Number</th>
+                    <th className="py-3 px-2.5 whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">State</th>
+                    <th className="py-3 px-2 whitespace-nowrap text-center border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Tax Type</th>
+                    <th className="py-3 px-2 whitespace-nowrap text-center border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Product</th>
+                    <th className="py-3 px-2.5 whitespace-nowrap text-center border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">HSN/SAC</th>
+                    <th className="py-3 px-2 text-right border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Qty</th>
+                    <th className="py-3 px-2 text-right border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Pieces</th>
+                    <th className="py-3 px-3 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Retail Price (₹)</th>
+                    <th className="py-3 px-3 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Base Price (₹)</th>
+                    <th className="py-3 px-2 text-center border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">GST%</th>
+                    <th className="py-3 px-3 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">SGST (₹)</th>
+                    <th className="py-3 px-3 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">CGST (₹)</th>
+                    <th className="py-3 px-3 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">IGST (₹)</th>
+                    <th className="py-3 px-3 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-[#1F618D] bg-sky-50/70 uppercase tracking-wider">Total GST (₹)</th>
+                    <th className="py-3 px-3 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Gross (₹)</th>
+                    <th className="py-3 px-2.5 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Discount (₹)</th>
+                    <th className="py-3 px-3 text-right whitespace-nowrap text-[10px] font-black text-[#1F618D] bg-blue-50/70 uppercase tracking-wider">Net Amount (₹)</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
+                <tbody className="divide-y divide-slate-100 bg-white font-medium">
                   {paginatedRecords.map((r, idx) => (
-                    <tr key={idx} className="hover:bg-blue-50/40 transition">
-                      <td className="py-2 px-2 text-center text-slate-500 font-mono border-r border-slate-200">{r.sNo}</td>
-                      <td className="py-2 px-3 whitespace-nowrap font-semibold text-slate-800 border-r border-slate-200">{r.branchName}</td>
-                      <td className="py-2 px-3 whitespace-nowrap font-mono text-[10px] text-slate-600 border-r border-slate-200">{r.branchGstNumber}</td>
-                      <td className="py-2 px-3 whitespace-nowrap font-mono font-bold text-blue-700 border-r border-slate-200">{r.billNo}</td>
-                      <td className="py-2 px-2.5 whitespace-nowrap text-center font-mono text-[10px] text-slate-600 border-r border-slate-200">{r.orderDate}</td>
-                      <td className="py-2 px-2.5 whitespace-nowrap text-center font-mono text-[10px] text-slate-600 border-r border-slate-200">{r.invoiceDate}</td>
-                      <td className="py-2 px-2.5 whitespace-nowrap text-center font-mono text-[10px] text-slate-600 border-r border-slate-200">{r.createdDate}</td>
-                      <td className="py-2 px-3 whitespace-nowrap font-bold text-slate-900 border-r border-slate-200">{r.partyName}</td>
-                      <td className="py-2 px-3 whitespace-nowrap text-slate-700 border-r border-slate-200">{r.companyName}</td>
-                      <td className="py-2 px-3 whitespace-nowrap font-mono text-[10px] text-slate-600 border-r border-slate-200">{r.gstNumber}</td>
-                      <td className="py-2 px-2.5 whitespace-nowrap font-semibold text-slate-700 border-r border-slate-200">{r.state}</td>
-                      <td className="py-2 px-2 text-center whitespace-nowrap border-r border-slate-200">
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${r.taxType === "INCLUDED" ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-700"}`}>
+                    <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
+                      <td className="py-2.5 px-2 text-center text-slate-400 font-mono border-r border-slate-100">{r.sNo}</td>
+                      <td className="py-2.5 px-3 whitespace-nowrap font-bold text-slate-800 border-r border-slate-100">{r.branchName}</td>
+                      <td className="py-2.5 px-3 whitespace-nowrap font-mono text-[11px] text-slate-500 border-r border-slate-100">{r.branchGstNumber}</td>
+                      <td className="py-2.5 px-3 whitespace-nowrap font-mono font-bold text-[#2980B9] border-r border-slate-100">{r.billNo}</td>
+                      <td className="py-2.5 px-2.5 whitespace-nowrap text-center font-mono text-[11px] text-slate-500 border-r border-slate-100">{r.orderDate}</td>
+                      <td className="py-2.5 px-2.5 whitespace-nowrap text-center font-mono text-[11px] text-slate-500 border-r border-slate-100">{r.invoiceDate}</td>
+                      <td className="py-2.5 px-2.5 whitespace-nowrap text-center font-mono text-[11px] text-slate-500 border-r border-slate-100">{r.createdDate}</td>
+                      <td className="py-2.5 px-3 whitespace-nowrap font-bold text-slate-800 border-r border-slate-100">{r.partyName}</td>
+                      <td className="py-2.5 px-3 whitespace-nowrap text-slate-600 border-r border-slate-100">{r.companyName}</td>
+                      <td className="py-2.5 px-3 whitespace-nowrap font-mono text-[11px] text-slate-500 border-r border-slate-100">{r.gstNumber}</td>
+                      <td className="py-2.5 px-2.5 whitespace-nowrap font-semibold text-slate-700 border-r border-slate-100">{r.state}</td>
+                      <td className="py-2.5 px-2 text-center whitespace-nowrap border-r border-slate-100">
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${r.taxType === "INCLUDED" ? "bg-purple-50 text-purple-700 border border-purple-100" : "bg-slate-50 text-slate-600 border border-slate-200"}`}>
                           {r.taxType}
                         </span>
                       </td>
-                      <td className="py-2 px-2 text-center whitespace-nowrap font-semibold text-slate-700 border-r border-slate-200">{r.productType}</td>
-                      <td className="py-2 px-2.5 text-center whitespace-nowrap font-mono font-bold text-slate-800 border-r border-slate-200">{r.hsnSac}</td>
-                      <td className="py-2 px-2 text-right font-mono border-r border-slate-200">{r.qty}</td>
-                      <td className="py-2 px-2 text-right font-mono border-r border-slate-200">{r.totalPieces}</td>
-                      <td className="py-2 px-3 text-right font-mono border-r border-slate-200">{fmtNum(r.totalRetailPrice)}</td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-slate-900 border-r border-slate-200">{fmtNum(r.totalBasePrice)}</td>
-                      <td className="py-2 px-2 text-center font-mono font-bold text-blue-700 border-r border-slate-200">{r.gstPercent}%</td>
-                      <td className="py-2 px-3 text-right font-mono text-slate-700 border-r border-slate-200">{fmtNum(r.sgst)}</td>
-                      <td className="py-2 px-3 text-right font-mono text-slate-700 border-r border-slate-200">{fmtNum(r.cgst)}</td>
-                      <td className="py-2 px-3 text-right font-mono text-slate-700 border-r border-slate-200">{fmtNum(r.igst)}</td>
-                      <td className="py-2 px-3 text-right font-mono font-black text-amber-800 bg-amber-50/50 border-r border-slate-200">{fmtNum(r.totalGst)}</td>
-                      <td className="py-2 px-3 text-right font-mono border-r border-slate-200">{fmtNum(r.totalGross)}</td>
-                      <td className="py-2 px-2.5 text-right font-mono text-slate-600 border-r border-slate-200">{fmtNum(r.totalDiscount)}</td>
-                      <td className="py-2 px-3 text-right font-mono font-black text-emerald-800 bg-emerald-50/50">{fmtNum(r.totalNetAmount)}</td>
+                      <td className="py-2.5 px-2 text-center whitespace-nowrap font-bold text-slate-700 border-r border-slate-100">{r.productType}</td>
+                      <td className="py-2.5 px-2.5 text-center whitespace-nowrap font-mono font-bold text-slate-800 border-r border-slate-100">{r.hsnSac}</td>
+                      <td className="py-2.5 px-2 text-right font-mono border-r border-slate-100">{r.qty}</td>
+                      <td className="py-2.5 px-2 text-right font-mono border-r border-slate-100">{r.totalPieces}</td>
+                      <td className="py-2.5 px-3 text-right font-mono border-r border-slate-100">{fmtNum(r.totalRetailPrice)}</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-800 border-r border-slate-100">{fmtNum(r.totalBasePrice)}</td>
+                      <td className="py-2.5 px-2 text-center font-mono font-bold text-[#2980B9] border-r border-slate-100">{r.gstPercent}%</td>
+                      <td className="py-2.5 px-3 text-right font-mono text-slate-600 border-r border-slate-100">{fmtNum(r.sgst)}</td>
+                      <td className="py-2.5 px-3 text-right font-mono text-slate-600 border-r border-slate-100">{fmtNum(r.cgst)}</td>
+                      <td className="py-2.5 px-3 text-right font-mono text-slate-600 border-r border-slate-100">{fmtNum(r.igst)}</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-black text-[#1F618D] bg-sky-50/50 border-r border-slate-100">{fmtNum(r.totalGst)}</td>
+                      <td className="py-2.5 px-3 text-right font-mono text-slate-700 border-r border-slate-100">{fmtNum(r.totalGross)}</td>
+                      <td className="py-2.5 px-2.5 text-right font-mono text-slate-500 border-r border-slate-100">{fmtNum(r.totalDiscount)}</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900 bg-blue-50/40">{fmtNum(r.totalNetAmount)}</td>
                     </tr>
                   ))}
                 </tbody>
                 {/* Footer Sum Totals */}
-                <tfoot className="bg-slate-100 font-black text-slate-900 border-t-2 border-slate-300">
+                <tfoot className="sticky bottom-0 z-10 bg-slate-100/95 font-bold text-slate-800 border-t-2 border-slate-300 backdrop-blur-sm">
                   <tr>
-                    <td colSpan={14} className="py-2.5 px-3 text-right uppercase tracking-wider text-[10px] text-slate-600 border-r border-orange-600/60">
-                      Total ({currentRecords.length} Items):
+                    <td colSpan={14} className="py-2.5 px-3 text-right uppercase tracking-wider text-[10px] text-slate-600 border-r border-slate-200/80">
+                      Subtotal ({currentRecords.length} Items):
                     </td>
-                    <td className="py-2.5 px-2 text-right font-mono border-r border-orange-600/60">{tabTotals.qty}</td>
-                    <td className="py-2.5 px-2 text-right font-mono border-r border-orange-600/60">{tabTotals.pieces}</td>
-                    <td className="py-2.5 px-3 text-right font-mono border-r border-orange-600/60">{fmtNum(tabTotals.retailPrice)}</td>
-                    <td className="py-2.5 px-3 text-right font-mono text-blue-800 border-r border-orange-600/60">{fmtNum(tabTotals.basePrice)}</td>
-                    <td className="py-2.5 px-2 text-center border-r border-orange-600/60">—</td>
-                    <td className="py-2.5 px-3 text-right font-mono border-r border-orange-600/60">{fmtNum(tabTotals.sgst)}</td>
-                    <td className="py-2.5 px-3 text-right font-mono border-r border-orange-600/60">{fmtNum(tabTotals.cgst)}</td>
-                    <td className="py-2.5 px-3 text-right font-mono border-r border-orange-600/60">{fmtNum(tabTotals.igst)}</td>
-                    <td className="py-2.5 px-3 text-right font-mono text-amber-900 bg-amber-100/70 border-r border-orange-600/60">{fmtNum(tabTotals.totalGst)}</td>
-                    <td className="py-2.5 px-3 text-right font-mono border-r border-orange-600/60">{fmtNum(tabTotals.gross)}</td>
-                    <td className="py-2.5 px-2.5 text-right font-mono text-red-600 border-r border-orange-600/60">{fmtNum(tabTotals.discount)}</td>
-                    <td className="py-2.5 px-3 text-right font-mono text-emerald-900 bg-emerald-100/80">{fmtNum(tabTotals.net)}</td>
+                    <td className="py-2.5 px-2 text-right font-mono border-r border-slate-200/80">{tabTotals.qty}</td>
+                    <td className="py-2.5 px-2 text-right font-mono border-r border-slate-200/80">{tabTotals.pieces}</td>
+                    <td className="py-2.5 px-3 text-right font-mono border-r border-slate-200/80">{fmtNum(tabTotals.retailPrice)}</td>
+                    <td className="py-2.5 px-3 text-right font-mono text-slate-900 border-r border-slate-200/80">{fmtNum(tabTotals.basePrice)}</td>
+                    <td className="py-2.5 px-2 text-center border-r border-slate-200/80">—</td>
+                    <td className="py-2.5 px-3 text-right font-mono border-r border-slate-200/80">{fmtNum(tabTotals.sgst)}</td>
+                    <td className="py-2.5 px-3 text-right font-mono border-r border-slate-200/80">{fmtNum(tabTotals.cgst)}</td>
+                    <td className="py-2.5 px-3 text-right font-mono border-r border-slate-200/80">{fmtNum(tabTotals.igst)}</td>
+                    <td className="py-2.5 px-3 text-right font-mono font-black text-[#1F618D] bg-sky-100/70 border-r border-slate-200/80">{fmtNum(tabTotals.totalGst)}</td>
+                    <td className="py-2.5 px-3 text-right font-mono border-r border-slate-200/80">{fmtNum(tabTotals.gross)}</td>
+                    <td className="py-2.5 px-2.5 text-right font-mono text-rose-600 border-r border-slate-200/80">{fmtNum(tabTotals.discount)}</td>
+                    <td className="py-2.5 px-3 text-right font-mono font-black text-[#1F618D] bg-blue-100/80">{fmtNum(tabTotals.net)}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -779,150 +765,150 @@ export default function GstReport() {
 
             {/* ── TAB 2: INPUT REPORT ── */}
             {activeTab === "INPUT" && (
-              <table className="w-full text-[11px] border-collapse text-left">
-                <thead className="bg-[#ea580c] text-white font-black sticky top-0 z-20 border-b-2 border-orange-800 shadow-md tracking-wide">
+              <table className="w-full text-xs border-collapse text-left">
+                <thead className="sticky top-0 z-20 bg-[#F8FAFC] border-b border-slate-200 backdrop-blur-sm shadow-sm">
                   <tr>
-                    <th className="py-2.5 px-2 text-center w-12 border-r border-orange-600/60">#</th>
-                    <th className="py-2.5 px-3 whitespace-nowrap border-r border-orange-600/60">Branch Name</th>
-                    <th className="py-2.5 px-3 whitespace-nowrap border-r border-orange-600/60">Branch GST</th>
-                    <th className="py-2.5 px-3 whitespace-nowrap border-r border-orange-600/60">Bill No</th>
-                    <th className="py-2.5 px-2.5 whitespace-nowrap text-center border-r border-orange-600/60">Type</th>
-                    <th className="py-2.5 px-2.5 whitespace-nowrap text-center border-r border-orange-600/60">Created Date</th>
-                    <th className="py-2.5 px-2.5 whitespace-nowrap text-center border-r border-orange-600/60">Purchase Date</th>
-                    <th className="py-2.5 px-3 whitespace-nowrap border-r border-orange-600/60">Name of Party</th>
-                    <th className="py-2.5 px-3 whitespace-nowrap border-r border-orange-600/60">GST Number</th>
-                    <th className="py-2.5 px-2.5 whitespace-nowrap border-r border-orange-600/60">State</th>
-                    <th className="py-2.5 px-2 text-right border-r border-orange-600/60">Quantity</th>
-                    <th className="py-2.5 px-2 text-right border-r border-orange-600/60">Pieces/Box</th>
-                    <th className="py-2.5 px-2 text-right border-r border-orange-600/60">Total Pieces</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap border-r border-orange-600/60">Retail Price (₹)</th>
-                    <th className="py-2.5 px-2.5 text-center whitespace-nowrap border-r border-orange-600/60">HSN/SAC</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap border-r border-orange-600/60">Base Price (₹)</th>
-                    <th className="py-2.5 px-2 text-center border-r border-orange-600/60">GST%</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap border-r border-orange-600/60">SGST (₹)</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap border-r border-orange-600/60">CGST (₹)</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap border-r border-orange-600/60">IGST (₹)</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap border-r border-orange-600/60 bg-orange-800 text-white font-black">Total GST (₹)</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap border-r border-orange-600/60">Gross (₹)</th>
-                    <th className="py-2.5 px-2.5 text-right whitespace-nowrap border-r border-orange-600/60">Discount (₹)</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap bg-orange-900 text-white font-black">Net Amount (₹)</th>
+                    <th className="py-3 px-2 text-center w-12 border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider whitespace-nowrap">#</th>
+                    <th className="py-3 px-3 whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Branch Name</th>
+                    <th className="py-3 px-3 whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Branch GST</th>
+                    <th className="py-3 px-3 whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Bill No</th>
+                    <th className="py-3 px-2.5 whitespace-nowrap text-center border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Type</th>
+                    <th className="py-3 px-2.5 whitespace-nowrap text-center border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Created Date</th>
+                    <th className="py-3 px-2.5 whitespace-nowrap text-center border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Purchase Date</th>
+                    <th className="py-3 px-3 whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Name of Party</th>
+                    <th className="py-3 px-3 whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">GST Number</th>
+                    <th className="py-3 px-2.5 whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">State</th>
+                    <th className="py-3 px-2 text-right border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Quantity</th>
+                    <th className="py-3 px-2 text-right border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Pieces/Box</th>
+                    <th className="py-3 px-2 text-right border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Total Pieces</th>
+                    <th className="py-3 px-3 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Retail Price (₹)</th>
+                    <th className="py-3 px-2.5 text-center whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">HSN/SAC</th>
+                    <th className="py-3 px-3 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Base Price (₹)</th>
+                    <th className="py-3 px-2 text-center border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">GST%</th>
+                    <th className="py-3 px-3 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">SGST (₹)</th>
+                    <th className="py-3 px-3 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">CGST (₹)</th>
+                    <th className="py-3 px-3 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">IGST (₹)</th>
+                    <th className="py-3 px-3 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-[#1F618D] bg-sky-50/70 uppercase tracking-wider">Total GST (₹)</th>
+                    <th className="py-3 px-3 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Gross (₹)</th>
+                    <th className="py-3 px-2.5 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Discount (₹)</th>
+                    <th className="py-3 px-3 text-right whitespace-nowrap text-[10px] font-black text-[#1F618D] bg-blue-50/70 uppercase tracking-wider">Net Amount (₹)</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
+                <tbody className="divide-y divide-slate-100 bg-white font-medium">
                   {paginatedRecords.map((r, idx) => (
-                    <tr key={idx} className="hover:bg-blue-50/40 transition">
-                      <td className="py-2 px-2 text-center text-slate-500 font-mono border-r border-slate-200">{r.sNo}</td>
-                      <td className="py-2 px-3 whitespace-nowrap font-semibold text-slate-800 border-r border-slate-200">{r.branchName}</td>
-                      <td className="py-2 px-3 whitespace-nowrap font-mono text-[10px] text-slate-600 border-r border-slate-200">{r.branchGstNumber}</td>
-                      <td className="py-2 px-3 whitespace-nowrap font-mono font-bold text-slate-700 border-r border-slate-200">{r.billNo}</td>
-                      <td className="py-2 px-2.5 whitespace-nowrap text-center border-r border-slate-200">
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                    <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
+                      <td className="py-2.5 px-2 text-center text-slate-400 font-mono border-r border-slate-100">{r.sNo}</td>
+                      <td className="py-2.5 px-3 whitespace-nowrap font-bold text-slate-800 border-r border-slate-100">{r.branchName}</td>
+                      <td className="py-2.5 px-3 whitespace-nowrap font-mono text-[11px] text-slate-500 border-r border-slate-100">{r.branchGstNumber}</td>
+                      <td className="py-2.5 px-3 whitespace-nowrap font-mono font-bold text-slate-700 border-r border-slate-100">{r.billNo}</td>
+                      <td className="py-2.5 px-2.5 whitespace-nowrap text-center border-r border-slate-100">
+                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                           {r.type}
                         </span>
                       </td>
-                      <td className="py-2 px-2.5 whitespace-nowrap text-center font-mono text-[10px] text-slate-600 border-r border-slate-200">{r.createdDate}</td>
-                      <td className="py-2 px-2.5 whitespace-nowrap text-center font-mono text-[10px] text-slate-600 border-r border-slate-200">{r.purchaseDate}</td>
-                      <td className="py-2 px-3 whitespace-nowrap font-bold text-slate-900 border-r border-slate-200">{r.partyName}</td>
-                      <td className="py-2 px-3 whitespace-nowrap font-mono text-[10px] text-slate-600 border-r border-slate-200">{r.gstNumber}</td>
-                      <td className="py-2 px-2.5 whitespace-nowrap font-semibold text-slate-700 border-r border-slate-200">{r.state}</td>
-                      <td className="py-2 px-2 text-right font-mono border-r border-slate-200">{r.quantity}</td>
-                      <td className="py-2 px-2 text-right font-mono border-r border-slate-200">{r.piecesPerBox}</td>
-                      <td className="py-2 px-2 text-right font-mono border-r border-slate-200">{r.totalPieces}</td>
-                      <td className="py-2 px-3 text-right font-mono border-r border-slate-200">{fmtNum(r.totalRetailPrice)}</td>
-                      <td className="py-2 px-2.5 text-center whitespace-nowrap font-mono font-bold text-slate-800 border-r border-slate-200">{r.hsnSac}</td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-slate-900 border-r border-slate-200">{fmtNum(r.totalBasePrice)}</td>
-                      <td className="py-2 px-2 text-center font-mono font-bold text-blue-700 border-r border-slate-200">{r.gstPercent}%</td>
-                      <td className="py-2 px-3 text-right font-mono text-slate-700 border-r border-slate-200">{fmtNum(r.sgst)}</td>
-                      <td className="py-2 px-3 text-right font-mono text-slate-700 border-r border-slate-200">{fmtNum(r.cgst)}</td>
-                      <td className="py-2 px-3 text-right font-mono text-slate-700 border-r border-slate-200">{fmtNum(r.igst)}</td>
-                      <td className="py-2 px-3 text-right font-mono font-black text-amber-800 bg-amber-50/50 border-r border-slate-200">{fmtNum(r.totalGst)}</td>
-                      <td className="py-2 px-3 text-right font-mono border-r border-slate-200">{fmtNum(r.totalGross)}</td>
-                      <td className="py-2 px-2.5 text-right font-mono text-slate-600 border-r border-slate-200">{fmtNum(r.totalDiscount)}</td>
-                      <td className="py-2 px-3 text-right font-mono font-black text-emerald-800 bg-emerald-50/50">{fmtNum(r.totalNetAmount)}</td>
+                      <td className="py-2.5 px-2.5 whitespace-nowrap text-center font-mono text-[11px] text-slate-500 border-r border-slate-100">{r.createdDate}</td>
+                      <td className="py-2.5 px-2.5 whitespace-nowrap text-center font-mono text-[11px] text-slate-500 border-r border-slate-100">{r.purchaseDate}</td>
+                      <td className="py-2.5 px-3 whitespace-nowrap font-bold text-slate-800 border-r border-slate-100">{r.partyName}</td>
+                      <td className="py-2.5 px-3 whitespace-nowrap font-mono text-[11px] text-slate-500 border-r border-slate-100">{r.gstNumber}</td>
+                      <td className="py-2.5 px-2.5 whitespace-nowrap font-semibold text-slate-700 border-r border-slate-100">{r.state}</td>
+                      <td className="py-2.5 px-2 text-right font-mono border-r border-slate-100">{r.quantity}</td>
+                      <td className="py-2.5 px-2 text-right font-mono text-slate-400 border-r border-slate-100">{r.piecesPerBox || "—"}</td>
+                      <td className="py-2.5 px-2 text-right font-mono border-r border-slate-100">{r.totalNumberOfPieces}</td>
+                      <td className="py-2.5 px-3 text-right font-mono border-r border-slate-100">{fmtNum(r.totalRetailPrice)}</td>
+                      <td className="py-2.5 px-2.5 text-center whitespace-nowrap font-mono font-bold text-slate-800 border-r border-slate-100">{r.hsnSac || "—"}</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-800 border-r border-slate-100">{fmtNum(r.totalBasePrice)}</td>
+                      <td className="py-2.5 px-2 text-center font-mono font-bold text-[#2980B9] border-r border-slate-100">{r.gstPercent}%</td>
+                      <td className="py-2.5 px-3 text-right font-mono text-slate-600 border-r border-slate-100">{fmtNum(r.sgst)}</td>
+                      <td className="py-2.5 px-3 text-right font-mono text-slate-600 border-r border-slate-100">{fmtNum(r.cgst)}</td>
+                      <td className="py-2.5 px-3 text-right font-mono text-slate-600 border-r border-slate-100">{fmtNum(r.igst)}</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-black text-[#1F618D] bg-sky-50/50 border-r border-slate-100">{fmtNum(r.totalGst)}</td>
+                      <td className="py-2.5 px-3 text-right font-mono text-slate-700 border-r border-slate-100">{fmtNum(r.totalGross)}</td>
+                      <td className="py-2.5 px-2.5 text-right font-mono text-slate-500 border-r border-slate-100">{fmtNum(r.totalDiscount)}</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900 bg-blue-50/40">{fmtNum(r.totalNetAmount)}</td>
                     </tr>
                   ))}
                 </tbody>
                 {/* Footer Sum Totals */}
-                <tfoot className="bg-slate-100 font-black text-slate-900 border-t-2 border-slate-300">
+                <tfoot className="sticky bottom-0 z-10 bg-slate-100/95 font-bold text-slate-800 border-t-2 border-slate-300 backdrop-blur-sm">
                   <tr>
-                    <td colSpan={10} className="py-2.5 px-3 text-right uppercase tracking-wider text-[10px] text-slate-600 border-r border-orange-600/60">
-                      Total ({currentRecords.length} Items):
+                    <td colSpan={10} className="py-2.5 px-3 text-right uppercase tracking-wider text-[10px] text-slate-600 border-r border-slate-200/80">
+                      Subtotal ({currentRecords.length} Items):
                     </td>
-                    <td className="py-2.5 px-2 text-right font-mono border-r border-orange-600/60">{tabTotals.qty}</td>
-                    <td className="py-2.5 px-2 text-right font-mono border-r border-orange-600/60">—</td>
-                    <td className="py-2.5 px-2 text-right font-mono border-r border-orange-600/60">{tabTotals.pieces}</td>
-                    <td className="py-2.5 px-3 text-right font-mono border-r border-orange-600/60">{fmtNum(tabTotals.retailPrice)}</td>
-                    <td className="py-2.5 px-2.5 text-center border-r border-orange-600/60">—</td>
-                    <td className="py-2.5 px-3 text-right font-mono text-blue-800 border-r border-orange-600/60">{fmtNum(tabTotals.basePrice)}</td>
-                    <td className="py-2.5 px-2 text-center border-r border-orange-600/60">—</td>
-                    <td className="py-2.5 px-3 text-right font-mono border-r border-orange-600/60">{fmtNum(tabTotals.sgst)}</td>
-                    <td className="py-2.5 px-3 text-right font-mono border-r border-orange-600/60">{fmtNum(tabTotals.cgst)}</td>
-                    <td className="py-2.5 px-3 text-right font-mono border-r border-orange-600/60">{fmtNum(tabTotals.igst)}</td>
-                    <td className="py-2.5 px-3 text-right font-mono text-amber-900 bg-amber-100/70 border-r border-orange-600/60">{fmtNum(tabTotals.totalGst)}</td>
-                    <td className="py-2.5 px-3 text-right font-mono border-r border-orange-600/60">{fmtNum(tabTotals.gross)}</td>
-                    <td className="py-2.5 px-2.5 text-right font-mono text-red-600 border-r border-orange-600/60">{fmtNum(tabTotals.discount)}</td>
-                    <td className="py-2.5 px-3 text-right font-mono text-emerald-900 bg-emerald-100/80">{fmtNum(tabTotals.net)}</td>
+                    <td className="py-2.5 px-2 text-right font-mono border-r border-slate-200/80">{tabTotals.qty}</td>
+                    <td className="py-2.5 px-2 text-right font-mono border-r border-slate-200/80">—</td>
+                    <td className="py-2.5 px-2 text-right font-mono border-r border-slate-200/80">{tabTotals.pieces}</td>
+                    <td className="py-2.5 px-3 text-right font-mono border-r border-slate-200/80">{fmtNum(tabTotals.retailPrice)}</td>
+                    <td className="py-2.5 px-2.5 text-center border-r border-slate-200/80">—</td>
+                    <td className="py-2.5 px-3 text-right font-mono text-slate-900 border-r border-slate-200/80">{fmtNum(tabTotals.basePrice)}</td>
+                    <td className="py-2.5 px-2 text-center border-r border-slate-200/80">—</td>
+                    <td className="py-2.5 px-3 text-right font-mono border-r border-slate-200/80">{fmtNum(tabTotals.sgst)}</td>
+                    <td className="py-2.5 px-3 text-right font-mono border-r border-slate-200/80">{fmtNum(tabTotals.cgst)}</td>
+                    <td className="py-2.5 px-3 text-right font-mono border-r border-slate-200/80">{fmtNum(tabTotals.igst)}</td>
+                    <td className="py-2.5 px-3 text-right font-mono font-black text-[#1F618D] bg-sky-100/70 border-r border-slate-200/80">{fmtNum(tabTotals.totalGst)}</td>
+                    <td className="py-2.5 px-3 text-right font-mono border-r border-slate-200/80">{fmtNum(tabTotals.gross)}</td>
+                    <td className="py-2.5 px-2.5 text-right font-mono text-rose-600 border-r border-slate-200/80">{fmtNum(tabTotals.discount)}</td>
+                    <td className="py-2.5 px-3 text-right font-mono font-black text-[#1F618D] bg-blue-100/80">{fmtNum(tabTotals.net)}</td>
                   </tr>
                 </tfoot>
               </table>
             )}
 
-            {/* ── TAB 3: CONSOLIDATED REPORT ── */}
+            {/* ── TAB 3: CONSOLIDATED HSN REPORT ── */}
             {activeTab === "CONSOLIDATED" && (
-              <table className="w-full text-[11px] border-collapse text-left">
-                <thead className="bg-[#ea580c] text-white font-black sticky top-0 z-20 border-b-2 border-orange-800 shadow-md tracking-wide">
+              <table className="w-full text-xs border-collapse text-left">
+                <thead className="sticky top-0 z-20 bg-[#F8FAFC] border-b border-slate-200 backdrop-blur-sm shadow-sm">
                   <tr>
-                    <th className="py-2.5 px-2 text-center w-12 border-r border-orange-600/60">#</th>
-                    <th className="py-2.5 px-3 text-center whitespace-nowrap border-r border-orange-600/60">HSN/SAC</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap border-r border-orange-600/60">Quantity</th>
-                    <th className="py-2.5 px-4 text-right whitespace-nowrap border-r border-orange-600/60">Total Retail Price (₹)</th>
-                    <th className="py-2.5 px-4 text-right whitespace-nowrap border-r border-orange-600/60">Total Base Price (₹)</th>
-                    <th className="py-2.5 px-3 text-center whitespace-nowrap border-r border-orange-600/60">GST%</th>
-                    <th className="py-2.5 px-3.5 text-right whitespace-nowrap border-r border-orange-600/60">Total SGST (₹)</th>
-                    <th className="py-2.5 px-3.5 text-right whitespace-nowrap border-r border-orange-600/60">Total CGST (₹)</th>
-                    <th className="py-2.5 px-3.5 text-right whitespace-nowrap border-r border-orange-600/60">Total IGST (₹)</th>
-                    <th className="py-2.5 px-4 text-right whitespace-nowrap border-r border-orange-600/60 bg-orange-800 text-white font-black">Total GST (₹)</th>
-                    <th className="py-2.5 px-4 text-right whitespace-nowrap border-r border-orange-600/60">Total Gross (₹)</th>
-                    <th className="py-2.5 px-3.5 text-right whitespace-nowrap border-r border-orange-600/60">Item Discount (₹)</th>
-                    <th className="py-2.5 px-4 text-right whitespace-nowrap bg-orange-900 text-white font-black">Total Net Amount (₹)</th>
+                    <th className="py-3 px-2 text-center w-12 border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider whitespace-nowrap">#</th>
+                    <th className="py-3 px-3 text-center whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">HSN/SAC</th>
+                    <th className="py-3 px-3 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Quantity</th>
+                    <th className="py-3 px-4 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Total Retail Price (₹)</th>
+                    <th className="py-3 px-4 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Total Base Price (₹)</th>
+                    <th className="py-3 px-3 text-center whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">GST%</th>
+                    <th className="py-3 px-3.5 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Total SGST (₹)</th>
+                    <th className="py-3 px-3.5 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Total CGST (₹)</th>
+                    <th className="py-3 px-3.5 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Total IGST (₹)</th>
+                    <th className="py-3 px-4 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-[#1F618D] bg-sky-50/70 uppercase tracking-wider">Total GST (₹)</th>
+                    <th className="py-3 px-4 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Total Gross (₹)</th>
+                    <th className="py-3 px-3.5 text-right whitespace-nowrap border-r border-slate-200/80 text-[10px] font-extrabold text-slate-600 uppercase tracking-wider">Item Discount (₹)</th>
+                    <th className="py-3 px-4 text-right whitespace-nowrap text-[10px] font-black text-[#1F618D] bg-blue-50/70 uppercase tracking-wider">Total Net Amount (₹)</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
+                <tbody className="divide-y divide-slate-100 bg-white font-medium">
                   {paginatedRecords.map((r, idx) => (
-                    <tr key={idx} className="hover:bg-blue-50/40 transition">
-                      <td className="py-2.5 px-2 text-center text-slate-500 font-mono border-r border-slate-200">{r.sNo}</td>
-                      <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-900 border-r border-slate-200">{r.hsnSac}</td>
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-800 border-r border-slate-200">{r.quantity}</td>
-                      <td className="py-2.5 px-4 text-right font-mono border-r border-slate-200">{fmtNum(r.totalRetailPrice)}</td>
-                      <td className="py-2.5 px-4 text-right font-mono font-bold text-slate-900 border-r border-slate-200">{fmtNum(r.totalBasePrice)}</td>
-                      <td className="py-2.5 px-3 text-center font-mono font-bold text-blue-700 border-r border-slate-200">{r.gstPercent}%</td>
-                      <td className="py-2.5 px-3.5 text-right font-mono text-slate-700 border-r border-slate-200">{fmtNum(r.sgst)}</td>
-                      <td className="py-2.5 px-3.5 text-right font-mono text-slate-700 border-r border-slate-200">{fmtNum(r.cgst)}</td>
-                      <td className="py-2.5 px-3.5 text-right font-mono text-slate-700 border-r border-slate-200">{fmtNum(r.igst)}</td>
-                      <td className="py-2.5 px-4 text-right font-mono font-black text-amber-800 bg-amber-50/50 border-r border-slate-200">{fmtNum(r.totalGst)}</td>
-                      <td className="py-2.5 px-4 text-right font-mono border-r border-slate-200">{fmtNum(r.totalGross)}</td>
-                      <td className="py-2.5 px-3.5 text-right font-mono text-slate-600 border-r border-slate-200">{fmtNum(r.totalDiscount)}</td>
-                      <td className="py-2.5 px-4 text-right font-mono font-black text-emerald-800 bg-emerald-50/50">{fmtNum(r.totalNetAmount)}</td>
+                    <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
+                      <td className="py-2.5 px-2 text-center text-slate-400 font-mono border-r border-slate-100">{r.sNo}</td>
+                      <td className="py-2.5 px-3 text-center whitespace-nowrap font-mono font-bold text-slate-800 border-r border-slate-100">{r.hsnSac}</td>
+                      <td className="py-2.5 px-3 text-right font-mono border-r border-slate-100">{r.quantity}</td>
+                      <td className="py-2.5 px-4 text-right font-mono border-r border-slate-100">{fmtNum(r.totalRetailPrice)}</td>
+                      <td className="py-2.5 px-4 text-right font-mono font-bold text-slate-800 border-r border-slate-100">{fmtNum(r.totalBasePrice)}</td>
+                      <td className="py-2.5 px-3 text-center font-mono font-bold text-[#2980B9] border-r border-slate-100">{r.gstPercent}%</td>
+                      <td className="py-2.5 px-3.5 text-right font-mono text-slate-600 border-r border-slate-100">{fmtNum(r.sgst)}</td>
+                      <td className="py-2.5 px-3.5 text-right font-mono text-slate-600 border-r border-slate-100">{fmtNum(r.cgst)}</td>
+                      <td className="py-2.5 px-3.5 text-right font-mono text-slate-600 border-r border-slate-100">{fmtNum(r.igst)}</td>
+                      <td className="py-2.5 px-4 text-right font-mono font-black text-[#1F618D] bg-sky-50/50 border-r border-slate-100">{fmtNum(r.totalGst)}</td>
+                      <td className="py-2.5 px-4 text-right font-mono text-slate-700 border-r border-slate-100">{fmtNum(r.totalGross)}</td>
+                      <td className="py-2.5 px-3.5 text-right font-mono text-slate-500 border-r border-slate-100">{fmtNum(r.totalDiscount)}</td>
+                      <td className="py-2.5 px-4 text-right font-mono font-black text-slate-900 bg-blue-50/40">{fmtNum(r.totalNetAmount)}</td>
                     </tr>
                   ))}
                 </tbody>
                 {/* Footer Sum Totals */}
-                <tfoot className="bg-slate-100 font-black text-slate-900 border-t-2 border-slate-300">
+                <tfoot className="sticky bottom-0 z-10 bg-slate-100/95 font-bold text-slate-800 border-t-2 border-slate-300 backdrop-blur-sm">
                   <tr>
-                    <td colSpan={2} className="py-2.5 px-3 text-right uppercase tracking-wider text-[10px] text-slate-600 border-r border-orange-600/60">
+                    <td colSpan={2} className="py-2.5 px-3 text-right uppercase tracking-wider text-[10px] text-slate-600 border-r border-slate-200/80">
                       Consolidated Total:
                     </td>
-                    <td className="py-2.5 px-3 text-right font-mono border-r border-orange-600/60">{tabTotals.qty}</td>
-                    <td className="py-2.5 px-4 text-right font-mono border-r border-orange-600/60">{fmtNum(tabTotals.retailPrice)}</td>
-                    <td className="py-2.5 px-4 text-right font-mono text-blue-800 border-r border-orange-600/60">{fmtNum(tabTotals.basePrice)}</td>
-                    <td className="py-2.5 px-3 text-center border-r border-orange-600/60">—</td>
-                    <td className="py-2.5 px-3.5 text-right font-mono border-r border-orange-600/60">{fmtNum(tabTotals.sgst)}</td>
-                    <td className="py-2.5 px-3.5 text-right font-mono border-r border-orange-600/60">{fmtNum(tabTotals.cgst)}</td>
-                    <td className="py-2.5 px-3.5 text-right font-mono border-r border-orange-600/60">{fmtNum(tabTotals.igst)}</td>
-                    <td className="py-2.5 px-4 text-right font-mono text-amber-900 bg-amber-100/70 border-r border-orange-600/60">{fmtNum(tabTotals.totalGst)}</td>
-                    <td className="py-2.5 px-4 text-right font-mono border-r border-orange-600/60">{fmtNum(tabTotals.gross)}</td>
-                    <td className="py-2.5 px-3.5 text-right font-mono text-red-600 border-r border-orange-600/60">{fmtNum(tabTotals.discount)}</td>
-                    <td className="py-2.5 px-4 text-right font-mono text-emerald-900 bg-emerald-100/80">{fmtNum(tabTotals.net)}</td>
+                    <td className="py-2.5 px-3 text-right font-mono border-r border-slate-200/80">{tabTotals.qty}</td>
+                    <td className="py-2.5 px-4 text-right font-mono border-r border-slate-200/80">{fmtNum(tabTotals.retailPrice)}</td>
+                    <td className="py-2.5 px-4 text-right font-mono text-slate-900 border-r border-slate-200/80">{fmtNum(tabTotals.basePrice)}</td>
+                    <td className="py-2.5 px-3 text-center border-r border-slate-200/80">—</td>
+                    <td className="py-2.5 px-3.5 text-right font-mono border-r border-slate-200/80">{fmtNum(tabTotals.sgst)}</td>
+                    <td className="py-2.5 px-3.5 text-right font-mono border-r border-slate-200/80">{fmtNum(tabTotals.cgst)}</td>
+                    <td className="py-2.5 px-3.5 text-right font-mono border-r border-slate-200/80">{fmtNum(tabTotals.igst)}</td>
+                    <td className="py-2.5 px-4 text-right font-mono font-black text-[#1F618D] bg-sky-100/70 border-r border-slate-200/80">{fmtNum(tabTotals.totalGst)}</td>
+                    <td className="py-2.5 px-4 text-right font-mono border-r border-slate-200/80">{fmtNum(tabTotals.gross)}</td>
+                    <td className="py-2.5 px-3.5 text-right font-mono text-rose-600 border-r border-slate-200/80">{fmtNum(tabTotals.discount)}</td>
+                    <td className="py-2.5 px-4 text-right font-mono font-black text-[#1F618D] bg-blue-100/80">{fmtNum(tabTotals.net)}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -932,34 +918,26 @@ export default function GstReport() {
 
         {/* ── 6. Pagination Footer ───────────────────────────────── */}
         {!loading && currentRecords.length > 0 && pageSize !== "ALL" && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-600">
-            <div>
-              Showing{" "}
-              <strong>
-                {Math.min(currentRecords.length, (page - 1) * pageSize + 1)}
-              </strong>{" "}
-              to{" "}
-              <strong>
-                {Math.min(currentRecords.length, page * pageSize)}
-              </strong>{" "}
-              of <strong>{currentRecords.length}</strong> entries
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 bg-slate-50 border-t border-slate-200 text-xs text-slate-600">
+            <div className="font-medium">
+              Showing <strong className="text-slate-800">{Math.min(currentRecords.length, (page - 1) * pageSize + 1)}</strong> to <strong className="text-slate-800">{Math.min(currentRecords.length, page * pageSize)}</strong> of <strong className="text-slate-800">{currentRecords.length}</strong> entries
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-2.5 py-1 rounded bg-white border border-slate-200 disabled:opacity-40 hover:bg-slate-100 transition font-semibold"
+                className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 disabled:opacity-40 hover:bg-slate-50 transition font-bold text-xs shadow-sm"
               >
                 Previous
               </button>
-              <span className="px-3 py-1 font-bold">
+              <span className="px-3 py-1 font-bold text-slate-700">
                 {page} / {totalPages}
               </span>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="px-2.5 py-1 rounded bg-white border border-slate-200 disabled:opacity-40 hover:bg-slate-100 transition font-semibold"
+                className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 disabled:opacity-40 hover:bg-slate-50 transition font-bold text-xs shadow-sm"
               >
                 Next
               </button>

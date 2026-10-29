@@ -3,15 +3,19 @@ import { INITIAL_FORM_VALUES } from './constants';
 export const mapCustomerToFormValues = (customer, configs = {}) => {
     if (!customer) return INITIAL_FORM_VALUES;
 
+    const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
     // Helper to find ID by label in a config list
     const findId = (list, val, labelKey = 'name') => {
         if (!val) return '';
         if (!list || !Array.isArray(list)) return val;
 
         const searchVal = String(val).toLowerCase();
+        const normVal = norm(val);
         const item = list.find(i =>
             String(i._id).toLowerCase() === searchVal ||
-            String(i[labelKey] || i).toLowerCase() === searchVal
+            String(i[labelKey] || i).toLowerCase() === searchVal ||
+            norm(i[labelKey] || i) === normVal
         );
         return item?._id || val;
     };
@@ -33,13 +37,56 @@ export const mapCustomerToFormValues = (customer, configs = {}) => {
         return findId(list, baseId, labelKey);
     };
 
+    // Robust GST resolution:
+    // Handles isGstRegistered (draft API), isGSTRegistered (customer), IsGSTRegistered, or gstType
+    const isGstVal = customer.isGstRegistered !== undefined
+        ? customer.isGstRegistered
+        : (customer.isGSTRegistered !== undefined
+            ? customer.isGSTRegistered
+            : customer.IsGSTRegistered);
+
+    let isGstBool = false;
+    if (isGstVal !== undefined && isGstVal !== null) {
+        isGstBool = isGstVal === true || String(isGstVal).toLowerCase() === 'true';
+    } else if (customer.gstType) {
+        const typeName = (typeof customer.gstType === 'object' ? (customer.gstType.name || '') : String(customer.gstType)).toLowerCase();
+        isGstBool = typeName.includes('registered') && !typeName.includes('un');
+    }
+
+    const gstTypeList = configs.gstTypes || [];
+    let matchedGstItem = null;
+
+    if (customer.gstType) {
+        const rawId = typeof customer.gstType === 'object' ? (customer.gstType._id || customer.gstType.refId) : customer.gstType;
+        if (rawId) {
+            matchedGstItem = gstTypeList.find(g => String(g._id).toLowerCase() === String(rawId).toLowerCase());
+        }
+        if (!matchedGstItem) {
+            const rawName = typeof customer.gstType === 'object' ? customer.gstType.name : customer.gstType;
+            matchedGstItem = gstTypeList.find(g => norm(g.name) === norm(rawName));
+        }
+    }
+
+    if (!matchedGstItem && gstTypeList.length > 0) {
+        if (isGstBool) {
+            matchedGstItem = gstTypeList.find(g => norm(g.name) === 'registered');
+        } else {
+            matchedGstItem = gstTypeList.find(g => norm(g.name).includes('unregistered') || norm(g.name).includes('un'));
+        }
+    }
+
+    const resolvedGstType = matchedGstItem ? matchedGstItem.name : (isGstBool ? 'Registered' : 'Unregistered');
+    const resolvedGstTypeRefId = matchedGstItem ? matchedGstItem._id : '';
+
     return {
         ...INITIAL_FORM_VALUES,
         ...customer,
 
-        gstType: getLabel(customer.gstType, configs.gstTypes) || (customer.IsGSTRegistered || customer.isGSTRegistered ? 'Registered' : 'Un-Registered'),
-        gstTypeRefId: getRefId(customer.gstType || (customer.IsGSTRegistered || customer.isGSTRegistered ? 'Registered' : 'Un-Registered'), configs.gstTypes),
-        isGSTRegistered: customer.IsGSTRegistered ?? customer.isGSTRegistered ?? false,
+        gstType: resolvedGstType,
+        gstTypeRefId: resolvedGstTypeRefId,
+        isGSTRegistered: isGstBool,
+        isGstRegistered: isGstBool,
+        IsGSTRegistered: isGstBool,
         zoneRefId: getRefId(customer.zone || customer.zoneRefId, configs.zones, 'zone'),
         salesPersonRefId: getRefId(customer.salesPerson || customer.salesPersonRefId, configs.salesPersons, 'employeeName'),
         specificLabRefId: getRefId(customer.specificLab, configs.specificLabs),

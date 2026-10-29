@@ -7,12 +7,21 @@ import Button from '../ui/Button';
 
 export const AddressDetails = ({ formik, wrapInput, configs, isReadOnlyMode }) => {
 
-    const handleCopyToShipTo = () => {
+    const handleCopyToShipTo = async () => {
         const billTo = formik.values.billToAddress;
-        if (formik.values.customerShipToDetails?.length > 0) {
-            formik.setFieldValue('customerShipToDetails[0]', { ...billTo });
-        } else {
-            formik.setFieldValue('customerShipToDetails', [{ ...billTo }]);
+        const currentShipList = formik.values.customerShipToDetails || [];
+        const updatedList = currentShipList.length > 0
+            ? currentShipList.map((addr, idx) => (idx === 0 ? { ...addr, ...billTo } : addr))
+            : [{ ...billTo }];
+
+        // Update with validation enabled so Formik state syncs immediately
+        await formik.setFieldValue('customerShipToDetails', updatedList, true);
+
+        // Immediately clear any stale errors for customerShipToDetails
+        if (formik.errors?.customerShipToDetails) {
+            const nextErrors = { ...formik.errors };
+            delete nextErrors.customerShipToDetails;
+            formik.setErrors(nextErrors);
         }
     };
 
@@ -35,7 +44,11 @@ export const AddressDetails = ({ formik, wrapInput, configs, isReadOnlyMode }) =
                     label: "Contact Number*",
                     name: `${namePrefix}.contactNumber`,
                     placeholder: "Enter Contact Number",
-                    maxLength: 10
+                    maxLength: 10,
+                    onChange: (e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        formik.setFieldValue(`${namePrefix}.contactNumber`, val);
+                    }
                 })}
                 {wrapInput(Input, {
                     label: "Address (Street/Locality)*",
@@ -70,7 +83,12 @@ export const AddressDetails = ({ formik, wrapInput, configs, isReadOnlyMode }) =
                 {wrapInput(Input, {
                     label: "Pincode*",
                     name: `${namePrefix}.zipCode`,
-                    placeholder: "Enter Pincode"
+                    placeholder: "Enter Pincode",
+                    maxLength: 6,
+                    onChange: (e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                        formik.setFieldValue(`${namePrefix}.zipCode`, val);
+                    }
                 })}
             </div>
         );

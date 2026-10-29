@@ -1,16 +1,68 @@
 import React, { useEffect } from 'react';
-import { FieldArray } from 'formik';
+import { useSelector } from 'react-redux';
 import { Icon } from '@iconify/react';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
-import Button from '../ui/Button';
-import { BrandRow } from './BrandRow';
 import { FileUploadField } from './shared';
+import { selectCurrentUser } from '../../store/slices/authSlice';
 
 export const BusinessInformation = ({ formik, wrapInput, configs, isReadOnlyMode, isApprovalMode, handleFileUpload, uploading }) => {
+    const reduxUser = useSelector(selectCurrentUser);
+    const user = reduxUser ?? (() => {
+        try { return JSON.parse(localStorage.getItem('user')); }
+        catch { return null; }
+    })();
+
+    const deptName = (user?.Department?.name || user?.department || '').toUpperCase();
+    const empType = (user?.EmployeeType || user?.role || '').toUpperCase();
+
+    // Check if user is Admin, Accounts (Finance), or Customer Support
+    const isAdmin = ['SUPERADMIN', 'ADMIN', 'PLATFORM_OWNER'].includes(empType);
+    const isAccounts = ['FINANCE', 'F&A', 'F&A CFO', 'ACCOUNTING', 'ACCOUNTS'].some(d => deptName.includes(d));
+    const isCustomerSupport = deptName.includes('CUSTOMER SUPPORT') || deptName.includes('SUPPORT');
+
+    const canManualEditFinancials = isAdmin || isAccounts || isCustomerSupport;
+
+    const hasExistingCheques = formik.values.chequeDetails?.some(c => c.chequeNumber || c.chequeImage);
+    const hasExistingRemark = !!formik.values.chequeRemark?.trim();
+
+    const [hasBlankCheques, setHasBlankCheques] = React.useState(() => {
+        if (hasExistingRemark && !hasExistingCheques) return false;
+        return true;
+    });
+
+    const hasInitializedRef = React.useRef(false);
+    useEffect(() => {
+        if (!hasInitializedRef.current) {
+            const hasCheques = formik.values.chequeDetails?.some(c => c.chequeNumber || c.chequeImage);
+            const hasRemark = !!formik.values.chequeRemark?.trim();
+            if (hasRemark && !hasCheques) {
+                setHasBlankCheques(false);
+                hasInitializedRef.current = true;
+            } else if (hasCheques) {
+                setHasBlankCheques(true);
+                hasInitializedRef.current = true;
+            }
+        }
+    }, [formik.values.chequeRemark, formik.values.chequeDetails]);
+
+    const handleToggleBlankCheques = (hasCheques) => {
+        if (isReadOnlyMode) return;
+        setHasBlankCheques(hasCheques);
+        if (hasCheques) {
+            formik.setFieldValue('chequeRemark', '');
+        } else {
+            formik.setFieldValue('chequeDetails', [
+                { chequeImage: '', chequeNumber: '' },
+                { chequeImage: '', chequeNumber: '' },
+                { chequeImage: '', chequeNumber: '' }
+            ]);
+        }
+    };
 
     useEffect(() => {
-        if (!isReadOnlyMode && !isApprovalMode) {
+        // Auto-calculation only runs for Sales team; Admin, Accounts, and Customer Support can enter manually
+        if (!isReadOnlyMode && !isApprovalMode && !canManualEditFinancials) {
             const minSales = Number(formik.values.minSalesValue) || 0;
 
             // Calculate Final Discount Percent
@@ -33,7 +85,7 @@ export const BusinessInformation = ({ formik, wrapInput, configs, isReadOnlyMode
                 formik.setFieldValue('creditLimit', newCreditLimit);
             }
         }
-    }, [formik.values.minSalesValue, formik.values.creditDaysRefId, configs.creditDays, isReadOnlyMode, isApprovalMode]);
+    }, [formik.values.minSalesValue, formik.values.creditDaysRefId, configs.creditDays, isReadOnlyMode, isApprovalMode, canManualEditFinancials]);
 
     return (
         <div className="space-y-12">
@@ -104,9 +156,23 @@ export const BusinessInformation = ({ formik, wrapInput, configs, isReadOnlyMode
                     name: 'creditDaysRefId',
                     options: (configs.creditDays || []).map(d => ({ value: d._id, label: d.days?.toString() || '' }))
                 })}
-                {wrapInput(Input, { label: 'Final Discount (%)', name: 'finalDiscount', placeholder: 'Auto-Calculated', type: 'number', disabled: true, className: 'bg-gray-100 text-gray-500' })}
+                {wrapInput(Input, {
+                    label: canManualEditFinancials ? 'Final Discount (%)' : 'Final Discount (%) (Auto-Calculated)',
+                    name: 'finalDiscount',
+                    placeholder: canManualEditFinancials ? 'Enter Final Discount' : 'Auto-Calculated',
+                    type: 'number',
+                    disabled: isReadOnlyMode ? true : !canManualEditFinancials,
+                    className: (!canManualEditFinancials || isReadOnlyMode) ? 'bg-gray-100 text-gray-500' : ''
+                })}
                 {wrapInput(Input, { label: 'Proposed Discount (%)', name: 'proposedDiscount', placeholder: 'Enter Proposed Discount', type: 'number' })}
-                {wrapInput(Input, { label: 'Credit Limit*', name: 'creditLimit', placeholder: 'Auto-Calculated', type: 'number', disabled: true, className: 'bg-gray-100 text-gray-500' })}
+                {wrapInput(Input, {
+                    label: canManualEditFinancials ? 'Credit Limit' : 'Credit Limit (Auto-Calculated)',
+                    name: 'creditLimit',
+                    placeholder: canManualEditFinancials ? 'Enter Credit Limit' : 'Auto-Calculated',
+                    type: 'number',
+                    disabled: isReadOnlyMode ? true : !canManualEditFinancials,
+                    className: (!canManualEditFinancials || isReadOnlyMode) ? 'bg-gray-100 text-gray-500' : ''
+                })}
                 {wrapInput(Select, {
                     label: 'Billing Mode*',
                     name: 'billingMode',
@@ -126,54 +192,93 @@ export const BusinessInformation = ({ formik, wrapInput, configs, isReadOnlyMode
                 })}
             </div>
             <div className="space-y-6 pt-6 border-t border-gray-100">
-                <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-bold text-gray-800 uppercase tracking-tight flex items-center gap-2">
-                        <Icon icon="mdi:checkbook" className="text-erp-accent" /> 3 Blank Cheques
-                    </h3>
-                    <span className="text-xs text-gray-500 font-medium">Please provide 3 blank cheques or state the reason.</span>
-                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-gray-50/80 rounded-2xl border border-gray-200/80">
+                    <div>
+                        <h3 className="text-base font-bold text-gray-800 uppercase tracking-tight flex items-center gap-2">
+                            <Icon icon="mdi:checkbook" className="text-erp-accent text-xl" /> Do you have blank cheques?
+                        </h3>
+                        <p className="text-xs text-gray-500 font-medium mt-0.5">
+                            {hasBlankCheques
+                                ? 'Please provide details and upload photos for up to 3 blank cheques.'
+                                : 'Please provide a reason / remark for not submitting blank cheques.'}
+                        </p>
+                    </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {formik.values.chequeDetails.map((cheque, index) => (
-                        <div key={index} className="p-4 bg-white rounded-xl border border-gray-200 space-y-3 shadow-sm">
-                            <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
-                                <div className="w-6 h-6 rounded-full bg-[#2980B9] text-white text-[11px] font-black flex items-center justify-center">{index + 1}</div>
-                                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Cheque {index + 1}</span>
-                            </div>
-                            {wrapInput(Input, {
-                                label: `Cheque ${index + 1} Number`,
-                                name: `chequeDetails[${index}].chequeNumber`,
-                                placeholder: `Cheque ${index + 1} No.`
-                            })}
-                            <FileUploadField
-                                hideInput
-                                enableCamera
-                                label="Upload Cheque Photo"
-                                name={`dummyChequeUpload${index}`}
-                                placeholder="Upload Photo"
-                                onFileChange={(e) => handleFileUpload(e, `chequeDetails[${index}].chequeImage`, `cheque${index}`)}
-                                uploading={uploading?.[`cheque${index}`]}
-                                currentValue={cheque.chequeImage}
-                                formik={formik}
-                                wrapInput={wrapInput}
-                                imgFieldName={`chequeDetails[${index}].chequeImage`}
-                                isReadOnlyMode={isReadOnlyMode}
+                    {/* Yes / No Toggle */}
+                    <div className="inline-flex items-center gap-2 bg-gray-200/70 p-1.5 rounded-xl border border-gray-300/60">
+                        <label className={`flex items-center gap-2 px-4 py-1.5 rounded-lg cursor-pointer transition-all ${hasBlankCheques ? 'bg-white shadow-sm text-erp-accent font-bold' : 'text-gray-600 font-medium hover:text-gray-900'}`}>
+                            <input
+                                type="radio"
+                                name="hasBlankChequesToggle"
+                                value="yes"
+                                checked={hasBlankCheques === true}
+                                onChange={() => handleToggleBlankCheques(true)}
+                                disabled={isReadOnlyMode}
+                                className="w-4 h-4 accent-[#2980B9] cursor-pointer"
                             />
-                        </div>
-                    ))}
+                            <span className="text-xs">Yes</span>
+                        </label>
+
+                        <label className={`flex items-center gap-2 px-4 py-1.5 rounded-lg cursor-pointer transition-all ${!hasBlankCheques ? 'bg-white shadow-sm text-erp-accent font-bold' : 'text-gray-600 font-medium hover:text-gray-900'}`}>
+                            <input
+                                type="radio"
+                                name="hasBlankChequesToggle"
+                                value="no"
+                                checked={hasBlankCheques === false}
+                                onChange={() => handleToggleBlankCheques(false)}
+                                disabled={isReadOnlyMode}
+                                className="w-4 h-4 accent-[#2980B9] cursor-pointer"
+                            />
+                            <span className="text-xs">No</span>
+                        </label>
+                    </div>
                 </div>
 
-                <div className="pt-4">
-                    {wrapInput(Input, {
-                        label: 'Remark (If Cheques Not Submitted)',
-                        name: 'chequeRemark',
-                        placeholder: 'Enter reason for not submitting cheques',
-                        className: 'bg-yellow-50 focus:bg-white transition-colors'
-                    })}
-                </div>
+                {hasBlankCheques ? (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {(formik.values.chequeDetails || []).map((cheque, index) => (
+                            <div key={index} className="p-4 bg-white rounded-xl border border-gray-200 space-y-3 shadow-sm">
+                                <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
+                                    <div className="w-6 h-6 rounded-full bg-[#2980B9] text-white text-[11px] font-black flex items-center justify-center">{index + 1}</div>
+                                    <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Cheque {index + 1}</span>
+                                </div>
+                                {wrapInput(Input, {
+                                    label: `Cheque ${index + 1} Number`,
+                                    name: `chequeDetails[${index}].chequeNumber`,
+                                    placeholder: `Cheque ${index + 1} No.`
+                                })}
+                                <FileUploadField
+                                    hideInput
+                                    enableCamera
+                                    label="Upload Cheque Photo"
+                                    name={`dummyChequeUpload${index}`}
+                                    placeholder="Upload Photo"
+                                    onFileChange={(e) => handleFileUpload(e, `chequeDetails[${index}].chequeImage`, `cheque${index}`)}
+                                    uploading={uploading?.[ `cheque${index}`]}
+                                    currentValue={cheque.chequeImage}
+                                    formik={formik}
+                                    wrapInput={wrapInput}
+                                    imgFieldName={`chequeDetails[${index}].chequeImage`}
+                                    isReadOnlyMode={isReadOnlyMode}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="p-5 bg-white rounded-xl border border-gray-200 space-y-2 shadow-sm">
+                        <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
+                            <Icon icon="mdi:comment-text-outline" className="text-erp-accent text-lg" />
+                            <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Cheque Exemption Remark / Reason</span>
+                        </div>
+                        {wrapInput(Input, {
+                            label: 'Remark (Optional)',
+                            name: 'chequeRemark',
+                            placeholder: 'Enter reason or remark for not providing cheques',
+                            className: 'bg-yellow-50 focus:bg-white transition-colors'
+                        })}
+                    </div>
+                )}
             </div>
         </div>
     );
 };
-
-

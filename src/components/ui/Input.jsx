@@ -82,7 +82,11 @@ const Input = forwardRef(({
                     onChange={onChange}
                     placeholder={placeholder || (showLabelTop ? label?.replace('*', '') : '')}
                     error={!!error || isRejected}
-                    helperText={error ? error.message : null}
+                    helperText={error ? (typeof error === "string" ? error : error.message) : null}
+                    inputProps={{
+                        ...(props.maxLength ? { maxLength: props.maxLength } : {}),
+                        ...props.inputProps
+                    }}
                     variant="outlined"
                     InputLabelProps={{
                         shrink: true,

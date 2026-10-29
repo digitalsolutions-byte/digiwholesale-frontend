@@ -81,7 +81,7 @@ const Select = ({
                     value={value}
                     onChange={onChange}
                     error={!!error || isRejected}
-                    helperText={error ? error.message : null}
+                    helperText={error ? (typeof error === "string" ? error : error.message) : null}
                     variant="outlined"
                     SelectProps={{
                         multiple: multiple,
