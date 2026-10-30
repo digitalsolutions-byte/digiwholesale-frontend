@@ -13,15 +13,32 @@ export const BusinessInformation = ({ formik, wrapInput, configs, isReadOnlyMode
         catch { return null; }
     })();
 
-    const deptName = (user?.Department?.name || user?.department || '').toUpperCase();
-    const empType = (user?.EmployeeType || user?.role || '').toUpperCase();
+    const deptName = (
+        user?.Department?.name ||
+        user?.department?.name ||
+        user?.department ||
+        user?.Department ||
+        ''
+    ).toString().toUpperCase();
 
-    // Check if user is Admin, Accounts (Finance), or Customer Support
-    const isAdmin = ['SUPERADMIN', 'ADMIN', 'PLATFORM_OWNER'].includes(empType);
+    const empType = (
+        user?.EmployeeType?.name ||
+        user?.employeeType?.name ||
+        user?.EmployeeType ||
+        user?.employeeType ||
+        user?.role ||
+        ''
+    ).toString().toUpperCase();
+
+    // Check roles
+    const isSuperAdminOrPlatformOwner = ['SUPERADMIN', 'PLATFORM_OWNER'].includes(empType);
+    const isSalesTeam = deptName.includes('SALES') && !isSuperAdminOrPlatformOwner;
+    const isAdmin = isSuperAdminOrPlatformOwner || empType === 'ADMIN' || deptName === 'ADMIN' || deptName.includes('ADMINISTRATION');
     const isAccounts = ['FINANCE', 'F&A', 'F&A CFO', 'ACCOUNTING', 'ACCOUNTS'].some(d => deptName.includes(d));
     const isCustomerSupport = deptName.includes('CUSTOMER SUPPORT') || deptName.includes('SUPPORT');
 
-    const canManualEditFinancials = isAdmin || isAccounts || isCustomerSupport;
+    // Admin, Accounts, or Customer Support ID can manually enter discount & credit limit; Sales team uses auto-calculation
+    const canManualEditFinancials = (isAdmin || isAccounts || isCustomerSupport) && !isSalesTeam;
 
     const hasExistingCheques = formik.values.chequeDetails?.some(c => c.chequeNumber || c.chequeImage);
     const hasExistingRemark = !!formik.values.chequeRemark?.trim();
@@ -50,7 +67,7 @@ export const BusinessInformation = ({ formik, wrapInput, configs, isReadOnlyMode
     };
 
     useEffect(() => {
-        // Auto-calculation only runs for Sales team; Admin, Accounts, and Customer Support can enter manually
+        // Auto-calculation remains active for Sales team; Admin, Accounts, and Customer Support can enter manually
         if (!isReadOnlyMode && !isApprovalMode && !canManualEditFinancials) {
             const minSales = Number(formik.values.minSalesValue) || 0;
 
@@ -153,7 +170,12 @@ export const BusinessInformation = ({ formik, wrapInput, configs, isReadOnlyMode
                     disabled: isReadOnlyMode ? true : !canManualEditFinancials,
                     className: (!canManualEditFinancials || isReadOnlyMode) ? 'bg-gray-100 text-gray-500' : ''
                 })}
-                {wrapInput(Input, { label: 'Proposed Discount (%)', name: 'proposedDiscount', placeholder: 'Enter Proposed Discount', type: 'number' })}
+                {wrapInput(Input, {
+                    label: 'Proposed Discount (%)',
+                    name: 'proposedDiscount',
+                    placeholder: 'Enter Proposed Discount',
+                    type: 'number'
+                })}
                 {wrapInput(Input, {
                     label: canManualEditFinancials ? 'Credit Limit' : 'Credit Limit (Auto-Calculated)',
                     name: 'creditLimit',
