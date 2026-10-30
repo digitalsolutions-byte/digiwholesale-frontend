@@ -36,6 +36,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { getCustomerLedgers, upsertCustomerLedger, adjustDueFromAdvance } from '../../services/accountingService';
 import CustomerPaymentModal from './CustomerPaymentModal';
+import SendBankDetailsModal from './SendBankDetailsModal';
 
 const getStatusColor = (status) => {
   switch ((status || '').toUpperCase()) {
@@ -93,6 +94,22 @@ const CustomerLedgers = () => {
   // Payment Modal
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [paymentCustomer, setPaymentCustomer] = useState(null);
+
+  // Wholesaler Bank Details Modal
+  const [bankDetailsModalOpen, setBankDetailsModalOpen] = useState(false);
+  const [selectedBankCustomer, setSelectedBankCustomer] = useState(null);
+
+  const handleOpenBankDetails = (ledger) => {
+    setSelectedBankCustomer({
+      _id: ledger.customerId?._id,
+      shopName: ledger.customerId?.shopName,
+      ownerName: ledger.customerId?.ownerName,
+      mobile: ledger.customerId?.mobileNo1 || ledger.customerId?.mobile || ledger.customerId?.mobileNo2,
+      businessEmail: ledger.customerId?.businessEmail || ledger.customerId?.email,
+      pendingDue: ledger.creditUsed || ledger.customerId?.creditUsed || 0,
+    });
+    setBankDetailsModalOpen(true);
+  };
 
   const fetchLedgers = async () => {
     try {
@@ -656,7 +673,7 @@ const CustomerLedgers = () => {
                 <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Pending Due</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Advance</TableCell>
                 <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: '0.8125rem' }}>Latest Order</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 600, color: '#475569', width: 170, fontSize: '0.8125rem' }}>Actions</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 600, color: '#475569', width: 200, fontSize: '0.8125rem' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -884,6 +901,16 @@ const CustomerLedgers = () => {
                           </Tooltip>
                         )}
 
+                        <Tooltip title="Send Wholesaler Bank Details">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleOpenBankDetails(l)}
+                            sx={{ color: '#2563EB', p: 0.5, '&:hover': { backgroundColor: '#EFF6FF' } }}
+                          >
+                            <Icon icon="lucide:landmark" fontSize={15} />
+                          </IconButton>
+                        </Tooltip>
+
                         <Tooltip title="Configure Terms">
                           <IconButton
                             size="small"
@@ -1063,6 +1090,19 @@ const CustomerLedgers = () => {
           onClose={() => setPaymentModalOpen(false)}
           customer={paymentCustomer}
           onSuccess={() => fetchLedgers()}
+        />
+      )}
+
+      {/* Wholesaler Bank Details Modal */}
+      {bankDetailsModalOpen && (
+        <SendBankDetailsModal
+          open={bankDetailsModalOpen}
+          onClose={() => {
+            setBankDetailsModalOpen(false);
+            setSelectedBankCustomer(null);
+          }}
+          customer={selectedBankCustomer}
+          pendingDue={selectedBankCustomer?.pendingDue || 0}
         />
       )}
     </Box>

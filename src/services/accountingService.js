@@ -196,6 +196,15 @@ export const sendPaymentDueReminder = async (data) => {
   }
 };
 
+export const sendCustomerBankDetails = async (customerId, data = {}) => {
+  try {
+    const response = await api.post(`/api/v1/ledgers/customer/${customerId}/send-bank-details`, data);
+    return response.data;
+  } catch (error) {
+    throw handleServiceError(error, 'Failed to send wholesaler bank details');
+  }
+};
+
 export const resendPaymentReceipt = async (paymentId, channel = 'both') => {
   try {
     const response = await api.post(`/api/v1/payments/${paymentId}/resend-receipt`, { channel });

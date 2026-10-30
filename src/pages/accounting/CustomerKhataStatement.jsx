@@ -20,6 +20,7 @@ import {
   updateChequeStatus
 } from '../../services/accountingService';
 import CustomerPaymentModal from './CustomerPaymentModal';
+import SendBankDetailsModal from './SendBankDetailsModal';
 
 const formatAddress = (addr) => {
   if (!addr) return '';
@@ -73,6 +74,7 @@ const CustomerKhataStatement = () => {
   // Payment Modal state
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedOrderForPayment, setSelectedOrderForPayment] = useState(null);
+  const [bankDetailsModalOpen, setBankDetailsModalOpen] = useState(false);
 
   // Cheque Action Modals state (PDC Clear / Bounce)
   const [clearChequeModal, setClearChequeModal] = useState({
@@ -1804,6 +1806,16 @@ const CustomerKhataStatement = () => {
           )}
 
           <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<Icon icon="lucide:landmark" fontSize={16} />}
+            onClick={() => setBankDetailsModalOpen(true)}
+            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, fontSize: '0.8125rem' }}
+          >
+            Send Bank Details
+          </Button>
+
+          <Button
             variant="contained"
             color="success"
             onClick={() => {
@@ -3016,6 +3028,22 @@ const CustomerKhataStatement = () => {
           }}
           initialOrder={selectedOrderForPayment}
           onSuccess={() => fetchStatement()}
+        />
+      )}
+
+      {/* Send Wholesaler Bank Details Modal */}
+      {bankDetailsModalOpen && (
+        <SendBankDetailsModal
+          open={bankDetailsModalOpen}
+          onClose={() => setBankDetailsModalOpen(false)}
+          customer={{
+            _id: customerId,
+            shopName: cust.shopName,
+            ownerName: cust.ownerName,
+            mobile: cust.mobile || cust.mobileNo1 || cust.mobileNo2,
+            businessEmail: cust.businessEmail || cust.email || cust.emailId,
+          }}
+          pendingDue={creditUsed}
         />
       )}
 
