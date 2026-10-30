@@ -140,18 +140,43 @@ const EcommerceCatalog = ({ defaultCategory }) => {
         fetchProducts(1, activeTab, search);
     };
 
-    // Helper to safely parse color hex strings
+    // Helper to safely parse color hex strings (supports #22509b(blue), names, etc.)
     const getValidColorHex = (hexStr) => {
         if (!hexStr || typeof hexStr !== 'string') return '#3B82F6';
-        const trimmed = hexStr.trim().toLowerCase();
-        if (trimmed.startsWith('#')) return trimmed;
-        if (/^[0-9a-fA-F]{3,6}$/.test(trimmed)) return `#${trimmed}`;
+        const trimmed = hexStr.trim();
+        const hex6Match = trimmed.match(/#([0-9a-fA-F]{6})/i);
+        if (hex6Match) return `#${hex6Match[1].toLowerCase()}`;
+        const hex3Match = trimmed.match(/#([0-9a-fA-F]{3})(?![0-9a-fA-F])/i);
+        if (hex3Match) {
+            const h = hex3Match[1].toLowerCase();
+            return `#${h[0]}${h[0]}${h[1]}${h[1]}${h[2]}${h[2]}`;
+        }
+        const bareHex6Match = trimmed.match(/\b([0-9a-fA-F]{6})\b/i);
+        if (bareHex6Match) return `#${bareHex6Match[1].toLowerCase()}`;
+
+        const COMMON_COLORS = {
+            black: '#000000', white: '#ffffff', red: '#ef4444', green: '#10b981', blue: '#3b82f6',
+            yellow: '#eab308', orange: '#f97316', purple: '#a855f7', pink: '#ec4899', gray: '#6b7280',
+            grey: '#6b7280', brown: '#78350f', gold: '#d97706', silver: '#94a3b8', navy: '#1e3a8a',
+            teal: '#14b8a6', cyan: '#06b6d4', maroon: '#800000', olive: '#808000', lime: '#84cc16'
+        };
+        const words = trimmed.toLowerCase().match(/[a-zA-Z]+/g) || [];
+        for (const w of words) {
+            if (COMMON_COLORS[w]) return COMMON_COLORS[w];
+        }
+
         try {
             const ctx = document.createElement('canvas').getContext('2d');
             if (ctx) {
-                ctx.fillStyle = trimmed;
-                const computed = ctx.fillStyle;
-                if (computed && computed.startsWith('#')) return computed;
+                const candidates = [trimmed.toLowerCase(), ...words];
+                for (const candidate of candidates) {
+                    if (!candidate) continue;
+                    if (candidate === 'black') return '#000000';
+                    ctx.fillStyle = '#010203';
+                    ctx.fillStyle = candidate;
+                    const computed = ctx.fillStyle;
+                    if (computed && computed !== '#010203' && computed.startsWith('#')) return computed;
+                }
             }
         } catch (e) { }
         return '#3B82F6';

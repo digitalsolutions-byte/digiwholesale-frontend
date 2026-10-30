@@ -148,28 +148,112 @@ const resolveIndex = (idxVal, configIndexes = []) => {
 
 const parseColorToHex = (str) => {
     if (!str || typeof str !== 'string') return '#3B82F6';
-    const trimmed = str.trim().toLowerCase();
+    const trimmed = str.trim();
 
-    if (/^#?([0-9a-fA-F]{3}){1,2}$/.test(trimmed)) {
-        let hex = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
-        if (hex.length === 4) {
-            hex = `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`;
-        }
-        return hex;
+    const hex6Match = trimmed.match(/#([0-9a-fA-F]{6})/i);
+    if (hex6Match) return '#' + hex6Match[1].toLowerCase();
+
+    const hex3Match = trimmed.match(/#([0-9a-fA-F]{3})(?![0-9a-fA-F])/i);
+    if (hex3Match) {
+        const h = hex3Match[1].toLowerCase();
+        return '#' + h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
     }
 
-    try {
-        const ctx = document.createElement('canvas').getContext('2d');
-        if (ctx) {
-            ctx.fillStyle = trimmed;
-            const computed = ctx.fillStyle;
-            if (computed && computed.startsWith('#')) return computed;
-        }
-    } catch (e) {
-        // ignore
+    const bareHex6Match = trimmed.match(/\b([0-9a-fA-F]{6})\b/i);
+    if (bareHex6Match) return '#' + bareHex6Match[1].toLowerCase();
+
+    const COMMON_COLOR_NAMES = {
+        black: '#000000', white: '#ffffff', red: '#ef4444', green: '#10b981', blue: '#3b82f6',
+        yellow: '#eab308', orange: '#f97316', purple: '#a855f7', pink: '#ec4899', gray: '#6b7280',
+        grey: '#6b7280', brown: '#78350f', gold: '#d97706', silver: '#94a3b8', navy: '#1e3a8a',
+        teal: '#14b8a6', cyan: '#06b6d4', maroon: '#800000', olive: '#808000', lime: '#84cc16',
+        tortoise: '#8B4513', demi: '#8B4513', gunmetal: '#2C3539', clear: '#E0F2FE'
+    };
+    const words = trimmed.toLowerCase().match(/[a-zA-Z]+/g) || [];
+    for (const w of words) {
+        if (COMMON_COLOR_NAMES[w]) return COMMON_COLOR_NAMES[w];
+    }
+
+    if (typeof document !== 'undefined') {
+        try {
+            const ctx = document.createElement('canvas').getContext('2d');
+            if (ctx) {
+                const candidates = [trimmed.toLowerCase(), ...words];
+                for (const candidate of candidates) {
+                    if (!candidate) continue;
+                    if (candidate === 'black') return '#000000';
+                    ctx.fillStyle = '#010203';
+                    ctx.fillStyle = candidate;
+                    const computed = ctx.fillStyle;
+                    if (computed && computed !== '#010203' && computed.startsWith('#')) return computed;
+                }
+            }
+        } catch (e) {}
     }
 
     return '#3B82F6';
+};
+
+const updateColorStringWithHex = (currentStr, newHex) => {
+    if (!currentStr || !currentStr.trim()) return newHex;
+    const trimmed = currentStr.trim();
+    if (/#([0-9a-fA-F]{6})/i.test(trimmed)) {
+        return trimmed.replace(/#([0-9a-fA-F]{6})/i, newHex);
+    }
+    if (/#([0-9a-fA-F]{3})(?![0-9a-fA-F])/i.test(trimmed)) {
+        return trimmed.replace(/#([0-9a-fA-F]{3})(?![0-9a-fA-F])/i, newHex);
+    }
+    if (/\b([0-9a-fA-F]{6})\b/i.test(trimmed)) {
+        return trimmed.replace(/\b([0-9a-fA-F]{6})\b/i, newHex);
+    }
+    return `${newHex} (${trimmed})`;
+};
+
+const getAvailableColorsForProduct = (product) => {
+    const list = [];
+    const seen = new Set();
+
+    if (Array.isArray(product?.availableColors) && product.availableColors.length > 0) {
+        product.availableColors.forEach(c => {
+            const colorName = typeof c === 'string' ? c : (c?.color || c?.name || '');
+            if (colorName && !seen.has(colorName.toLowerCase())) {
+                seen.add(colorName.toLowerCase());
+                list.push({
+                    color: colorName,
+                    qty: typeof c === 'object' ? (c.qty !== undefined ? c.qty : null) : null,
+                    image: typeof c === 'object' ? (c.productColorImage || '') : '',
+                    isInventoryVariant: true
+                });
+            }
+        });
+    }
+
+    if (Array.isArray(product?.colors) && product.colors.length > 0) {
+        product.colors.forEach(c => {
+            const colorName = typeof c === 'string' ? c : (c?.color || c?.name || '');
+            if (colorName && !seen.has(colorName.toLowerCase())) {
+                seen.add(colorName.toLowerCase());
+                list.push({
+                    color: colorName,
+                    qty: typeof c === 'object' ? (c.qty !== undefined ? c.qty : null) : null,
+                    image: typeof c === 'object' ? (c.productColorImage || '') : '',
+                    isInventoryVariant: true
+                });
+            }
+        });
+    }
+
+    if (product?.color && !seen.has(product.color.toLowerCase())) {
+        seen.add(product.color.toLowerCase());
+        list.push({
+            color: product.color,
+            qty: null,
+            image: '',
+            isInventoryVariant: false
+        });
+    }
+
+    return list;
 };
 
 const OrderWizard = () => {
@@ -210,6 +294,25 @@ const OrderWizard = () => {
 
     const [fetchingOrder, setFetchingOrder] = useState(!!id);
     const [activeProductIndex, setActiveProductIndex] = useState(0);
+
+    const checkIsFrame = (product) => {
+        if (!product) return false;
+        const catName = (product.category || configs.category?.find(c => c._id === product.categoryId)?.name || '').toUpperCase();
+        return catName.includes('FRAME') || catName.includes('SUNGLASS');
+    };
+
+    const handleProductColorSelect = (index, selectedColor) => {
+        const prefix = `products.${index}.`;
+        formik.setFieldValue(`${prefix}color`, selectedColor);
+
+        const product = formik.values.products[index];
+        const avail = getAvailableColorsForProduct(product);
+        const matched = avail.find(c => c.color?.toLowerCase() === selectedColor?.toLowerCase());
+        if (matched && matched.image) {
+            formik.setFieldValue(`${prefix}image`, matched.image);
+            formik.setFieldValue(`${prefix}photos`, [matched.image]);
+        }
+    };
     const [expandedProductIndices, setExpandedProductIndices] = useState([]);
     const [expandedGroups, setExpandedGroups] = useState({
         specs: false,
@@ -250,6 +353,8 @@ const OrderWizard = () => {
         qty: 1,
         unit: 'piece',
         price: 0,
+        sellingPrice: 0,
+        basePrice: 0,
         discount: 0,
         brand: '',
         photos: [],
@@ -310,6 +415,7 @@ const OrderWizard = () => {
         productCode: '',
         image: '',
         color: 'BLACK',
+        availableColors: [],
         size: '',
         type: '',
         shape: '',
@@ -383,6 +489,8 @@ const OrderWizard = () => {
                     categoryId: item.category || 'FRAME',
                     unit: item.unit || 'piece',
                     price: Number(item.price) || 0,
+                    sellingPrice: Number(item.sellingPrice || item.price) || 0,
+                    basePrice: Number(item.basePrice || item.price) || 0,
                     mrp: pMrp,
                     MRP: pMrp,
                     gst: pGst,
@@ -456,6 +564,8 @@ const OrderWizard = () => {
                 categoryId: prod.category || 'FRAME',
                 unit: prod.unit || 'piece',
                 price: Number(prod.price) || 0,
+                sellingPrice: Number(prod.sellingPrice || prod.price) || 0,
+                basePrice: Number(prod.basePrice || prod.price) || 0,
                 mrp: pMrp,
                 MRP: pMrp,
                 gst: pGst,
@@ -511,6 +621,16 @@ const OrderWizard = () => {
         products: Yup.array().of(
             Yup.object().shape({
                 orderType: Yup.string(),
+                price: Yup.number().test('min-base-price', function (value) {
+                    const { basePrice, productName } = this.parent;
+                    if (!productName) return true;
+                    const baseP = Number(basePrice || 0);
+                    const p = Number(value || 0);
+                    if (baseP > 0 && p < baseP) {
+                        return this.createError({ message: `Selling price cannot be less than original price (₹${baseP})` });
+                    }
+                    return true;
+                }),
                 vendorId: Yup.string().test('is-vendor-required', 'Vendor selection is required for Order / Rx items', function (value) {
                     const { availability, orderType, productName } = this.parent;
                     if (!productName) return true; // skip unselected empty rows
@@ -551,6 +671,19 @@ const OrderWizard = () => {
         validationSchema,
         onSubmit: async (values) => {
             try {
+                // Selling price cannot decrease below base price
+                for (let i = 0; i < (values.products || []).length; i++) {
+                    const p = values.products[i];
+                    if (p.productName || p.productId) {
+                        const baseP = Number(p.basePrice || 0);
+                        const currentP = Number(p.price || 0);
+                        if (baseP > 0 && currentP < baseP) {
+                            toast.error(`Selling price for "${p.productName || `Item #${i + 1}`}" cannot be less than original base price (₹${baseP})`);
+                            return;
+                        }
+                    }
+                }
+
                 // Clicking Primary submit button always means "Place Order" / "Submit for Processing"
                 const payload = formatOrderPayload(values, 'Submitted');
                 let res;
@@ -609,6 +742,8 @@ const OrderWizard = () => {
             formik.setFieldValue('products.0.category', categoryNameVal || '');
             formik.setFieldValue('products.0.categoryId', categoryIdVal || '');
             formik.setFieldValue('products.0.price', Number(prod.price) || 0);
+            formik.setFieldValue('products.0.sellingPrice', Number(prod.price) || 0);
+            formik.setFieldValue('products.0.basePrice', Number(prod.price) || 0);
             formik.setFieldValue('products.0.MRP', Number(prod.mrp) || 0);
             formik.setFieldValue('products.0.qty', Number(qtyVal) || 1);
             formik.setFieldValue('products.0.color', colorVal);
@@ -673,6 +808,8 @@ const OrderWizard = () => {
                                     scan: prod.scan || '',
                                     qty: prod.qty || 1,
                                     price: prod.price || 0,
+                                    sellingPrice: prod.sellingPrice || prod.price || 0,
+                                    basePrice: prod.basePrice || prod.price || 0,
                                     discount: prod.discountAmount !== undefined ? prod.discountAmount : (prod.discount || 0),
                                     powerMode: powersSource?.length === 1 ? 'single' : 'both',
                                     productMode: isRx ? 'rx' : 'stock',
@@ -1225,6 +1362,19 @@ const OrderWizard = () => {
                 formik.setFieldValue('products', finalProducts);
                 formik.values.products = finalProducts;
             }
+            for (let i = 0; i < (formik.values.products || []).length; i++) {
+                const p = formik.values.products[i];
+                if (p.productName || p.productId) {
+                    const baseP = Number(p.basePrice || 0);
+                    const currentP = Number(p.price || 0);
+                    if (baseP > 0 && currentP < baseP) {
+                        toast.error(`Selling price for "${p.productName || `Item #${i + 1}`}" cannot be less than original base price (₹${baseP})`);
+                        formik.setFieldValue(`products.${i}.price`, baseP);
+                        formik.setFieldValue(`products.${i}.sellingPrice`, baseP);
+                        return;
+                    }
+                }
+            }
             const payload = formatOrderPayload(formik.values, 'Draft');
             let res;
             if (isEditMode) {
@@ -1371,6 +1521,7 @@ const OrderWizard = () => {
                 : Number(rawProd.price || 0);
             formik.setFieldValue(`${prefix}price`, customerSellingPrice);
             formik.setFieldValue(`${prefix}sellingPrice`, customerSellingPrice);
+            formik.setFieldValue(`${prefix}basePrice`, customerSellingPrice);
             formik.setFieldValue(`${prefix}buyingPrice`, Number(rawProd.buyingPrice || rawProd.price || 0));
             formik.setFieldValue(`${prefix}MRP`, rawProd.mrp || rawProd.MRP || 0);
             formik.setFieldValue(`${prefix}qty`, 1);
@@ -1388,7 +1539,11 @@ const OrderWizard = () => {
             });
 
             // Set other properties
-            formik.setFieldValue(`${prefix}color`, rawProd.color || 'BLACK');
+            const prodColors = Array.isArray(rawProd.colors) && rawProd.colors.length > 0
+                ? rawProd.colors
+                : (rawProd.color ? [{ color: rawProd.color }] : []);
+            formik.setFieldValue(`${prefix}availableColors`, prodColors);
+            formik.setFieldValue(`${prefix}color`, prodColors.length > 0 ? prodColors[0].color : (rawProd.color || 'BLACK'));
             formik.setFieldValue(`${prefix}size`, rawProd.size || '');
             formik.setFieldValue(`${prefix}type`, rawProd.type || '');
             formik.setFieldValue(`${prefix}shape`, rawProd.shape || '');
@@ -1485,6 +1640,7 @@ const OrderWizard = () => {
                     if (resolvedSellingPrice <= 0 && Number(fullProd.price) > 0) {
                         formik.setFieldValue(`${prefix}price`, Number(fullProd.price));
                         formik.setFieldValue(`${prefix}sellingPrice`, Number(fullProd.price));
+                        formik.setFieldValue(`${prefix}basePrice`, Number(fullProd.price));
                     }
                     if (resolvedMRP <= 0 && Number(fullProd.mrp || fullProd.MRP) > 0) {
                         formik.setFieldValue(`${prefix}MRP`, Number(fullProd.mrp || fullProd.MRP));
@@ -1492,7 +1648,11 @@ const OrderWizard = () => {
                     if (resolvedBuyingPrice <= 0 && Number(fullProd.buyingPrice) > 0) {
                         formik.setFieldValue(`${prefix}buyingPrice`, Number(fullProd.buyingPrice));
                     }
-                    set('color', fullProd.color || 'BLACK');
+                    const fullColors = Array.isArray(fullProd.colors) && fullProd.colors.length > 0
+                        ? fullProd.colors
+                        : (fullProd.color ? [{ color: fullProd.color }] : prodColors);
+                    formik.setFieldValue(`${prefix}availableColors`, fullColors);
+                    set('color', fullProd.color || (fullColors.length > 0 ? fullColors[0].color : 'BLACK'));
                     set('size', fullProd.size || '');
                     set('type', fullProd.type || '');
                     set('shape', fullProd.shape || '');
@@ -1599,6 +1759,7 @@ const OrderWizard = () => {
                         if (resolvedSellingPrice <= 0 && sPrice > 0) {
                             formik.setFieldValue(`${prefix}price`, sPrice);
                             formik.setFieldValue(`${prefix}sellingPrice`, sPrice);
+                            formik.setFieldValue(`${prefix}basePrice`, sPrice);
                         }
                         if (resolvedBuyingPrice <= 0 && bPrice > 0) {
                             formik.setFieldValue(`${prefix}buyingPrice`, bPrice);
@@ -1805,6 +1966,30 @@ const OrderWizard = () => {
         }
     };
 
+    const handleSellingPriceBlur = (index) => {
+        const product = formik.values.products?.[index];
+        if (!product) return;
+        const baseP = Number(product.basePrice || 0);
+        const enteredP = Number(product.price);
+
+        if (baseP > 0) {
+            if (isNaN(enteredP) || enteredP < baseP) {
+                toast.error(`Selling price cannot be decreased below original price (₹${baseP})`);
+                formik.setFieldValue(`products.${index}.price`, baseP);
+                formik.setFieldValue(`products.${index}.sellingPrice`, baseP);
+            } else {
+                formik.setFieldValue(`products.${index}.price`, enteredP);
+                formik.setFieldValue(`products.${index}.sellingPrice`, enteredP);
+            }
+        } else {
+            if (enteredP > 0) {
+                formik.setFieldValue(`products.${index}.basePrice`, enteredP);
+                formik.setFieldValue(`products.${index}.price`, enteredP);
+                formik.setFieldValue(`products.${index}.sellingPrice`, enteredP);
+            }
+        }
+    };
+
     const handleNext = async () => {
         // Clean out empty product rows first if we are in Step 2 (Product details)
         if (activeStep === 1) {
@@ -1815,6 +2000,21 @@ const OrderWizard = () => {
             if (finalProducts.length !== (formik.values.products || []).length) {
                 formik.setFieldValue('products', finalProducts);
                 formik.values.products = finalProducts;
+            }
+
+            // Selling price cannot decrease below base price in any case
+            for (let i = 0; i < finalProducts.length; i++) {
+                const prod = finalProducts[i];
+                if (prod.productName || prod.productId) {
+                    const baseP = Number(prod.basePrice || 0);
+                    const currentP = Number(prod.price || 0);
+                    if (baseP > 0 && currentP < baseP) {
+                        toast.error(`Product ${i + 1} (${prod.productName || 'Item'}): Selling price cannot be decreased below original price (₹${baseP})`);
+                        formik.setFieldValue(`products.${i}.price`, baseP);
+                        formik.setFieldValue(`products.${i}.sellingPrice`, baseP);
+                        return;
+                    }
+                }
             }
         }
 
@@ -2127,7 +2327,8 @@ const OrderWizard = () => {
 
         const categoryObj = configs.category?.find(c => c._id === product.categoryId || c.name === product.category);
         const catName = (categoryObj?.name || product.category || '').toUpperCase();
-        const isLensCategory = !catName || catName.includes('LENS') || catName.includes('GLASS') || catName.includes('RX') || product.orderType === 'rx';
+        const isFrameCategory = catName.includes('FRAME') || catName.includes('SUNGLASS');
+        const isLensCategory = !isFrameCategory && (!catName || catName.includes('LENS') || catName.includes('GLASS') || catName.includes('RX') || product.orderType === 'rx');
 
         const isSideDisabled = (side) => isStockInhouse || isStock || !isLensCategory || (product.powerMode === 'single' && product.selectedSide !== side);
 
@@ -2438,38 +2639,61 @@ const OrderWizard = () => {
                             ({ label, name, placeholder, disabled }) => {
                                 const val = formik.values.products[index]?.color || '';
                                 const hexVal = parseColorToHex(val);
+                                const avail = getAvailableColorsForProduct(product);
 
                                 return (
                                     <div>
                                         <label className="text-[10px] font-semibold text-gray-700 uppercase block mb-1">
                                             {label}
                                         </label>
-                                        <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg p-1 pr-2 focus-within:border-erp-accent focus-within:ring-2 focus-within:ring-erp-accent/20 transition shadow-2xs">
-                                            <input
-                                                type="color"
-                                                value={hexVal}
-                                                disabled={disabled}
-                                                onChange={(e) => formik.setFieldValue(name, e.target.value)}
-                                                className="w-6 h-6 rounded cursor-pointer border-0 bg-transparent p-0 flex-shrink-0"
-                                                title="Pick a color"
-                                            />
-                                            <input
-                                                type="text"
-                                                name={name}
+                                        <div className="space-y-1.5">
+                                            {/* Dropdown for available colors */}
+                                            <select
+                                                className="w-full text-xs font-semibold bg-white border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:border-erp-accent text-gray-800 cursor-pointer shadow-2xs"
                                                 value={val}
-                                                placeholder={placeholder}
+                                                onChange={(e) => handleProductColorSelect(index, e.target.value)}
                                                 disabled={disabled}
-                                                onChange={(e) => formik.setFieldValue(name, e.target.value)}
-                                                className="w-full text-xs font-semibold bg-transparent text-gray-800 outline-none placeholder:text-gray-400"
-                                            />
+                                            >
+                                                <option value="">Select Color...</option>
+                                    {avail.length === 0 ? (
+                                        <option value="" disabled>No color variants available</option>
+                                    ) : (
+                                        avail.map((c, cIdx) => (
+                                            <option key={`col-opt-${cIdx}`} value={c.color}>
+                                                {c.color} {c.qty != null ? `(${c.qty} pcs)` : ''}
+                                            </option>
+                                        ))
+                                    )}
+                                            </select>
+
+                                            {/* Swatch preview + Custom entry */}
+                                            <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg p-1 pr-2 focus-within:border-erp-accent focus-within:ring-2 focus-within:ring-erp-accent/20 transition shadow-2xs">
+                                                <input
+                                                    type="color"
+                                                    value={hexVal}
+                                                    disabled={disabled}
+                                                    onChange={(e) => handleProductColorSelect(index, updateColorStringWithHex(val, e.target.value))}
+                                                    className="w-6 h-6 rounded cursor-pointer border-0 bg-transparent p-0 flex-shrink-0"
+                                                    title="Pick custom color"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    name={name}
+                                                    value={val}
+                                                    placeholder={placeholder}
+                                                    disabled={disabled}
+                                                    onChange={(e) => formik.setFieldValue(name, e.target.value)}
+                                                    className="w-full text-xs font-semibold bg-transparent text-gray-800 outline-none placeholder:text-gray-400"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                 );
                             },
                             {
-                                label: "Color",
+                                label: isFrameCategory ? "Frame Color *" : "Color",
                                 name: `${prefix}color`,
-                                placeholder: "e.g., Black / #28e2df",
+                                placeholder: "e.g., Black, Gold, #22509b(blue)",
                                 disabled: isReadOnly
                             }
                         )}
@@ -2811,14 +3035,14 @@ const OrderWizard = () => {
                                                 </th>
                                             </>
                                         ) : (
-                                            <th className="px-2.5 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-amber-600/25 min-w-[125px]">
+                                            <th className="px-2.5 py-3 font-semibold text-center whitespace-nowrap border-r border-white/20 bg-amber-600/25 min-w-[140px]">
                                                 <button
                                                     type="button"
                                                     onClick={() => toggleGroup('powers')}
                                                     className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/15 hover:bg-white/25 text-white transition-all text-xs font-semibold cursor-pointer border border-white/20"
                                                     title="Click to expand Sph, Cyl, Axis, Add columns"
                                                 >
-                                                    <span>Rx Powers</span>
+                                                    <span>Rx Powers / Color</span>
                                                     <Icon icon="mdi:chevron-down" className="text-sm" />
                                                 </button>
                                             </th>
@@ -2991,6 +3215,35 @@ const OrderWizard = () => {
                                                             }}
                                                             disabled={isReadOnly}
                                                         />
+                                                        {checkIsFrame(product) && (() => {
+                                                            const avail = getAvailableColorsForProduct(product);
+                                                            return (
+                                                                <div className="mt-1 flex items-center gap-1.5 px-1.5 py-0.5 bg-blue-50/80 rounded-md border border-blue-200/60" onClick={(e) => e.stopPropagation()}>
+                                                                    <span
+                                                                        className="w-2.5 h-2.5 rounded-full border border-gray-300 flex-shrink-0 shadow-2xs"
+                                                                        style={{ backgroundColor: parseColorToHex(product.color) }}
+                                                                    />
+                                                                    <span className="text-[10px] font-bold text-erp-accent uppercase tracking-wider">Color:</span>
+                                                                    <select
+                                                                        className="text-[11px] font-bold text-gray-800 bg-transparent outline-none cursor-pointer truncate flex-1 min-w-0"
+                                                                        value={product.color || ''}
+                                                                        onChange={(e) => handleProductColorSelect(index, e.target.value)}
+                                                                        disabled={isReadOnly}
+                                                                    >
+                                                                        <option value="">Select Color...</option>
+                                    {avail.length === 0 ? (
+                                        <option value="" disabled>No color variants available</option>
+                                    ) : (
+                                        avail.map((c, cIdx) => (
+                                            <option key={`col-opt-${cIdx}`} value={c.color}>
+                                                {c.color} {c.qty != null ? `(${c.qty} pcs)` : ''}
+                                            </option>
+                                        ))
+                                    )}
+                                                                    </select>
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </td>
 
 ﻿                                                    {/* Specs Group (Category, Availability, Vendor, Order Type) */}
@@ -3010,8 +3263,17 @@ const OrderWizard = () => {
                                                                     onChange={(e) => {
                                                                         const cId = e.target.value;
                                                                         const cObj = configs.category?.find(c => c._id === cId || c.name === cId);
+                                                                        const cName = cObj ? cObj.name : cId;
                                                                         formik.setFieldValue(`products.${index}.categoryId`, cId);
-                                                                        formik.setFieldValue(`products.${index}.category`, cObj ? cObj.name : cId);
+                                                                        formik.setFieldValue(`products.${index}.category`, cName);
+                                                                        const isFrame = (cName || '').toUpperCase().includes('FRAME') || (cName || '').toUpperCase().includes('SUNGLASS');
+                                                                        if (isFrame) {
+                                                                            formik.setFieldValue(`products.${index}.orderType`, 'stock');
+                                                                            formik.setFieldValue(`products.${index}.productMode`, 'stock');
+                                                                            if (!product.color) {
+                                                                                formik.setFieldValue(`products.${index}.color`, 'Black');
+                                                                            }
+                                                                        }
                                                                     }}
                                                                     disabled={isReadOnly}
                                                                     onClick={(e) => e.stopPropagation()}
@@ -3163,6 +3425,7 @@ const OrderWizard = () => {
                                                                     if (sPrice > 0) {
                                                                         formik.setFieldValue(`products.${index}.price`, sPrice);
                                                                         formik.setFieldValue(`products.${index}.sellingPrice`, sPrice);
+                                                                        formik.setFieldValue(`products.${index}.basePrice`, sPrice);
                                                                     }
                                                                     if (bPrice > 0) {
                                                                         formik.setFieldValue(`products.${index}.buyingPrice`, bPrice);
@@ -3203,64 +3466,137 @@ const OrderWizard = () => {
                                                         />
                                                     </td>
 
-                                                    {/* Powers Group (Sph, Cyl, Axis, Add) */}
+                                                    {/* Powers Group (Sph, Cyl, Axis, Add) OR Frame Color */}
                                                     {expandedGroups.powers ? (
-                                                        <>
-                                                            <td className="px-1.5 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap border-r border-gray-100 min-w-[85px]">
-                                                                {renderEditablePowerCell('sph')}
+                                                        checkIsFrame(product) ? (
+                                                            <td colSpan={4} className="px-2 py-2 text-center border-r border-gray-100 bg-amber-50/20" onClick={(e) => e.stopPropagation()}>
+                                                                {(() => {
+                                                                    const avail = getAvailableColorsForProduct(product);
+                                                                    return (
+                                                                        <div className="flex items-center justify-center gap-2">
+                                                                            <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1">
+                                                                                <Icon icon="mdi:palette-outline" className="text-sm" /> Frame Color:
+                                                                            </span>
+                                                                            <div className="flex items-center gap-1.5 bg-white border border-amber-300/80 rounded-lg px-2 py-1 shadow-2xs hover:border-erp-accent transition-all min-w-[150px]">
+                                                                                <span
+                                                                                    className="w-3.5 h-3.5 rounded-full border border-gray-300 flex-shrink-0 shadow-2xs"
+                                                                                    style={{ backgroundColor: parseColorToHex(product.color) }}
+                                                                                    title={`Color: ${product.color || 'None'}`}
+                                                                                />
+                                                                                <select
+                                                                                    className="w-full text-xs font-bold text-gray-800 bg-transparent outline-none cursor-pointer truncate"
+                                                                                    value={product.color || ''}
+                                                                                    onChange={(e) => handleProductColorSelect(index, e.target.value)}
+                                                                                    disabled={isReadOnly}
+                                                                                >
+                                                                                    <option value="">Select Color...</option>
+                                    {avail.length === 0 ? (
+                                        <option value="" disabled>No color variants available</option>
+                                    ) : (
+                                        avail.map((c, cIdx) => (
+                                            <option key={`col-opt-${cIdx}`} value={c.color}>
+                                                {c.color} {c.qty != null ? `(${c.qty} pcs)` : ''}
+                                            </option>
+                                        ))
+                                    )}
+                                                                                </select>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })()}
                                                             </td>
-                                                            <td className="px-1.5 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap border-r border-gray-100 min-w-[85px]">
-                                                                {renderEditablePowerCell('cyl')}
-                                                            </td>
-                                                            <td className="px-1.5 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap border-r border-gray-100 min-w-[85px]">
-                                                                {renderEditablePowerCell('axis')}
-                                                            </td>
-                                                            <td className="px-1.5 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap border-r border-gray-100 min-w-[85px]">
-                                                                {renderEditablePowerCell('add')}
-                                                            </td>
-                                                        </>
+                                                        ) : (
+                                                            <>
+                                                                <td className="px-1.5 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap border-r border-gray-100 min-w-[85px]">
+                                                                    {renderEditablePowerCell('sph')}
+                                                                </td>
+                                                                <td className="px-1.5 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap border-r border-gray-100 min-w-[85px]">
+                                                                    {renderEditablePowerCell('cyl')}
+                                                                </td>
+                                                                <td className="px-1.5 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap border-r border-gray-100 min-w-[85px]">
+                                                                    {renderEditablePowerCell('axis')}
+                                                                </td>
+                                                                <td className="px-1.5 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap border-r border-gray-100 min-w-[85px]">
+                                                                    {renderEditablePowerCell('add')}
+                                                                </td>
+                                                            </>
+                                                        )
                                                     ) : (
                                                         <td
                                                             className="px-2 py-2 cursor-pointer hover:bg-amber-50/40 transition-colors border-r border-gray-100 text-center"
                                                             onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                toggleGroup('powers');
-                                                            }}
-                                                            title="Click to expand Rx Power columns"
-                                                        >
-                                                            {product.orderType === 'rx' ? (() => {
-                                                                const rSph = product.powerTable?.R?.sph;
-                                                                const rCyl = product.powerTable?.R?.cyl;
-                                                                const lSph = product.powerTable?.L?.sph;
-                                                                const lCyl = product.powerTable?.L?.cyl;
-                                                                const hasPowers = rSph || rCyl || lSph || lCyl;
-
-                                                                if (!hasPowers) {
-                                                                    return (
-                                                                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-semibold">
-                                                                            <Icon icon="mdi:plus-circle-outline" className="text-xs" /> Set Powers
-                                                                        </span>
-                                                                    );
+                                                                if (!checkIsFrame(product)) {
+                                                                    e.stopPropagation();
+                                                                    toggleGroup('powers');
                                                                 }
-
+                                                            }}
+                                                            title={checkIsFrame(product) ? "Select Frame Color" : "Click to expand Rx Power columns"}
+                                                        >
+                                                            {checkIsFrame(product) ? (() => {
+                                                                const avail = getAvailableColorsForProduct(product);
                                                                 return (
-                                                                    <div className="flex flex-col gap-0.5 text-[10px] font-semibold min-w-[115px]">
-                                                                        <div className="flex items-center justify-between px-1.5 py-0.5 rounded bg-amber-50/80 text-amber-900 border border-amber-200/60">
-                                                                            <span className="font-bold text-amber-700">R:</span>
-                                                                            <span>{rSph || '0.00'} / {rCyl || '0.00'}</span>
-                                                                            <span className="text-gray-400 text-[9px]">Ax:{product.powerTable?.R?.axis || '0'}</span>
-                                                                        </div>
-                                                                        <div className="flex items-center justify-between px-1.5 py-0.5 rounded bg-blue-50/80 text-blue-900 border border-blue-200/60">
-                                                                            <span className="font-bold text-blue-700">L:</span>
-                                                                            <span>{lSph || '0.00'} / {lCyl || '0.00'}</span>
-                                                                            <span className="text-gray-400 text-[9px]">Ax:{product.powerTable?.L?.axis || '0'}</span>
+                                                                    <div className="flex items-center justify-center gap-1.5 py-0.5" onClick={(e) => e.stopPropagation()}>
+                                                                        <div className="flex items-center gap-1.5 bg-white border border-amber-300/80 rounded-lg px-2 py-1 shadow-2xs hover:border-erp-accent transition-all min-w-[130px] max-w-[175px]">
+                                                                            <span
+                                                                                className="w-3.5 h-3.5 rounded-full border border-gray-300 flex-shrink-0 shadow-2xs"
+                                                                                style={{ backgroundColor: parseColorToHex(product.color) }}
+                                                                                title={`Color: ${product.color || 'None'}`}
+                                                                            />
+                                                                            <select
+                                                                                className="w-full text-xs font-bold text-gray-800 bg-transparent outline-none cursor-pointer truncate"
+                                                                                value={product.color || ''}
+                                                                                onChange={(e) => handleProductColorSelect(index, e.target.value)}
+                                                                                disabled={isReadOnly}
+                                                                            >
+                                                                                <option value="">Select Color...</option>
+                                    {avail.length === 0 ? (
+                                        <option value="" disabled>No color variants available</option>
+                                    ) : (
+                                        avail.map((c, cIdx) => (
+                                            <option key={`col-opt-${cIdx}`} value={c.color}>
+                                                {c.color} {c.qty != null ? `(${c.qty} pcs)` : ''}
+                                            </option>
+                                        ))
+                                    )}
+                                                                            </select>
                                                                         </div>
                                                                     </div>
                                                                 );
                                                             })() : (
-                                                                <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-gray-100 text-gray-500 border border-gray-200/60">
-                                                                    <Icon icon="mdi:package-variant-closed" className="text-xs" /> Stock
-                                                                </span>
+                                                                product.orderType === 'rx' ? (() => {
+                                                                    const rSph = product.powerTable?.R?.sph;
+                                                                    const rCyl = product.powerTable?.R?.cyl;
+                                                                    const lSph = product.powerTable?.L?.sph;
+                                                                    const lCyl = product.powerTable?.L?.cyl;
+                                                                    const hasPowers = rSph || rCyl || lSph || lCyl;
+
+                                                                    if (!hasPowers) {
+                                                                        return (
+                                                                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-semibold">
+                                                                                <Icon icon="mdi:plus-circle-outline" className="text-xs" /> Set Powers
+                                                                            </span>
+                                                                        );
+                                                                    }
+
+                                                                    return (
+                                                                        <div className="flex flex-col gap-0.5 text-[10px] font-semibold min-w-[115px]">
+                                                                            <div className="flex items-center justify-between px-1.5 py-0.5 rounded bg-amber-50/80 text-amber-900 border border-amber-200/60">
+                                                                                <span className="font-bold text-amber-700">R:</span>
+                                                                                <span>{rSph || '0.00'} / {rCyl || '0.00'}</span>
+                                                                                <span className="text-gray-400 text-[9px]">Ax:{product.powerTable?.R?.axis || '0'}</span>
+                                                                            </div>
+                                                                            <div className="flex items-center justify-between px-1.5 py-0.5 rounded bg-blue-50/80 text-blue-900 border border-blue-200/60">
+                                                                                <span className="font-bold text-blue-700">L:</span>
+                                                                                <span>{lSph || '0.00'} / {lCyl || '0.00'}</span>
+                                                                                <span className="text-gray-400 text-[9px]">Ax:{product.powerTable?.L?.axis || '0'}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })() : (
+                                                                    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-gray-100 text-gray-500 border border-gray-200/60">
+                                                                        <Icon icon="mdi:package-variant-closed" className="text-xs" /> Stock
+                                                                    </span>
+                                                                )
                                                             )}
                                                         </td>
                                                     )}
@@ -3281,16 +3617,35 @@ const OrderWizard = () => {
                                                     </td>
 
                                                     {/* Price Input */}
-                                                    <td className="px-2 py-2 border-r border-gray-100 min-w-[80px] text-center">
-                                                        <input
-                                                            type="number"
-                                                            className="w-20 h-8 text-xs text-center mx-auto bg-white border border-gray-200 rounded-lg px-1.5 py-1 outline-none focus:border-erp-accent focus:ring-2 focus:ring-erp-accent/20 transition-all font-bold text-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-                                                            name={`products.${index}.price`}
-                                                            value={product.price}
-                                                            onChange={formik.handleChange}
-                                                            disabled={isStock || isReadOnly}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        />
+                                                    <td className="px-2 py-2 border-r border-gray-100 min-w-[95px] text-center">
+                                                        <div className="flex flex-col items-center justify-center">
+                                                            <input
+                                                                type="number"
+                                                                step="any"
+                                                                min={product.basePrice || 0}
+                                                                className={`w-20 h-8 text-xs text-center mx-auto bg-white border rounded-lg px-1.5 py-1 outline-none focus:ring-2 transition-all font-bold disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed ${
+                                                                    Number(product.price) > Number(product.basePrice || 0) && Number(product.basePrice || 0) > 0
+                                                                        ? 'border-emerald-500 text-emerald-700 bg-emerald-50/30 focus:border-emerald-600 focus:ring-emerald-400/20'
+                                                                        : 'border-gray-200 text-gray-800 focus:border-erp-accent focus:ring-erp-accent/20'
+                                                                }`}
+                                                                name={`products.${index}.price`}
+                                                                value={product.price}
+                                                                onChange={(e) => {
+                                                                    const val = e.target.value;
+                                                                    formik.setFieldValue(`products.${index}.price`, val);
+                                                                    formik.setFieldValue(`products.${index}.sellingPrice`, val);
+                                                                }}
+                                                                onBlur={() => handleSellingPriceBlur(index)}
+                                                                disabled={isReadOnly}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                title={product.basePrice > 0 ? `Original Price: ₹${product.basePrice} (Can increase, cannot decrease)` : 'Selling Price'}
+                                                            />
+                                                            {Number(product.price) > Number(product.basePrice || 0) && Number(product.basePrice || 0) > 0 && (
+                                                                <span className="text-[9px] font-bold text-emerald-600 leading-none mt-0.5" title={`Original base: ₹${product.basePrice}`}>
+                                                                    +₹{(Number(product.price) - Number(product.basePrice)).toFixed(2)}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                     {/* Buying Price Input */}
                                                     <td className="px-2 py-2 border-r border-gray-100 min-w-[80px] text-center bg-emerald-50/30">
@@ -3632,6 +3987,7 @@ const OrderWizard = () => {
                                                                 if (sPrice > 0) {
                                                                     formik.setFieldValue(`products.${index}.price`, sPrice);
                                                                     formik.setFieldValue(`products.${index}.sellingPrice`, sPrice);
+                                                                    formik.setFieldValue(`products.${index}.basePrice`, sPrice);
                                                                 }
                                                                 if (bPrice > 0) {
                                                                     formik.setFieldValue(`products.${index}.buyingPrice`, bPrice);
@@ -3660,9 +4016,43 @@ const OrderWizard = () => {
                                                 </div>
                                             )}
 
-                                         {/* Frame / Sunglass Size & Dimensions inputs for Mobile */}
+                                         {/* Frame / Sunglass Color, Size & Dimensions inputs for Mobile */}
                                          {(product.category === 'FRAME' || product.category === 'SUNGLASS' || (configs.category?.find(c => c._id === product.categoryId)?.name?.toUpperCase() === 'FRAME') || (configs.category?.find(c => c._id === product.categoryId)?.name?.toUpperCase() === 'SUNGLASS')) && (
-                                             <div className="grid grid-cols-2 gap-3">
+                                             <div className="space-y-3">
+                                                 <div>
+                                                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                                         Frame Color *
+                                                     </label>
+                                                     {(() => {
+                                                         const avail = getAvailableColorsForProduct(product);
+                                                         return (
+                                                             <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2">
+                                                                 <span
+                                                                     className="w-4 h-4 rounded-full border border-gray-300 flex-shrink-0 shadow-2xs"
+                                                                     style={{ backgroundColor: parseColorToHex(product.color) }}
+                                                                 />
+                                                                 <select
+                                                                     className="w-full text-xs font-bold text-slate-800 bg-transparent outline-none cursor-pointer"
+                                                                     value={product.color || ''}
+                                                                     onChange={(e) => handleProductColorSelect(index, e.target.value)}
+                                                                     disabled={isReadOnly}
+                                                                 >
+                                                                     <option value="">Select Color...</option>
+                                    {avail.length === 0 ? (
+                                        <option value="" disabled>No color variants available</option>
+                                    ) : (
+                                        avail.map((c, cIdx) => (
+                                            <option key={`col-opt-${cIdx}`} value={c.color}>
+                                                {c.color} {c.qty != null ? `(${c.qty} pcs)` : ''}
+                                            </option>
+                                        ))
+                                    )}
+                                                                 </select>
+                                                             </div>
+                                                         );
+                                                     })()}
+                                                 </div>
+                                                 <div className="grid grid-cols-2 gap-3">
                                                  <div>
                                                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                                                          Frame Size *
@@ -3698,6 +4088,7 @@ const OrderWizard = () => {
                                                      />
                                                  </div>
                                              </div>
+                                             </div>
                                          )}
                                         </div>
 
@@ -3731,16 +4122,35 @@ const OrderWizard = () => {
                                                 </select>
                                             </div>
                                             <div>
-                                                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                                                    Selling Price (₹)
-                                                </label>
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                                        Selling Price (₹)
+                                                    </label>
+                                                    {Number(product.price) > Number(product.basePrice || 0) && Number(product.basePrice || 0) > 0 && (
+                                                        <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                                            +₹{(Number(product.price) - Number(product.basePrice)).toFixed(2)}
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <input
                                                     type="number"
-                                                    className="w-full text-xs font-semibold text-center bg-white border border-gray-200 rounded-xl px-2 py-2.5 outline-none focus:border-[#2980B9]"
+                                                    step="any"
+                                                    min={product.basePrice || 0}
+                                                    className={`w-full text-xs font-semibold text-center bg-white border rounded-xl px-2 py-2.5 outline-none focus:ring-2 transition-all disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed ${
+                                                        Number(product.price) > Number(product.basePrice || 0) && Number(product.basePrice || 0) > 0
+                                                            ? 'border-emerald-500 text-emerald-700 bg-emerald-50/20'
+                                                            : 'border-gray-200 text-gray-800 focus:border-[#2980B9]'
+                                                    }`}
                                                     name={`products.${index}.price`}
                                                     value={product.price}
-                                                    onChange={formik.handleChange}
-                                                    disabled={product.orderType === 'stock' || isReadOnly}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        formik.setFieldValue(`products.${index}.price`, val);
+                                                        formik.setFieldValue(`products.${index}.sellingPrice`, val);
+                                                    }}
+                                                    onBlur={() => handleSellingPriceBlur(index)}
+                                                    disabled={isReadOnly}
+                                                    title={product.basePrice > 0 ? `Original Price: ₹${product.basePrice} (Can increase, cannot decrease)` : 'Selling Price'}
                                                 />
                                             </div>
                                             {/* Buying Price & MRP Row */}

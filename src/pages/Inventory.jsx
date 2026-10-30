@@ -203,6 +203,102 @@ function ProductKeywordInput({ value, onChange }) {
     );
 }
 
+// ─── Color Parsing & Preservation Helpers ────────────────────────────────────
+const COMMON_COLOR_NAMES = {
+    black: '#000000',
+    white: '#ffffff',
+    red: '#ef4444',
+    green: '#10b981',
+    blue: '#3b82f6',
+    yellow: '#eab308',
+    orange: '#f97316',
+    purple: '#a855f7',
+    pink: '#ec4899',
+    gray: '#6b7280',
+    grey: '#6b7280',
+    brown: '#78350f',
+    gold: '#d97706',
+    silver: '#94a3b8',
+    navy: '#1e3a8a',
+    teal: '#14b8a6',
+    cyan: '#06b6d4',
+    maroon: '#800000',
+    olive: '#808000',
+    lime: '#84cc16',
+    indigo: '#6366f1',
+    violet: '#8b5cf6',
+    magenta: '#d946ef',
+    amber: '#f59e0b',
+    emerald: '#10b981',
+    rose: '#f43f5e',
+    sky: '#0284c7'
+};
+
+export const parseColorToHex = (str) => {
+    if (!str || typeof str !== 'string') return '#3B82F6';
+    const trimmed = str.trim();
+
+    // 1. Look for any 6-digit hex code with '#' anywhere in string (e.g. #22509b in "#22509b(blue)" or "Blue #22509B")
+    const hex6Match = trimmed.match(/#([0-9a-fA-F]{6})/i);
+    if (hex6Match) return '#' + hex6Match[1].toLowerCase();
+
+    // 2. Look for any 3-digit hex code with '#' (e.g. #fff in "#fff(white)")
+    const hex3Match = trimmed.match(/#([0-9a-fA-F]{3})(?![0-9a-fA-F])/i);
+    if (hex3Match) {
+        const h = hex3Match[1].toLowerCase();
+        return '#' + h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    }
+
+    // 3. Look for a bare 6-digit hex code without '#' (e.g. "22509b (blue)")
+    const bareHex6Match = trimmed.match(/\b([0-9a-fA-F]{6})\b/i);
+    if (bareHex6Match) return '#' + bareHex6Match[1].toLowerCase();
+
+    // 4. Check common named colors dictionary
+    const words = trimmed.toLowerCase().match(/[a-zA-Z]+/g) || [];
+    for (const w of words) {
+        if (COMMON_COLOR_NAMES[w]) return COMMON_COLOR_NAMES[w];
+    }
+
+    // 5. Safe HTML canvas detection for other standard CSS color keywords (coral, turquoise, etc.)
+    if (typeof document !== 'undefined') {
+        try {
+            const ctx = document.createElement('canvas').getContext('2d');
+            if (ctx) {
+                const candidates = [trimmed.toLowerCase(), ...words];
+                for (const candidate of candidates) {
+                    if (!candidate) continue;
+                    if (candidate === 'black') return '#000000';
+                    ctx.fillStyle = '#010203'; // Sentinel color to avoid false #000000 canvas default
+                    ctx.fillStyle = candidate;
+                    const computed = ctx.fillStyle;
+                    if (computed && computed !== '#010203' && computed.startsWith('#')) {
+                        return computed;
+                    }
+                }
+            }
+        } catch (e) {
+            // ignore
+        }
+    }
+
+    return '#3B82F6';
+};
+
+export const updateColorStringWithHex = (currentStr, newHex) => {
+    if (!currentStr || !currentStr.trim()) return newHex;
+    const trimmed = currentStr.trim();
+    if (/#([0-9a-fA-F]{6})/i.test(trimmed)) {
+        return trimmed.replace(/#([0-9a-fA-F]{6})/i, newHex);
+    }
+    if (/#([0-9a-fA-F]{3})(?![0-9a-fA-F])/i.test(trimmed)) {
+        return trimmed.replace(/#([0-9a-fA-F]{3})(?![0-9a-fA-F])/i, newHex);
+    }
+    if (/\b([0-9a-fA-F]{6})\b/i.test(trimmed)) {
+        return trimmed.replace(/\b([0-9a-fA-F]{6})\b/i, newHex);
+    }
+    return newHex + ' (' + trimmed + ')';
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function Inventory() {
     const dispatch = useDispatch();
@@ -314,32 +410,6 @@ export default function Inventory() {
     };
 
     const colorDebounceRef = useRef(null);
-
-    const parseColorToHex = (str) => {
-        if (!str || typeof str !== 'string') return '#3B82F6';
-        const trimmed = str.trim().toLowerCase();
-
-        if (/^#?([0-9a-fA-F]{3}){1,2}$/.test(trimmed)) {
-            let hex = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
-            if (hex.length === 4) {
-                hex = `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`;
-            }
-            return hex;
-        }
-
-        try {
-            const ctx = document.createElement('canvas').getContext('2d');
-            if (ctx) {
-                ctx.fillStyle = trimmed;
-                const computed = ctx.fillStyle;
-                if (computed && computed.startsWith('#')) return computed;
-            }
-        } catch (e) {
-            // ignore
-        }
-
-        return '#3B82F6';
-    };
 
     const handleColorChange = (rowIndex, colorIndex, field, value) => {
         const copy = [...rows];
@@ -845,14 +915,14 @@ export default function Inventory() {
                                                                         <input
                                                                             type="color"
                                                                             value={parseColorToHex(cItem.color)}
-                                                                            onChange={e => handleDebouncedColorChange(i, cIdx, "color", e.target.value)}
+                                                                            onChange={e => handleDebouncedColorChange(i, cIdx, "color", updateColorStringWithHex(cItem.color, e.target.value))}
                                                                             className="w-7 h-7 rounded-lg cursor-pointer border-0 bg-transparent p-0 flex-shrink-0"
                                                                             title="Pick a color"
                                                                         />
                                                                         <input
                                                                             type="text"
                                                                             className="w-full text-xs font-semibold bg-transparent text-gray-800 outline-none placeholder:text-gray-400"
-                                                                            placeholder="Color name or Hex (e.g. red, #3B82F6)"
+                                                                            placeholder="Color name or Hex (e.g. #22509b(blue), red)"
                                                                             value={cItem.color}
                                                                             onChange={e => handleColorChange(i, cIdx, "color", e.target.value)}
                                                                         />
@@ -2603,7 +2673,7 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                                         key={idx}
                                         title={`Color: ${c.color} | Qty: ${c.qty}`}
                                         className="w-3 h-3 rounded-full border border-gray-300 shadow-2xs"
-                                        style={{ backgroundColor: c.color }}
+                                        style={{ backgroundColor: parseColorToHex(c.color) }}
                                     />
                                 ))}
                                 {product.colors.length > 2 && (
@@ -4492,7 +4562,7 @@ const ProductDetailsHistoryModal = ({ product, vendors = [], onClose, onOpenEdit
                                                             key={i}
                                                             title={`Color: ${c.color} | Qty: ${c.qty}`}
                                                             className="w-4 h-4 rounded-full border border-gray-300 shadow-2xs"
-                                                            style={{ backgroundColor: c.color }}
+                                                            style={{ backgroundColor: parseColorToHex(c.color) }}
                                                         />
                                                     ))}
                                                 </div>
