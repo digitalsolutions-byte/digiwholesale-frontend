@@ -134,6 +134,7 @@ const navItems = [
             { label: 'Vendor Ledgers', path: PATHS.ACCOUNTING.VENDOR_LEDGERS },
         ],
     },
+    { label: 'Notifications', icon: 'lucide:bell', path: PATHS.NOTIFICATIONS },
     { label: 'Inventory', icon: 'lucide:package-search', path: PATHS.INVENTORY, page: 'INVENTORY' },
     { label: 'Settings', icon: 'lucide:settings', path: PATHS.SETTINGS },
 ];

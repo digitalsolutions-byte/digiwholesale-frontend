@@ -65,6 +65,7 @@ import VendorStatement from '../pages/accounting/VendorStatement';
 import PaymentList from '../pages/accounting/PaymentList';
 import ChequeManagement from '../pages/accounting/ChequeManagement';
 import AgingReport from '../pages/accounting/AgingReport';
+import NotificationsPage from '../pages/NotificationsPage';
 
 import CustomerLogin from '../pages/CustomerLogin';
 import CustomerLayout from '../components/layout/CustomerLayout';
@@ -223,6 +224,8 @@ const ACCOUNTING_MODULE = [
     { path: PATHS.ACCOUNTING.CHEQUES, element: ChequeManagement },
     { path: PATHS.ACCOUNTING.AGING, element: AgingReport },
     { path: PATHS.ACCOUNTING.GST_REPORT, element: GstReport },
+    { path: PATHS.NOTIFICATIONS, element: NotificationsPage },
+    { path: '/accounting/notifications', element: NotificationsPage },
 ];
 
 export const routesConfig = [

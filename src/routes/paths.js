@@ -141,7 +141,9 @@ export const PATHS = {
         COA: '/accounting/chart-of-accounts',
         AGING: '/accounting/aging-report',
         GST_REPORT: '/accounting/gst-report',
+        NOTIFICATIONS: '/notifications',
     },
+    NOTIFICATIONS: '/notifications',
     SETTINGS: '/settings',
 
     // EXTERNAL / CROSS-PLATFORM MODULE

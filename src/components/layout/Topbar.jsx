@@ -18,7 +18,7 @@ import {
 
 import { selectCurrentUser, selectCurrentTenant } from '../../store/slices/authSlice';
 import { PATHS } from '../../routes/paths';
-import { getPdcChequeAlerts } from '../../services/accountingService';
+import { getAllSystemNotifications } from '../../services/notificationService';
 import NotificationsPopover from './NotificationsPopover';
 
 const Topbar = ({ onMenuClick }) => {
@@ -30,32 +30,36 @@ const Topbar = ({ onMenuClick }) => {
 
     // Notification Popover state
     const [notificationAnchor, setNotificationAnchor] = useState(null);
-    const [alertsData, setAlertsData] = useState({ total: 0, maturedCount: 0, bouncedCount: 0, expiringSoonCount: 0, upcomingCount: 0, alerts: [] });
-    const actionCount = (alertsData.maturedCount || 0) + (alertsData.bouncedCount || 0) + (alertsData.expiringSoonCount || 0);
-    const [loadingAlerts, setLoadingAlerts] = useState(false);
+    const [notificationsData, setNotificationsData] = useState({
+        summary: { total: 0, urgentCount: 0 },
+        notifications: []
+    });
+    const totalCount = notificationsData.summary?.total || notificationsData.notifications?.length || 0;
+    const urgentCount = notificationsData.summary?.urgentCount || 0;
+    const [loadingNotifications, setLoadingNotifications] = useState(false);
 
-    const fetchAlerts = async () => {
+    const fetchNotifications = async () => {
         try {
-            setLoadingAlerts(true);
-            const res = await getPdcChequeAlerts();
+            setLoadingNotifications(true);
+            const res = await getAllSystemNotifications();
             if (res?.data) {
-                setAlertsData(res.data);
+                setNotificationsData(res.data);
             }
         } catch (err) {
             // Background polling catch
         } finally {
-            setLoadingAlerts(false);
+            setLoadingNotifications(false);
         }
     };
 
     useEffect(() => {
-        fetchAlerts();
-        const interval = setInterval(fetchAlerts, 60000);
-        const handleChequeUpdated = () => fetchAlerts();
-        window.addEventListener('cheque-status-updated', handleChequeUpdated);
+        fetchNotifications();
+        const interval = setInterval(fetchNotifications, 60000);
+        const handleNotificationUpdated = () => fetchNotifications();
+        window.addEventListener('notification-updated', handleNotificationUpdated);
         return () => {
             clearInterval(interval);
-            window.removeEventListener('cheque-status-updated', handleChequeUpdated);
+            window.removeEventListener('notification-updated', handleNotificationUpdated);
         };
     }, []);
 
@@ -247,9 +251,11 @@ const Topbar = ({ onMenuClick }) => {
                 {/* Notifications */}
                 <Tooltip
                     title={
-                        actionCount > 0
-                            ? `${actionCount} Cheque Action(s) Required (${alertsData.maturedCount || 0} Matured, ${alertsData.expiringSoonCount || 0} Expiring Soon, ${alertsData.bouncedCount || 0} Bounced)`
-                            : (alertsData.upcomingCount > 0 ? `${alertsData.upcomingCount} Upcoming PDC Cheque(s)` : "Notifications")
+                        urgentCount > 0
+                            ? `🚨 ${urgentCount} Urgent Action(s) Required (${totalCount} Total Notifications)`
+                            : totalCount > 0
+                                ? `${totalCount} Notification(s)`
+                                : "Notifications"
                     }
                     placement="bottom"
                 >
@@ -260,22 +266,35 @@ const Topbar = ({ onMenuClick }) => {
                             width: 36,
                             height: 36,
                             borderRadius: '10px',
-                            border: `1px solid ${actionCount > 0 ? 'rgba(231, 76, 60, 0.6)' : 'rgba(255, 255, 255, 0.2)'}`,
-                            color: actionCount > 0 ? '#FFD5D5' : '#FFFFFF',
-                            bgcolor: actionCount > 0 ? 'rgba(231, 76, 60, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                            border: `1px solid ${
+                                urgentCount > 0
+                                    ? '#F59E0B'
+                                    : totalCount > 0
+                                        ? 'rgba(255, 255, 255, 0.35)'
+                                        : 'rgba(255, 255, 255, 0.2)'
+                            }`,
+                            color: urgentCount > 0 ? '#FEF08A' : '#FFFFFF',
+                            bgcolor: urgentCount > 0 ? 'rgba(245, 158, 11, 0.3)' : 'rgba(255, 255, 255, 0.08)',
+                            boxShadow: urgentCount > 0 ? '0 0 10px rgba(245, 158, 11, 0.45)' : 'none',
+                            animation: urgentCount > 0 ? 'pulse 2s infinite' : 'none',
+                            '@keyframes pulse': {
+                                '0%': { transform: 'scale(1)' },
+                                '50%': { transform: 'scale(1.08)' },
+                                '100%': { transform: 'scale(1)' }
+                            },
                             '&:hover': {
-                                bgcolor: actionCount > 0 ? 'rgba(231, 76, 60, 0.4)' : 'rgba(255, 255, 255, 0.18)',
-                                borderColor: actionCount > 0 ? '#E74C3C' : 'rgba(255, 255, 255, 0.4)',
+                                bgcolor: urgentCount > 0 ? 'rgba(245, 158, 11, 0.45)' : 'rgba(255, 255, 255, 0.18)',
+                                borderColor: urgentCount > 0 ? '#FBBF24' : 'rgba(255, 255, 255, 0.4)',
                                 color: '#FFFFFF',
                             },
                             transition: 'all .15s',
                         }}
                     >
                         <Badge
-                            badgeContent={actionCount > 0 ? actionCount : undefined}
+                            badgeContent={urgentCount > 0 ? urgentCount : (totalCount > 0 ? totalCount : undefined)}
                             color="error"
-                            variant={actionCount > 0 ? "standard" : (alertsData.upcomingCount > 0 ? "dot" : "standard")}
-                            invisible={alertsData.total === 0}
+                            variant="standard"
+                            invisible={totalCount === 0}
                             sx={{
                                 '& .MuiBadge-badge': {
                                     fontSize: '0.62rem',
@@ -285,7 +304,7 @@ const Topbar = ({ onMenuClick }) => {
                                     px: 0.4,
                                     borderRadius: '9px',
                                     border: '1.5px solid #1f618d',
-                                    backgroundColor: actionCount > 0 ? '#E74C3C' : '#F39C12',
+                                    backgroundColor: urgentCount > 0 ? '#E74C3C' : '#3498DB',
                                     color: '#FFFFFF',
                                 },
                             }}
@@ -330,14 +349,14 @@ const Topbar = ({ onMenuClick }) => {
                 </Tooltip>
             </Stack>
 
-            {/* PDC Maturity & Verification Notifications Popover */}
+            {/* Notifications Popover */}
             <NotificationsPopover
                 open={Boolean(notificationAnchor)}
                 anchorEl={notificationAnchor}
                 onClose={() => setNotificationAnchor(null)}
-                alertsData={alertsData}
-                loading={loadingAlerts}
-                onRefresh={fetchAlerts}
+                notificationsData={notificationsData}
+                loading={loadingNotifications}
+                onRefresh={fetchNotifications}
             />
         </Paper>
     );
