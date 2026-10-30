@@ -107,6 +107,9 @@ export const mapCustomerToFormValues = (customer, configs = {}) => {
             contactPerson: addr.customerContactName || addr.contactPerson || '',
             contactNumber: addr.customerContactNumber || addr.contactNumber || ''
         })) : INITIAL_FORM_VALUES.customerShipToDetails,
+        hasBlankCheques: customer.hasBlankCheques !== undefined
+            ? Boolean(customer.hasBlankCheques)
+            : Boolean((customer.chequeDetails?.some(c => c.chequeNumber || c.chequeImage)) || customer.chequeRemark?.trim()),
         chequeDetails: customer.chequeDetails?.length === 3 ? customer.chequeDetails : INITIAL_FORM_VALUES.chequeDetails,
         chequeRemark: customer.chequeRemark || '',
         

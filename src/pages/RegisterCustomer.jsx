@@ -121,6 +121,44 @@ export default function RegisterCustomer() {
         businessEmail: Yup.string().email('Invalid email').nullable().optional(),
         zoneRefId: Yup.string().required('Zone is required'),
         salesPersonRefId: Yup.string().required('Sales Person is required'),
+        chequeDetails: Yup.array().of(
+            Yup.object().shape({
+                chequeNumber: Yup.string().test(
+                    'cheque-image-required-with-number',
+                    'Cheque photo is required when cheque number is provided',
+                    function (val) {
+                        const { chequeImage } = this.parent || {};
+                        if (val && val.trim() && (!chequeImage || !chequeImage.trim())) {
+                            return false;
+                        }
+                        return true;
+                    }
+                ),
+                chequeImage: Yup.string().test(
+                    'cheque-number-required-with-image',
+                    'Cheque number is required when cheque photo is uploaded',
+                    function (val) {
+                        const { chequeNumber } = this.parent || {};
+                        if (val && val.trim() && (!chequeNumber || !chequeNumber.trim())) {
+                            return false;
+                        }
+                        return true;
+                    }
+                )
+            })
+        ),
+        chequeRemark: Yup.string().test(
+            'cheque-or-remark-required',
+            'Please fill either a remark or all 3 blank cheques',
+            function (val) {
+                const { hasBlankCheques, chequeDetails } = this.parent || {};
+                if (!hasBlankCheques) return true;
+                const isChequeComplete = (c) => Boolean(c?.chequeNumber?.trim()) && Boolean(c?.chequeImage?.trim());
+                const has3Cheques = Array.isArray(chequeDetails) && chequeDetails.length >= 3 && [0, 1, 2].every(i => isChequeComplete(chequeDetails[i]));
+                const hasRemark = Boolean(val?.trim());
+                return has3Cheques || hasRemark;
+            }
+        ),
     }), []);
 
     const setStep = (step) => {
@@ -630,7 +668,7 @@ export default function RegisterCustomer() {
                 case 1:
                     return ['billToAddress', 'customerShipToDetails'];
                 case 2:
-                    return ['minSalesValue', 'creditDaysRefId', 'proposedDiscount', 'finalDiscount', 'creditLimit', 'specificLabRefId', 'plantRefId', 'fittingCenterRefId', 'courierNameRefId', 'courierTimeRefId'];
+                    return ['minSalesValue', 'creditDaysRefId', 'proposedDiscount', 'finalDiscount', 'creditLimit', 'specificLabRefId', 'plantRefId', 'fittingCenterRefId', 'courierNameRefId', 'courierTimeRefId', 'chequeRemark', 'chequeDetails'];
                 case 3:
                     return ['ownerName', 'mobileNo1', 'mobileNo2', 'businessEmail', 'zoneRefId', 'salesPersonRefId'];
                 default:
@@ -737,7 +775,7 @@ export default function RegisterCustomer() {
             const errors = await formik.validateForm();
             const flatErrors = getFlatErrors(errors);
             if (flatErrors.length > 0) {
-                const labels = [...new Set(flatErrors.map(e => formatLabel(e.path)))];
+                const labels = [...new Set(flatErrors.map(e => formatLabel(e.path, e.message)))];
                 toast.warning(`Missing/Invalid fields: ${labels.join(', ')}`);
 
                 const touched = {};
@@ -981,10 +1019,31 @@ export default function RegisterCustomer() {
                 });
                 return billValid && shipValid;
 
-            case 2: // Business Information
+            case 2: { // Business Information
                 const bizFields = ['creditDaysRefId'];
                 const bizValid = bizFields.every(f => !!values[f]) && !errors.minSalesValue && !errors.creditDaysRefId;
-                return bizValid;
+                if (!bizValid) return false;
+
+                if (values.hasBlankCheques) {
+                    const isChequeComplete = (c) => Boolean(c?.chequeNumber?.trim()) && Boolean(c?.chequeImage?.trim());
+                    const cheques = values.chequeDetails || [];
+                    const has3Cheques = cheques.length >= 3 && [0, 1, 2].every(i => isChequeComplete(cheques[i]));
+                    const hasRemark = Boolean(values.chequeRemark?.trim());
+                    if (!has3Cheques && !hasRemark) {
+                        return false;
+                    }
+
+                    // Also verify no cheque is partially filled (e.g. number without photo or vice-versa)
+                    for (let i = 0; i < Math.min(cheques.length, 3); i++) {
+                        const hasNum = Boolean(cheques[i]?.chequeNumber?.trim());
+                        const hasImg = Boolean(cheques[i]?.chequeImage?.trim());
+                        if ((hasNum && !hasImg) || (!hasNum && hasImg)) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            }
 
             case 3: // Contact Information
                 const contactFields = ['ownerName', 'mobileNo1', 'zoneRefId', 'salesPersonRefId'];
