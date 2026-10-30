@@ -132,7 +132,6 @@ const navItems = [
         subItems: [
             { label: 'Customer Ledgers', path: PATHS.ACCOUNTING.CUSTOMER_LEDGERS },
             { label: 'Vendor Ledgers', path: PATHS.ACCOUNTING.VENDOR_LEDGERS },
-            { label: 'GST Reports', path: PATHS.REPORTS.GST },
         ],
     },
     { label: 'Inventory', icon: 'lucide:package-search', path: PATHS.INVENTORY, page: 'INVENTORY' },
