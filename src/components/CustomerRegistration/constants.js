@@ -41,7 +41,7 @@ export const INITIAL_FORM_VALUES = {
     creditDaysRefId: '',
     billingCycle: '7_days', // 7_days, 15_days, end_of_month
     billingMode: 'Direct', // Direct, DC
-    hasBlankCheques: false,
+    hasBlankCheques: true,
     chequeDetails: [
         { chequeImage: '', chequeNumber: '' },
         { chequeImage: '', chequeNumber: '' },

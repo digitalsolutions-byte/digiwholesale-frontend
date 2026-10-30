@@ -147,18 +147,7 @@ export default function RegisterCustomer() {
                 )
             })
         ),
-        chequeRemark: Yup.string().test(
-            'cheque-or-remark-required',
-            'Please fill either a remark or all 3 blank cheques',
-            function (val) {
-                const { hasBlankCheques, chequeDetails } = this.parent || {};
-                if (!hasBlankCheques) return true;
-                const isChequeComplete = (c) => Boolean(c?.chequeNumber?.trim()) && Boolean(c?.chequeImage?.trim());
-                const has3Cheques = Array.isArray(chequeDetails) && chequeDetails.length >= 3 && [0, 1, 2].every(i => isChequeComplete(chequeDetails[i]));
-                const hasRemark = Boolean(val?.trim());
-                return has3Cheques || hasRemark;
-            }
-        ),
+        chequeRemark: Yup.string().optional().nullable(),
     }), []);
 
     const setStep = (step) => {
@@ -1025,15 +1014,8 @@ export default function RegisterCustomer() {
                 if (!bizValid) return false;
 
                 if (values.hasBlankCheques) {
-                    const isChequeComplete = (c) => Boolean(c?.chequeNumber?.trim()) && Boolean(c?.chequeImage?.trim());
                     const cheques = values.chequeDetails || [];
-                    const has3Cheques = cheques.length >= 3 && [0, 1, 2].every(i => isChequeComplete(cheques[i]));
-                    const hasRemark = Boolean(values.chequeRemark?.trim());
-                    if (!has3Cheques && !hasRemark) {
-                        return false;
-                    }
-
-                    // Also verify no cheque is partially filled (e.g. number without photo or vice-versa)
+                    // Verify no cheque is partially filled (e.g. number without photo or vice-versa)
                     for (let i = 0; i < Math.min(cheques.length, 3); i++) {
                         const hasNum = Boolean(cheques[i]?.chequeNumber?.trim());
                         const hasImg = Boolean(cheques[i]?.chequeImage?.trim());
