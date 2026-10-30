@@ -7,6 +7,7 @@ import {
 } from '@mui/material';
 import { toast } from 'react-toastify';
 import { executeCustomerPayment, downloadPaymentReceipt, getCustomerOrdersForLedger } from '../../services/accountingService';
+import { getBankAccounts } from '../../services/dropdownService';
 import api from '../../services/apiInstance';
 
 const getStatusBadge = (status) => {
@@ -32,6 +33,8 @@ const CustomerPaymentModal = ({ open, onClose, customer, initialOrder, onSuccess
   const [loading, setLoading] = useState(false);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [unpaidOrders, setUnpaidOrders] = useState([]);
+  const [bankAccounts, setBankAccounts] = useState([]);
+  const [bankLoading, setBankLoading] = useState(false);
   const [formData, setFormData] = useState({
     amount: '',
     paymentMode: 'UPI',
@@ -42,14 +45,45 @@ const CustomerPaymentModal = ({ open, onClose, customer, initialOrder, onSuccess
       bankName: '',
       chequeDate: '',
       cashVoucherNo: '',
+      bankAccountId: '',
+      bankAccountName: '',
+      bankAccountNumber: '',
+      isPostDated: false,
       remarks: ''
     }
   });
   const [allocations, setAllocations] = useState({});
 
+  const fetchBankAccounts = async () => {
+    try {
+      setBankLoading(true);
+      const res = await getBankAccounts({ isActive: true });
+      const accs = res.data || [];
+      setBankAccounts(accs);
+      const defaultAcc = accs.find((a) => a.isDefault) || accs[0];
+      if (defaultAcc) {
+        setFormData((prev) => ({
+          ...prev,
+          paymentDetails: {
+            ...prev.paymentDetails,
+            bankAccountId: prev.paymentDetails.bankAccountId || defaultAcc._id,
+            bankAccountName: prev.paymentDetails.bankAccountName || `${defaultAcc.bankName} - A/C ${defaultAcc.accountNumber.slice(-4)}`,
+            bankAccountNumber: prev.paymentDetails.bankAccountNumber || defaultAcc.accountNumber,
+            receiverUpiId: prev.paymentDetails.receiverUpiId || defaultAcc.upiId || ''
+          }
+        }));
+      }
+    } catch (err) {
+      console.warn('Failed to load bank accounts:', err);
+    } finally {
+      setBankLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (open && customer?._id) {
       fetchOrders(customer._id);
+      fetchBankAccounts();
       const hasDue = initialOrder && Number(initialOrder.balanceDue || 0) > 0;
       const initAmt = hasDue ? initialOrder.balanceDue : '';
       setFormData({
@@ -62,6 +96,10 @@ const CustomerPaymentModal = ({ open, onClose, customer, initialOrder, onSuccess
           bankName: '',
           chequeDate: '',
           cashVoucherNo: '',
+          bankAccountId: '',
+          bankAccountName: '',
+          bankAccountNumber: '',
+          isPostDated: false,
           remarks: hasDue ? `Part payment for Order #${initialOrder.orderNumber}` : ''
         }
       });
@@ -72,6 +110,42 @@ const CustomerPaymentModal = ({ open, onClose, customer, initialOrder, onSuccess
       }
     }
   }, [open, customer, initialOrder]);
+
+  const isFutureDate = (dateStr) => {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime() > today.getTime();
+  };
+
+  const handleChequeDateChange = (dateVal) => {
+    const isFuture = isFutureDate(dateVal);
+    setFormData((prev) => ({
+      ...prev,
+      paymentDetails: {
+        ...prev.paymentDetails,
+        chequeDate: dateVal,
+        isPostDated: isFuture ? true : prev.paymentDetails.isPostDated
+      }
+    }));
+  };
+
+  const handleBankAccountSelect = (accId) => {
+    const selected = bankAccounts.find((a) => a._id === accId);
+    if (!selected) return;
+    setFormData((prev) => ({
+      ...prev,
+      paymentDetails: {
+        ...prev.paymentDetails,
+        bankAccountId: selected._id,
+        bankAccountName: `${selected.bankName} - A/C ${selected.accountNumber.slice(-4)}`,
+        bankAccountNumber: selected.accountNumber,
+        receiverUpiId: prev.paymentMode === 'UPI' && selected.upiId ? selected.upiId : prev.paymentDetails.receiverUpiId
+      }
+    }));
+  };
 
   const fetchOrders = async (customerId) => {
     try {
@@ -199,6 +273,30 @@ const CustomerPaymentModal = ({ open, onClose, customer, initialOrder, onSuccess
         return;
       }
 
+      if (['UPI', 'CHEQUE', 'BANK_TRANSFER'].includes(formData.paymentMode)) {
+        if (!formData.paymentDetails.bankAccountId) {
+          toast.warning('Please select the company bank account where this payment was received.');
+          return;
+        }
+      }
+
+      if (formData.paymentMode === 'CHEQUE') {
+        if (!formData.paymentDetails.chequeNumber?.trim()) {
+          toast.warning('Please enter the Cheque Number.');
+          return;
+        }
+        if (!formData.paymentDetails.bankName?.trim()) {
+          toast.warning('Please enter the Customer Bank Name.');
+          return;
+        }
+        if (!formData.paymentDetails.chequeDate) {
+          toast.warning('Please select the Cheque Date.');
+          return;
+        }
+      }
+
+      const isPDC = formData.paymentMode === 'CHEQUE' && Boolean(formData.paymentDetails.isPostDated);
+
       setLoading(true);
       const allocationList = Object.keys(allocations).map((ordId) => {
         const ord = unpaidOrders.find((o) => (o.orderId || o._id) === ordId);
@@ -215,14 +313,23 @@ const CustomerPaymentModal = ({ open, onClose, customer, initialOrder, onSuccess
         amount: enteredAmount,
         paymentMode: formData.paymentMode,
         allocations: allocationList,
-        paymentDetails: formData.paymentDetails
+        isPostDated: isPDC,
+        paymentDetails: {
+          ...formData.paymentDetails,
+          isPostDated: isPDC,
+        }
       };
 
       const res = await executeCustomerPayment(payload);
       const createdPayment = res?.data || res;
-      toast.success(`Payment of ₹${enteredAmount.toLocaleString()} recorded successfully!`);
 
-      if (createdPayment?._id) {
+      if (isPDC) {
+        toast.success(`Post-Dated Cheque of ₹${enteredAmount.toLocaleString()} registered successfully! (Pending Clearance)`);
+      } else {
+        toast.success(`Payment of ₹${enteredAmount.toLocaleString()} recorded successfully!`);
+      }
+
+      if (createdPayment?._id && !isPDC) {
         try {
           await downloadPaymentReceipt(createdPayment._id, `Receipt-${createdPayment.paymentNumber || 'CPAY'}`);
         } catch (dlErr) {
@@ -325,20 +432,46 @@ const CustomerPaymentModal = ({ open, onClose, customer, initialOrder, onSuccess
 
         {/* Live Settlement Breakdown Alert */}
         {enteredAmount > 0 && (
-          <Alert severity={isOverAllocated ? "error" : isAllocationIncomplete ? "warning" : "info"} variant="outlined" sx={{ mb: 3, borderRadius: '8px' }}>
+          <Alert
+            severity={
+              formData.paymentMode === 'CHEQUE' && formData.paymentDetails.isPostDated
+                ? "warning"
+                : isOverAllocated ? "error" : isAllocationIncomplete ? "warning" : "info"
+            }
+            variant="outlined"
+            sx={{ mb: 3, borderRadius: '8px' }}
+          >
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              Settlement Allocation:
+              {formData.paymentMode === 'CHEQUE' && formData.paymentDetails.isPostDated
+                ? "Post-Dated Cheque (PDC) Settlement Policy:"
+                : "Settlement Allocation:"}
             </Typography>
-            <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: '#334155' }}>
-              • <strong>₹{adjustedAgainstCreditUsed.toLocaleString()}</strong> will clear pending credit due.
-            </Typography>
-            <Typography variant="caption" sx={{ display: 'block', color: '#334155' }}>
-              • Remaining due after payment: <strong>₹{remainingCreditUsedAfterPayment.toLocaleString()}</strong>.
-            </Typography>
-            {excessNewAdvance > 0 && (
-              <Typography variant="caption" sx={{ display: 'block', color: '#059669', fontWeight: 600 }}>
-                • Excess <strong>₹{excessNewAdvance.toLocaleString()}</strong> will be added to Advance balance.
-              </Typography>
+            {formData.paymentMode === 'CHEQUE' && formData.paymentDetails.isPostDated ? (
+              <>
+                <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: '#92400E', fontWeight: 600 }}>
+                  • This payment of ₹{enteredAmount.toLocaleString()} will be registered as <strong>PENDING CLEARANCE</strong>.
+                </Typography>
+                <Typography variant="caption" sx={{ display: 'block', color: '#78350F' }}>
+                  • Cheque Date: <strong>{formData.paymentDetails.chequeDate ? new Date(formData.paymentDetails.chequeDate).toLocaleDateString() : '—'}</strong>. Outstanding ledger balance (₹{pendingCreditUsed.toLocaleString()}) will <strong>NOT</strong> decrease immediately.
+                </Typography>
+                <Typography variant="caption" sx={{ display: 'block', color: '#78350F' }}>
+                  • Once the cheque clears on/after maturity, mark as <strong>Cleared</strong> in Cheque Clearance to reflect ₹{adjustedAgainstCreditUsed.toLocaleString()} towards due balance and distribute across orders.
+                </Typography>
+              </>
+            ) : (
+              <>
+                <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: '#334155' }}>
+                  • <strong>₹{adjustedAgainstCreditUsed.toLocaleString()}</strong> will clear pending credit due.
+                </Typography>
+                <Typography variant="caption" sx={{ display: 'block', color: '#334155' }}>
+                  • Remaining due after payment: <strong>₹{remainingCreditUsedAfterPayment.toLocaleString()}</strong>.
+                </Typography>
+                {excessNewAdvance > 0 && (
+                  <Typography variant="caption" sx={{ display: 'block', color: '#059669', fontWeight: 600 }}>
+                    • Excess <strong>₹{excessNewAdvance.toLocaleString()}</strong> will be added to Advance balance.
+                  </Typography>
+                )}
+              </>
             )}
 
             {unpaidOrders.length > 0 && (
@@ -384,7 +517,25 @@ const CustomerPaymentModal = ({ open, onClose, customer, initialOrder, onSuccess
         {/* Mode Specific Details */}
         {formData.paymentMode === 'UPI' && (
           <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                select
+                label="Deposit To Bank Account *"
+                size="small"
+                value={formData.paymentDetails.bankAccountId || ''}
+                onChange={(e) => handleBankAccountSelect(e.target.value)}
+                fullWidth
+                required
+                helperText={bankAccounts.length === 0 ? "No bank account found in Settings" : "Select company account"}
+              >
+                {bankAccounts.map((b) => (
+                  <MenuItem key={b._id} value={b._id}>
+                    {b.bankName} - ••••{b.accountNumber?.slice(-4)} ({b.accountType || 'Current'}){b.isDefault ? ' [Primary]' : ''}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={4}>
               <TextField
                 label="UPI Transaction ID / UTR No."
                 size="small"
@@ -396,7 +547,7 @@ const CustomerPaymentModal = ({ open, onClose, customer, initialOrder, onSuccess
                 fullWidth
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} sm={4}>
               <TextField
                 label="Receiver UPI ID"
                 size="small"
@@ -406,62 +557,138 @@ const CustomerPaymentModal = ({ open, onClose, customer, initialOrder, onSuccess
                   paymentDetails: { ...formData.paymentDetails, receiverUpiId: e.target.value }
                 })}
                 fullWidth
+                helperText="Auto-filled from selected account or custom"
               />
             </Grid>
           </Grid>
         )}
 
         {formData.paymentMode === 'CHEQUE' && (
-          <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                label="Cheque Number"
-                size="small"
-                value={formData.paymentDetails.chequeNumber}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  paymentDetails: { ...formData.paymentDetails, chequeNumber: e.target.value }
-                })}
-                fullWidth
-                required
-              />
+          <Box sx={{ mb: 3 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Cheque Number *"
+                  size="small"
+                  value={formData.paymentDetails.chequeNumber}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    paymentDetails: { ...formData.paymentDetails, chequeNumber: e.target.value }
+                  })}
+                  fullWidth
+                  required
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Customer Bank Name *"
+                  placeholder="e.g. HDFC Bank, SBI"
+                  size="small"
+                  value={formData.paymentDetails.bankName}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    paymentDetails: { ...formData.paymentDetails, bankName: e.target.value }
+                  })}
+                  fullWidth
+                  required
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Cheque Date *"
+                  type="date"
+                  size="small"
+                  InputLabelProps={{ shrink: true }}
+                  value={formData.paymentDetails.chequeDate}
+                  onChange={(e) => handleChequeDateChange(e.target.value)}
+                  fullWidth
+                  required
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  select
+                  label="Deposit To Company Bank Account *"
+                  size="small"
+                  value={formData.paymentDetails.bankAccountId || ''}
+                  onChange={(e) => handleBankAccountSelect(e.target.value)}
+                  fullWidth
+                  required
+                  helperText={bankAccounts.length === 0 ? "No bank account found in Settings" : "Select company account to deposit cheque"}
+                >
+                  {bankAccounts.map((b) => (
+                    <MenuItem key={b._id} value={b._id}>
+                      {b.bankName} - ••••{b.accountNumber?.slice(-4)} ({b.accountType || 'Current'}){b.isDefault ? ' [Primary]' : ''}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 1.25,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    borderRadius: '8px',
+                    borderColor: formData.paymentDetails.isPostDated ? '#F59E0B' : '#E2E8F0',
+                    backgroundColor: formData.paymentDetails.isPostDated ? '#FFFBEB' : '#F8FAFC'
+                  }}
+                >
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.8rem', color: formData.paymentDetails.isPostDated ? '#92400E' : '#334155' }}>
+                      Post-Dated Cheque (PDC)
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#64748B', display: 'block', fontSize: '0.7rem' }}>
+                      {formData.paymentDetails.isPostDated
+                        ? 'Clears on maturity; balance updates only on clearance'
+                        : 'Cheque will be credited immediately upon collection'}
+                    </Typography>
+                  </Box>
+                  <Button
+                    size="small"
+                    variant={formData.paymentDetails.isPostDated ? "contained" : "outlined"}
+                    color={formData.paymentDetails.isPostDated ? "warning" : "inherit"}
+                    onClick={() => setFormData(prev => ({
+                      ...prev,
+                      paymentDetails: { ...prev.paymentDetails, isPostDated: !prev.paymentDetails.isPostDated }
+                    }))}
+                    sx={{ textTransform: 'none', fontSize: '0.72rem', py: 0.4, px: 1.25, fontWeight: 700 }}
+                  >
+                    {formData.paymentDetails.isPostDated ? "PDC: YES" : "PDC: NO"}
+                  </Button>
+                </Paper>
+              </Grid>
             </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                label="Bank Name"
-                size="small"
-                value={formData.paymentDetails.bankName}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  paymentDetails: { ...formData.paymentDetails, bankName: e.target.value }
-                })}
-                fullWidth
-                required
-              />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                label="Cheque Date"
-                type="date"
-                size="small"
-                InputLabelProps={{ shrink: true }}
-                value={formData.paymentDetails.chequeDate}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  paymentDetails: { ...formData.paymentDetails, chequeDate: e.target.value }
-                })}
-                fullWidth
-                required
-              />
-            </Grid>
-          </Grid>
+          </Box>
         )}
 
         {formData.paymentMode === 'BANK_TRANSFER' && (
           <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} sm={4}>
               <TextField
-                label="Bank Reference / UTR No."
+                select
+                label="Deposit To Bank Account *"
+                size="small"
+                value={formData.paymentDetails.bankAccountId || ''}
+                onChange={(e) => handleBankAccountSelect(e.target.value)}
+                fullWidth
+                required
+                helperText={bankAccounts.length === 0 ? "No bank account found in Settings" : "Select company account"}
+              >
+                {bankAccounts.map((b) => (
+                  <MenuItem key={b._id} value={b._id}>
+                    {b.bankName} - ••••{b.accountNumber?.slice(-4)} ({b.accountType || 'Current'}){b.isDefault ? ' [Primary]' : ''}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                label="Bank Reference / UTR No. *"
                 size="small"
                 value={formData.paymentDetails.utrNumber}
                 onChange={(e) => setFormData({
@@ -472,9 +699,10 @@ const CustomerPaymentModal = ({ open, onClose, customer, initialOrder, onSuccess
                 required
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} sm={4}>
               <TextField
                 label="Remitter Bank Name"
+                placeholder="e.g. SBI, HDFC"
                 size="small"
                 value={formData.paymentDetails.bankName}
                 onChange={(e) => setFormData({

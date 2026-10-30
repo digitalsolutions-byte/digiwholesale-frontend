@@ -3,7 +3,8 @@ import {
   Box, Card, Typography, Button, Grid, Chip, IconButton,
   TextField, Table, TableHead, TableRow, TableCell, TableBody,
   TableContainer, Paper, CircularProgress, Divider, Alert,
-  LinearProgress, Tooltip, Collapse
+  LinearProgress, Tooltip, Collapse,
+  Dialog, DialogTitle, DialogContent, DialogActions, MenuItem, Select, FormControl, InputLabel
 } from '@mui/material';
 import { Icon } from '@iconify/react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -15,7 +16,8 @@ import {
   downloadOrderChallan,
   downloadOrderInvoice,
   downloadCustomerLedgerStatement,
-  sendPaymentDueReminder
+  sendPaymentDueReminder,
+  updateChequeStatus
 } from '../../services/accountingService';
 import CustomerPaymentModal from './CustomerPaymentModal';
 
@@ -72,6 +74,32 @@ const CustomerKhataStatement = () => {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedOrderForPayment, setSelectedOrderForPayment] = useState(null);
 
+  // Cheque Action Modals state (PDC Clear / Bounce)
+  const [clearChequeModal, setClearChequeModal] = useState({
+    open: false,
+    payment: null,
+    order: null,
+    clearanceDate: new Date().toISOString().split('T')[0],
+    submitting: false,
+  });
+
+  const [bounceChequeModal, setBounceChequeModal] = useState({
+    open: false,
+    payment: null,
+    order: null,
+    bounceReason: 'Insufficient Funds',
+    customReason: '',
+    submitting: false,
+  });
+
+  const [retryChequeModal, setRetryChequeModal] = useState({
+    open: false,
+    payment: null,
+    order: null,
+    retryNotes: 'Customer confirmed balance available; re-presented to bank.',
+    submitting: false,
+  });
+
   const [expandedRowId, setExpandedRowId] = useState(null);
   const toggleExpandRow = (id) => setExpandedRowId((prev) => (prev === id ? null : id));
   const [downloadingReceiptId, setDownloadingReceiptId] = useState(null);
@@ -102,10 +130,103 @@ const CustomerKhataStatement = () => {
     }
   };
 
+  const handleOpenClearCheque = (payment, order) => {
+    setClearChequeModal({
+      open: true,
+      payment,
+      order,
+      clearanceDate: new Date().toISOString().split('T')[0],
+      submitting: false,
+    });
+  };
+
+  const handleConfirmClearCheque = async () => {
+    if (!clearChequeModal.payment) return;
+    try {
+      setClearChequeModal(prev => ({ ...prev, submitting: true }));
+      await updateChequeStatus(clearChequeModal.payment.paymentId, {
+        status: 'CLEARED',
+        clearanceDate: clearChequeModal.clearanceDate || new Date().toISOString(),
+      });
+      toast.success(`Cheque #${clearChequeModal.payment.chequeNumber || ''} marked as CLEARED! ₹${Number(clearChequeModal.payment.amount || 0).toLocaleString()} credited.`);
+      setClearChequeModal({ open: false, payment: null, order: null, clearanceDate: '', submitting: false });
+      window.dispatchEvent(new Event('cheque-status-updated'));
+      await fetchStatement();
+    } catch (err) {
+      toast.error(err.message || 'Failed to clear cheque');
+      setClearChequeModal(prev => ({ ...prev, submitting: false }));
+    }
+  };
+
+  const handleOpenBounceCheque = (payment, order) => {
+    setBounceChequeModal({
+      open: true,
+      payment,
+      order,
+      bounceReason: 'Insufficient Funds',
+      customReason: '',
+      submitting: false,
+    });
+  };
+
+  const handleConfirmBounceCheque = async () => {
+    if (!bounceChequeModal.payment) return;
+    try {
+      setBounceChequeModal(prev => ({ ...prev, submitting: true }));
+      const reason = bounceChequeModal.bounceReason === 'Other'
+        ? (bounceChequeModal.customReason || 'Cheque Bounced')
+        : bounceChequeModal.bounceReason;
+      await updateChequeStatus(bounceChequeModal.payment.paymentId, {
+        status: 'BOUNCED',
+        bounceReason: reason,
+      });
+      toast.warn(`Cheque #${bounceChequeModal.payment.chequeNumber || ''} marked as BOUNCED. ₹500 penalty debited.`);
+      setBounceChequeModal({ open: false, payment: null, order: null, bounceReason: '', customReason: '', submitting: false });
+      window.dispatchEvent(new Event('cheque-status-updated'));
+      await fetchStatement();
+    } catch (err) {
+      toast.error(err.message || 'Failed to bounce cheque');
+      setBounceChequeModal(prev => ({ ...prev, submitting: false }));
+    }
+  };
+
+  const handleOpenRetryCheque = (payment, order) => {
+    setRetryChequeModal({
+      open: true,
+      payment,
+      order,
+      retryNotes: 'Customer confirmed balance available; re-presented to bank.',
+      submitting: false,
+    });
+  };
+
+  const handleConfirmRetryCheque = async () => {
+    if (!retryChequeModal.payment) return;
+    try {
+      setRetryChequeModal(prev => ({ ...prev, submitting: true }));
+      await updateChequeStatus(retryChequeModal.payment.paymentId, {
+        status: 'RETRY',
+        retryNotes: retryChequeModal.retryNotes || 'Re-presented to bank for clearance',
+      });
+      toast.success(`Cheque #${retryChequeModal.payment.chequeNumber || ''} re-presented to bank! Status is now IN CLEARING.`);
+      setRetryChequeModal({ open: false, payment: null, order: null, retryNotes: '', submitting: false });
+      window.dispatchEvent(new Event('cheque-status-updated'));
+      await fetchStatement();
+    } catch (err) {
+      toast.error(err.message || 'Failed to retry cheque');
+      setRetryChequeModal(prev => ({ ...prev, submitting: false }));
+    }
+  };
+
   useEffect(() => {
     if (customerId) {
       fetchStatement();
     }
+    const handleChequeUpdated = () => {
+      if (customerId) fetchStatement();
+    };
+    window.addEventListener('cheque-status-updated', handleChequeUpdated);
+    return () => window.removeEventListener('cheque-status-updated', handleChequeUpdated);
   }, [customerId]);
 
   const stats = summary.statistics || {};
@@ -182,6 +303,7 @@ const CustomerKhataStatement = () => {
       orderGrandTotal: Number(ord.grandTotal || ord.totalOrderPrice || 0),
       orderPaidAmount: Number(ord.paidAmount || ord.advanceAmount || 0),
       orderBalanceDue: Number(ord.balanceDue || 0),
+      pdcWaitingAmount: Number(ord.pdcWaitingAmount || 0),
       partPaymentStatus: ord.paymentStatus,
       partPaymentPercentage: ord.partPaymentPercentage,
       orderPayments: ord.orderPayments || [],
@@ -2121,13 +2243,14 @@ const CustomerKhataStatement = () => {
                     (txn.orderGrandTotal != null && Number(txn.orderGrandTotal) > 0)
                   );
                   const orderTotal = Number(txn.orderGrandTotal != null ? txn.orderGrandTotal : txn.debit || 0);
-                  const paidAmount = Math.max(Number(txn.orderPaidAmount != null ? txn.orderPaidAmount : 0), Number(txn.credit || 0));
+                  const matchedOrder = ordersMap[String(txn.orderId)] || ordersMap[txn.orderNumber] || ordersMap[txn.referenceNumber] || null;
+                  const paymentsList = (Array.isArray(txn.orderPayments) && txn.orderPayments.length > 0) ? txn.orderPayments : (matchedOrder?.orderPayments || []);
+                  const paidAmount = Math.max(Number(txn.orderPaidAmount != null ? txn.orderPaidAmount : (matchedOrder?.orderPaidAmount || 0)), Number(txn.credit || 0));
+                  const pdcWaitingAmount = Number(txn.pdcWaitingAmount || matchedOrder?.pdcWaitingAmount || 0);
                   const dueAmount = txn.orderBalanceDue != null && Number(txn.orderBalanceDue) <= (orderTotal - paidAmount)
                     ? Number(txn.orderBalanceDue)
                     : Math.max(0, orderTotal - paidAmount);
                   const orderBadge = getStatusBadge(txn.orderStatus);
-                  const matchedOrder = ordersMap[String(txn.orderId)] || ordersMap[txn.orderNumber] || ordersMap[txn.referenceNumber] || null;
-                  const paymentsList = (Array.isArray(txn.orderPayments) && txn.orderPayments.length > 0) ? txn.orderPayments : (matchedOrder?.orderPayments || []);
                   const hasParts = paymentsList.length > 0;
                   const isExpanded = expandedRowId === rowKey;
                   const orderItems = txn.items?.length > 0 ? txn.items : (matchedOrder?.items || []);
@@ -2180,7 +2303,7 @@ const CustomerKhataStatement = () => {
 
                         {/* Ref / Invoice # */}
                         <TableCell sx={{ minWidth: 160, fontFamily: 'monospace', fontWeight: 600, fontSize: '0.8rem', color: '#0F172A' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
                             <span>{txn.referenceNumber || txn.voucherId || '0'}</span>
                             {hasParts && (
                               <Chip size="small" label={`${paymentsList.length} ${paymentsList.length === 1 ? 'Pay' : 'Pays'}`}
@@ -2189,6 +2312,18 @@ const CustomerKhataStatement = () => {
                                   height: 18, fontSize: '0.62rem', fontWeight: 600,
                                   backgroundColor: isExpanded ? '#BAE6FD' : '#E0F2FE', color: '#0369A1', cursor: 'pointer'
                                 }} />
+                            )}
+                            {pdcWaitingAmount > 0 && (
+                              <Tooltip title={`Post-Dated Cheque waiting for clearance: ₹${pdcWaitingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`} arrow>
+                                <Chip size="small"
+                                  icon={<Icon icon="lucide:clock" width={11} />}
+                                  label={`PDC: ₹${pdcWaitingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })} Waiting`}
+                                  onClick={() => toggleExpandRow(rowKey)}
+                                  sx={{
+                                    height: 18, fontSize: '0.62rem', fontWeight: 700,
+                                    backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', cursor: 'pointer'
+                                  }} />
+                              </Tooltip>
                             )}
                           </Box>
                         </TableCell>
@@ -2573,87 +2708,271 @@ const CustomerKhataStatement = () => {
                                       </Typography>
                                       <Typography variant="caption" sx={{ color: '#475569' }}>
                                         Received: <strong style={{ color: '#059669' }}>₹{paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong> of ₹{orderTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                        {pdcWaitingAmount > 0 && (
+                                          <>
+                                            &nbsp;|&nbsp; PDC (In-Clearing): <strong style={{ color: '#D97706' }}>₹{pdcWaitingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
+                                          </>
+                                        )}
                                         &nbsp;|&nbsp; Due: <strong style={{ color: dueAmount > 0 ? '#EF4444' : '#059669' }}>{dueAmount > 0 ? `₹${dueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : 'Paid'}</strong>
                                       </Typography>
                                     </Box>
                                     <Table size="small">
                                       <TableHead sx={{ backgroundColor: '#F1F5F9' }}>
                                         <TableRow>
-                                          <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569', width: 40 }}>#</TableCell>
+                                          <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569', width: 35 }}>#</TableCell>
                                           <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Payment Date</TableCell>
                                           <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Ref / Voucher</TableCell>
                                           <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Mode</TableCell>
-                                          <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Remarks</TableCell>
+                                          <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Remarks & Cheque Details</TableCell>
                                           <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Amount (₹)</TableCell>
                                           <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Status</TableCell>
+                                          <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.72rem', color: '#475569' }}>Actions</TableCell>
                                         </TableRow>
                                       </TableHead>
                                       <TableBody>
-                                        {paymentsList.map((p, pIdx) => (
-                                          <TableRow key={p.paymentId || p.paymentNumber || pIdx} hover>
-                                            <TableCell sx={{ fontSize: '0.72rem', color: '#64748B' }}>{pIdx + 1}</TableCell>
-                                            <TableCell sx={{ fontSize: '0.72rem', color: '#334155', whiteSpace: 'nowrap' }}>
-                                              {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString('en-IN') : 'N/A'}
-                                            </TableCell>
-                                            <TableCell sx={{ fontSize: '0.72rem', fontFamily: 'monospace', fontWeight: 600, color: '#0284C7' }}>
-                                              {p.referenceNumber || p.paymentNumber}
-                                            </TableCell>
-                                            <TableCell sx={{ fontSize: '0.72rem', color: '#475569' }}>
-                                              <Chip
-                                                size="small"
-                                                label={
-                                                  p.paymentMode === 'ADVANCE_ADJUSTMENT' ? 'Advance Adjustment' :
-                                                    p.paymentMode === 'UPI' ? 'UPI / QR' :
-                                                      p.paymentMode === 'CASH' ? 'Cash' :
-                                                        p.paymentMode === 'BANK_TRANSFER' ? 'Bank Transfer' :
-                                                          p.paymentMode === 'CHEQUE' ? 'Cheque' :
-                                                            (p.paymentMode ? String(p.paymentMode).replace(/_/g, ' ') : 'Bank')
-                                                }
-                                                sx={{
-                                                  height: 20,
-                                                  fontSize: '0.65rem',
-                                                  fontWeight: 600,
-                                                  backgroundColor:
-                                                    p.paymentMode === 'ADVANCE_ADJUSTMENT' ? '#EFF6FF' :
-                                                      p.paymentMode === 'UPI' ? '#F5F3FF' :
-                                                        p.paymentMode === 'CASH' ? '#FEF3C7' : '#F0FDF4',
-                                                  color:
-                                                    p.paymentMode === 'ADVANCE_ADJUSTMENT' ? '#1D4ED8' :
-                                                      p.paymentMode === 'UPI' ? '#6D28D9' :
-                                                        p.paymentMode === 'CASH' ? '#B45309' : '#15803D'
-                                                }}
-                                              />
-                                            </TableCell>
-                                            <TableCell sx={{ fontSize: '0.72rem', color: '#475569' }}>
-                                              <Box>
-                                                <span>{p.remarks || (pIdx === 0 && p.paymentNumber?.startsWith('ADV') ? 'Booking Advance' : 'Part Payment')}</span>
-                                                {p.utrNumber && p.utrNumber !== (p.referenceNumber || p.paymentNumber) && (
-                                                  <Typography variant="caption" sx={{ display: 'block', color: '#0284C7', fontFamily: 'monospace', fontSize: '0.65rem' }}>
-                                                    UTR: {p.utrNumber}
-                                                  </Typography>
-                                                )}
-                                              </Box>
-                                            </TableCell>
-                                            <TableCell align="right" sx={{ fontSize: '0.72rem', fontWeight: 700, color: '#059669' }}>
-                                              ₹{Number(p.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                            </TableCell>
-                                            <TableCell align="center">
-                                              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
-                                                <Chip size="small" label="CLEARED"
-                                                  sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, backgroundColor: '#DCFCE7', color: '#15803D' }} />
-                                                <Tooltip title="Download Receipt" arrow>
-                                                  <span>
-                                                    <IconButton size="small" onClick={() => handleDownloadReceipt({ ...p, orderId: txn.orderId || txn.voucherId || txn._id, orderNumber: txn.orderNumber })}
-                                                      disabled={downloadingReceiptId === (p.paymentId || p.paymentNumber)}
-                                                      sx={{ color: '#059669', p: 0.25, '&:hover': { backgroundColor: '#DCFCE7' } }}>
-                                                      <Icon icon="lucide:receipt" width={13} />
-                                                    </IconButton>
-                                                  </span>
-                                                </Tooltip>
-                                              </Box>
-                                            </TableCell>
-                                          </TableRow>
-                                        ))}
+                                        {paymentsList.map((p, pIdx) => {
+                                          const isCheque = p.paymentMode === 'CHEQUE';
+                                          const isPDC = Boolean(p.isPostDated);
+                                          const chqDate = p.chequeDate ? new Date(p.chequeDate) : null;
+                                          let expDate = p.chequeExpiryDate ? new Date(p.chequeExpiryDate) : null;
+                                          if (!expDate && chqDate) {
+                                            expDate = new Date(chqDate);
+                                            expDate.setMonth(expDate.getMonth() + 3);
+                                          }
+                                          const todayEnd = new Date();
+                                          todayEnd.setHours(23, 59, 59, 999);
+                                          const startOfToday = new Date();
+                                          startOfToday.setHours(0, 0, 0, 0);
+
+                                          const isMatured = !isPDC || (chqDate && chqDate <= todayEnd);
+                                          const isChequeExpired = p.status === 'EXPIRED' || p.chequeStatus === 'EXPIRED' || Boolean(expDate && !p.isCredited && new Date() > expDate);
+                                          const isChequeBounced = p.status === 'BOUNCED' || p.chequeStatus === 'BOUNCED';
+                                          const isChequeInClearing = isCheque && isPDC && !p.isCredited && !isChequeBounced && !isChequeExpired;
+                                          const canRetryCheque = isChequeBounced && !isChequeExpired;
+                                          const daysUntilExpiry = expDate ? Math.max(0, Math.ceil((expDate.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24))) : 0;
+                                          const isExpiringSoon = !isChequeExpired && !p.isCredited && daysUntilExpiry <= 15;
+                                          const daysUntilMaturity = chqDate ? Math.max(0, Math.ceil((chqDate.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24))) : 0;
+
+                                          return (
+                                            <TableRow key={p.paymentId || p.paymentNumber || pIdx} hover>
+                                              <TableCell sx={{ fontSize: '0.72rem', color: '#64748B' }}>{pIdx + 1}</TableCell>
+                                              <TableCell sx={{ fontSize: '0.72rem', color: '#334155', whiteSpace: 'nowrap' }}>
+                                                {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString('en-IN') : 'N/A'}
+                                              </TableCell>
+                                              <TableCell sx={{ fontSize: '0.72rem', fontFamily: 'monospace', fontWeight: 600, color: '#0284C7' }}>
+                                                {p.referenceNumber || p.paymentNumber}
+                                              </TableCell>
+                                              <TableCell sx={{ fontSize: '0.72rem', color: '#475569' }}>
+                                                <Chip
+                                                  size="small"
+                                                  label={
+                                                    p.paymentMode === 'ADVANCE_ADJUSTMENT' ? 'Advance Adjustment' :
+                                                      p.paymentMode === 'UPI' ? 'UPI / QR' :
+                                                        p.paymentMode === 'CASH' ? 'Cash' :
+                                                          p.paymentMode === 'BANK_TRANSFER' ? 'Bank Transfer' :
+                                                            p.paymentMode === 'CHEQUE' ? (p.isPostDated ? 'Cheque (PDC)' : 'Cheque') :
+                                                              (p.paymentMode ? String(p.paymentMode).replace(/_/g, ' ') : 'Bank')
+                                                  }
+                                                  sx={{
+                                                    height: 20,
+                                                    fontSize: '0.65rem',
+                                                    fontWeight: 600,
+                                                    backgroundColor:
+                                                      p.paymentMode === 'ADVANCE_ADJUSTMENT' ? '#EFF6FF' :
+                                                        p.paymentMode === 'UPI' ? '#F5F3FF' :
+                                                          p.paymentMode === 'CASH' ? '#FEF3C7' : '#F0FDF4',
+                                                    color:
+                                                      p.paymentMode === 'ADVANCE_ADJUSTMENT' ? '#1D4ED8' :
+                                                        p.paymentMode === 'UPI' ? '#6D28D9' :
+                                                          p.paymentMode === 'CASH' ? '#B45309' : '#15803D'
+                                                  }}
+                                                />
+                                              </TableCell>
+                                              <TableCell sx={{ fontSize: '0.72rem', color: '#475569' }}>
+                                                <Box>
+                                                  <span>{p.remarks || (pIdx === 0 && p.paymentNumber?.startsWith('ADV') ? 'Booking Advance' : 'Part Payment')}</span>
+                                                  {isCheque && (
+                                                    <Box sx={{ mt: 0.5 }}>
+                                                      {p.chequeNumber && (
+                                                        <Typography variant="caption" sx={{ display: 'block', color: '#0F172A', fontWeight: 600, fontSize: '0.67rem' }}>
+                                                          Cheque No: <span style={{ fontFamily: 'monospace' }}>#{p.chequeNumber}</span>
+                                                        </Typography>
+                                                      )}
+                                                      {p.chequeDate && (
+                                                        <Typography variant="caption" sx={{ display: 'block', color: '#D97706', fontWeight: 600, fontSize: '0.67rem' }}>
+                                                          Cheque Date: {new Date(p.chequeDate).toLocaleDateString('en-IN')}
+                                                        </Typography>
+                                                      )}
+                                                      {expDate && (
+                                                        <Typography variant="caption" sx={{ display: 'block', color: isChequeExpired ? '#DC2626' : (isExpiringSoon ? '#C2410C' : '#64748B'), fontWeight: (isChequeExpired || isExpiringSoon) ? 700 : 500, fontSize: '0.65rem' }}>
+                                                          Validity (3M): {new Date(expDate).toLocaleDateString('en-IN')} {isChequeExpired ? '(Expired)' : (isExpiringSoon ? `(${daysUntilExpiry}d left - Expiring Soon!)` : '')}
+                                                        </Typography>
+                                                      )}
+                                                      {p.retryCount > 0 && (
+                                                        <Typography variant="caption" sx={{ display: 'block', color: '#0284C7', fontWeight: 600, fontSize: '0.65rem' }}>
+                                                          Retried: {p.retryCount} time{p.retryCount > 1 ? 's' : ''}
+                                                        </Typography>
+                                                      )}
+                                                      {p.bankAccountName && (
+                                                        <Typography variant="caption" sx={{ display: 'block', color: '#475569', fontSize: '0.65rem' }}>
+                                                          Bank: {p.bankAccountName}
+                                                        </Typography>
+                                                      )}
+                                                    </Box>
+                                                  )}
+                                                  {p.utrNumber && p.utrNumber !== (p.referenceNumber || p.paymentNumber) && (
+                                                    <Typography variant="caption" sx={{ display: 'block', color: '#0284C7', fontFamily: 'monospace', fontSize: '0.65rem' }}>
+                                                      UTR: {p.utrNumber}
+                                                    </Typography>
+                                                  )}
+                                                </Box>
+                                              </TableCell>
+                                              <TableCell align="right" sx={{ fontSize: '0.72rem', fontWeight: 700, color: isChequeInClearing ? '#D97706' : isChequeExpired ? '#94A3B8' : isChequeBounced ? '#DC2626' : '#059669' }}>
+                                                ₹{Number(p.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                              </TableCell>
+                                              <TableCell align="center">
+                                                <Chip size="small"
+                                                  icon={isChequeInClearing ? <Icon icon="lucide:clock" width={11} /> : isChequeExpired ? <Icon icon="lucide:calendar-x" width={11} /> : undefined}
+                                                  label={
+                                                    isChequeExpired
+                                                      ? 'EXPIRED (>3M)'
+                                                      : isChequeBounced
+                                                      ? 'BOUNCED'
+                                                      : isChequeInClearing
+                                                      ? (!isMatured
+                                                          ? `PDC (DUE ${chqDate ? chqDate.toLocaleDateString('en-IN') : 'FUTURE'})`
+                                                          : (p.retryCount > 0 ? `IN CLEARING (RETRY #${p.retryCount})` : 'IN CLEARING'))
+                                                      : 'CLEARED'
+                                                  }
+                                                  sx={{
+                                                    height: 19, fontSize: '0.6rem', fontWeight: 700,
+                                                    backgroundColor:
+                                                      isChequeExpired ? '#F1F5F9' :
+                                                      isChequeBounced ? '#FEE2E2' :
+                                                      isChequeInClearing ? (!isMatured ? '#EFF6FF' : '#FEF3C7') : '#DCFCE7',
+                                                    color:
+                                                      isChequeExpired ? '#64748B' :
+                                                      isChequeBounced ? '#991B1B' :
+                                                      isChequeInClearing ? (!isMatured ? '#1D4ED8' : '#92400E') : '#15803D',
+                                                    border: `1px solid ${
+                                                      isChequeExpired ? '#CBD5E1' :
+                                                      isChequeBounced ? '#FECACA' :
+                                                      isChequeInClearing ? (!isMatured ? '#BFDBFE' : '#FDE68A') : '#BBF7D0'
+                                                    }`
+                                                  }} />
+                                              </TableCell>
+                                              <TableCell align="center">
+                                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75, flexWrap: 'nowrap' }}>
+                                                  {isChequeInClearing && isMatured && (
+                                                    <>
+                                                      <Tooltip title={`Mark Cheque #${p.chequeNumber || ''} as Cleared (Credit ₹${Number(p.amount).toLocaleString()} to order)`} arrow>
+                                                        <Button
+                                                          size="small"
+                                                          variant="contained"
+                                                          color="success"
+                                                          startIcon={<Icon icon="lucide:check-circle-2" width={13} />}
+                                                          onClick={() => handleOpenClearCheque(p, txn)}
+                                                          sx={{
+                                                            textTransform: 'none',
+                                                            fontSize: '0.68rem',
+                                                            fontWeight: 700,
+                                                            py: 0.25,
+                                                            px: 0.85,
+                                                            minHeight: 22,
+                                                            height: 24,
+                                                            backgroundColor: '#16A34A',
+                                                            whiteSpace: 'nowrap',
+                                                            '&:hover': { backgroundColor: '#15803D' }
+                                                          }}
+                                                        >
+                                                          Clear Cheque
+                                                        </Button>
+                                                      </Tooltip>
+
+                                                      <Tooltip title={`Mark Cheque #${p.chequeNumber || ''} as Bounced (₹500 penalty will be debited)`} arrow>
+                                                        <Button
+                                                          size="small"
+                                                          variant="outlined"
+                                                          color="error"
+                                                          startIcon={<Icon icon="lucide:alert-triangle" width={13} />}
+                                                          onClick={() => handleOpenBounceCheque(p, txn)}
+                                                          sx={{
+                                                            textTransform: 'none',
+                                                            fontSize: '0.68rem',
+                                                            fontWeight: 700,
+                                                            py: 0.25,
+                                                            px: 0.85,
+                                                            minHeight: 22,
+                                                            height: 24,
+                                                            borderColor: '#EF4444',
+                                                            color: '#DC2626',
+                                                            whiteSpace: 'nowrap',
+                                                            '&:hover': { backgroundColor: '#FEE2E2', borderColor: '#DC2626' }
+                                                          }}
+                                                        >
+                                                          Bounce
+                                                        </Button>
+                                                      </Tooltip>
+                                                    </>
+                                                  )}
+
+                                                  {isChequeInClearing && !isMatured && (
+                                                    <Tooltip title={`Actions (Clear / Bounce) unlock on maturity date (${chqDate ? chqDate.toLocaleDateString('en-IN') : 'N/A'}, ${daysUntilMaturity} days left)`} arrow>
+                                                      <Chip
+                                                        size="small"
+                                                        icon={<Icon icon="lucide:clock" width={12} />}
+                                                        label={`Matures in ${daysUntilMaturity}d`}
+                                                        sx={{
+                                                          height: 22,
+                                                          fontSize: '0.65rem',
+                                                          fontWeight: 600,
+                                                          backgroundColor: '#F0F9FF',
+                                                          color: '#0284C7',
+                                                          border: '1px solid #BAE6FD',
+                                                        }}
+                                                      />
+                                                    </Tooltip>
+                                                  )}
+
+                                                  {canRetryCheque && (
+                                                    <Tooltip title={`Re-present Cheque #${p.chequeNumber || ''} to bank within 3 months validity`} arrow>
+                                                      <Button
+                                                        size="small"
+                                                        variant="contained"
+                                                        startIcon={<Icon icon="lucide:refresh-cw" width={13} />}
+                                                        onClick={() => handleOpenRetryCheque(p, txn)}
+                                                        sx={{
+                                                          textTransform: 'none',
+                                                          fontSize: '0.68rem',
+                                                          fontWeight: 700,
+                                                          py: 0.25,
+                                                          px: 0.85,
+                                                          minHeight: 22,
+                                                          height: 24,
+                                                          backgroundColor: '#2980B9',
+                                                          whiteSpace: 'nowrap',
+                                                          '&:hover': { backgroundColor: '#1F618D' }
+                                                        }}
+                                                      >
+                                                        Retry Cheque
+                                                      </Button>
+                                                    </Tooltip>
+                                                  )}
+
+                                                  <Tooltip title="Download Receipt" arrow>
+                                                    <span>
+                                                      <IconButton size="small" onClick={() => handleDownloadReceipt({ ...p, orderId: txn.orderId || txn.voucherId || txn._id, orderNumber: txn.orderNumber })}
+                                                        disabled={downloadingReceiptId === (p.paymentId || p.paymentNumber)}
+                                                        sx={{ color: '#059669', p: 0.25, '&:hover': { backgroundColor: '#DCFCE7' } }}>
+                                                        <Icon icon="lucide:receipt" width={13} />
+                                                      </IconButton>
+                                                    </span>
+                                                  </Tooltip>
+                                                </Box>
+                                              </TableCell>
+                                            </TableRow>
+                                          );
+                                        })}
                                       </TableBody>
                                     </Table>
                                   </Box>
@@ -2699,6 +3018,273 @@ const CustomerKhataStatement = () => {
           onSuccess={() => fetchStatement()}
         />
       )}
+
+      {/* Clear Cheque Confirmation Dialog */}
+      <Dialog
+        open={clearChequeModal.open}
+        onClose={() => !clearChequeModal.submitting && setClearChequeModal(prev => ({ ...prev, open: false }))}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: '#0F172A', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Icon icon="lucide:check-circle-2" style={{ color: '#16A34A', fontSize: 22 }} />
+          Clear Cheque & Credit Order
+        </DialogTitle>
+        <DialogContent dividers sx={{ pt: 2 }}>
+          <Typography variant="body2" sx={{ color: '#475569', mb: 2 }}>
+            Confirm that this cheque has been successfully cleared in your bank account?
+          </Typography>
+
+          <Box sx={{ p: 2, backgroundColor: '#F8FAFC', borderRadius: 2, border: '1px solid #E2E8F0', mb: 2 }}>
+            <Grid container spacing={1.5}>
+              <Grid item xs={6}>
+                <Typography variant="caption" sx={{ color: '#64748B', display: 'block' }}>Cheque Number</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: '#0F172A', fontFamily: 'monospace' }}>
+                  #{clearChequeModal.payment?.chequeNumber || 'N/A'}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="caption" sx={{ color: '#64748B', display: 'block' }}>Cheque Maturity Date</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: '#D97706' }}>
+                  {clearChequeModal.payment?.chequeDate ? new Date(clearChequeModal.payment.chequeDate).toLocaleDateString('en-IN') : 'N/A'}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="caption" sx={{ color: '#64748B', display: 'block' }}>Amount to Credit</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 800, color: '#16A34A', fontSize: '1rem' }}>
+                  ₹{Number(clearChequeModal.payment?.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="caption" sx={{ color: '#64748B', display: 'block' }}>Order Ref</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: '#0284C7' }}>
+                  {clearChequeModal.order?.orderNumber || clearChequeModal.order?.referenceNumber || 'N/A'}
+                </Typography>
+              </Grid>
+              {clearChequeModal.payment?.bankAccountName && (
+                <Grid item xs={12}>
+                  <Typography variant="caption" sx={{ color: '#64748B', display: 'block' }}>Deposited Bank Account</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#334155' }}>
+                    {clearChequeModal.payment.bankAccountName}
+                  </Typography>
+                </Grid>
+              )}
+            </Grid>
+          </Box>
+
+          <TextField
+            fullWidth
+            size="small"
+            type="date"
+            label="Bank Clearance Date"
+            value={clearChequeModal.clearanceDate}
+            onChange={(e) => setClearChequeModal(prev => ({ ...prev, clearanceDate: e.target.value }))}
+            InputLabelProps={{ shrink: true }}
+            sx={{ mb: 2 }}
+          />
+
+          <Alert severity="success" sx={{ fontSize: '0.75rem', py: 0.5 }}>
+            ₹{Number(clearChequeModal.payment?.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })} will now be credited to this order and will reduce customer due balance.
+          </Alert>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button
+            variant="outlined"
+            disabled={clearChequeModal.submitting}
+            onClick={() => setClearChequeModal(prev => ({ ...prev, open: false }))}
+            sx={{ textTransform: 'none', color: '#64748B', borderColor: '#CBD5E1' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            disabled={clearChequeModal.submitting}
+            onClick={handleConfirmClearCheque}
+            startIcon={clearChequeModal.submitting ? <CircularProgress size={16} color="inherit" /> : <Icon icon="lucide:check-circle-2" width={16} />}
+            sx={{ textTransform: 'none', fontWeight: 700, backgroundColor: '#16A34A', '&:hover': { backgroundColor: '#15803D' } }}
+          >
+            {clearChequeModal.submitting ? 'Clearing...' : 'Confirm Clearance (Credit Amount)'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bounce Cheque Confirmation Dialog */}
+      <Dialog
+        open={bounceChequeModal.open}
+        onClose={() => !bounceChequeModal.submitting && setBounceChequeModal(prev => ({ ...prev, open: false }))}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: '#DC2626', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Icon icon="lucide:alert-triangle" style={{ color: '#DC2626', fontSize: 22 }} />
+          Mark Cheque as Bounced
+        </DialogTitle>
+        <DialogContent dividers sx={{ pt: 2 }}>
+          <Typography variant="body2" sx={{ color: '#475569', mb: 2 }}>
+            Are you sure this cheque was rejected or bounced by the bank?
+          </Typography>
+
+          <Box sx={{ p: 2, backgroundColor: '#FEF2F2', borderRadius: 2, border: '1px solid #FECACA', mb: 2 }}>
+            <Grid container spacing={1.5}>
+              <Grid item xs={6}>
+                <Typography variant="caption" sx={{ color: '#991B1B', display: 'block' }}>Cheque Number</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: '#991B1B', fontFamily: 'monospace' }}>
+                  #{bounceChequeModal.payment?.chequeNumber || 'N/A'}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="caption" sx={{ color: '#991B1B', display: 'block' }}>Uncredited Amount</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: '#991B1B' }}>
+                  ₹{Number(bounceChequeModal.payment?.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </Typography>
+              </Grid>
+            </Grid>
+          </Box>
+
+          <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+            <InputLabel>Bounce Reason</InputLabel>
+            <Select
+              value={bounceChequeModal.bounceReason}
+              label="Bounce Reason"
+              onChange={(e) => setBounceChequeModal(prev => ({ ...prev, bounceReason: e.target.value }))}
+            >
+              <MenuItem value="Insufficient Funds">Insufficient Funds</MenuItem>
+              <MenuItem value="Signature Mismatch">Signature Mismatch</MenuItem>
+              <MenuItem value="Cheque Expired / Stale">Cheque Expired / Stale</MenuItem>
+              <MenuItem value="Account Closed">Account Closed</MenuItem>
+              <MenuItem value="Payment Stopped by Drawer">Payment Stopped by Drawer</MenuItem>
+              <MenuItem value="Other">Other Reason</MenuItem>
+            </Select>
+          </FormControl>
+
+          {bounceChequeModal.bounceReason === 'Other' && (
+            <TextField
+              fullWidth
+              size="small"
+              label="Specify Reason"
+              value={bounceChequeModal.customReason}
+              onChange={(e) => setBounceChequeModal(prev => ({ ...prev, customReason: e.target.value }))}
+              sx={{ mb: 2 }}
+            />
+          )}
+
+          <Alert severity="warning" sx={{ fontSize: '0.75rem', py: 0.5 }}>
+            The cheque amount of ₹{Number(bounceChequeModal.payment?.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })} will NOT be credited, and a ₹500 bounce penalty will be debited to customer khata.
+          </Alert>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button
+            variant="outlined"
+            disabled={bounceChequeModal.submitting}
+            onClick={() => setBounceChequeModal(prev => ({ ...prev, open: false }))}
+            sx={{ textTransform: 'none', color: '#64748B', borderColor: '#CBD5E1' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={bounceChequeModal.submitting}
+            onClick={handleConfirmBounceCheque}
+            startIcon={bounceChequeModal.submitting ? <CircularProgress size={16} color="inherit" /> : <Icon icon="lucide:alert-triangle" width={16} />}
+            sx={{ textTransform: 'none', fontWeight: 700, backgroundColor: '#DC2626', '&:hover': { backgroundColor: '#B91C1C' } }}
+          >
+            {bounceChequeModal.submitting ? 'Marking Bounced...' : 'Confirm Cheque Bounce'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Confirmation Dialog for Retrying / Re-presenting Cheque */}
+      <Dialog
+        open={retryChequeModal.open}
+        onClose={() => !retryChequeModal.submitting && setRetryChequeModal(prev => ({ ...prev, open: false }))}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '12px' } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: '#2980B9', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Icon icon="lucide:refresh-cw" style={{ color: '#2980B9', fontSize: 20 }} />
+          Re-present / Retry Bounced Cheque
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2.5 }}>
+          <Typography variant="body2" sx={{ color: '#5D6D7E', mb: 2 }}>
+            Confirm re-presenting this bounced cheque to the bank for clearance?
+          </Typography>
+
+          <Box sx={{ p: 2, backgroundColor: '#EBF5FB', borderRadius: '8px', border: '1px solid #D4E6F1', mb: 2 }}>
+            <Grid container spacing={1.5}>
+              <Grid item xs={6}>
+                <Typography variant="caption" sx={{ color: '#1B4F72', display: 'block' }}>Cheque Number</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: '#154360', fontFamily: 'monospace' }}>
+                  #{retryChequeModal.payment?.chequeNumber || 'N/A'}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="caption" sx={{ color: '#1B4F72', display: 'block' }}>Cheque Amount</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: '#154360' }}>
+                  ₹{Number(retryChequeModal.payment?.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="caption" sx={{ color: '#1B4F72', display: 'block' }}>Re-presentation</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: '#2980B9' }}>
+                  Attempt #{Number(retryChequeModal.payment?.retryCount || 0) + 1}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="caption" sx={{ color: '#1B4F72', display: 'block' }}>3-Month Expiry</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: '#2C3E50' }}>
+                  {retryChequeModal.payment?.chequeExpiryDate
+                    ? new Date(retryChequeModal.payment.chequeExpiryDate).toLocaleDateString('en-IN')
+                    : 'Within 90 Days'}
+                </Typography>
+              </Grid>
+            </Grid>
+          </Box>
+
+          <TextField
+            fullWidth
+            size="small"
+            multiline
+            rows={2}
+            label="Re-presentation Notes"
+            value={retryChequeModal.retryNotes}
+            onChange={(e) => setRetryChequeModal(prev => ({ ...prev, retryNotes: e.target.value }))}
+            placeholder="e.g., Customer confirmed funds replenished; re-presenting."
+            sx={{ mb: 2 }}
+          />
+
+          <Alert severity="info" sx={{ fontSize: '0.75rem', py: 0.5, borderRadius: '8px' }}>
+            Upon confirming, cheque status will return to <strong>IN CLEARING</strong>. You will be able to confirm clearance or bounce again when bank processes it.
+          </Alert>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1, borderTop: '1px solid #E2E8F0' }}>
+          <Button
+            variant="outlined"
+            disabled={retryChequeModal.submitting}
+            onClick={() => setRetryChequeModal(prev => ({ ...prev, open: false }))}
+            sx={{ textTransform: 'none', color: '#7F8C8D', borderColor: '#D5DBDB' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            disabled={retryChequeModal.submitting}
+            onClick={handleConfirmRetryCheque}
+            startIcon={retryChequeModal.submitting ? <CircularProgress size={16} color="inherit" /> : <Icon icon="lucide:refresh-cw" width={16} />}
+            sx={{
+              textTransform: 'none',
+              fontWeight: 700,
+              backgroundColor: '#2980B9',
+              boxShadow: 'none',
+              '&:hover': { backgroundColor: '#1F618D' },
+            }}
+          >
+            {retryChequeModal.submitting ? 'Re-presenting...' : 'Confirm Re-presentation'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

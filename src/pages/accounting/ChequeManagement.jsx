@@ -46,7 +46,9 @@ const ChequeManagement = () => {
     try {
       setLoading(true);
       const params = { paymentMode: 'CHEQUE' };
-      if (activeTab !== 'ALL') {
+      if (activeTab === 'PDC') {
+        params.isPostDated = true;
+      } else if (activeTab !== 'ALL') {
         params.status = activeTab;
       }
       const res = await getPaymentsList(params);
@@ -136,6 +138,7 @@ const ChequeManagement = () => {
           sx={{ px: 2, pt: 1 }}
         >
           <Tab value="ALL" label="All Cheques" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab value="PDC" label="Post-Dated Cheques (PDC)" sx={{ textTransform: 'none', fontWeight: 700, color: activeTab === 'PDC' ? '#D97706' : undefined }} />
           <Tab value="RECEIVED" label="Received (In Hand)" sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab value="DEPOSITED" label="Deposited in Bank" sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab value="CLEARED" label="Cleared" sx={{ textTransform: 'none', fontWeight: 600 }} />
@@ -161,8 +164,9 @@ const ChequeManagement = () => {
               <TableRow>
                 <TableCell sx={{ fontWeight: 700 }}>Voucher No.</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Customer / Party</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Cheque No.</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Bank Name</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Cheque No. & Type</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Customer Bank</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Deposit To Bank A/C</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Cheque Date</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700 }}>Amount (₹)</TableCell>
                 <TableCell align="center" sx={{ fontWeight: 700 }}>Status</TableCell>
@@ -174,6 +178,8 @@ const ChequeManagement = () => {
                 const conf = statusColors[p.status] || { color: 'default', text: p.status };
                 const isCleared = p.status === 'CLEARED';
                 const isBounced = p.status === 'BOUNCED';
+                const isPDC = Boolean(p.paymentDetails?.isPostDated);
+                const isFuture = p.paymentDetails?.chequeDate && new Date(p.paymentDetails.chequeDate) > new Date();
 
                 return (
                   <TableRow key={p._id} hover>
@@ -184,11 +190,37 @@ const ChequeManagement = () => {
                       {p.partyName || 'Customer'}
                     </TableCell>
                     <TableCell sx={{ fontWeight: 700, color: 'text.primary' }}>
-                      #{p.paymentDetails?.chequeNumber || '—'}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <span>#{p.paymentDetails?.chequeNumber || '—'}</span>
+                        {isPDC && (
+                          <Chip
+                            size="small"
+                            label="PDC"
+                            sx={{
+                              height: 18,
+                              fontSize: '0.62rem',
+                              fontWeight: 800,
+                              backgroundColor: '#FEF3C7',
+                              color: '#92400E',
+                              border: '1px solid #FCD34D'
+                            }}
+                          />
+                        )}
+                      </Box>
                     </TableCell>
                     <TableCell>{p.paymentDetails?.bankName || '—'}</TableCell>
+                    <TableCell sx={{ fontWeight: 500, color: '#1E293B' }}>
+                      {p.paymentDetails?.bankAccountName || '—'}
+                    </TableCell>
                     <TableCell>
-                      {p.paymentDetails?.chequeDate ? new Date(p.paymentDetails.chequeDate).toLocaleDateString() : '—'}
+                      <div>
+                        {p.paymentDetails?.chequeDate ? new Date(p.paymentDetails.chequeDate).toLocaleDateString() : '—'}
+                      </div>
+                      {isPDC && isFuture && (
+                        <Typography variant="caption" sx={{ color: '#D97706', fontWeight: 600, fontSize: '0.65rem' }}>
+                          Matures in future
+                        </Typography>
+                      )}
                     </TableCell>
                     <TableCell align="right" sx={{ fontWeight: 700 }}>
                       ₹{Number(p.grossAmount || 0).toLocaleString()}
@@ -269,6 +301,11 @@ const ChequeManagement = () => {
           <Typography variant="body2" sx={{ mb: 2 }}>
             Confirm that Cheque #{selectedCheque?.paymentDetails?.chequeNumber} for ₹{Number(selectedCheque?.grossAmount || 0).toLocaleString()} has cleared in bank.
           </Typography>
+          {selectedCheque?.paymentDetails?.isPostDated && (
+            <Alert severity="warning" variant="outlined" sx={{ mb: 2, borderRadius: '8px', fontSize: '0.8rem' }}>
+              ⏳ <strong>Post-Dated Cheque Clearance:</strong> Confirming clearance will credit ₹{Number(selectedCheque?.grossAmount || 0).toLocaleString()} to customer ledger balance and apply order payment allocations.
+            </Alert>
+          )}
           <TextField
             label="Bank Clearance Date"
             type="date"
@@ -299,14 +336,20 @@ const ChequeManagement = () => {
           Mark Cheque as BOUNCED (Dishonoured)
         </DialogTitle>
         <DialogContent dividers>
-          <Alert severity="error" sx={{ mb: 2, borderRadius: '8px' }}>
-            <strong>Rule Triggered:</strong> Marking this cheque as bounced will automatically:
-            <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
-              <li>Debit Customer Ledger with original ₹{Number(selectedCheque?.grossAmount || 0).toLocaleString()}</li>
-              <li>Debit automatic <strong>₹500 Cheque Bounce Penalty</strong></li>
-              <li>Post dual non-editable audit trail records (REV- & CHG-)</li>
-            </ul>
-          </Alert>
+          {selectedCheque?.paymentDetails?.isPostDated ? (
+            <Alert severity="warning" sx={{ mb: 2, borderRadius: '8px' }}>
+              <strong>Post-Dated Cheque Dishonoured:</strong> This cheque was not previously credited to ledger. Marking as bounced will record dishonour status and debit <strong>₹500 bounce penalty</strong> to customer account.
+            </Alert>
+          ) : (
+            <Alert severity="error" sx={{ mb: 2, borderRadius: '8px' }}>
+              <strong>Rule Triggered:</strong> Marking this cheque as bounced will automatically:
+              <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+                <li>Reverse customer credit of ₹{Number(selectedCheque?.grossAmount || 0).toLocaleString()}</li>
+                <li>Debit automatic <strong>₹500 Cheque Bounce Penalty</strong></li>
+                <li>Post non-editable audit trail records</li>
+              </ul>
+            </Alert>
+          )}
           <TextField
             label="Cheque Bounce Reason / Bank Memo"
             size="small"

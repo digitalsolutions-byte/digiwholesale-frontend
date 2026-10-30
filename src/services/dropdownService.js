@@ -330,3 +330,49 @@ export const deleteSpecificLab = async (id) => {
         throw handleServiceError(error, 'Failed to delete specific lab');
     }
 };
+
+// --- BANK ACCOUNTS ---
+export const getBankAccounts = async (params = {}) => {
+    try {
+        const response = await api.get('/api/product/bank-accounts', { params });
+        return response.data;
+    } catch (error) {
+        throw handleServiceError(error, 'Failed to fetch bank accounts');
+    }
+};
+
+export const getBankAccountById = async (id) => {
+    try {
+        const response = await api.get(`/api/product/bank-accounts/${id}`);
+        return response.data;
+    } catch (error) {
+        throw handleServiceError(error, 'Failed to fetch bank account');
+    }
+};
+
+export const createBankAccount = async (data) => {
+    try {
+        const response = await api.post('/api/product/bank-accounts', data);
+        return response.data;
+    } catch (error) {
+        throw handleServiceError(error, 'Failed to create bank account');
+    }
+};
+
+export const updateBankAccount = async (id, data) => {
+    try {
+        const response = await api.put(`/api/product/bank-accounts/${id}`, data);
+        return response.data;
+    } catch (error) {
+        throw handleServiceError(error, 'Failed to update bank account');
+    }
+};
+
+export const deleteBankAccount = async (id) => {
+    try {
+        const response = await api.delete(`/api/product/bank-accounts/${id}`);
+        return response.data;
+    } catch (error) {
+        throw handleServiceError(error, 'Failed to delete bank account');
+    }
+};

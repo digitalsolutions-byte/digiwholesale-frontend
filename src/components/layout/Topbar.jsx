@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import { useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import {
     Box,
     Typography,
@@ -16,12 +17,47 @@ import {
 } from '@mui/material';
 
 import { selectCurrentUser, selectCurrentTenant } from '../../store/slices/authSlice';
+import { PATHS } from '../../routes/paths';
+import { getPdcChequeAlerts } from '../../services/accountingService';
+import NotificationsPopover from './NotificationsPopover';
 
 const Topbar = ({ onMenuClick }) => {
+    const navigate = useNavigate();
     const user = useSelector(selectCurrentUser);
     const tenant = useSelector(selectCurrentTenant);
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+    // Notification Popover state
+    const [notificationAnchor, setNotificationAnchor] = useState(null);
+    const [alertsData, setAlertsData] = useState({ total: 0, maturedCount: 0, bouncedCount: 0, expiringSoonCount: 0, upcomingCount: 0, alerts: [] });
+    const actionCount = (alertsData.maturedCount || 0) + (alertsData.bouncedCount || 0) + (alertsData.expiringSoonCount || 0);
+    const [loadingAlerts, setLoadingAlerts] = useState(false);
+
+    const fetchAlerts = async () => {
+        try {
+            setLoadingAlerts(true);
+            const res = await getPdcChequeAlerts();
+            if (res?.data) {
+                setAlertsData(res.data);
+            }
+        } catch (err) {
+            // Background polling catch
+        } finally {
+            setLoadingAlerts(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchAlerts();
+        const interval = setInterval(fetchAlerts, 60000);
+        const handleChequeUpdated = () => fetchAlerts();
+        window.addEventListener('cheque-status-updated', handleChequeUpdated);
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('cheque-status-updated', handleChequeUpdated);
+        };
+    }, []);
 
     // Demo NDA button: only show for non-PLATFORM_OWNER users
     // when either the employee OR their tenant has demoMode: true
@@ -209,35 +245,48 @@ const Topbar = ({ onMenuClick }) => {
                 )}
 
                 {/* Notifications */}
-                <Tooltip title="Notifications" placement="bottom">
+                <Tooltip
+                    title={
+                        actionCount > 0
+                            ? `${actionCount} Cheque Action(s) Required (${alertsData.maturedCount || 0} Matured, ${alertsData.expiringSoonCount || 0} Expiring Soon, ${alertsData.bouncedCount || 0} Bounced)`
+                            : (alertsData.upcomingCount > 0 ? `${alertsData.upcomingCount} Upcoming PDC Cheque(s)` : "Notifications")
+                    }
+                    placement="bottom"
+                >
                     <IconButton
                         size="small"
+                        onClick={(e) => setNotificationAnchor(e.currentTarget)}
                         sx={{
                             width: 36,
                             height: 36,
                             borderRadius: '10px',
-                            border: `1px solid ${alpha(theme.palette.divider, 0.12)}`,
-                            color: theme.palette.text.secondary,
+                            border: `1px solid ${actionCount > 0 ? 'rgba(231, 76, 60, 0.6)' : 'rgba(255, 255, 255, 0.2)'}`,
+                            color: actionCount > 0 ? '#FFD5D5' : '#FFFFFF',
+                            bgcolor: actionCount > 0 ? 'rgba(231, 76, 60, 0.25)' : 'rgba(255, 255, 255, 0.08)',
                             '&:hover': {
-                                bgcolor: alpha(theme.palette.warning.main, 0.06),
-                                borderColor: alpha(theme.palette.warning.main, 0.25),
-                                color: theme.palette.warning.main,
+                                bgcolor: actionCount > 0 ? 'rgba(231, 76, 60, 0.4)' : 'rgba(255, 255, 255, 0.18)',
+                                borderColor: actionCount > 0 ? '#E74C3C' : 'rgba(255, 255, 255, 0.4)',
+                                color: '#FFFFFF',
                             },
                             transition: 'all .15s',
                         }}
                     >
                         <Badge
-                            color="warning"
-                            variant="dot"
+                            badgeContent={actionCount > 0 ? actionCount : undefined}
+                            color="error"
+                            variant={actionCount > 0 ? "standard" : (alertsData.upcomingCount > 0 ? "dot" : "standard")}
+                            invisible={alertsData.total === 0}
                             sx={{
                                 '& .MuiBadge-badge': {
-                                    width: 7,
-                                    height: 7,
-                                    minWidth: 7,
-                                    borderRadius: '50%',
-                                    border: '1.5px solid white',
-                                    top: 2,
-                                    right: 2,
+                                    fontSize: '0.62rem',
+                                    fontWeight: 800,
+                                    height: 17,
+                                    minWidth: 17,
+                                    px: 0.4,
+                                    borderRadius: '9px',
+                                    border: '1.5px solid #1f618d',
+                                    backgroundColor: actionCount > 0 ? '#E74C3C' : '#F39C12',
+                                    color: '#FFFFFF',
                                 },
                             }}
                         >
@@ -251,7 +300,7 @@ const Topbar = ({ onMenuClick }) => {
                     sx={{
                         width: '1px',
                         height: '22px',
-                        bgcolor: alpha(theme.palette.divider, 0.15),
+                        bgcolor: 'rgba(255, 255, 255, 0.2)',
                         flexShrink: 0,
                     }}
                 />
@@ -260,16 +309,18 @@ const Topbar = ({ onMenuClick }) => {
                 <Tooltip title="Settings" placement="bottom">
                     <IconButton
                         size="small"
+                        onClick={() => navigate(PATHS.SETTINGS)}
                         sx={{
                             width: 36,
                             height: 36,
                             borderRadius: '10px',
-                            border: `1px solid ${alpha(theme.palette.divider, 0.12)}`,
-                            color: theme.palette.text.secondary,
+                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                            color: '#FFFFFF',
+                            bgcolor: 'rgba(255, 255, 255, 0.08)',
                             '&:hover': {
-                                bgcolor: alpha(theme.palette.primary.main, 0.06),
-                                borderColor: alpha(theme.palette.primary.main, 0.2),
-                                color: theme.palette.primary.main,
+                                bgcolor: 'rgba(255, 255, 255, 0.18)',
+                                borderColor: 'rgba(255, 255, 255, 0.4)',
+                                color: '#FFFFFF',
                             },
                             transition: 'all .15s',
                         }}
@@ -278,6 +329,16 @@ const Topbar = ({ onMenuClick }) => {
                     </IconButton>
                 </Tooltip>
             </Stack>
+
+            {/* PDC Maturity & Verification Notifications Popover */}
+            <NotificationsPopover
+                open={Boolean(notificationAnchor)}
+                anchorEl={notificationAnchor}
+                onClose={() => setNotificationAnchor(null)}
+                alertsData={alertsData}
+                loading={loadingAlerts}
+                onRefresh={fetchAlerts}
+            />
         </Paper>
     );
 };

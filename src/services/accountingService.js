@@ -121,6 +121,15 @@ export const updateChequeStatus = async (paymentId, data) => {
   }
 };
 
+export const getPdcChequeAlerts = async () => {
+  try {
+    const response = await api.get('/api/v1/payments/pdc-alerts');
+    return response.data;
+  } catch (error) {
+    throw handleServiceError(error, 'Failed to fetch PDC alerts');
+  }
+};
+
 export const getPaymentsList = async (params = {}) => {
   try {
     const response = await api.get('/api/v1/payments', { params });

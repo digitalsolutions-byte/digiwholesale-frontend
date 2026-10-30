@@ -16,6 +16,7 @@ const TABS = [
     { id: 'brands', label: 'Brands', icon: 'lucide:award', entityName: 'Brand' },
     { id: 'categories', label: 'Categories', icon: 'lucide:tags', entityName: 'Category' },
     { id: 'specific-labs', label: 'Specific Labs', icon: 'lucide:microscope', entityName: 'Specific Lab' },
+    { id: 'bank-accounts', label: 'Bank Accounts', icon: 'lucide:landmark', entityName: 'Bank Account' },
 ];
 
 export default function Settings() {
@@ -33,6 +34,19 @@ export default function Settings() {
     const [modalOpen, setModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
     const [formData, setFormData] = useState({ name: '', description: '', brand: '', isActive: true });
+    const initialBankForm = {
+        bankName: '',
+        accountHolderName: '',
+        accountNumber: '',
+        ifscCode: '',
+        branchName: '',
+        accountType: 'Current',
+        upiId: '',
+        isDefault: false,
+        isActive: true,
+        description: '',
+    };
+    const [bankFormData, setBankFormData] = useState(initialBankForm);
     const [formErrors, setFormErrors] = useState({});
     const [submitLoading, setSubmitLoading] = useState(false);
 
@@ -101,6 +115,13 @@ export default function Settings() {
                     update: dropdownService.updateSpecificLab,
                     delete: dropdownService.deleteSpecificLab,
                 };
+            case 'bank-accounts':
+                return {
+                    fetch: dropdownService.getBankAccounts,
+                    create: dropdownService.createBankAccount,
+                    update: dropdownService.updateBankAccount,
+                    delete: dropdownService.deleteBankAccount,
+                };
             default:
                 return {};
         }
@@ -149,6 +170,17 @@ export default function Settings() {
 
     // Filter items locally based on search input
     const filteredItems = items.filter((item) => {
+        if (activeTab === 'bank-accounts') {
+            const q = searchTerm.toLowerCase();
+            return (
+                (item.bankName || '').toLowerCase().includes(q) ||
+                (item.accountHolderName || '').toLowerCase().includes(q) ||
+                (item.accountNumber || '').includes(q) ||
+                (item.ifscCode || '').toLowerCase().includes(q) ||
+                (item.upiId || '').toLowerCase().includes(q) ||
+                (item.branchName || '').toLowerCase().includes(q)
+            );
+        }
         const matchesSearch =
             item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             item.description?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -164,6 +196,7 @@ export default function Settings() {
             brand: selectedBrandFilter || '',
             isActive: true
         });
+        setBankFormData(initialBankForm);
         setFormErrors({});
         setModalOpen(true);
     };
@@ -171,12 +204,27 @@ export default function Settings() {
     // Handle Open Edit Modal
     const handleEditClick = (item) => {
         setEditingItem(item);
-        setFormData({
-            name: item.name || '',
-            description: item.description || '',
-            brand: item.brand?._id || item.brand || '',
-            isActive: item.isActive ?? true
-        });
+        if (activeTab === 'bank-accounts') {
+            setBankFormData({
+                bankName: item.bankName || '',
+                accountHolderName: item.accountHolderName || '',
+                accountNumber: item.accountNumber || '',
+                ifscCode: item.ifscCode || '',
+                branchName: item.branchName || '',
+                accountType: item.accountType || 'Current',
+                upiId: item.upiId || '',
+                isDefault: Boolean(item.isDefault),
+                isActive: item.isActive ?? true,
+                description: item.description || '',
+            });
+        } else {
+            setFormData({
+                name: item.name || '',
+                description: item.description || '',
+                brand: item.brand?._id || item.brand || '',
+                isActive: item.isActive ?? true
+            });
+        }
         setFormErrors({});
         setModalOpen(true);
     };
@@ -189,7 +237,8 @@ export default function Settings() {
                 const updatedStatus = !item.isActive;
                 const res = await config.update(item._id, { isActive: updatedStatus });
                 if (res.success) {
-                    toast.success(`${item.name} is now ${updatedStatus ? 'Active' : 'Inactive'}`);
+                    const itemName = activeTab === 'bank-accounts' ? item.bankName : item.name;
+                    toast.success(`${itemName} is now ${updatedStatus ? 'Active' : 'Inactive'}`);
                     loadItems();
                 }
             }
@@ -230,6 +279,60 @@ export default function Settings() {
     const handleFormSubmit = async (e) => {
         e.preventDefault();
         setFormErrors({});
+
+        if (activeTab === 'bank-accounts') {
+            const errors = {};
+            if (!bankFormData.bankName.trim()) errors.bankName = { message: 'Bank name is required' };
+            if (!bankFormData.accountHolderName.trim()) errors.accountHolderName = { message: 'Account holder name is required' };
+            if (!bankFormData.accountNumber.trim()) errors.accountNumber = { message: 'Account number is required' };
+            if (!bankFormData.ifscCode.trim()) errors.ifscCode = { message: 'IFSC code is required' };
+
+            if (Object.keys(errors).length > 0) {
+                setFormErrors(errors);
+                return;
+            }
+
+            setSubmitLoading(true);
+            try {
+                const config = getTabConfig(activeTab);
+                const submitPayload = {
+                    bankName: bankFormData.bankName.trim(),
+                    accountHolderName: bankFormData.accountHolderName.trim(),
+                    accountNumber: bankFormData.accountNumber.trim(),
+                    ifscCode: bankFormData.ifscCode.trim().toUpperCase(),
+                    branchName: bankFormData.branchName.trim(),
+                    accountType: bankFormData.accountType || 'Current',
+                    upiId: bankFormData.upiId.trim(),
+                    isDefault: Boolean(bankFormData.isDefault),
+                    isActive: Boolean(bankFormData.isActive),
+                    description: bankFormData.description.trim(),
+                };
+
+                let response;
+                if (editingItem) {
+                    response = await config.update(editingItem._id, submitPayload);
+                } else {
+                    response = await config.create(submitPayload);
+                }
+
+                if (response.success) {
+                    toast.success(editingItem ? 'Bank account updated successfully' : 'Bank account added successfully');
+                    setModalOpen(false);
+                    loadItems();
+                }
+            } catch (error) {
+                console.error('Submit failed:', error);
+                const msg = error.response?.data?.message || error.message || 'Operation failed';
+                if (msg.toLowerCase().includes('duplicate') || msg.toLowerCase().includes('already exists')) {
+                    setFormErrors({ accountNumber: { message: msg } });
+                } else {
+                    setFormErrors({ general: msg });
+                }
+            } finally {
+                setSubmitLoading(false);
+            }
+            return;
+        }
 
         // Simple validation
         const errors = {};
@@ -388,18 +491,29 @@ export default function Settings() {
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
                                 <thead>
-                                    <tr className="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                        <th className="py-4 px-5">Name</th>
-                                        {activeTab === 'categories' && <th className="py-4 px-5">Brand</th>}
-                                        <th className="py-4 px-5">Description</th>
-                                        <th className="py-4 px-5 text-center">Status</th>
-                                        <th className="py-4 px-5 text-right">Actions</th>
-                                    </tr>
+                                    {activeTab === 'bank-accounts' ? (
+                                        <tr className="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                            <th className="py-4 px-5">Bank & Account Holder</th>
+                                            <th className="py-4 px-5">Account Number & Type</th>
+                                            <th className="py-4 px-5">IFSC & Branch</th>
+                                            <th className="py-4 px-5">UPI ID</th>
+                                            <th className="py-4 px-5 text-center">Status</th>
+                                            <th className="py-4 px-5 text-right">Actions</th>
+                                        </tr>
+                                    ) : (
+                                        <tr className="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                            <th className="py-4 px-5">Name</th>
+                                            {activeTab === 'categories' && <th className="py-4 px-5">Brand</th>}
+                                            <th className="py-4 px-5">Description</th>
+                                            <th className="py-4 px-5 text-center">Status</th>
+                                            <th className="py-4 px-5 text-right">Actions</th>
+                                        </tr>
+                                    )}
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 text-xs">
                                     {loading ? (
                                         <tr>
-                                            <td colSpan={activeTab === 'categories' ? 5 : 4} className="py-12 text-center text-slate-400 font-semibold">
+                                            <td colSpan={activeTab === 'bank-accounts' ? 6 : activeTab === 'categories' ? 5 : 4} className="py-12 text-center text-slate-400 font-semibold">
                                                 <div className="flex items-center justify-center gap-2">
                                                     <Icon icon="lucide:loader-2" className="animate-spin text-lg text-[#2980B9]" />
                                                     <span>Loading {currentTabConfig?.label}...</span>
@@ -408,7 +522,7 @@ export default function Settings() {
                                         </tr>
                                     ) : filteredItems.length === 0 ? (
                                         <tr>
-                                            <td colSpan={activeTab === 'categories' ? 5 : 4} className="py-12 text-center text-slate-400">
+                                            <td colSpan={activeTab === 'bank-accounts' ? 6 : activeTab === 'categories' ? 5 : 4} className="py-12 text-center text-slate-400">
                                                 <Icon icon="lucide:inbox" className="text-3xl mx-auto mb-2 text-slate-300" />
                                                 <p className="font-semibold text-slate-600">No {activeTab} configured yet.</p>
                                                 <p className="text-[11px] mt-1">Click the button above to add the first item.</p>
@@ -416,50 +530,121 @@ export default function Settings() {
                                         </tr>
                                     ) : (
                                         filteredItems.map((item) => (
-                                            <tr key={item._id} className="hover:bg-slate-50/70 transition-colors">
-                                                <td className="px-5 py-4 font-bold text-slate-800">
-                                                    {item.name}
-                                                </td>
-                                                {activeTab === 'categories' && (
-                                                    <td className="px-5 py-4 font-semibold text-[#1F618D]">
-                                                        {item.brand?.name || item.brand || '—'}
+                                            activeTab === 'bank-accounts' ? (
+                                                <tr key={item._id} className="hover:bg-slate-50/70 transition-colors">
+                                                    <td className="px-5 py-4">
+                                                        <div className="flex items-center gap-2.5">
+                                                            <div className="w-8 h-8 rounded-xl bg-blue-50 text-[#1F618D] flex items-center justify-center shrink-0">
+                                                                <Icon icon="lucide:landmark" className="text-base" />
+                                                            </div>
+                                                            <div>
+                                                                <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                                                                    {item.bankName}
+                                                                    {item.isDefault && (
+                                                                        <span className="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.2 rounded-md font-bold uppercase tracking-wider">
+                                                                            Primary
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-[11px] text-slate-400 font-medium">
+                                                                    {item.accountHolderName}
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </td>
-                                                )}
-                                                <td className="px-5 py-4 text-slate-500 max-w-sm truncate">
-                                                    {item.description || '—'}
-                                                </td>
-                                                <td className="px-5 py-4 text-center">
-                                                    <button
-                                                        onClick={() => handleToggleActive(item)}
-                                                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${
-                                                            item.isActive
-                                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                                                                : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
-                                                        }`}
-                                                    >
-                                                        <span className={`w-1.5 h-1.5 rounded-full ${item.isActive ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                                                        {item.isActive ? 'Active' : 'Inactive'}
-                                                    </button>
-                                                </td>
-                                                <td className="px-5 py-4 text-right">
-                                                    <div className="flex justify-end gap-2">
+                                                    <td className="px-5 py-4">
+                                                        <div className="font-mono font-semibold text-slate-800 tracking-wide text-xs">
+                                                            {item.accountNumber}
+                                                        </div>
+                                                        <span className="text-[10px] inline-block px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold mt-0.5">
+                                                            {item.accountType || 'Current'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-5 py-4">
+                                                        <div className="font-mono font-bold text-slate-700 text-xs">{item.ifscCode}</div>
+                                                        <div className="text-[11px] text-slate-400">{item.branchName || '—'}</div>
+                                                    </td>
+                                                    <td className="px-5 py-4 font-mono text-xs text-slate-600">
+                                                        {item.upiId || '—'}
+                                                    </td>
+                                                    <td className="px-5 py-4 text-center">
                                                         <button
-                                                            onClick={() => handleEditClick(item)}
-                                                            className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-[#2980B9] transition-all"
-                                                            title="Edit"
+                                                            onClick={() => handleToggleActive(item)}
+                                                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${
+                                                                item.isActive
+                                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                                                    : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
+                                                                }`}
                                                         >
-                                                            <Icon icon="lucide:pencil" className="text-base" />
+                                                            <span className={`w-1.5 h-1.5 rounded-full ${item.isActive ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                                                            {item.isActive ? 'Active' : 'Inactive'}
                                                         </button>
+                                                    </td>
+                                                    <td className="px-5 py-4 text-right">
+                                                        <div className="flex justify-end gap-2">
+                                                            <button
+                                                                onClick={() => handleEditClick(item)}
+                                                                className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-[#2980B9] transition-all"
+                                                                title="Edit"
+                                                            >
+                                                                <Icon icon="lucide:pencil" className="text-base" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteClick(item)}
+                                                                className="p-1.5 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600 transition-all"
+                                                                title="Delete"
+                                                            >
+                                                                <Icon icon="lucide:trash-2" className="text-base" />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                <tr key={item._id} className="hover:bg-slate-50/70 transition-colors">
+                                                    <td className="px-5 py-4 font-bold text-slate-800">
+                                                        {item.name}
+                                                    </td>
+                                                    {activeTab === 'categories' && (
+                                                        <td className="px-5 py-4 font-semibold text-[#1F618D]">
+                                                            {item.brand?.name || item.brand || '—'}
+                                                        </td>
+                                                    )}
+                                                    <td className="px-5 py-4 text-slate-500 max-w-sm truncate">
+                                                        {item.description || '—'}
+                                                    </td>
+                                                    <td className="px-5 py-4 text-center">
                                                         <button
-                                                            onClick={() => handleDeleteClick(item)}
-                                                            className="p-1.5 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600 transition-all"
-                                                            title="Delete"
+                                                            onClick={() => handleToggleActive(item)}
+                                                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${
+                                                                item.isActive
+                                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                                                    : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
+                                                                }`}
                                                         >
-                                                            <Icon icon="lucide:trash-2" className="text-base" />
+                                                            <span className={`w-1.5 h-1.5 rounded-full ${item.isActive ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                                                            {item.isActive ? 'Active' : 'Inactive'}
                                                         </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
+                                                    </td>
+                                                    <td className="px-5 py-4 text-right">
+                                                        <div className="flex justify-end gap-2">
+                                                            <button
+                                                                onClick={() => handleEditClick(item)}
+                                                                className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-[#2980B9] transition-all"
+                                                                title="Edit"
+                                                            >
+                                                                <Icon icon="lucide:pencil" className="text-base" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteClick(item)}
+                                                                className="p-1.5 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600 transition-all"
+                                                                title="Delete"
+                                                            >
+                                                                <Icon icon="lucide:trash-2" className="text-base" />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )
                                         ))
                                     )}
                                 </tbody>
@@ -476,11 +661,11 @@ export default function Settings() {
                     onClick={() => setModalOpen(false)}
                 >
                     <div
-                        className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200"
+                        className={`bg-white rounded-3xl shadow-2xl w-full ${activeTab === 'bank-accounts' ? 'max-w-2xl' : 'max-w-lg'} overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col`}
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Modal Header */}
-                        <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                        <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center shrink-0">
                             <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                                 <Icon icon={editingItem ? 'lucide:pencil' : 'lucide:plus'} className="text-[#2980B9]" />
                                 {editingItem ? 'Edit' : 'Add New'} {currentTabConfig?.entityName}
@@ -494,7 +679,7 @@ export default function Settings() {
                         </div>
 
                         {/* Modal Form */}
-                        <form onSubmit={handleFormSubmit} className="p-6 space-y-4">
+                        <form onSubmit={handleFormSubmit} className="p-6 space-y-4 overflow-y-auto">
                             {formErrors.general && (
                                 <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs font-bold text-red-700 flex items-center gap-2">
                                     <Icon icon="lucide:alert-circle" className="text-base shrink-0" />
@@ -502,62 +687,189 @@ export default function Settings() {
                                 </div>
                             )}
 
-                            {/* Name Input */}
-                            <Input
-                                label={`${currentTabConfig?.entityName} Name *`}
-                                placeholder={`Enter ${currentTabConfig?.entityName.toLowerCase()} name`}
-                                value={formData.name}
-                                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                                error={formErrors.name}
-                                required
-                            />
+                            {activeTab === 'bank-accounts' ? (
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <Input
+                                            label="Bank Name *"
+                                            placeholder="e.g. HDFC Bank, ICICI Bank, SBI"
+                                            value={bankFormData.bankName}
+                                            onChange={(e) => setBankFormData(prev => ({ ...prev, bankName: e.target.value }))}
+                                            error={formErrors.bankName}
+                                            required
+                                        />
+                                        <Input
+                                            label="Account Holder Name *"
+                                            placeholder="e.g. DigiOptics Wholesaler"
+                                            value={bankFormData.accountHolderName}
+                                            onChange={(e) => setBankFormData(prev => ({ ...prev, accountHolderName: e.target.value }))}
+                                            error={formErrors.accountHolderName}
+                                            required
+                                        />
+                                    </div>
 
-                            {/* Brand Dropdown (Strictly for Categories Tab) */}
-                            {activeTab === 'categories' && (
-                                <div className="space-y-1">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide ml-0.5">
-                                        Brand *
-                                    </label>
-                                    <SearchableSelect
-                                        placeholder="Select Brand"
-                                        options={brands.map(b => ({ value: b._id, label: b.name }))}
-                                        value={formData.brand}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, brand: e.target.value }))}
-                                        error={formErrors.brand}
-                                        name="categoryBrand"
-                                    />
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <Input
+                                            label="Account Number *"
+                                            placeholder="e.g. 50200012345678"
+                                            value={bankFormData.accountNumber}
+                                            onChange={(e) => setBankFormData(prev => ({ ...prev, accountNumber: e.target.value }))}
+                                            error={formErrors.accountNumber}
+                                            required
+                                        />
+                                        <Input
+                                            label="IFSC Code *"
+                                            placeholder="e.g. HDFC0001234"
+                                            value={bankFormData.ifscCode}
+                                            onChange={(e) => setBankFormData(prev => ({ ...prev, ifscCode: e.target.value.toUpperCase() }))}
+                                            error={formErrors.ifscCode}
+                                            required
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide ml-0.5">
+                                                Account Type *
+                                            </label>
+                                            <select
+                                                value={bankFormData.accountType}
+                                                onChange={(e) => setBankFormData(prev => ({ ...prev, accountType: e.target.value }))}
+                                                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:border-[#2980B9] focus:bg-white transition-all"
+                                            >
+                                                <option value="Current">Current Account</option>
+                                                <option value="Savings">Savings Account</option>
+                                                <option value="OD/CC">OD / Cash Credit (CC) Account</option>
+                                            </select>
+                                        </div>
+                                        <Input
+                                            label="Branch Name"
+                                            placeholder="e.g. Connaught Place Branch"
+                                            value={bankFormData.branchName}
+                                            onChange={(e) => setBankFormData(prev => ({ ...prev, branchName: e.target.value }))}
+                                            error={formErrors.branchName}
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <Input
+                                            label="UPI ID (Optional)"
+                                            placeholder="e.g. merchant@okhdfcbank"
+                                            value={bankFormData.upiId}
+                                            onChange={(e) => setBankFormData(prev => ({ ...prev, upiId: e.target.value }))}
+                                            error={formErrors.upiId}
+                                        />
+                                        <Input
+                                            label="Description / Purpose"
+                                            placeholder="e.g. Primary collection A/C"
+                                            value={bankFormData.description}
+                                            onChange={(e) => setBankFormData(prev => ({ ...prev, description: e.target.value }))}
+                                            error={formErrors.description}
+                                        />
+                                    </div>
+
+                                    {/* Default Account Toggle */}
+                                    <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+                                        <div className="space-y-0.5">
+                                            <div className="text-xs font-bold text-slate-800">Primary / Default Account</div>
+                                            <div className="text-[10px] text-slate-400 font-semibold uppercase">Auto-select for customer payments</div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setBankFormData(prev => ({ ...prev, isDefault: !prev.isDefault }))}
+                                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                                bankFormData.isDefault ? 'bg-[#2980B9]' : 'bg-slate-200'
+                                            }`}
+                                        >
+                                            <span
+                                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                                    bankFormData.isDefault ? 'translate-x-5' : 'translate-x-0'
+                                                }`}
+                                            />
+                                        </button>
+                                    </div>
+
+                                    {/* Active Status Toggle */}
+                                    <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+                                        <div className="space-y-0.5">
+                                            <div className="text-xs font-bold text-slate-800">Account Status</div>
+                                            <div className="text-[10px] text-slate-400 font-semibold uppercase">Define if this account is active for transactions</div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setBankFormData(prev => ({ ...prev, isActive: !prev.isActive }))}
+                                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                                bankFormData.isActive ? 'bg-[#2980B9]' : 'bg-slate-200'
+                                            }`}
+                                        >
+                                            <span
+                                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                                    bankFormData.isActive ? 'translate-x-5' : 'translate-x-0'
+                                                }`}
+                                            />
+                                        </button>
+                                    </div>
                                 </div>
+                            ) : (
+                                <>
+                                    {/* Name Input */}
+                                    <Input
+                                        label={`${currentTabConfig?.entityName} Name *`}
+                                        placeholder={`Enter ${currentTabConfig?.entityName.toLowerCase()} name`}
+                                        value={formData.name}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                                        error={formErrors.name}
+                                        required
+                                    />
+
+                                    {/* Brand Dropdown (Strictly for Categories Tab) */}
+                                    {activeTab === 'categories' && (
+                                        <div className="space-y-1">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide ml-0.5">
+                                                Brand *
+                                            </label>
+                                            <SearchableSelect
+                                                placeholder="Select Brand"
+                                                options={brands.map(b => ({ value: b._id, label: b.name }))}
+                                                value={formData.brand}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, brand: e.target.value }))}
+                                                error={formErrors.brand}
+                                                name="categoryBrand"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Description Input */}
+                                    <Input
+                                        label="Description"
+                                        placeholder={`Enter optional description`}
+                                        value={formData.description}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                                        error={formErrors.description}
+                                    />
+
+                                    {/* Active Status Toggle */}
+                                    <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+                                        <div className="space-y-0.5">
+                                            <div className="text-xs font-bold text-slate-800">Status</div>
+                                            <div className="text-[10px] text-slate-400 font-semibold uppercase">Define if this item is active for selection</div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData(prev => ({ ...prev, isActive: !prev.isActive }))}
+                                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                                formData.isActive ? 'bg-[#2980B9]' : 'bg-slate-200'
+                                            }`}
+                                        >
+                                            <span
+                                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                                    formData.isActive ? 'translate-x-5' : 'translate-x-0'
+                                                }`}
+                                            />
+                                        </button>
+                                    </div>
+                                </>
                             )}
-
-                            {/* Description Input */}
-                            <Input
-                                label="Description"
-                                placeholder={`Enter optional description`}
-                                value={formData.description}
-                                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                                error={formErrors.description}
-                            />
-
-                            {/* Active Status Toggle */}
-                            <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
-                                <div className="space-y-0.5">
-                                    <div className="text-xs font-bold text-slate-800">Status</div>
-                                    <div className="text-[10px] text-slate-400 font-semibold uppercase">Define if this item is active for selection</div>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData(prev => ({ ...prev, isActive: !prev.isActive }))}
-                                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                                        formData.isActive ? 'bg-[#2980B9]' : 'bg-slate-200'
-                                    }`}
-                                >
-                                    <span
-                                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                                            formData.isActive ? 'translate-x-5' : 'translate-x-0'
-                                        }`}
-                                    />
-                                </button>
-                            </div>
 
                             {/* Action Buttons */}
                             <div className="flex gap-3 pt-4 border-t border-slate-100 mt-6">
@@ -593,7 +905,7 @@ export default function Settings() {
                 onConfirm={handleConfirmDelete}
                 loading={deleteLoading}
                 title={`Delete ${currentTabConfig?.entityName}?`}
-                message={`Are you sure you want to permanently delete "${itemToDelete?.name}"? This action cannot be undone.`}
+                message={`Are you sure you want to permanently delete "${itemToDelete?.bankName ? `${itemToDelete.bankName} (A/C: ${itemToDelete.accountNumber})` : itemToDelete?.name}"? This action cannot be undone.`}
                 confirmText="Delete"
                 cancelText="Cancel"
                 type="danger"
