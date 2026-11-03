@@ -2,16 +2,53 @@ import { useSelector } from 'react-redux';
 import { selectCurrentUser } from '../store/slices/authSlice';
 
 /**
+ * Helper to determine if user can edit customer details:
+ * Allowed: Super Admin, Admin, Accounts/Finance Department, and Sales Head Department
+ */
+export const canEditCustomer = (user) => {
+    if (!user) return false;
+
+    const empType = (user.EmployeeType?.name || user.EmployeeType || user.employeeType || user.role || user.Role || '').toUpperCase();
+    const dept = (user.Department?.name || user.Department || user.department?.name || user.department || '').toUpperCase();
+    const subRole = (user.SubRole?.name || user.SubRole || user.subRole || user.designation || '').toUpperCase();
+    const subRoles = Array.isArray(user.subRoles) ? user.subRoles : [];
+    const hasSalesHeadSubRole = subRoles.some(r => (r.code || r.name || '').toUpperCase().includes('SALES_HEAD')) 
+        || subRole.includes('SALES_HEAD') 
+        || subRole.includes('HEAD') 
+        || subRole.includes('MANAGER');
+
+    // 1. Super Admin / Platform Owner
+    if (['SUPERADMIN', 'SUPER_ADMIN', 'PLATFORM_OWNER'].includes(empType) || user.isPlatformOwner || user.isSuperAdmin) {
+        return true;
+    }
+
+    // 2. Admin
+    if (empType === 'ADMIN') {
+        return true;
+    }
+
+    // 3. Accounts / Finance department
+    if (['ACCOUNTS', 'ACCOUNTING', 'FINANCE'].includes(dept)) {
+        return true;
+    }
+
+    // 4. Sales Head department
+    if (dept.includes('SALES') && (['HEAD', 'MANAGER', 'SALES_HEAD'].includes(empType) || hasSalesHeadSubRole)) {
+        return true;
+    }
+
+    // 5. Fallback if explicit UPDATE_CUSTOMER permission is assigned
+    if (Array.isArray(user.accessPermissions) && user.accessPermissions.includes('UPDATE_CUSTOMER')) {
+        return true;
+    }
+
+    return false;
+};
+
+/**
  * usePermissions
  *
  * Single source of truth for all frontend access checks.
- *
- * Access rules:
- *  - EmployeeType === 'SUPERADMIN'  →  full access to everything, always
- *  - Everyone else:
- *      user.pageAccess[]        controls page / route visibility
- *      user.accessPermissions[] controls button / action visibility
- *  - user.permissions{}  is NEVER read (old system, ignore completely)
  */
 const usePermissions = () => {
     const reduxUser = useSelector(selectCurrentUser);
@@ -26,39 +63,23 @@ const usePermissions = () => {
     const isSuperAdmin = user?.EmployeeType === 'SUPERADMIN';
     const isPlatformOwner = user?.EmployeeType === 'PLATFORM_OWNER';
 
-    /**
-     * hasPageAccess('STAFF_LIST')
-     *
-     * Returns true when:
-     *   - no key is provided (open route), OR
-     *   - user is SUPERADMIN or PLATFORM_OWNER, OR
-     *   - user.pageAccess[] contains the key
-     */
     const hasPageAccess = (pageName) => {
-        if (!pageName) return true;       // no restriction — open route
-        if (!user) return false;          // not logged in
-        if (isSuperAdmin || isPlatformOwner) return true;    // SUPERADMIN & PLATFORM_OWNER: full access
+        if (!pageName) return true;
+        if (!user) return false;
+        if (isSuperAdmin || isPlatformOwner) return true;
         return Array.isArray(user.pageAccess) && user.pageAccess.includes(pageName);
     };
 
-    /**
-     * hasPermission('DELETE_CUSTOMER')
-     *
-     * Returns true when:
-     *   - no key is provided, OR
-     *   - user is SUPERADMIN or PLATFORM_OWNER, OR
-     *   - user.accessPermissions[] contains the key
-     *
-     * Backend validates independently — this only controls UI visibility.
-     */
     const hasPermission = (permissionName) => {
-        if (!permissionName) return true; // no restriction
+        if (!permissionName) return true;
         if (!user) return false;
-        if (isSuperAdmin || isPlatformOwner) return true;    // SUPERADMIN & PLATFORM_OWNER: full access
+        if (isSuperAdmin || isPlatformOwner) return true;
         return Array.isArray(user.accessPermissions) && user.accessPermissions.includes(permissionName);
     };
 
-    return { user, isSuperAdmin, isPlatformOwner, hasPageAccess, hasPermission };
+    const canEditCustomerDetails = canEditCustomer(user);
+
+    return { user, isSuperAdmin, isPlatformOwner, hasPageAccess, hasPermission, canEditCustomerDetails };
 };
 
 export default usePermissions;

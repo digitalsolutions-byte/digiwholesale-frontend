@@ -7,6 +7,8 @@ import { getAllZones } from '../services/locationService';
 import ConfirmationModal from '../components/ui/ConfirmationModal';
 import CorrectionRequestModal from '../components/ui/CorrectionRequestModal';
 import UpdateCustomerContactModal from '../components/ui/UpdateCustomerContactModal';
+import EditCustomerModal from '../components/ui/EditCustomerModal';
+import { canEditCustomer } from '../hooks/usePermissions';
 import { useSelector } from 'react-redux';
 import { selectCurrentUser } from '../store/slices/authSlice';
 import { toast } from 'react-toastify';
@@ -62,6 +64,7 @@ const CustomerList = () => {
     const [accountingPaymentCustomer, setAccountingPaymentCustomer] = useState(null);
     const [selectedCustomerForCorrection, setSelectedCustomerForCorrection] = useState(null);
     const [selectedCustomerForContactEdit, setSelectedCustomerForContactEdit] = useState(null);
+    const [selectedCustomerForEdit, setSelectedCustomerForEdit] = useState(null);
     const [deactivateLoading, setDeactivateLoading] = useState(false);
     const [correctionLoading, setCorrectionLoading] = useState(false);
 
@@ -839,12 +842,18 @@ const CustomerList = () => {
                                 Edit Ship-To
                             </button>
                         </PermissionWrapper>
-                        <PermissionWrapper permission="UPDATE_CUSTOMER">
-                            <button className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-blue-500 hover:bg-blue-50 border-y border-gray-50 transition-colors">
+                        {canEditCustomer(currentUser) && (
+                            <button
+                                onClick={() => {
+                                    navigate(`${PATHS.CUSTOMER.REGISTER}?customerId=${activeActionMenu.id}&mode=edit`);
+                                    setActiveActionMenu(null);
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-blue-600 hover:bg-blue-50 border-y border-gray-50 transition-colors"
+                            >
                                 <Icon icon="mdi:pencil" className="text-lg" />
-                                Edit
+                                Edit Customer
                             </button>
-                        </PermissionWrapper>
+                        )}
                         <PermissionWrapper permission="DELETE_CUSTOMER">
                             <button
                                 onClick={() => { handleDeactivateClick(activeActionMenu.cust); setActiveActionMenu(null); }}
@@ -884,6 +893,14 @@ const CustomerList = () => {
                 isOpen={!!selectedCustomerForContactEdit}
                 onClose={() => setSelectedCustomerForContactEdit(null)}
                 customer={selectedCustomerForContactEdit}
+                onSuccess={() => fetchCustomers(pagination.currentPage)}
+            />
+
+            {/* Edit Customer Details Modal */}
+            <EditCustomerModal
+                isOpen={!!selectedCustomerForEdit}
+                onClose={() => setSelectedCustomerForEdit(null)}
+                customer={selectedCustomerForEdit}
                 onSuccess={() => fetchCustomers(pagination.currentPage)}
             />
 

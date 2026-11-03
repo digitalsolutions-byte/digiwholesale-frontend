@@ -27,7 +27,8 @@ import {
     salesHeadApproveCustomer,
     financeApproveCustomer,
     getPendingStageCustomers,
-    resubmitCustomerCorrectionFinance
+    resubmitCustomerCorrectionFinance,
+    updateCustomerProfile
 } from '../services/customerService';
 import { uploadImage } from '../services/bucketService';
 import { PATHS } from '../routes/paths';
@@ -194,6 +195,8 @@ export default function RegisterCustomer() {
     const [draftCustomerId, setDraftCustomerId] = useState('');
     const [correctionCustomerId, setCorrectionCustomerId] = useState('');
     const [approvalId, setApprovalId] = useState('');
+    const [editCustomerId, setEditCustomerId] = useState('');
+    const [isEditMode, setIsEditMode] = useState(false);
     const [correctionRequest, setCorrectionRequest] = useState(null);
     const [isApprovalMode, setIsApprovalMode] = useState(false);
     const [isReadOnlyMode, setIsReadOnlyMode] = useState(false);
@@ -392,6 +395,41 @@ export default function RegisterCustomer() {
                             }
                         );
                     }
+                } else if (editCustomerId || isEditMode) {
+                    finalPayload = {
+                        ...payload,
+                        businessType: getObj(configs.businessTypes || [], values.businessTypeRefId),
+                        salesPerson: getObj(configs.salesPersons, values.salesPersonRefId, 'employeeName'),
+                        gstType: getObj(configs.gstTypes, values.gstTypeRefId),
+                        zone: getObj(configs.zones, values.zoneRefId, 'zone'),
+                        specificLab: getObj(configs.specificLabs, values.specificLabRefId),
+                        plant: getObj(configs.plants, values.plantRefId),
+                        fittingCenter: getObj(configs.fittingCenters, values.fittingCenterRefId),
+                        creditDays: getObj(configs.creditDays, values.creditDaysRefId, 'days'),
+                        courierName: getObj(configs.courierNames, values.courierNameRefId),
+                        courierTime: getObj(configs.courierTimes, values.courierTimeRefId, 'time'),
+                        businessTypeRefId: values.businessTypeRefId,
+                        salesPersonRefId: values.salesPersonRefId,
+                        gstTypeRefId: values.gstTypeRefId,
+                        zoneRefId: values.zoneRefId,
+                        specificLabRefId: values.specificLabRefId,
+                        plantRefId: values.plantRefId,
+                        fittingCenterRefId: values.fittingCenterRefId,
+                        creditDaysRefId: values.creditDaysRefId,
+                        courierNameRefId: values.courierNameRefId,
+                        courierTimeRefId: values.courierTimeRefId,
+                    };
+
+                    const targetId = editCustomerId || searchParams.get('customerId') || searchParams.get('editId');
+                    await toast.promise(
+                        updateCustomerProfile(targetId, finalPayload),
+                        {
+                            pending: 'Updating customer profile...',
+                            success: 'Customer profile updated successfully! 👌',
+                        }
+                    );
+                    navigate(PATHS.CUSTOMER.LIST);
+                    return;
                 } else {
                     await toast.promise(
                         registerCustomer(finalPayload),
@@ -525,6 +563,29 @@ export default function RegisterCustomer() {
         }
     }, [hasApprovalAccess, searchParams]);
 
+    const fetchEditCustomerData = useCallback(async (id, manualConfigs = null) => {
+        setLoadingDraftData(true);
+        setIsApprovalMode(false);
+        setIsReadOnlyMode(false);
+        setIsEditMode(true);
+        try {
+            const response = await getCustomerById(id);
+            const customer = response.data?.customer || response.data || response;
+            const currentConfigs = manualConfigs || configsRef.current;
+            const formValues = mapCustomerToFormValues(customer, currentConfigs);
+
+            formikRef.current.setValues(formValues, false);
+            setEditCustomerId(id);
+            lastLoadedIdRef.current = id;
+            toast.info('Customer details loaded for editing.');
+        } catch (error) {
+            console.error('Error loading customer for edit:', error);
+            toast.error('Failed to load customer details');
+        } finally {
+            setLoadingDraftData(false);
+        }
+    }, []);
+
     useEffect(() => {
         const fetchConfigs = async () => {
             try {
@@ -574,8 +635,9 @@ export default function RegisterCustomer() {
         const aId = searchParams.get('approvalId');
         const cId = searchParams.get('correctionId');
         const dId = searchParams.get('draftId');
+        const eId = searchParams.get('editId') || (searchParams.get('mode') === 'edit' ? searchParams.get('customerId') : null);
         // Prioritize workflow IDs over draft IDs to avoid context switching after saves
-        const currentId = aId || cId || dId;
+        const currentId = aId || cId || dId || eId;
 
         // If we have an ID from URL, only fetch if it's different from what we last loaded
         if (currentId) {
@@ -586,21 +648,24 @@ export default function RegisterCustomer() {
             if (dId) loadDraftDataById(dId);
             else if (cId) fetchCorrectionData(cId);
             else if (aId) fetchApprovalData(aId);
+            else if (eId) fetchEditCustomerData(eId);
         } else {
             // New Registration - Reset all modes ONLY if we were previously in a mode
-            if (lastLoadedIdRef.current || draftCustomerId || correctionCustomerId || approvalId) {
+            if (lastLoadedIdRef.current || draftCustomerId || correctionCustomerId || approvalId || editCustomerId) {
                 lastLoadedIdRef.current = null;
                 setDraftCustomerId('');
                 setCorrectionCustomerId('');
                 setApprovalId('');
+                setEditCustomerId('');
                 setIsApprovalMode(false);
                 setIsReadOnlyMode(false);
+                setIsEditMode(false);
                 setCorrectionRequest(null);
                 setCurrentStage('');
                 formik.resetForm();
             }
         }
-    }, [searchParams, configsLoaded, loadDraftDataById, fetchCorrectionData, fetchApprovalData]);
+    }, [searchParams, configsLoaded, loadDraftDataById, fetchCorrectionData, fetchApprovalData, fetchEditCustomerData]);
 
 
 
@@ -1089,13 +1154,13 @@ export default function RegisterCustomer() {
                         </div>
                         <div className="min-w-0 flex-1">
                             <h1 className="text-xs sm:text-sm font-black text-gray-800 uppercase tracking-widest truncate">
-                                {isApprovalMode ? 'Review Customer Registration' : (correctionCustomerId ? 'Correct Customer Details' : 'Register Customer')}
+                                {isEditMode ? `Edit Customer: ${formik.values.shopName || formik.values.firmName || 'Details'}` : (isApprovalMode ? 'Review Customer Registration' : (correctionCustomerId ? 'Correct Customer Details' : 'Register Customer'))}
                             </h1>
-                            <p className="text-[10px] sm:text-[11px] text-gray-400 font-medium truncate hidden sm:block">Complete all required steps to submit or update customer account</p>
+                            <p className="text-[10px] sm:text-[11px] text-gray-400 font-medium truncate hidden sm:block">{isEditMode ? 'Update customer information, documents, and configuration' : 'Complete all required steps to submit or update customer account'}</p>
                         </div>
                     </div>
                 </div>
-                {!isReadOnlyMode && !isApprovalMode && (
+                {!isReadOnlyMode && !isApprovalMode && !isEditMode && (
                     <div className="flex items-center gap-2 flex-shrink-0">
                         <button
                             type="button"
@@ -1123,6 +1188,23 @@ export default function RegisterCustomer() {
                         <p className="text-red-700 font-medium text-xs leading-relaxed">{correctionRequest.remark}</p>
                         <p className="text-red-500 text-[10px] uppercase font-bold tracking-widest mt-1">
                             Requested By: {correctionRequest.requestedBy?.employeeName || 'Finance'} • {correctionRequest.requestedAt ? new Date(correctionRequest.requestedAt).toLocaleDateString() : 'Recent'}
+                        </p>
+                    </div>
+                </div>
+            )}
+
+                        {/* Edit Mode Banner */}
+            {isEditMode && (
+                <div className="bg-blue-50/80 border border-[#2980B9]/30 rounded-xl p-4 flex items-start gap-4 shadow-sm mb-4">
+                    <div className="w-9 h-9 rounded-lg bg-[#2980B9] text-white flex items-center justify-center shrink-0">
+                        <Icon icon="mdi:account-edit" className="text-xl" />
+                    </div>
+                    <div className="flex-1">
+                        <h4 className="text-[#2980B9] font-black uppercase tracking-widest text-xs mb-1">
+                            Customer Edit Mode
+                        </h4>
+                        <p className="text-gray-700 font-medium text-xs leading-relaxed">
+                            You are editing an existing customer profile. All 5 registration steps, documents, blank cheques, and operational configurations are available for updating.
                         </p>
                     </div>
                 </div>
@@ -1206,7 +1288,7 @@ export default function RegisterCustomer() {
                                         <button
                                             type="button"
                                             onClick={() => {
-                                                if (idx <= activeStep || isStepValid(activeStep) || isReadOnlyMode || isApprovalMode) {
+                                                if (idx <= activeStep || isStepValid(activeStep) || isReadOnlyMode || isApprovalMode || isEditMode) {
                                                     setStep(idx);
                                                 } else {
                                                     toast.warning(`Please complete the current step first.`);
@@ -1253,7 +1335,7 @@ export default function RegisterCustomer() {
                                                 {!isReadOnlyMode && (
                                                     <div className="mt-8 pt-5 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
                                                         <div className="flex items-center gap-2">
-                                                            {!isApprovalMode && (
+                                                            {!isApprovalMode && !isEditMode && (
                                                                 <button
                                                                     type="button"
                                                                     onClick={handleSaveDraft}
@@ -1325,7 +1407,7 @@ export default function RegisterCustomer() {
                                                             >
                                                                 <span>
                                                                     {activeStep === steps.length - 1
-                                                                        ? (isApprovalMode ? (currentStage === 'salesHead' ? 'Approve as Sales Head' : 'Approve & Finalize (Finance)') : (correctionCustomerId ? 'Resubmit' : (hasApprovalAccess ? 'Register' : 'Submit')))
+                                                                        ? (isEditMode ? 'Update Customer' : (isApprovalMode ? (currentStage === 'salesHead' ? 'Approve as Sales Head' : 'Approve & Finalize (Finance)') : (correctionCustomerId ? 'Resubmit' : (hasApprovalAccess ? 'Register' : 'Submit'))))
                                                                         : 'Next Step'}
                                                                 </span>
                                                                 <Icon icon={activeStep === steps.length - 1 ? "mdi:check-decagram" : "mdi:arrow-right-circle"} className="text-sm" />

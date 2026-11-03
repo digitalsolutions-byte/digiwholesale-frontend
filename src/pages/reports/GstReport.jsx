@@ -287,150 +287,170 @@ export default function GstReport() {
   }, [currentRecords]);
 
   return (
-    <div className="p-4 md:p-6 bg-[#F4F7F9] min-h-screen text-slate-800 space-y-6 font-sans">
+    <div className="p-3 sm:p-4 md:p-6 bg-[#F4F7F9] min-h-screen text-slate-800 space-y-4 sm:space-y-6 font-sans max-w-full overflow-x-hidden">
       {/* ── 1. Top Header ────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-        <div className="flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-[#2980B9]/10 text-[#2980B9] flex items-center justify-center font-bold shadow-inner">
-            <Icon icon="lucide:file-spreadsheet" width={24} />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-slate-200">
+        <div className="flex items-start sm:items-center gap-3 sm:gap-3.5">
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-[#2980B9]/10 text-[#2980B9] flex items-center justify-center font-bold shadow-inner flex-shrink-0 mt-0.5 sm:mt-0">
+            <Icon icon="lucide:file-spreadsheet" width={22} className="sm:w-6 sm:h-6" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tight">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tight">
                 GST Reports &amp; Tax Filings
               </h1>
-              <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-sky-50 text-[#1F618D] border border-sky-100">
+              <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-extrabold uppercase bg-sky-50 text-[#1F618D] border border-sky-100">
                 ERP Compliance
               </span>
             </div>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
+            <p className="text-xs text-slate-500 font-medium mt-0.5 leading-relaxed">
               Output (Sales), Input (Purchases) &amp; Consolidated HSN summaries for GSTR-1, GSTR-3B &amp; Reconciliation.
             </p>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap sm:flex-nowrap">
           <button
             onClick={fetchReport}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg transition border border-slate-200 shadow-sm disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg transition border border-slate-200 shadow-sm disabled:opacity-50 flex-1 sm:flex-initial"
             title="Refresh Data"
           >
             <Icon icon="lucide:refresh-cw" className={loading ? "animate-spin text-[#2980B9]" : "text-slate-500"} width={15} />
             <span>Refresh</span>
           </button>
 
-        
           <button
             onClick={handleDownloadFullWorkbook}
             disabled={exporting}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-[#2980B9] hover:bg-[#1F618D] text-white text-xs font-bold rounded-lg shadow-sm hover:shadow transition disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2 bg-[#2980B9] hover:bg-[#1F618D] text-white text-xs font-bold rounded-lg shadow-sm hover:shadow transition disabled:opacity-50 flex-1 sm:flex-initial whitespace-nowrap"
           >
-            <Icon icon={exporting ? "lucide:loader-2" : "lucide:download"} className={exporting ? "animate-spin" : ""} width={16} />
-            <span>{exporting ? "Exporting..." : "Export Full GST Workbook (.xlsx)"}</span>
+            <Icon icon={exporting ? "lucide:loader-2" : "lucide:download"} className={exporting ? "animate-spin flex-shrink-0" : "flex-shrink-0"} width={16} />
+            <span>{exporting ? "Exporting..." : <><span className="hidden sm:inline">Export Full GST Workbook (.xlsx)</span><span className="sm:hidden">Export Workbook (.xlsx)</span></>}</span>
           </button>
         </div>
       </div>
 
       {/* ── 2. Financial Summary KPI Cards ──────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-3.5">
         {/* Card 1: Output Taxable */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-[#2980B9]/40 transition flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider">
+        <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-sm hover:border-[#2980B9]/40 hover:shadow-md transition flex flex-col justify-between min-w-0">
+          <div className="flex items-start justify-between gap-2 min-w-0">
+            <span className="text-[10px] sm:text-[10.5px] font-bold text-slate-500 uppercase tracking-wider leading-tight">
               Sales Taxable
             </span>
-            <span className="w-7 h-7 rounded-lg bg-blue-50 text-[#2980B9] flex items-center justify-center">
+            <span className="w-7 h-7 rounded-lg bg-blue-50 text-[#2980B9] flex items-center justify-center flex-shrink-0">
               <Icon icon="lucide:shopping-cart" width={15} />
             </span>
           </div>
-          <div className="mt-2.5 text-lg md:text-xl font-black font-mono text-slate-900">
+          <div
+            className="mt-2 text-base sm:text-lg xl:text-xl font-black font-mono text-slate-900 tracking-tight truncate"
+            title={fmtCurrency(reportData.summary.totalOutputTaxable)}
+          >
             {fmtCurrency(reportData.summary.totalOutputTaxable)}
           </div>
-          <div className="mt-1 text-[11px] text-slate-500 font-semibold">
+          <div className="mt-1 text-[10.5px] sm:text-[11px] text-slate-500 font-semibold truncate">
             {reportData.meta.totalOutputCount || reportData.outputReport.length} Billed Items
           </div>
         </div>
 
         {/* Card 2: Output GST */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-amber-300 transition flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider">
+        <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-sm hover:border-amber-300 hover:shadow-md transition flex flex-col justify-between min-w-0">
+          <div className="flex items-start justify-between gap-2 min-w-0">
+            <span className="text-[10px] sm:text-[10.5px] font-bold text-slate-500 uppercase tracking-wider leading-tight">
               Output GST (Liability)
             </span>
-            <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+            <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0">
               <Icon icon="lucide:badge-percent" width={15} />
             </span>
           </div>
-          <div className="mt-2.5 text-lg md:text-xl font-black font-mono text-amber-600">
+          <div
+            className="mt-2 text-base sm:text-lg xl:text-xl font-black font-mono text-amber-600 tracking-tight truncate"
+            title={fmtCurrency(reportData.summary.totalOutputGst)}
+          >
             {fmtCurrency(reportData.summary.totalOutputGst)}
           </div>
-          <div className="mt-1 text-[11px] text-slate-500 font-semibold">
+          <div
+            className="mt-1 text-[10.5px] sm:text-[11px] text-slate-500 font-semibold truncate"
+            title={`Net Sales: ${fmtCurrency(reportData.summary.totalOutputNet)}`}
+          >
             Net Sales: {fmtCurrency(reportData.summary.totalOutputNet)}
           </div>
         </div>
 
         {/* Card 3: Input Taxable */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-[#2980B9]/40 transition flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider">
+        <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-sm hover:border-[#2980B9]/40 hover:shadow-md transition flex flex-col justify-between min-w-0">
+          <div className="flex items-start justify-between gap-2 min-w-0">
+            <span className="text-[10px] sm:text-[10.5px] font-bold text-slate-500 uppercase tracking-wider leading-tight">
               Purchase Taxable
             </span>
-            <span className="w-7 h-7 rounded-lg bg-sky-50 text-[#1F618D] flex items-center justify-center">
+            <span className="w-7 h-7 rounded-lg bg-sky-50 text-[#1F618D] flex items-center justify-center flex-shrink-0">
               <Icon icon="lucide:package" width={15} />
             </span>
           </div>
-          <div className="mt-2.5 text-lg md:text-xl font-black font-mono text-slate-900">
+          <div
+            className="mt-2 text-base sm:text-lg xl:text-xl font-black font-mono text-slate-900 tracking-tight truncate"
+            title={fmtCurrency(reportData.summary.totalInputTaxable)}
+          >
             {fmtCurrency(reportData.summary.totalInputTaxable)}
           </div>
-          <div className="mt-1 text-[11px] text-slate-500 font-semibold">
+          <div className="mt-1 text-[10.5px] sm:text-[11px] text-slate-500 font-semibold truncate">
             {reportData.meta.totalInputCount || reportData.inputReport.length} Purchase Items
           </div>
         </div>
 
         {/* Card 4: Input GST */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-emerald-300 transition flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider">
+        <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-sm hover:border-emerald-300 hover:shadow-md transition flex flex-col justify-between min-w-0">
+          <div className="flex items-start justify-between gap-2 min-w-0">
+            <span className="text-[10px] sm:text-[10.5px] font-bold text-slate-500 uppercase tracking-wider leading-tight">
               Input GST (ITC)
             </span>
-            <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
               <Icon icon="lucide:shield-check" width={15} />
             </span>
           </div>
-          <div className="mt-2.5 text-lg md:text-xl font-black font-mono text-emerald-600">
+          <div
+            className="mt-2 text-base sm:text-lg xl:text-xl font-black font-mono text-emerald-600 tracking-tight truncate"
+            title={fmtCurrency(reportData.summary.totalInputGst)}
+          >
             {fmtCurrency(reportData.summary.totalInputGst)}
           </div>
-          <div className="mt-1 text-[11px] text-slate-500 font-semibold">
+          <div
+            className="mt-1 text-[10.5px] sm:text-[11px] text-slate-500 font-semibold truncate"
+            title={`Net Purchases: ${fmtCurrency(reportData.summary.totalInputNet)}`}
+          >
             Net Purchases: {fmtCurrency(reportData.summary.totalInputNet)}
           </div>
         </div>
 
         {/* Card 5: Net Payable */}
-        <div className="col-span-2 md:col-span-1 bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 transition flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider">
+        <div className="col-span-1 sm:col-span-2 lg:col-span-1 xl:col-span-1 bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 hover:shadow-md transition flex flex-col justify-between min-w-0">
+          <div className="flex items-start justify-between gap-2 min-w-0">
+            <span className="text-[10px] sm:text-[10.5px] font-bold text-slate-500 uppercase tracking-wider leading-tight">
               Net Tax {reportData.summary.netGstPayable >= 0 ? "Payable" : "Credit"}
             </span>
-            <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${reportData.summary.netGstPayable >= 0 ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-600"}`}>
+            <span className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${reportData.summary.netGstPayable >= 0 ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-600"}`}>
               <Icon icon="lucide:wallet" width={15} />
             </span>
           </div>
-          <div className={`mt-2.5 text-lg md:text-xl font-black font-mono ${reportData.summary.netGstPayable >= 0 ? "text-rose-600" : "text-emerald-600"}`}>
+          <div
+            className={`mt-2 text-base sm:text-lg xl:text-xl font-black font-mono tracking-tight truncate ${reportData.summary.netGstPayable >= 0 ? "text-rose-600" : "text-emerald-600"}`}
+            title={fmtCurrency(Math.abs(reportData.summary.netGstPayable))}
+          >
             {fmtCurrency(Math.abs(reportData.summary.netGstPayable))}
           </div>
-          <div className="mt-1 text-[11px] font-semibold text-slate-500">
+          <div className="mt-1 text-[10.5px] sm:text-[11px] font-semibold text-slate-500 truncate">
             {reportData.summary.netGstPayable >= 0 ? "(Liability - ITC)" : "(Excess ITC Available)"}
           </div>
         </div>
       </div>
 
       {/* ── 3. Filters & Controls ────────────────────────────────── */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+      <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
         {/* Date presets */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500 mr-1 flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+          <span className="text-[10px] sm:text-[10.5px] font-bold uppercase tracking-wider text-slate-500 mr-1 flex items-center gap-1.5 flex-shrink-0">
             <Icon icon="lucide:calendar" className="text-[#2980B9]" width={15} />
             Presets:
           </span>
@@ -447,7 +467,7 @@ export default function GstReport() {
             <button
               key={preset.id}
               onClick={() => handleDatePreset(preset.id)}
-              className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg border transition-all ${
+              className={`px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold uppercase tracking-wider rounded-lg border transition-all ${
                 datePreset === preset.id
                   ? "bg-[#2980B9] text-white border-[#2980B9] shadow-sm"
                   : "bg-white text-slate-600 border-slate-200 hover:border-[#2980B9] hover:text-[#2980B9]"
@@ -459,9 +479,9 @@ export default function GstReport() {
         </div>
 
         {/* Input Controls Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 pt-3 border-t border-slate-100">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 pt-3 border-t border-slate-100">
           {/* Start Date */}
-          <div>
+          <div className="min-w-0">
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
               Start Date
             </label>
@@ -472,12 +492,12 @@ export default function GstReport() {
                 setDatePreset("CUSTOM");
                 setFilters((p) => ({ ...p, startDate: e.target.value }));
               }}
-              className="w-full text-xs font-semibold px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-lg text-slate-700 outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/10 transition"
+              className="w-full min-w-0 text-xs font-semibold px-2.5 sm:px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-lg text-slate-700 outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/10 transition"
             />
           </div>
 
           {/* End Date */}
-          <div>
+          <div className="min-w-0">
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
               End Date
             </label>
@@ -488,19 +508,19 @@ export default function GstReport() {
                 setDatePreset("CUSTOM");
                 setFilters((p) => ({ ...p, endDate: e.target.value }));
               }}
-              className="w-full text-xs font-semibold px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-lg text-slate-700 outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/10 transition"
+              className="w-full min-w-0 text-xs font-semibold px-2.5 sm:px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-lg text-slate-700 outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/10 transition"
             />
           </div>
 
           {/* GST Rate Filter */}
-          <div>
+          <div className="min-w-0">
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
               GST Rate
             </label>
             <select
               value={filters.gstRate}
               onChange={(e) => setFilters((p) => ({ ...p, gstRate: e.target.value }))}
-              className="w-full text-xs font-bold px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-lg text-slate-700 outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/10 transition"
+              className="w-full min-w-0 text-xs font-bold px-2.5 sm:px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-lg text-slate-700 outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/10 transition cursor-pointer"
             >
               <option value="ALL">All Rates</option>
               <option value="0">0% (Nil / Exempted)</option>
@@ -516,14 +536,14 @@ export default function GstReport() {
           </div>
 
           {/* Product Type */}
-          <div>
+          <div className="min-w-0">
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
               Product Type
             </label>
             <select
               value={filters.productType}
               onChange={(e) => setFilters((p) => ({ ...p, productType: e.target.value }))}
-              className="w-full text-xs font-bold px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-lg text-slate-700 outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/10 transition"
+              className="w-full min-w-0 text-xs font-bold px-2.5 sm:px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-lg text-slate-700 outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/10 transition cursor-pointer"
             >
               <option value="ALL">All Types</option>
               <option value="FRAME">Frames</option>
@@ -534,14 +554,14 @@ export default function GstReport() {
           </div>
 
           {/* Tax Type */}
-          <div>
+          <div className="min-w-0">
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
               Tax Type
             </label>
             <select
               value={filters.taxType}
               onChange={(e) => setFilters((p) => ({ ...p, taxType: e.target.value }))}
-              className="w-full text-xs font-bold px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-lg text-slate-700 outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/10 transition"
+              className="w-full min-w-0 text-xs font-bold px-2.5 sm:px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-lg text-slate-700 outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/10 transition cursor-pointer"
             >
               <option value="ALL">All (Inc / Exc)</option>
               <option value="EXCLUDED">EXCLUDED (Base + Tax)</option>
@@ -550,7 +570,7 @@ export default function GstReport() {
           </div>
 
           {/* Search Box */}
-          <div>
+          <div className="min-w-0 col-span-1 sm:col-span-2 md:col-span-3 xl:col-span-1">
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
               Search Party / Bill / HSN
             </label>
@@ -560,7 +580,7 @@ export default function GstReport() {
                 placeholder="Party, Bill #, GSTIN..."
                 value={filters.search}
                 onChange={(e) => setFilters((p) => ({ ...p, search: e.target.value }))}
-                className="w-full text-xs font-semibold pl-8 pr-3 py-2 bg-slate-50/70 border border-slate-200 rounded-lg text-slate-700 outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/10 transition"
+                className="w-full min-w-0 text-xs font-semibold pl-8 pr-3 py-2 bg-slate-50/70 border border-slate-200 rounded-lg text-slate-700 outline-none focus:border-[#2980B9] focus:ring-2 focus:ring-[#2980B9]/10 transition"
               />
               <Icon
                 icon="lucide:search"
@@ -573,19 +593,19 @@ export default function GstReport() {
       </div>
 
       {/* ── 4. Tabs Navigation ─────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-2">
-        <div className="flex items-center gap-2.5 flex-wrap">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200 pb-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 sm:flex-wrap -mx-1 px-1 no-scrollbar">
           {/* Tab 1: Output */}
           <button
             onClick={() => { setActiveTab("OUTPUT"); setPage(1); }}
-            className={`px-4 py-2 text-xs font-extrabold uppercase tracking-wider rounded-lg transition-all flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 text-xs font-extrabold uppercase tracking-wider rounded-lg transition-all flex items-center gap-2 whitespace-nowrap flex-shrink-0 ${
               activeTab === "OUTPUT"
                 ? "bg-[#1F618D] text-white shadow-sm"
                 : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 hover:border-[#2980B9]/40"
             }`}
           >
             <Icon icon="lucide:arrow-up-right" width={16} />
-            <span>GST Output Report (Sales)</span>
+            <span>GST Output <span className="hidden sm:inline">Report </span>(Sales)</span>
             <span
               className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
                 activeTab === "OUTPUT" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-700 border border-slate-200"
@@ -598,14 +618,14 @@ export default function GstReport() {
           {/* Tab 2: Input */}
           <button
             onClick={() => { setActiveTab("INPUT"); setPage(1); }}
-            className={`px-4 py-2 text-xs font-extrabold uppercase tracking-wider rounded-lg transition-all flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 text-xs font-extrabold uppercase tracking-wider rounded-lg transition-all flex items-center gap-2 whitespace-nowrap flex-shrink-0 ${
               activeTab === "INPUT"
                 ? "bg-[#1F618D] text-white shadow-sm"
                 : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 hover:border-[#2980B9]/40"
             }`}
           >
             <Icon icon="lucide:arrow-down-left" width={16} />
-            <span>GST Input Report (Purchase)</span>
+            <span>GST Input <span className="hidden sm:inline">Report </span>(Purchase)</span>
             <span
               className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
                 activeTab === "INPUT" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-700 border border-slate-200"
@@ -618,14 +638,14 @@ export default function GstReport() {
           {/* Tab 3: Consolidated */}
           <button
             onClick={() => { setActiveTab("CONSOLIDATED"); setPage(1); }}
-            className={`px-4 py-2 text-xs font-extrabold uppercase tracking-wider rounded-lg transition-all flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 text-xs font-extrabold uppercase tracking-wider rounded-lg transition-all flex items-center gap-2 whitespace-nowrap flex-shrink-0 ${
               activeTab === "CONSOLIDATED"
                 ? "bg-[#1F618D] text-white shadow-sm"
                 : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 hover:border-[#2980B9]/40"
             }`}
           >
             <Icon icon="lucide:layers" width={16} />
-            <span>GST Consolidated (HSN Summary)</span>
+            <span>GST Consolidated <span className="hidden sm:inline">(HSN Summary)</span><span className="sm:hidden">(HSN)</span></span>
             <span
               className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
                 activeTab === "CONSOLIDATED" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-700 border border-slate-200"
@@ -637,7 +657,7 @@ export default function GstReport() {
         </div>
 
         {/* Page size selector */}
-        <div className="flex items-center gap-2 text-xs text-slate-500 font-bold uppercase tracking-wider">
+        <div className="flex items-center justify-between md:justify-end gap-2 text-xs text-slate-500 font-bold uppercase tracking-wider flex-shrink-0 pt-1 md:pt-0">
           <span>Show:</span>
           <select
             value={pageSize}
@@ -645,7 +665,7 @@ export default function GstReport() {
               setPageSize(e.target.value === "ALL" ? "ALL" : Number(e.target.value));
               setPage(1);
             }}
-            className="bg-white border border-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs outline-none focus:border-[#2980B9]"
+            className="bg-white border border-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs outline-none focus:border-[#2980B9] cursor-pointer"
           >
             <option value={10}>10</option>
             <option value={25}>25</option>
@@ -658,6 +678,18 @@ export default function GstReport() {
 
       {/* ── 5. Main Tables ─────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        {/* Horizontal scroll tip on small screens */}
+        {!loading && currentRecords.length > 0 && (
+          <div className="flex items-center justify-between px-3 py-2 bg-slate-50/80 border-b border-slate-200 text-[11px] text-slate-500 font-medium sm:hidden">
+            <span className="flex items-center gap-1.5">
+              <Icon icon="lucide:arrow-left-right" width={13} className="text-[#2980B9]" />
+              <span>Scroll horizontally to view all columns</span>
+            </span>
+            <span className="text-[10px] font-bold text-slate-400">
+              {currentRecords.length} Rows
+            </span>
+          </div>
+        )}
         {loading ? (
           <div className="p-16 text-center text-slate-400">
             <Icon icon="lucide:loader-2" width={36} className="mx-auto mb-2 text-[#2980B9] animate-spin" />

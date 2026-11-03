@@ -901,7 +901,7 @@ const CustomerLedgers = () => {
                           </Tooltip>
                         )}
 
-                        {/* <Tooltip title="Send Wholesaler Bank Details">
+                        <Tooltip title="Send Wholesaler Bank Details">
                           <IconButton
                             size="small"
                             onClick={() => handleOpenBankDetails(l)}
@@ -909,7 +909,7 @@ const CustomerLedgers = () => {
                           >
                             <Icon icon="lucide:landmark" fontSize={15} />
                           </IconButton>
-                        </Tooltip> */}
+                        </Tooltip>
 
                         <Tooltip title="Configure Terms">
                           <IconButton

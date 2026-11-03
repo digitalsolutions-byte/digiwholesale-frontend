@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-toastify';
 import { getCustomerById } from '../services/customerService';
+import EditCustomerModal from '../components/ui/EditCustomerModal';
+import usePermissions from '../hooks/usePermissions';
 import { PATHS } from '../routes/paths';
 
 const InfoCard = ({ icon, title, children, color = "bg-[#2980B9]" }) => (
@@ -62,29 +64,32 @@ const DocCard = ({ label, url }) => (
 export default function CustomerProfile() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { canEditCustomerDetails } = usePermissions();
     const [customer, setCustomer] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+    const fetchProfile = React.useCallback(async () => {
+        if (!id) return;
+        setLoading(true);
+        try {
+            const res = await getCustomerById(id);
+            if (res.success) {
+                setCustomer(res.data);
+            } else {
+                toast.error("Failed to load customer profile");
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("Error loading customer profile");
+        } finally {
+            setLoading(false);
+        }
+    }, [id]);
 
     useEffect(() => {
-        const fetchProfile = async () => {
-            setLoading(true);
-            try {
-                const res = await getCustomerById(id);
-                if (res.success) {
-                    setCustomer(res.data);
-                } else {
-                    toast.error("Failed to load customer profile");
-                }
-            } catch (err) {
-                console.error(err);
-                toast.error("Error loading customer profile");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        if (id) fetchProfile();
-    }, [id]);
+        fetchProfile();
+    }, [fetchProfile]);
 
     if (loading) {
         return (
@@ -151,6 +156,14 @@ export default function CustomerProfile() {
                     <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${customer.status?.isActive !== false ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-red-100 text-red-700 border border-red-200'}`}>
                         {customer.status?.isActive !== false ? 'ACTIVE' : 'INACTIVE'}
                     </span>
+                    {canEditCustomerDetails && (
+                        <button
+                            onClick={() => navigate(`${PATHS.CUSTOMER.REGISTER}?customerId=${customer._id}&mode=edit`)}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#2980B9] text-white text-xs font-bold hover:bg-[#2471A3] shadow-sm shadow-[#2980B9]/20 transition-all"
+                        >
+                            <Icon icon="mdi:pencil" className="text-base" /> Edit Customer
+                        </button>
+                    )}
                     <button
                         onClick={() => navigate(`${PATHS.CUSTOMER.SHIP_TO}?customerId=${customer._id}`)}
                         className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[#2980B9] text-[#2980B9] text-xs font-bold hover:bg-blue-50 transition-all"
@@ -390,6 +403,17 @@ export default function CustomerProfile() {
                 </InfoCard>
 
             </div>
+        
+            {/* Edit Customer Details Modal */}
+            <EditCustomerModal
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                customer={customer}
+                onSuccess={(updated) => {
+                    if (updated) setCustomer(updated);
+                    fetchProfile();
+                }}
+            />
         </div>
     );
 }

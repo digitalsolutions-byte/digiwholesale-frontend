@@ -335,3 +335,12 @@ export const updateCustomerContact = async (customerId, contactData) => {
         throw handleServiceError(error, 'Failed to update customer contact');
     }
 };
+
+export const updateCustomerProfile = async (customerId, profileData) => {
+    try {
+        const response = await api.put(`/api/customer/management/update-profile/${customerId}`, profileData);
+        return response.data;
+    } catch (error) {
+        throw handleServiceError(error, 'Failed to update customer details');
+    }
+};

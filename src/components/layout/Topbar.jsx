@@ -267,10 +267,10 @@ const Topbar = ({ onMenuClick }) => {
                             height: 36,
                             borderRadius: '10px',
                             border: `1px solid ${urgentCount > 0
-                                    ? '#F59E0B'
-                                    : totalCount > 0
-                                        ? 'rgba(255, 255, 255, 0.35)'
-                                        : 'rgba(255, 255, 255, 0.2)'
+                                ? '#F59E0B'
+                                : totalCount > 0
+                                    ? 'rgba(255, 255, 255, 0.35)'
+                                    : 'rgba(255, 255, 255, 0.2)'
                                 }`,
                             color: urgentCount > 0 ? '#FEF08A' : '#FFFFFF',
                             bgcolor: urgentCount > 0 ? 'rgba(245, 158, 11, 0.3)' : 'rgba(255, 255, 255, 0.08)',
@@ -349,14 +349,14 @@ const Topbar = ({ onMenuClick }) => {
             </Stack>
 
             {/* Notifications Popover */}
-            {/* <NotificationsPopover
+            <NotificationsPopover
                 open={Boolean(notificationAnchor)}
                 anchorEl={notificationAnchor}
                 onClose={() => setNotificationAnchor(null)}
                 notificationsData={notificationsData}
                 loading={loadingNotifications}
                 onRefresh={fetchNotifications}
-            /> */}
+            />
         </Paper>
     );
 };
