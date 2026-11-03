@@ -109,6 +109,8 @@ const CUSTOMER_MODULE = [
     { path: 'customer/list', element: CustomerList, page: 'CUSTOMER_LIST' },
     { path: 'customer/profile/:id', element: CustomerProfile, page: 'CUSTOMER_LIST' },
     { path: 'customer/ship-to', element: ShipTo, page: 'SHIP_TO' },
+    { path: 'customer/approvals', element: ApprovalsList, page: 'APPROVALS' },
+    { path: 'customer/corrections', element: CorrectionsList, page: 'CORRECTIONS' },
 ];
 
 // ── Orders / Customer Care ────────────────────────────────────────────────────
@@ -155,6 +157,7 @@ const REPAIR_MODULE = [
 // ── Returns & Exchanges ───────────────────────────────────────────────────────
 const RETURNS_MODULE = [
     { path: PATHS.RETURNS.RETURN_REFUND, element: ReturnRefund, page: 'RETURN_REFUND' },
+    { path: 'returns/refund', element: ReturnRefund, page: 'RETURN_REFUND' },
     { path: PATHS.RETURNS.EXCHANGE, element: Exchange, page: 'EXCHANGE_REQUESTS' },
 ];
 

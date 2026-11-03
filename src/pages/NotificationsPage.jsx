@@ -76,6 +76,15 @@ const NotificationsPage = () => {
     });
   }, [allNotifications, searchQuery]);
 
+  const handleActionClick = (url) => {
+    if (!url) return;
+    let target = url;
+    if (target === '/customer/approvals') target = '/approvals';
+    if (target === '/customer/corrections') target = '/corrections';
+    if (target === '/returns/refund') target = '/return-refund';
+    navigate(target);
+  };
+
   const getCategoryTheme = (cat) => {
     switch (cat) {
       case 'ORDERS':
@@ -461,7 +470,7 @@ const NotificationsPage = () => {
                   <Grid item xs={12} md={3} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
                     <Button
                       variant="contained"
-                      onClick={() => item.actionUrl && navigate(item.actionUrl)}
+                      onClick={() => handleActionClick(item.actionUrl)}
                       endIcon={<Icon icon="lucide:arrow-right" />}
                       sx={{
                         borderRadius: '10px',

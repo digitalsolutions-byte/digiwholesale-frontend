@@ -26,6 +26,8 @@ export const PATHS = {
         LIST: '/customer/list',
         PROFILE: '/customer/profile/:id',
         SHIP_TO: '/customer/ship-to',
+        APPROVALS: '/approvals',
+        CORRECTIONS: '/corrections',
     },
 
     // CUSTOMER CARE / ORDERS

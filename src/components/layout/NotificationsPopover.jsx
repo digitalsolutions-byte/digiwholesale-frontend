@@ -54,7 +54,11 @@ const NotificationsPopover = ({
   const handleActionClick = (url) => {
     onClose();
     if (url) {
-      navigate(url);
+      let target = url;
+      if (target === '/customer/approvals') target = '/approvals';
+      if (target === '/customer/corrections') target = '/corrections';
+      if (target === '/returns/refund') target = '/return-refund';
+      navigate(target);
     }
   };
 
