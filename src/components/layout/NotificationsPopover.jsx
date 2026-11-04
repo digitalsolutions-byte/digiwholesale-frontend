@@ -41,6 +41,7 @@ const NotificationsPopover = ({
   const ordersCount = notifications.filter((n) => n.category === 'ORDERS').length;
   const approvalsCount = notifications.filter((n) => n.category === 'CUSTOMER_APPROVAL').length;
   const returnsCount = notifications.filter((n) => n.category === 'RETURNS').length;
+  const chequesCount = notifications.filter((n) => n.category === 'CHEQUES').length;
 
   const filteredNotifications = useMemo(() => {
     if (activeTab === 'ALL') return notifications;
@@ -48,6 +49,7 @@ const NotificationsPopover = ({
     if (activeTab === 'ORDERS') return notifications.filter((n) => n.category === 'ORDERS');
     if (activeTab === 'CUSTOMER_APPROVAL') return notifications.filter((n) => n.category === 'CUSTOMER_APPROVAL');
     if (activeTab === 'RETURNS') return notifications.filter((n) => n.category === 'RETURNS');
+    if (activeTab === 'CHEQUES') return notifications.filter((n) => n.category === 'CHEQUES');
     return notifications;
   }, [notifications, activeTab]);
 
@@ -79,6 +81,14 @@ const NotificationsPopover = ({
           bg: '#F5F3FF',
           border: '#DDD6FE',
           label: 'Customer Approvals',
+        };
+      case 'CHEQUES':
+        return {
+          icon: 'lucide:calendar-clock',
+          color: '#D97706',
+          bg: '#FFFBEB',
+          border: '#FDE68A',
+          label: 'PDC Clearance',
         };
       case 'RETURNS':
         return {
@@ -326,6 +336,25 @@ const NotificationsPopover = ({
               border: `1px solid ${activeTab === 'CUSTOMER_APPROVAL' ? '#7C3AED' : '#E2E8F0'}`,
               '&:hover': {
                 backgroundColor: activeTab === 'CUSTOMER_APPROVAL' ? '#6D28D9' : '#F1F5F9',
+              },
+            }}
+          />
+        )}
+
+        {chequesCount > 0 && (
+          <Chip
+            label={`PDC Clearance (${chequesCount})`}
+            size="small"
+            clickable
+            onClick={() => setActiveTab('CHEQUES')}
+            sx={{
+              fontWeight: activeTab === 'CHEQUES' ? 700 : 500,
+              fontSize: '0.72rem',
+              backgroundColor: activeTab === 'CHEQUES' ? '#D97706' : '#FFFFFF',
+              color: activeTab === 'CHEQUES' ? '#FFFFFF' : '#475569',
+              border: `1px solid ${activeTab === 'CHEQUES' ? '#D97706' : '#E2E8F0'}`,
+              '&:hover': {
+                backgroundColor: activeTab === 'CHEQUES' ? '#B45309' : '#F1F5F9',
               },
             }}
           />

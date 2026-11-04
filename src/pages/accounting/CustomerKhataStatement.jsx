@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box, Card, Typography, Button, Grid, Chip, IconButton,
   TextField, Table, TableHead, TableRow, TableCell, TableBody,
@@ -153,6 +153,7 @@ const CustomerKhataStatement = () => {
       toast.success(`Cheque #${clearChequeModal.payment.chequeNumber || ''} marked as CLEARED! ₹${Number(clearChequeModal.payment.amount || 0).toLocaleString()} credited.`);
       setClearChequeModal({ open: false, payment: null, order: null, clearanceDate: '', submitting: false });
       window.dispatchEvent(new Event('cheque-status-updated'));
+      window.dispatchEvent(new Event('notification-updated'));
       await fetchStatement();
     } catch (err) {
       toast.error(err.message || 'Failed to clear cheque');
@@ -185,6 +186,7 @@ const CustomerKhataStatement = () => {
       toast.warn(`Cheque #${bounceChequeModal.payment.chequeNumber || ''} marked as BOUNCED. ₹500 penalty debited.`);
       setBounceChequeModal({ open: false, payment: null, order: null, bounceReason: '', customReason: '', submitting: false });
       window.dispatchEvent(new Event('cheque-status-updated'));
+      window.dispatchEvent(new Event('notification-updated'));
       await fetchStatement();
     } catch (err) {
       toast.error(err.message || 'Failed to bounce cheque');
@@ -213,6 +215,7 @@ const CustomerKhataStatement = () => {
       toast.success(`Cheque #${retryChequeModal.payment.chequeNumber || ''} re-presented to bank! Status is now IN CLEARING.`);
       setRetryChequeModal({ open: false, payment: null, order: null, retryNotes: '', submitting: false });
       window.dispatchEvent(new Event('cheque-status-updated'));
+      window.dispatchEvent(new Event('notification-updated'));
       await fetchStatement();
     } catch (err) {
       toast.error(err.message || 'Failed to retry cheque');
@@ -369,6 +372,34 @@ const CustomerKhataStatement = () => {
     .sort(
       (a, b) => new Date(a.transactionDate || a.createdAt) - new Date(b.transactionDate || b.createdAt)
     );
+
+  const pdcsDueToday = useMemo(() => {
+    const list = [];
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const checkPayment = (p, txn) => {
+      const isCheque = p.paymentMode === 'CHEQUE';
+      const isPDC = Boolean(p.isPostDated);
+      const chqDate = p.chequeDate ? new Date(p.chequeDate) : null;
+      const isChequeExpired = p.status === 'EXPIRED' || p.chequeStatus === 'EXPIRED';
+      const isChequeBounced = p.status === 'BOUNCED' || p.chequeStatus === 'BOUNCED';
+      const isChequeInClearing = isCheque && isPDC && !p.isCredited && !isChequeBounced && !isChequeExpired;
+
+      if (isChequeInClearing && chqDate && chqDate >= startOfToday && chqDate <= endOfToday) {
+        list.push({ ...p, txn });
+      }
+    };
+
+    (unifiedTransactions || []).forEach((txn) => {
+      const matchedOrder = ordersMap[String(txn.orderId || txn._id || '')];
+      const pList = Array.isArray(txn.payments) && txn.payments.length > 0 ? txn.payments : (Array.isArray(matchedOrder?.orderPayments) ? matchedOrder.orderPayments : []);
+      pList.forEach((p) => checkPayment(p, txn));
+    });
+    return list;
+  }, [unifiedTransactions, ordersMap]);
 
   const displayTotalInvoiced = Number(stats.totalDebit || 0) || unifiedTransactions.reduce((acc, t) => acc + Number(t.orderGrandTotal != null ? t.orderGrandTotal : t.debit || 0), 0);
   const displayTotalReceived = Number(stats.totalCredit || 0) || unifiedTransactions.reduce((acc, t) => acc + Number(t.orderPaidAmount != null ? t.orderPaidAmount : t.credit || 0), 0);
@@ -1906,6 +1937,55 @@ const CustomerKhataStatement = () => {
           }}
         >
           20% Threshold Warning: Customer has reached {creditPercentage}% credit limit usage. Only ₹{availableCredit.toLocaleString()} limit remaining.
+        </Alert>
+      )}
+
+      {/* PDC Scheduled for Clearance Today Banner */}
+      {pdcsDueToday.length > 0 && (
+        <Alert
+          severity="warning"
+          variant="filled"
+          icon={<Icon icon="lucide:bell-ring" style={{ fontSize: 24, color: '#FFFFFF' }} />}
+          sx={{
+            mb: 2.5,
+            borderRadius: '10px',
+            backgroundColor: '#D97706',
+            color: '#FFFFFF',
+            boxShadow: '0 4px 12px rgba(217, 119, 6, 0.25)',
+            fontWeight: 500,
+            '& .MuiAlert-message': { width: '100%' },
+          }}
+        >
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 1.5 }}>
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: '0.88rem', color: '#FFFFFF' }}>
+                PDC Scheduled for Clearance Today ({pdcsDueToday.length} Cheque{pdcsDueToday.length > 1 ? 's' : ''})
+              </Typography>
+              <Typography variant="body2" sx={{ fontSize: '0.8rem', color: '#FEF3C7', mt: 0.25 }}>
+                You have {pdcsDueToday.length > 1 ? 'these PDCs' : `PDC Cheque #${pdcsDueToday[0].chequeNumber || ''} (₹${Number(pdcsDueToday[0].amount || 0).toLocaleString('en-IN')})`} scheduled for clearance today. If the cheque has been cleared, please update its status; otherwise, take the necessary action.
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={1} sx={{ flexShrink: 0, mt: { xs: 1, md: 0 } }}>
+              {pdcsDueToday.map((pItem, idx) => (
+                <Button
+                  key={idx}
+                  size="small"
+                  variant="contained"
+                  onClick={() => handleOpenClearCheque(pItem, pItem.txn)}
+                  sx={{
+                    backgroundColor: '#FFFFFF',
+                    color: '#92400E',
+                    fontWeight: 700,
+                    fontSize: '0.74rem',
+                    textTransform: 'none',
+                    '&:hover': { backgroundColor: '#FEF3C7' },
+                  }}
+                >
+                  Clear #{pItem.chequeNumber || idx + 1} (₹{Number(pItem.amount || 0).toLocaleString()})
+                </Button>
+              ))}
+            </Stack>
+          </Box>
         </Alert>
       )}
 

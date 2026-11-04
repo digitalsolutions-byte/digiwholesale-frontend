@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Card,
@@ -68,6 +68,7 @@ const ChequeManagement = () => {
     try {
       await updateChequeStatus(cheque._id, { status: 'DEPOSITED' });
       toast.success(`Cheque #${cheque.paymentDetails?.chequeNumber} marked as DEPOSITED`);
+      window.dispatchEvent(new Event('notification-updated'));
       fetchCheques();
     } catch (err) {
       toast.error(err.message || 'Failed to update status');
@@ -83,6 +84,7 @@ const ChequeManagement = () => {
       });
       toast.success(`Cheque #${selectedCheque.paymentDetails?.chequeNumber} CLEARED. Ledger balance credited!`);
       setClearModalOpen(false);
+      window.dispatchEvent(new Event('notification-updated'));
       fetchCheques();
     } catch (err) {
       toast.error(err.message || 'Failed to clear cheque');
@@ -100,6 +102,7 @@ const ChequeManagement = () => {
       });
       toast.error(`Cheque #${selectedCheque.paymentDetails?.chequeNumber} marked as BOUNCED. ₹500 penalty debited!`);
       setBounceModalOpen(false);
+      window.dispatchEvent(new Event('notification-updated'));
       fetchCheques();
     } catch (err) {
       toast.error(err.message || 'Failed to mark cheque bounce');
@@ -107,6 +110,22 @@ const ChequeManagement = () => {
       setActionLoading(false);
     }
   };
+
+  const today = new Date();
+  const todayMidnightMs = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+
+  const dueTodayCheques = useMemo(() => {
+    return payments.filter((p) => {
+      const isCleared = p.status === 'CLEARED' || p.paymentDetails?.chequeStatus === 'CLEARED';
+      const isBounced = p.status === 'BOUNCED' || p.paymentDetails?.chequeStatus === 'BOUNCED';
+      const isExpired = p.status === 'EXPIRED' || p.paymentDetails?.chequeStatus === 'EXPIRED';
+      if (isCleared || isBounced || isExpired) return false;
+      const chqDate = p.paymentDetails?.chequeDate ? new Date(p.paymentDetails.chequeDate) : null;
+      if (!chqDate) return false;
+      const chqMidnightMs = new Date(chqDate.getFullYear(), chqDate.getMonth(), chqDate.getDate()).getTime();
+      return chqMidnightMs === todayMidnightMs;
+    });
+  }, [payments, todayMidnightMs]);
 
   const statusColors = {
     RECEIVED: { color: 'default', text: 'Received' },
@@ -129,6 +148,75 @@ const ChequeManagement = () => {
           </Typography>
         </Box>
       </Box>
+
+      {/* PDC Scheduled for Clearance Today Banner */}
+      {dueTodayCheques.length > 0 && (
+        <Alert
+          severity="warning"
+          variant="filled"
+          icon={<Icon icon="lucide:bell-ring" style={{ fontSize: 24, color: '#FFFFFF' }} />}
+          sx={{
+            mb: 3,
+            borderRadius: '12px',
+            backgroundColor: '#D97706',
+            color: '#FFFFFF',
+            boxShadow: '0 4px 12px rgba(217, 119, 6, 0.25)',
+            fontWeight: 500,
+            '& .MuiAlert-message': { width: '100%' },
+          }}
+        >
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 1.5 }}>
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: '0.92rem', color: '#FFFFFF' }}>
+                {dueTodayCheques.length} PDC{dueTodayCheques.length > 1 ? 's' : ''} Scheduled for Clearance Today!
+              </Typography>
+              <Typography variant="body2" sx={{ fontSize: '0.82rem', color: '#FEF3C7', mt: 0.25 }}>
+                You have these PDCs scheduled for clearance today. If the cheque has been cleared, please update its status; otherwise, take the necessary action.
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', flexShrink: 0 }}>
+              {dueTodayCheques.slice(0, 3).map((chq) => (
+                <Button
+                  key={chq._id}
+                  size="small"
+                  variant="contained"
+                  onClick={() => {
+                    setSelectedCheque(chq);
+                    setClearModalOpen(true);
+                  }}
+                  sx={{
+                    backgroundColor: '#FFFFFF',
+                    color: '#92400E',
+                    fontWeight: 700,
+                    fontSize: '0.74rem',
+                    textTransform: 'none',
+                    '&:hover': { backgroundColor: '#FEF3C7' },
+                  }}
+                >
+                  Clear #{chq.paymentDetails?.chequeNumber || 'PDC'} (₹{Number(chq.grossAmount || 0).toLocaleString()})
+                </Button>
+              ))}
+              {dueTodayCheques.length > 3 && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => setActiveTab('PDC')}
+                  sx={{
+                    borderColor: '#FFFFFF',
+                    color: '#FFFFFF',
+                    fontWeight: 700,
+                    fontSize: '0.74rem',
+                    textTransform: 'none',
+                    '&:hover': { borderColor: '#FEF3C7', backgroundColor: 'rgba(255,255,255,0.1)' },
+                  }}
+                >
+                  View All ({dueTodayCheques.length})
+                </Button>
+              )}
+            </Box>
+          </Box>
+        </Alert>
+      )}
 
       {/* Tabs */}
       <Card sx={{ mb: 3, borderRadius: '12px', border: '1px solid', borderColor: 'divider' }}>
@@ -179,10 +267,13 @@ const ChequeManagement = () => {
                 const isCleared = p.status === 'CLEARED';
                 const isBounced = p.status === 'BOUNCED';
                 const isPDC = Boolean(p.paymentDetails?.isPostDated);
-                const isFuture = p.paymentDetails?.chequeDate && new Date(p.paymentDetails.chequeDate) > new Date();
+                const chqDateObj = p.paymentDetails?.chequeDate ? new Date(p.paymentDetails.chequeDate) : null;
+                const chqMidnight = chqDateObj ? new Date(chqDateObj.getFullYear(), chqDateObj.getMonth(), chqDateObj.getDate()).getTime() : null;
+                const isDueToday = chqMidnight === todayMidnightMs && isPDC && !isCleared && !isBounced;
+                const isFuture = chqDateObj && chqMidnight > todayMidnightMs;
 
                 return (
-                  <TableRow key={p._id} hover>
+                  <TableRow key={p._id} hover sx={isDueToday ? { backgroundColor: 'rgba(254, 243, 199, 0.35)' } : {}}>
                     <TableCell sx={{ fontWeight: 600, fontFamily: 'monospace' }}>
                       {p.paymentNumber}
                     </TableCell>
@@ -203,6 +294,20 @@ const ChequeManagement = () => {
                               backgroundColor: '#FEF3C7',
                               color: '#92400E',
                               border: '1px solid #FCD34D'
+                            }}
+                          />
+                        )}
+                        {isDueToday && (
+                          <Chip
+                            size="small"
+                            label="DUE TODAY"
+                            sx={{
+                              height: 18,
+                              fontSize: '0.62rem',
+                              fontWeight: 800,
+                              backgroundColor: '#FEE2E2',
+                              color: '#B91C1C',
+                              border: '1px solid #F87171'
                             }}
                           />
                         )}
