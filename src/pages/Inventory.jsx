@@ -27,6 +27,7 @@ import { getProductDisplayImage } from "../utils/productUtils";
 import { getBatchesForProduct, allocateManualBatch } from "../services/batchService";
 import { uploadMultipleDocuments } from "../services/bucketService";
 import LensMatrixModal from "../components/ui/LensMatrixModal";
+import LensSphAddMatrixModal from "../components/ui/LensSphAddMatrixModal";
 
 const Modal = ({ children, onClose, maxWidth = "max-w-5xl" }) => {
     return createPortal(
@@ -305,6 +306,7 @@ export default function Inventory() {
     const [showAddProductModal, setShowAddProductModal] = useState(false);
     const [showLensRangeModal, setShowLensRangeModal] = useState(false);
     const [showLensMatrixModal, setShowLensMatrixModal] = useState(false);
+    const [showLensSphAddModal, setShowLensSphAddModal] = useState(false);
     const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
     const [vendors, setVendors] = useState([]);
     const settings = useSelector((state) => state.settings.data);
@@ -611,6 +613,10 @@ export default function Inventory() {
                         <button onClick={() => setShowLensMatrixModal(true)}
                             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-xl transition shadow-sm">
                             <FiGrid size={13} /> Lens Matrix & History
+                        </button>
+                        <button onClick={() => setShowLensSphAddModal(true)}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white border border-indigo-300 hover:bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-xl transition shadow-sm">
+                            <FiGrid size={13} /> Lens SPH × ADD Matrix
                         </button>
                     </div>
 
@@ -1060,6 +1066,14 @@ export default function Inventory() {
                     onRefreshInventory={triggerInventoryRefresh}
                 />
             )}
+
+            {showLensSphAddModal && (
+                <LensSphAddMatrixModal
+                    isOpen={showLensSphAddModal}
+                    onClose={() => setShowLensSphAddModal(false)}
+                    onRefreshInventory={triggerInventoryRefresh}
+                />
+            )}
         </div>
     );
 }
@@ -1075,23 +1089,27 @@ export default function Inventory() {
 
 const RangeCell = ({ row, field, placeholder, onRangeChange, onRangeBlur }) => {
     const hasErr = !!row.errors[field];
+    const isAxis = field === "axis";
     return (
         <div className="flex flex-col gap-0.5">
             <input
-                type="number"
+                type={isAxis ? "text" : "number"}
                 step={
-                    field.startsWith("sph") ? (row.sphStep || "0.25")
-                        : field.startsWith("cyl") ? (row.cylStep || "0.25")
-                            : (row.addStep || "0.25")
+                    isAxis ? undefined
+                        : field.startsWith("sph") ? (row.sphStep || "0.25")
+                            : field.startsWith("cyl") ? (row.cylStep || "0.25")
+                                : (row.addStep || "0.25")
                 }
                 placeholder={placeholder}
-                value={row[field]}
+                value={row[field] || ""}
                 onChange={e => onRangeChange(row.id, field, e.target.value)}
                 onBlur={e => onRangeBlur(row.id, field, e.target.value)}
-                className={`w-full px-2 py-1.5 text-xs border rounded-lg outline-none transition bg-gray-50 text-gray-700
+                className={`w-full px-2 py-1.5 text-xs border rounded-lg outline-none transition text-gray-700
                     ${hasErr
-                        ? "border-red-400 focus:ring-red-100 focus:border-red-400"
-                        : "border-gray-300 focus:border-orange-300 focus:ring-2 focus:ring-orange-100 hover:border-gray-400"}`}
+                        ? "border-red-400 bg-red-50 focus:ring-red-100 focus:border-red-400"
+                        : isAxis
+                            ? "border-amber-300 bg-amber-50/40 text-amber-900 font-medium focus:border-amber-500 focus:ring-2 focus:ring-amber-100 hover:border-amber-400"
+                            : "border-gray-300 bg-gray-50 focus:border-orange-300 focus:ring-2 focus:ring-orange-100 hover:border-gray-400"}`}
             />
             {hasErr && (
                 <span className="text-[9px] text-red-500 leading-tight">{row.errors[field]}</span>
@@ -1134,6 +1152,7 @@ const makeEmptyRangeRow = () => ({
     sphFrom: "", sphTo: "",
     cylFrom: "", cylTo: "",
     additionFrom: "", additionTo: "",
+    axis: "",
     sphStep: "0.25", cylStep: "0.25", addStep: "0.25",
     errors: {},
 });
@@ -1160,7 +1179,9 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
     // ── Product / pricing form ──
     const [form, setForm] = useState({
         productName: "", category: "", brand: "",
+        lensType: "SINGLE_VISION", // "SINGLE_VISION" | "PROGRESSIVE" | "BIFOCAL"
         coating: "", material: "", index: "",
+        axis: "",
         price: "", buyingPrice: "", sellingPrice: "", mrp: "", gst: "12", hsnSac: "9001",
         qty: "", discount: "0",
         vendorNumber: "", vendorName: "",
@@ -1243,6 +1264,25 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
                 return { ...row, [field]: value, errors };
             }
 
+            if (field === "axis") {
+                const trimmed = (value || "").trim();
+                if (trimmed !== "") {
+                    const parts = trimmed.split(/[,;\s]+/).map(p => p.trim()).filter(Boolean);
+                    const invalid = parts.find(p => {
+                        const n = parseInt(p, 10);
+                        return isNaN(n) || n < 1 || n > 180;
+                    });
+                    if (invalid !== undefined) {
+                        errors.axis = "1°–180° (e.g. 90, 180)";
+                    } else {
+                        delete errors.axis;
+                    }
+                } else {
+                    delete errors.axis;
+                }
+                return { ...row, [field]: value, errors };
+            }
+
             const stepField = field.startsWith("sph") ? "sphStep"
                 : field.startsWith("cyl") ? "cylStep"
                     : "addStep";
@@ -1264,6 +1304,7 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
     };
 
     const handleRangeRowBlur = (rowId, field, value) => {
+        if (field === "axis") return;
         const row = rangeRows.find(r => r.id === rowId);
         if (!row) return;
         const stepField = field.startsWith("sph") ? "sphStep"
@@ -1290,15 +1331,18 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
         const sphTo = parseFloat(row.sphTo);
         const cylFrom = parseFloat(row.cylFrom);
         const cylTo = parseFloat(row.cylTo);
-        const addFrom = row.additionFrom !== "" ? parseFloat(row.additionFrom) : null;
-        const addTo = row.additionTo !== "" ? parseFloat(row.additionTo) : null;
+
+        const isSingleVision = form.lensType === "SINGLE_VISION";
+        const addFrom = !isSingleVision && row.additionFrom !== "" ? parseFloat(row.additionFrom) : null;
+        const addTo = !isSingleVision && row.additionTo !== "" ? parseFloat(row.additionTo) : null;
 
         const sphStep = parseFloat(row.sphStep) || DEFAULT_STEP;
         const cylStep = parseFloat(row.cylStep) || DEFAULT_STEP;
         const addStep = parseFloat(row.addStep) || DEFAULT_STEP;
 
         if ([sphFrom, sphTo, cylFrom, cylTo].some(isNaN)) return null;
-        if (!isPositiveStep(sphStep) || !isPositiveStep(cylStep) || !isPositiveStep(addStep)) return null;
+        if (!isPositiveStep(sphStep) || !isPositiveStep(cylStep)) return null;
+        if (!isSingleVision && !isPositiveStep(addStep)) return null;
 
         if (!isValidStep(sphFrom, sphStep) || !isValidStep(sphTo, sphStep)) return null;
         if (!isValidStep(cylFrom, cylStep) || !isValidStep(cylTo, cylStep)) return null;
@@ -1309,32 +1353,50 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
         const cTo = Math.max(cylFrom, cylTo);
 
         let addSteps = [""];
-        if (addFrom !== null && addTo !== null) {
-            if (isNaN(addFrom) || isNaN(addTo)) return null;
-            if (!isValidStep(addFrom, addStep) || !isValidStep(addTo, addStep)) return null;
-            const aFrom = Math.min(addFrom, addTo);
-            const aTo = Math.max(addFrom, addTo);
-            addSteps = [];
-            for (let a = aFrom; a <= aTo + 0.0001; a = round2(a + addStep)) {
-                addSteps.push(round2(a).toFixed(2));
+        if (!isSingleVision) {
+            if (addFrom !== null && addTo !== null) {
+                if (isNaN(addFrom) || isNaN(addTo)) return null;
+                if (!isValidStep(addFrom, addStep) || !isValidStep(addTo, addStep)) return null;
+                const aFrom = Math.min(addFrom, addTo);
+                const aTo = Math.max(addFrom, addTo);
+                addSteps = [];
+                for (let a = aFrom; a <= aTo + 0.0001; a = round2(a + addStep)) {
+                    addSteps.push(round2(a).toFixed(2));
+                }
+            } else if (addFrom !== null) {
+                if (!isNaN(addFrom) && isValidStep(addFrom, addStep))
+                    addSteps = [round2(addFrom).toFixed(2)];
+            } else if (addTo !== null) {
+                if (!isNaN(addTo) && isValidStep(addTo, addStep))
+                    addSteps = [round2(addTo).toFixed(2)];
             }
-        } else if (addFrom !== null) {
-            if (!isNaN(addFrom) && isValidStep(addFrom, addStep))
-                addSteps = [round2(addFrom).toFixed(2)];
-        } else if (addTo !== null) {
-            if (!isNaN(addTo) && isValidStep(addTo, addStep))
-                addSteps = [round2(addTo).toFixed(2)];
+        }
+
+        // Determine axis list for Progressive / Bifocal (or if specified)
+        const rawAxis = (row.axis !== undefined && row.axis !== null && String(row.axis).trim() !== "")
+            ? String(row.axis).trim()
+            : (form.axis ? String(form.axis).trim() : "");
+
+        let axisSteps = [""];
+        if (!isSingleVision && rawAxis) {
+            const parts = rawAxis.split(/[,;\s]+/).map(p => p.trim()).filter(Boolean);
+            if (parts.length > 0) {
+                axisSteps = parts;
+            }
         }
 
         const combos = [];
         for (let sph = sFrom; sph <= sTo + 0.0001; sph = round2(sph + sphStep)) {
             for (let cyl = cFrom; cyl <= cTo + 0.0001; cyl = round2(cyl + cylStep)) {
                 for (const add of addSteps) {
-                    combos.push({
-                        sph: round2(sph).toFixed(2),
-                        cyl: round2(cyl).toFixed(2),
-                        addition: add,
-                    });
+                    for (const ax of axisSteps) {
+                        combos.push({
+                            sph: round2(sph).toFixed(2),
+                            cyl: round2(cyl).toFixed(2),
+                            addition: add,
+                            axis: ax || "",
+                        });
+                    }
                 }
             }
         }
@@ -1345,15 +1407,23 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
     const totalComboCount = useMemo(() => {
         let total = 0;
         for (const row of rangeRows) {
-            if (Object.keys(row.errors).length > 0) return -1;
+            const errs = form.lensType === "SINGLE_VISION"
+                ? Object.keys(row.errors).filter(k => !k.startsWith("add") && k !== "axis")
+                : Object.keys(row.errors);
+            if (errs.length > 0) return -1;
             const combos = generateRowCombinations(row);
             if (combos === null) continue;
             total += combos.length;
         }
         return total;
-    }, [rangeRows]);
+    }, [rangeRows, form.lensType, form.axis]);
 
-    const hasAnyRangeErrors = rangeRows.some(r => Object.keys(r.errors).length > 0);
+    const hasAnyRangeErrors = rangeRows.some(r => {
+        const errs = form.lensType === "SINGLE_VISION"
+            ? Object.keys(r.errors).filter(k => !k.startsWith("add") && k !== "axis")
+            : Object.keys(r.errors);
+        return errs.length > 0;
+    });
 
     // ── Preview builder ──
     const handlePreview = () => {
@@ -1371,6 +1441,7 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
                 return toast.error(`Row ${ri + 1}: Check SPH/CYL range — values must be valid multiples of their steps.`);
             combos.forEach(c => allCombos.push({
                 ...c, rowIndex: ri,
+                axis: c.axis || row.axis || form.axis || "",
                 buyingPrice: form.buyingPrice,
                 sellingPrice: form.sellingPrice,
                 price: form.buyingPrice || form.price,
@@ -1402,8 +1473,8 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
         return previewRows
             .map((r, i) => ({ ...r, _origIdx: i }))
             .filter(r => {
-                const label = `${form.productName} sph${r.sph} cyl${r.cyl} ${r.addition ? `add${r.addition}` : ""}`.toLowerCase();
-                return label.includes(q) || r.sph.includes(q) || r.cyl.includes(q) || (r.addition || "").includes(q);
+                const label = `${form.productName} sph${r.sph} cyl${r.cyl} ${r.axis ? `ax${r.axis}` : ""} ${r.addition ? `add${r.addition}` : ""}`.toLowerCase();
+                return label.includes(q) || r.sph.includes(q) || r.cyl.includes(q) || (r.axis || "").includes(q) || (r.addition || "").includes(q);
             });
     }, [previewRows, previewSearch, form.productName]);
 
@@ -1425,7 +1496,7 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
             if (!r.qty || Number(r.qty) <= 0) return toast.error(`Row ${i + 1}: Qty must be > 0`);
         }
 
-        const products = previewRows.map(({ sph, cyl, addition, buyingPrice, sellingPrice, price, mrp, qty }, i) => {
+        const products = previewRows.map(({ sph, cyl, axis, addition, buyingPrice, sellingPrice, price, mrp, qty }, i) => {
             const bVal = Number(buyingPrice !== "" && buyingPrice != null ? buyingPrice : (price || 0));
             const sVal = Number(sellingPrice !== "" && sellingPrice != null ? sellingPrice : (mrp || 0));
             return {
@@ -1433,12 +1504,14 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
                 productName: form.productName.trim().toUpperCase(),
                 category: form.category.trim().toUpperCase(),
                 brand: form.brand,
+                type: form.lensType || "SINGLE_VISION",
                 coating: form.coating,
                 material: form.material,
                 addition: addition || "",
                 index: form.index,
                 sph,
                 cyl,
+                axis: axis ? String(axis).trim() : "",
                 price: bVal,
                 buyingPrice: bVal,
                 sellingPrice: sVal,
@@ -1572,6 +1645,21 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
                                 <input name="material" type="text" className={inputCls} placeholder="e.g. CR39"
                                     value={form.material} onChange={handleFormChange} />
                             </div>
+                            {form.lensType !== "SINGLE_VISION" && (
+                                <div>
+                                    <label className="text-[10px] font-semibold text-gray-700 uppercase tracking-wider block mb-1">
+                                        Default Axis (Optional)
+                                    </label>
+                                    <input
+                                        name="axis"
+                                        type="text"
+                                        className={inputCls}
+                                        placeholder="e.g. 90 or 180"
+                                        value={form.axis}
+                                        onChange={handleFormChange}
+                                    />
+                                </div>
+                            )}
                             <div>
                                 <label className="text-[10px] font-semibold text-gray-700 uppercase tracking-wider block mb-1">
                                     Vendor
@@ -1629,16 +1717,22 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
                         </div>
                     </div>
 
-                    {/* ── SPH × CYL × Addition Range Rows ── */}
+                    {/* ── Lens Type & Power Ranges Configuration ── */}
                     <div className="space-y-5">
                         {/* Header */}
                         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                             <div>
                                 <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
-                                    SPH × CYL × Addition Ranges
+                                    {form.lensType === "SINGLE_VISION"
+                                        ? "Single Vision Power Ranges (SPH × CYL Standard)"
+                                        : form.lensType === "PROGRESSIVE"
+                                            ? "Progressive Power Ranges (SPH × CYL × ADD Standard)"
+                                            : "Bifocal Power Ranges (SPH × CYL × ADD Standard)"}
                                 </h3>
                                 <p className="text-xs text-gray-400 mt-1">
-                                    Configure lens power ranges with custom step values.
+                                    {form.lensType === "SINGLE_VISION"
+                                        ? "Configure single vision SPH and CYL power ranges. Addition is not required."
+                                        : "Configure power ranges with custom step values and reading Addition (+1.00 to +3.00)."}
                                 </p>
                             </div>
                             {totalComboCount > 0 && (
@@ -1649,14 +1743,94 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
                             )}
                         </div>
 
+                        {/* Lens Type Classification Selector (Siddhartha's Standard) */}
+                        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block mb-2">
+                                Lens Type Classification *
+                            </label>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                {[
+                                    {
+                                        id: "SINGLE_VISION",
+                                        title: "Single Vision",
+                                        matrix: "SPH × CYL Standard",
+                                        desc: "Standard optical matrix (SPH × CYL). No addition power required.",
+                                        icon: "👓",
+                                    },
+                                    {
+                                        id: "PROGRESSIVE",
+                                        title: "Progressive",
+                                        matrix: "SPH × CYL × ADD Standard",
+                                        desc: "Corridor power with reading Addition (+1.00 to +3.00).",
+                                        icon: "🔍",
+                                    },
+                                    {
+                                        id: "BIFOCAL",
+                                        title: "Bifocal",
+                                        matrix: "SPH × CYL × ADD Standard",
+                                        desc: "Dual-segment with near segment Addition (+1.00 to +3.00).",
+                                        icon: "🔎",
+                                    },
+                                ].map((type) => {
+                                    const active = form.lensType === type.id;
+                                    return (
+                                        <button
+                                            key={type.id}
+                                            type="button"
+                                            onClick={() => {
+                                                setForm(prev => ({ ...prev, lensType: type.id }));
+                                                setShowPreview(false);
+                                            }}
+                                            className={`p-3.5 rounded-2xl border text-left transition relative flex flex-col justify-between ${
+                                                active
+                                                    ? "bg-white border-[#2980b9] ring-2 ring-[#2980b9]/15 shadow-sm"
+                                                    : "bg-white/70 border-gray-200 hover:border-gray-300 hover:bg-white"
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                                                    <span className="text-sm">{type.icon}</span> {type.title}
+                                                </span>
+                                                {active ? (
+                                                    <span className="w-2.5 h-2.5 rounded-full bg-[#2980b9]" />
+                                                ) : (
+                                                    <span className="w-2.5 h-2.5 rounded-full border border-gray-300" />
+                                                )}
+                                            </div>
+                                            <span className="inline-block mt-2 text-[10px] font-extrabold text-[#2980b9] bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100 w-fit">
+                                                {type.matrix}
+                                            </span>
+                                            <p className="text-[10px] text-gray-500 mt-1.5 leading-snug">
+                                                {type.desc}
+                                            </p>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
                         {/* Info Box */}
                         <div className="flex gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-4">
                             <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm flex-shrink-0">
                                 i
                             </div>
                             <div className="text-xs text-blue-800 leading-relaxed">
-                                <strong>Tip:</strong> All From/To values must follow their step values.
-                                Addition range is optional.
+                                {form.lensType === "SINGLE_VISION" ? (
+                                    <span>
+                                        <strong>Single Vision Mode:</strong> Power combinations are generated strictly as <strong>SPH × CYL</strong>.
+                                        All From/To values must follow their step values. Addition range is excluded.
+                                    </span>
+                                ) : form.lensType === "PROGRESSIVE" ? (
+                                    <span>
+                                        <strong>Progressive Mode:</strong> Power combinations are generated across <strong>SPH × CYL × ADD</strong> with optional <strong>Axis</strong> for astigmatism (e.g. 90° or 180°).
+                                        Enter reading Addition range (typically +1.00 to +3.00 with 0.25 step).
+                                    </span>
+                                ) : (
+                                    <span>
+                                        <strong>Bifocal Mode:</strong> Power combinations are generated across <strong>SPH × CYL × ADD</strong> with optional <strong>Axis</strong> for astigmatism (e.g. 90° or 180°).
+                                        Enter near reading segment Addition range (+1.00 to +3.00 with 0.25 step).
+                                    </span>
+                                )}
                             </div>
                         </div>
 
@@ -1668,6 +1842,34 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
                                     if (!row.sphFrom && !row.sphTo && !row.cylFrom && !row.cylTo) return null;
                                     return generateRowCombinations(row);
                                 })();
+
+                                const powerFields = form.lensType === "SINGLE_VISION"
+                                    ? [
+                                        { field: "sphFrom", placeholder: "-6.00", label: "SPH From" },
+                                        { field: "sphTo", placeholder: "+2.00", label: "SPH To" },
+                                        { field: "cylFrom", placeholder: "-4.00", label: "CYL From" },
+                                        { field: "cylTo", placeholder: "0.00", label: "CYL To" },
+                                    ]
+                                    : [
+                                        { field: "sphFrom", placeholder: "-6.00", label: "SPH From" },
+                                        { field: "sphTo", placeholder: "+2.00", label: "SPH To" },
+                                        { field: "cylFrom", placeholder: "-4.00", label: "CYL From" },
+                                        { field: "cylTo", placeholder: "0.00", label: "CYL To" },
+                                        { field: "additionFrom", placeholder: "+1.00", label: "Add From" },
+                                        { field: "additionTo", placeholder: "+3.00", label: "Add To" },
+                                        { field: "axis", placeholder: form.axis || "90 or 180", label: "Axis (°)" },
+                                    ];
+
+                                const stepFields = form.lensType === "SINGLE_VISION"
+                                    ? [
+                                        { field: "sphStep", label: "SPH step", title: "SPH Step" },
+                                        { field: "cylStep", label: "CYL step", title: "CYL Step" },
+                                    ]
+                                    : [
+                                        { field: "sphStep", label: "SPH step", title: "SPH Step" },
+                                        { field: "cylStep", label: "CYL step", title: "CYL Step" },
+                                        { field: "addStep", label: "Add step", title: "ADD Step" },
+                                    ];
 
                                 return (
                                     <div
@@ -1682,7 +1884,7 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
                                                 </div>
                                                 <div>
                                                     <h3 className="text-sm font-semibold text-gray-800">
-                                                        Range Configuration
+                                                        Range Configuration ({form.lensType === "SINGLE_VISION" ? "Single Vision SPH × CYL" : form.lensType === "PROGRESSIVE" ? "Progressive SPH × CYL × ADD & Axis" : "Bifocal SPH × CYL × ADD & Axis"})
                                                     </h3>
                                                     {rowCombos !== null && rowCombos.length > 0 && (
                                                         <p className="text-[11px] text-blue-600 font-medium">
@@ -1708,18 +1910,11 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
                                                 <div className="flex items-center gap-2 mb-3">
                                                     <div className="w-1.5 h-5 rounded-full bg-orange-400" />
                                                     <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500">
-                                                        Power Ranges
+                                                        Power Ranges {form.lensType === "SINGLE_VISION" ? "(SPH & CYL)" : "(SPH, CYL, Addition & Axis)"}
                                                     </h4>
                                                 </div>
-                                                <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-                                                    {[
-                                                        { field: "sphFrom", placeholder: "-6.00", label: "SPH From" },
-                                                        { field: "sphTo", placeholder: "+2.00", label: "SPH To" },
-                                                        { field: "cylFrom", placeholder: "-4.00", label: "CYL From" },
-                                                        { field: "cylTo", placeholder: "0.00", label: "CYL To" },
-                                                        { field: "additionFrom", placeholder: "+0.75", label: "Add From" },
-                                                        { field: "additionTo", placeholder: "+3.00", label: "Add To" },
-                                                    ].map(({ field, placeholder, label }) => (
+                                                <div className={`grid grid-cols-2 ${form.lensType === "SINGLE_VISION" ? "lg:grid-cols-4" : "sm:grid-cols-3 lg:grid-cols-7"} gap-3`}>
+                                                    {powerFields.map(({ field, placeholder, label }) => (
                                                         <div key={field}>
                                                             <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">
                                                                 {label}
@@ -1745,12 +1940,8 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
                                                         Step Values
                                                     </h4>
                                                 </div>
-                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                                    {[
-                                                        { field: "sphStep", label: "SPH step", title: "SPH Step" },
-                                                        { field: "cylStep", label: "CYL step", title: "CYL Step" },
-                                                        { field: "addStep", label: "Add step", title: "ADD Step" },
-                                                    ].map(({ field, label, title }) => (
+                                                <div className={`grid grid-cols-1 ${form.lensType === "SINGLE_VISION" ? "sm:grid-cols-2" : "sm:grid-cols-3"} gap-3`}>
+                                                    {stepFields.map(({ field, label, title }) => (
                                                         <div key={field} className="bg-gray-50 border border-gray-200 rounded-2xl p-3">
                                                             <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">
                                                                 {title}
@@ -1852,7 +2043,19 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
                                 <table className="w-full text-xs border-collapse">
                                     <thead>
                                         <tr className="bg-gray-100 border-b border-gray-200">
-                                            {["#", "Code", "Product Name", "SPH", "CYL", "Addition", "Buying Price ✎", "Selling Price ✎", "MRP ✎", "Qty ✎", ""].map(h => (
+                                            {[
+                                                "#",
+                                                "Code",
+                                                "Product Name",
+                                                "SPH",
+                                                "CYL",
+                                                ...(form.lensType !== "SINGLE_VISION" ? ["Axis ✎", "Addition"] : ["Addition (N/A)"]),
+                                                "Buying Price ✎",
+                                                "Selling Price ✎",
+                                                "MRP ✎",
+                                                "Qty ✎",
+                                                ""
+                                            ].map(h => (
                                                 <th key={h} className="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">
                                                     {h}
                                                 </th>
@@ -1862,7 +2065,7 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
                                     <tbody>
                                         {filteredPreviewRows.length === 0 ? (
                                             <tr>
-                                                <td colSpan={11} className="px-4 py-8 text-center text-xs text-gray-400">
+                                                <td colSpan={form.lensType !== "SINGLE_VISION" ? 12 : 11} className="px-4 py-8 text-center text-xs text-gray-400">
                                                     No rows match "
                                                     <span className="font-semibold text-gray-500">{previewSearch}</span>"
                                                 </td>
@@ -1884,6 +2087,17 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
                                                         </td>
                                                         <td className="px-3 py-1.5 text-center font-mono text-blue-600">{row.sph}</td>
                                                         <td className="px-3 py-1.5 text-center font-mono text-blue-600">{row.cyl}</td>
+                                                        {form.lensType !== "SINGLE_VISION" && (
+                                                            <td className="px-2 py-1 text-center font-mono text-xs">
+                                                                <input
+                                                                    type="text"
+                                                                    value={row.axis || ""}
+                                                                    onChange={e => handlePreviewEdit(origIdx, "axis", e.target.value)}
+                                                                    placeholder="—"
+                                                                    className="w-14 px-1.5 py-1 text-xs border border-amber-200 rounded-lg outline-none focus:border-amber-400 bg-amber-50/50 text-gray-700 text-center font-mono"
+                                                                />
+                                                            </td>
+                                                        )}
                                                         <td className="px-3 py-1.5 text-center font-mono text-purple-600">
                                                             {row.addition || "—"}
                                                         </td>
@@ -2731,7 +2945,7 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                     if (!hasP) return <span className="text-gray-300">—</span>;
                     return (
                         <span className="font-mono text-xs text-amber-800 font-semibold" title={`Sph: ${p.sph || '-'} | Cyl: ${p.cyl || '-'} | Axis: ${p.axis || '-'} | Add: ${p.addition || '-'}`}>
-                            {p.sph || '0'} / {p.cyl || '0'}
+                            {p.sph || '0'} / {p.cyl || '0'}{p.axis ? ` × ${p.axis}°` : ''}{p.addition ? ` add +${p.addition}` : ''}
                         </span>
                     );
                 }
