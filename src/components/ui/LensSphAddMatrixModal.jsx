@@ -306,6 +306,40 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
         toast.success(`Exported Single Vision SPH × CYL matrix for "${prodName}". Fill quantities/rates and upload to apply.`);
     };
 
+    // Helper to clean axis string
+    const cleanAxisStr = (ax) => {
+        if (ax === null || ax === undefined || ax === "") return "";
+        return String(ax).replace(/[°\s]/g, "").trim();
+    };
+
+    // Helper to format Distance Power in the first column: SPH / CYL x AXIS
+    const formatDistRxCell = (sVal, cVal, axVal) => {
+        let sStr = "";
+        if (sVal === 0) {
+            sStr = "0";
+        } else if (sVal > 0) {
+            sStr = `+${sVal.toFixed(2)}`;
+        } else {
+            sStr = sVal.toFixed(2);
+        }
+
+        let cStr = "";
+        if (cVal !== null && cVal !== undefined && cVal !== 0) {
+            cStr = cVal > 0 ? `+${cVal.toFixed(2)}` : cVal.toFixed(2);
+        }
+
+        const axClean = cleanAxisStr(axVal);
+
+        if (cStr && axClean) {
+            return `${sStr}/${cStr}x${axClean}`;
+        } else if (cStr) {
+            return `${sStr}/${cStr}`;
+        } else if (axClean) {
+            return `${sStr}x${axClean}`;
+        }
+        return sStr;
+    };
+
     // ════════════════════════════════════════════════════════════════════════
     // 1B. Export Progressive SPH × ADD Matrix Grid (Siddhartha's Standard)
     // ════════════════════════════════════════════════════════════════════════
@@ -313,44 +347,76 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
         const prodName = selectedProduct?.productName || (searchTerm.trim().length > 1 ? searchTerm.trim() : "Progressive_Lens_Matrix");
         const allProducts = matrixData?.products || [];
 
-        // Build lookup map by SPH and Addition
+        // Build lookup map by SPH, CYL, AXIS and Addition
         const lookup = new Map();
-        const detectedSphs = new Set();
         const detectedAdds = new Set();
+        const comboKeySet = new Set();
+        const combosList = [];
 
         allProducts.forEach(p => {
-            let s = numPower(p.sph);
+            let s = numPower(p.sph) ?? 0;
+            let c = numPower(p.cyl) ?? 0;
+            const ax = cleanAxisStr(p.axis);
             const a = numPower(p.addition);
-            if (s === null) s = 0;
-            if (s !== null) detectedSphs.add(s);
-            // Only consider additions > 0 (addition can NEVER be 0.00)
-            if (a !== null && a > 0) detectedAdds.add(a);
 
-            if (s !== null && a !== null && a > 0) {
-                const key = `${s.toFixed(2)}_${a.toFixed(2)}`;
-                lookup.set(key, p);
+            if (a !== null && a > 0) {
+                detectedAdds.add(a);
+                const sStr = s.toFixed(2);
+                const cStr = c.toFixed(2);
+                const aStr = a.toFixed(2);
+
+                // Multi-tier lookup keys
+                lookup.set(`${sStr}_${cStr}_${ax}_${aStr}`, p);
+                if (!lookup.has(`${sStr}_${cStr}_${aStr}`)) {
+                    lookup.set(`${sStr}_${cStr}_${aStr}`, p);
+                }
+                if (!lookup.has(`${sStr}_${aStr}`)) {
+                    lookup.set(`${sStr}_${aStr}`, p);
+                }
+            }
+
+            const comboKey = `${s.toFixed(2)}_${c.toFixed(2)}_${ax}`;
+            if (!comboKeySet.has(comboKey)) {
+                comboKeySet.add(comboKey);
+                combosList.push({ s, c, ax });
             }
         });
 
-        // Determine SPH range: default 0.00 to 3.00 with step 0.25, or expand if product has higher powers
-        let maxPosSph = 3.00;
-        let maxNegSph = 3.00;
+        // If no combinations exist yet in DB, generate standard optical combinations
+        if (combosList.length === 0) {
+            const defaultSphs = [0.00, 0.25, 0.50, 0.75, 1.00, 1.25, 1.50, 1.75, 2.00, -0.25, -0.50, -0.75, -1.00, -1.25, -1.50, -1.75, -2.00];
+            const defaultCyls = [-0.25, -0.50, -0.75, -1.00];
+            const defaultAxis = "90";
+            defaultSphs.forEach(s => {
+                defaultCyls.forEach(c => {
+                    combosList.push({ s, c, ax: defaultAxis });
+                });
+            });
+        }
 
-        detectedSphs.forEach(s => {
-            if (s > maxPosSph) maxPosSph = s;
-            if (s < -maxNegSph) maxNegSph = Math.abs(s);
+        // Optical sorting:
+        // 1. Plano (0) first
+        // 2. Positive SPH ascending (+0.25, +0.50, +0.75, +1.00...)
+        // 3. Negative SPH descending (-0.25, -0.50, -0.75, -1.00...)
+        // 4. Within same SPH, sort CYL (-0.25 before -0.50 before -0.75 before -1.00)
+        // 5. Within same CYL, sort Axis ascending
+        combosList.sort((a, b) => {
+            const groupA = a.s === 0 ? 0 : (a.s > 0 ? 1 : 2);
+            const groupB = b.s === 0 ? 0 : (b.s > 0 ? 1 : 2);
+            if (groupA !== groupB) return groupA - groupB;
+
+            if (groupA === 1) {
+                if (a.s !== b.s) return a.s - b.s;
+            } else if (groupA === 2) {
+                if (a.s !== b.s) return b.s - a.s;
+            }
+
+            if (a.c !== b.c) return b.c - a.c;
+
+            const numAxA = parseInt(a.ax, 10) || 0;
+            const numAxB = parseInt(b.ax, 10) || 0;
+            return numAxA - numAxB;
         });
-
-        const sphStep = 0.25;
-        const posSphList = [];
-        for (let s = 0.00; s <= maxPosSph + 0.001; s += sphStep) {
-            posSphList.push(Number(s.toFixed(2)));
-        }
-
-        const negSphList = [];
-        for (let s = 0.00; s <= maxNegSph + 0.001; s += sphStep) {
-            negSphList.push(Number(s.toFixed(2)));
-        }
 
         // Determine Additions: default 1.00 to 3.00 with step 0.25
         const defaultAdds = [1.00, 1.25, 1.50, 1.75, 2.00, 2.25, 2.50, 2.75, 3.00];
@@ -358,118 +424,56 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
             ? Array.from(new Set([...defaultAdds, ...Array.from(detectedAdds)])).sort((a, b) => a - b)
             : defaultAdds;
 
-        // Dynamic Column Calculation (Zero Overlap & Exact Symmetry)
-        const numAddCols = addList.length; // standard 9 columns
-        const leftSphCol = 1;              // Col B
-        const leftAddStartCol = 2;         // Col C
-        const leftAddEndCol = leftAddStartCol + numAddCols - 1; // Col K
+        const numAddCols = addList.length;
+        const rxCol = 1;      // Col B
+        const addStartCol = 2; // Col C
+        const addEndCol = addStartCol + numAddCols - 1;
+        const totalCols = addEndCol + 2;
 
-        const rightSphCol = leftAddEndCol + 1; // Col L
-        const rightAddStartCol = rightSphCol + 1; // Col M
-        const rightAddEndCol = rightAddStartCol + numAddCols - 1; // Col U
-
-        const totalCols = rightAddEndCol + 2;
-
-        // Prepare Worksheet Rows (matching the exact layout of the user's Excel)
         const rows = [];
-        const actionLabel = action === "UPDATE_QTY" ? "Pairs" : "Price Matrix";
 
-        // Row 1: Sales Order Title
-        const titleRow = new Array(totalCols).fill("");
-        titleRow[leftSphCol] = `Sales Order - ${prodName} (Progressive SPH × ADD)`;
-        rows.push(titleRow);
-
-        // Row 2: Empty Spacer
+        // Row 1: Blank Spacer
         rows.push(new Array(totalCols).fill(""));
 
-        // Row 3: Product Banner & Unit Tag
+        // Row 2: Product Name Banner (Merged across Col B to last ADD Col)
         const bannerRow = new Array(totalCols).fill("");
-        bannerRow[leftSphCol] = prodName;
-        bannerRow[rightSphCol] = actionLabel;
+        bannerRow[rxCol] = prodName;
         rows.push(bannerRow);
 
-        const hasCylOrAxis = allProducts.some(p => {
-            const c = numPower(p.cyl);
-            return (c !== null && c !== 0) || (p.axis && String(p.axis).trim() !== "");
-        });
+        // Row 3: Rx and ADD (+) Header
+        const addHeaderRow = new Array(totalCols).fill("");
+        addHeaderRow[rxCol] = "Rx";
+        addHeaderRow[addStartCol] = "ADD (+)";
+        rows.push(addHeaderRow);
 
-        // Row 4: Main Group Headers
-        const groupHeaderRow = new Array(totalCols).fill("");
-        groupHeaderRow[leftSphCol] = hasCylOrAxis ? "SPH/CYL×AXIS" : "SPH";
-        groupHeaderRow[leftAddStartCol] = "Add (+)";
-        groupHeaderRow[rightSphCol] = hasCylOrAxis ? "SPH/CYL×AXIS" : "SPH";
-        groupHeaderRow[rightAddStartCol] = "Add (-)";
-        rows.push(groupHeaderRow);
-
-        // Row 5: Column Sub-headers
+        // Row 4: sph/cyl*axis and Addition Values
         const subHeaderRow = new Array(totalCols).fill("");
-        subHeaderRow[leftSphCol] = "(+)";
+        subHeaderRow[rxCol] = "sph/cyl*axis";
         addList.forEach((addVal, idx) => {
-            subHeaderRow[leftAddStartCol + idx] = addVal.toFixed(2);
-        });
-
-        subHeaderRow[rightSphCol] = "(-)";
-        addList.forEach((addVal, idx) => {
-            subHeaderRow[rightAddStartCol + idx] = addVal.toFixed(2);
+            subHeaderRow[addStartCol + idx] = addVal.toFixed(2);
         });
         rows.push(subHeaderRow);
 
-        // Helper to format Distance Power label in the vertical column
-        const formatDistCol = (sphVal, isNeg) => {
-            const sStr = sphVal.toFixed(2);
-            if (!hasCylOrAxis) return sStr;
-            const targetSph = isNeg ? (sphVal === 0 ? 0 : -sphVal) : sphVal;
-            const matchP = allProducts.find(p => {
-                const s = numPower(p.sph);
-                return s === targetSph && (numPower(p.cyl) !== null || (p.axis && String(p.axis).trim() !== ""));
-            });
-            if (!matchP) return sStr;
-            const c = numPower(matchP.cyl);
-            const ax = matchP.axis ? String(matchP.axis).trim() : "";
-            if (c !== null && c !== 0) {
-                const cStr = c > 0 ? `+${c.toFixed(2)}` : c.toFixed(2);
-                if (ax) return `${sStr} / ${cStr} x ${ax}`;
-                return `${sStr} / ${cStr}`;
-            } else if (ax) {
-                return `${sStr} x ${ax}`;
-            }
-            return sStr;
-        };
-
-        // Row 6 onwards: SPH Rows side-by-side
-        const maxRows = Math.max(posSphList.length, negSphList.length);
-
-        for (let r = 0; r < maxRows; r++) {
+        // Row 5+: Data rows (First column: SPH / CYL x AXIS, columns: ADD values)
+        combosList.forEach((combo) => {
             const rowData = new Array(totalCols).fill("");
+            rowData[rxCol] = formatDistRxCell(combo.s, combo.c, combo.ax);
 
-            // --- Left Table: Positive SPH ---
-            if (r < posSphList.length) {
-                const posSph = posSphList[r];
-                rowData[leftSphCol] = formatDistCol(posSph, false);
+            addList.forEach((addVal, aIdx) => {
+                const sStr = combo.s.toFixed(2);
+                const cStr = combo.c.toFixed(2);
+                const ax = combo.ax;
+                const aStr = addVal.toFixed(2);
 
-                addList.forEach((addVal, aIdx) => {
-                    const key = `${posSph.toFixed(2)}_${addVal.toFixed(2)}`;
-                    const prod = lookup.get(key);
-                    rowData[leftAddStartCol + aIdx] = getVal(prod);
-                });
-            }
+                const prod = lookup.get(`${sStr}_${cStr}_${ax}_${aStr}`) ||
+                             lookup.get(`${sStr}_${cStr}_${aStr}`) ||
+                             lookup.get(`${sStr}_${aStr}`);
 
-            // --- Right Table: Negative SPH ---
-            if (r < negSphList.length) {
-                const negSph = negSphList[r];
-                rowData[rightSphCol] = formatDistCol(negSph, true);
-
-                addList.forEach((addVal, aIdx) => {
-                    const key = negSph === 0
-                        ? `0.00_${addVal.toFixed(2)}`
-                        : `-${negSph.toFixed(2)}_${addVal.toFixed(2)}`;
-                    const prod = lookup.get(key);
-                    rowData[rightAddStartCol + aIdx] = getVal(prod);
-                });
-            }
+                rowData[addStartCol + aIdx] = getVal(prod);
+            });
 
             rows.push(rowData);
-        }
+        });
 
         // Add 2 summary/blank rows at the bottom
         rows.push(new Array(totalCols).fill(""));
@@ -479,28 +483,26 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.aoa_to_sheet(rows);
 
-        // Merge group headers for professional layout matching the user's reference format
+        // Merges:
+        // Row 2 (index 1): Banner across Col B to end
+        // Row 3 (index 2): ADD (+) header across Col C to end
         ws["!merges"] = [
-            { s: { r: 2, c: leftSphCol }, e: { r: 2, c: leftAddEndCol } },
-            { s: { r: 2, c: rightSphCol }, e: { r: 2, c: rightAddEndCol } },
-            { s: { r: 3, c: leftAddStartCol }, e: { r: 3, c: leftAddEndCol } },
-            { s: { r: 3, c: rightAddStartCol }, e: { r: 3, c: rightAddEndCol } },
+            { s: { r: 1, c: rxCol }, e: { r: 1, c: addEndCol } },
+            { s: { r: 2, c: addStartCol }, e: { r: 2, c: addEndCol } },
         ];
 
-        // Auto-size columns for clear readability
-        const colWidths = [{ wch: 4 }, { wch: 8 }];
-        for (let i = 0; i < numAddCols; i++) colWidths.push({ wch: 7 });
-        colWidths.push({ wch: 8 });
-        for (let i = 0; i < numAddCols; i++) colWidths.push({ wch: 7 });
+        // Column Widths: Col A: 4, Col B (Rx): 18, ADD cols: 10 each
+        const colWidths = [{ wch: 4 }, { wch: 18 }];
+        for (let i = 0; i < numAddCols; i++) colWidths.push({ wch: 10 });
         ws["!cols"] = colWidths;
 
-        const sheetTitle = (prodName || "SPH_ADD_Matrix").substring(0, 31).replace(/[:\\\/\?\*\[\]]/g, "_");
+        const sheetTitle = (prodName || "Progressive_Matrix").substring(0, 31).replace(/[:\\\/\?\*\[\]]/g, "_");
         XLSX.utils.book_append_sheet(wb, ws, sheetTitle);
 
-        const safeFilename = `${prodName.replace(/[^a-zA-Z0-9_\-]/g, "_")}_Progressive_SPH_ADD_Matrix.xlsx`;
+        const safeFilename = `${prodName.replace(/[^a-zA-Z0-9_\-]/g, "_")}_Progressive_ADD_Matrix.xlsx`;
         XLSX.writeFile(wb, safeFilename);
 
-        toast.success(`Exported Progressive SPH × ADD matrix for "${prodName}". Fill quantities/rates and upload to apply.`);
+        toast.success(`Exported Progressive (SPH/CYL×AXIS) × ADD matrix for "${prodName}". Fill quantities/rates and upload to apply.`);
     };
 
     // Main Export Dispatcher
@@ -715,104 +717,145 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                     });
                     setParseError("");
 
-                    // ── PARSE SPH × ADD MATRIX (Progressive / Bifocal) ──
-                } else {
+                    // ── PARSE SPH × ADD MATRIX (Progressive / Bifocal: (SPH/CYL×AXIS) × ADD) ──
+                    let rxCol = -1;
                     let subHeaderRowIdx = -1;
-                    let leftSphCol = -1;
+                    let addCols = [];
+
+                    // 1. Look for the Distance Power column ("sph/cyl*axis", "sph/cyl", "rx", "sph")
+                    for (let r = 0; r < Math.min(8, rawData.length); r++) {
+                        const row = rawData[r] || [];
+                        for (let c = 0; c < Math.min(5, row.length); c++) {
+                            const cell = String(row[c] || "").trim().toLowerCase();
+                            if (cell.includes("sph/cyl") || cell === "rx" || cell.includes("sph/cyl*axis") || cell.includes("sph/cylxaxis")) {
+                                rxCol = c;
+                                subHeaderRowIdx = r;
+                                break;
+                            }
+                        }
+                        if (rxCol !== -1) break;
+                    }
+
+                    const parseDistPower = (str, forceNegative = false) => {
+                        if (str === null || str === undefined || str === "") return null;
+                        const s = String(str).trim();
+                        if (!s || s === "-" || s.toLowerCase().startsWith("sph/cyl") || s.toLowerCase() === "rx") return null;
+
+                        const match = s.match(/^([+-]?\d+(?:\.\d+)?)(?:\s*\/\s*([+-]?\d+(?:\.\d+)?))?(?:\s*[*xX]\s*(\d+))?/);
+                        if (!match) return null;
+
+                        let sphNum = parseFloat(match[1]);
+                        if (isNaN(sphNum)) return null;
+
+                        if (forceNegative && sphNum > 0) {
+                            sphNum = -Math.abs(sphNum);
+                        }
+
+                        const cylNum = match[2] !== undefined ? parseFloat(match[2]) : null;
+                        const axisStr = match[3] !== undefined ? match[3].trim() : "";
+
+                        return {
+                            sph: sphNum === 0 ? "0.00" : (sphNum > 0 ? `+${sphNum.toFixed(2)}` : `${sphNum.toFixed(2)}`),
+                            cyl: cylNum !== null && !isNaN(cylNum) ? cylNum.toFixed(2) : "0.00",
+                            axis: axisStr,
+                        };
+                    };
+
+                    // 2. If rxCol not found by header text, fallback by scanning first 4 columns for valid Rx strings
+                    if (rxCol === -1) {
+                        for (let c = 0; c < Math.min(4, (rawData[0] || []).length); c++) {
+                            let matchCount = 0;
+                            for (let r = 2; r < Math.min(15, rawData.length); r++) {
+                                const cell = String(rawData[r]?.[c] || "").trim();
+                                if (parseDistPower(cell)) matchCount++;
+                            }
+                            if (matchCount >= 2) {
+                                rxCol = c;
+                                break;
+                            }
+                        }
+                    }
+                    if (rxCol === -1) rxCol = 1; // Default to Col B
+
+                    // 3. Find the ADD header row containing numbers like 1.00, 1.25, 1.50...
+                    const hasAddColsInRow = (row) => {
+                        let count = 0;
+                        for (let c = rxCol + 1; c < (row || []).length; c++) {
+                            const val = numPower(row[c]);
+                            if (val !== null && val >= 0.75 && val <= 5.00) count++;
+                        }
+                        return count >= 2;
+                    };
+
+                    let addHeaderRowIdx = subHeaderRowIdx !== -1 && hasAddColsInRow(rawData[subHeaderRowIdx]) ? subHeaderRowIdx : -1;
+
+                    if (addHeaderRowIdx === -1) {
+                        for (let r = 0; r < Math.min(8, rawData.length); r++) {
+                            if (hasAddColsInRow(rawData[r])) {
+                                addHeaderRowIdx = r;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (addHeaderRowIdx === -1) {
+                        throw new Error("Could not detect Addition power columns (1.00, 1.25, etc.) in the header.");
+                    }
+
+                    // 4. Collect ADD columns (handles single unified table as well as older dual-table format)
                     let rightSphCol = -1;
-                    let leftAddCols = [];
                     let rightAddCols = [];
+                    const addRow = rawData[addHeaderRowIdx] || [];
 
-                    for (let r = 0; r < Math.min(10, rawData.length); r++) {
-                        const row = rawData[r].map(c => String(c).trim().toLowerCase());
-                        const posSignIdx = row.findIndex(c => c === "(+)" || c === "+" || c === "sph (+)" || c.includes("add (+)"));
-                        const negSignIdx = row.findIndex(c => c === "(-)" || c === "-" || c === "sph (-)" || c.includes("add (-)"));
-
-                        if (posSignIdx >= 0) {
-                            subHeaderRowIdx = r;
-                            leftSphCol = posSignIdx;
-                            rightSphCol = negSignIdx >= 0 ? negSignIdx : -1;
+                    for (let c = rxCol + 1; c < addRow.length; c++) {
+                        const rawCell = String(addRow[c] || "").trim().toLowerCase();
+                        if (rawCell === "(-)" || rawCell === "sph (-)" || rawCell === "sph") {
+                            rightSphCol = c;
                             break;
                         }
-                    }
-
-                    if (subHeaderRowIdx === -1 && headerRowIdx >= 0) {
-                        subHeaderRowIdx = headerRowIdx + 1;
-                        const row = (rawData[subHeaderRowIdx] || []).map(c => String(c).trim().toLowerCase());
-                        leftSphCol = row.findIndex(c => c === "(+)" || c === "+" || c === "sph" || c === "power");
-                        rightSphCol = row.findIndex((c, idx) => idx > leftSphCol && (c === "(-)" || c === "-" || c === "sph"));
-                    }
-
-                    if (subHeaderRowIdx === -1 || leftSphCol === -1) {
-                        throw new Error("Could not detect matrix header row. Please use the exported template.");
-                    }
-
-                    const subHeaderRow = rawData[subHeaderRowIdx] || [];
-                    const endLeft = rightSphCol > leftSphCol ? rightSphCol : subHeaderRow.length;
-                    for (let c = leftSphCol + 1; c < endLeft; c++) {
-                        const val = numPower(subHeaderRow[c]);
-                        if (val !== null && val >= 0.00 && val <= 6.00) {
-                            leftAddCols.push({ colIdx: c, addVal: val.toFixed(2) });
+                        const val = numPower(addRow[c]);
+                        if (val !== null && val >= 0.50 && val <= 5.00) {
+                            addCols.push({ colIdx: c, addVal: val.toFixed(2) });
                         }
                     }
 
-                    if (rightSphCol >= 0) {
-                        for (let c = rightSphCol + 1; c < subHeaderRow.length; c++) {
-                            const val = numPower(subHeaderRow[c]);
-                            if (val !== null && val >= 0.00 && val <= 6.00) {
+                    if (rightSphCol !== -1) {
+                        for (let c = rightSphCol + 1; c < addRow.length; c++) {
+                            const val = numPower(addRow[c]);
+                            if (val !== null && val >= 0.50 && val <= 5.00) {
                                 rightAddCols.push({ colIdx: c, addVal: val.toFixed(2) });
                             }
                         }
                     }
 
-                    if (leftAddCols.length === 0) {
+                    if (addCols.length === 0) {
                         throw new Error("Could not detect any Addition columns (1.00, 1.25, etc.) in the header.");
                     }
 
                     let posCount = 0;
                     let negCount = 0;
 
-                    const parseDistPower = (str, forceNegative = false) => {
-                        if (!str && str !== 0) return null;
-                        const s = String(str).trim();
-                        if (!s || s === "-") return null;
-                        const match = s.match(/^([+-]?\d+(?:\.\d+)?)(?:\s*\/\s*([+-]?\d+(?:\.\d+)?))?(?:\s*[xX]\s*(\d+))?/);
-                        if (!match) return null;
-                        let sphNum = parseFloat(match[1]);
-                        if (isNaN(sphNum)) return null;
-                        if (forceNegative && sphNum > 0) {
-                            sphNum = -Math.abs(sphNum);
-                        }
-                        const cylNum = match[2] !== undefined ? parseFloat(match[2]) : null;
-                        const axisStr = match[3] !== undefined ? match[3].trim() : "";
-                        return {
-                            sph: sphNum === 0 ? "0.00" : (sphNum > 0 ? `+${sphNum.toFixed(2)}` : `${sphNum.toFixed(2)}`),
-                            cyl: cylNum !== null && !isNaN(cylNum) ? cylNum.toFixed(2) : "",
-                            axis: axisStr,
-                        };
-                    };
-
-                    for (let r = subHeaderRowIdx + 1; r < rawData.length; r++) {
+                    for (let r = addHeaderRowIdx + 1; r < rawData.length; r++) {
                         const row = rawData[r];
                         if (!row || row.every(c => c === "" || c === undefined)) continue;
 
-                        const rawPosSph = leftSphCol >= 0 ? row[leftSphCol] : "";
-                        const parsedPos = parseDistPower(rawPosSph, false);
+                        const rawDist = row[rxCol];
+                        const parsed = parseDistPower(rawDist, false);
 
-                        if (parsedPos) {
-                            leftAddCols.forEach(({ colIdx, addVal }) => {
+                        if (parsed) {
+                            addCols.forEach(({ colIdx, addVal }) => {
                                 const cellRaw = row[colIdx];
                                 if (cellRaw !== "" && cellRaw !== undefined && cellRaw !== "-") {
                                     const valNum = parseFloat(String(cellRaw).trim());
                                     if (!isNaN(valNum)) {
                                         const updateObj = {
-                                            sph: parsedPos.sph,
+                                            sph: parsed.sph,
                                             addition: `+${addVal}`,
                                             value: valNum,
-                                            isPositive: true,
+                                            isPositive: parseFloat(parsed.sph) >= 0,
                                         };
-                                        if (parsedPos.cyl) updateObj.cyl = parsedPos.cyl;
-                                        if (parsedPos.axis) updateObj.axis = parsedPos.axis;
+                                        if (parsed.cyl) updateObj.cyl = parsed.cyl;
+                                        if (parsed.axis) updateObj.axis = parsed.axis;
 
                                         if (action === "UPDATE_QTY") {
                                             updateObj.qty = valNum;
@@ -828,15 +871,17 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                             updateObj.mrp = valNum;
                                         }
                                         updates.push(updateObj);
-                                        posCount++;
+                                        if (parseFloat(parsed.sph) >= 0) posCount++;
+                                        else negCount++;
                                     }
                                 }
                             });
                         }
 
+                        // Fallback support for older dual-table format with rightSphCol
                         if (rightSphCol >= 0) {
-                            const rawNegSph = row[rightSphCol];
-                            const parsedNeg = parseDistPower(rawNegSph, true);
+                            const rawNegDist = row[rightSphCol];
+                            const parsedNeg = parseDistPower(rawNegDist, true);
 
                             if (parsedNeg) {
                                 rightAddCols.forEach(({ colIdx, addVal }) => {
@@ -876,14 +921,14 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                     }
 
                     if (updates.length === 0) {
-                        throw new Error("No numeric values found in the SPH × ADD matrix cells.");
+                        throw new Error("No numeric values found in the Progressive / Bifocal matrix cells.");
                     }
 
                     setParsedUpdates(updates);
                     setMatrixStats({
                         totalCells: updates.length,
                         format: "SPH_ADD",
-                        formatLabel: "Progressive / Bifocal (SPH × ADD)",
+                        formatLabel: "Progressive / Bifocal ((SPH/CYL×AXIS) × ADD)",
                         posCount,
                         negCount,
                         productName: detectedProductName || selectedProduct?.productName,
@@ -970,6 +1015,8 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
     const uiDetectedSphs = new Set();
     const uiDetectedCyls = new Set();
     const uiDetectedAdds = new Set();
+    const uiComboKeySet = new Set();
+    const uiCombosList = [];
     let totalStockPreview = 0;
     let totalValuePreview = 0;
 
@@ -981,6 +1028,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
         let s = numPower(p.sph);
         let c = numPower(p.cyl);
         const a = numPower(p.addition);
+        const ax = cleanAxisStr(p.axis);
 
         if (s === null && c === null && (a === null || a === 0)) {
             s = 0;
@@ -997,9 +1045,48 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
         if (s !== null && c !== null) {
             uiSphCylLookup.set(`${s.toFixed(2)}_${c.toFixed(2)}`, p);
         }
-        if (s !== null && a !== null && a > 0) {
-            uiSphAddLookup.set(`${s.toFixed(2)}_${a.toFixed(2)}`, p);
+        if (a !== null && a > 0) {
+            const sVal = s ?? 0;
+            const cVal = c ?? 0;
+            const sStr = sVal.toFixed(2);
+            const cStr = cVal.toFixed(2);
+            const aStr = a.toFixed(2);
+
+            uiSphAddLookup.set(`${sStr}_${cStr}_${ax}_${aStr}`, p);
+            if (!uiSphAddLookup.has(`${sStr}_${cStr}_${aStr}`)) {
+                uiSphAddLookup.set(`${sStr}_${cStr}_${aStr}`, p);
+            }
+            if (!uiSphAddLookup.has(`${sStr}_${aStr}`)) {
+                uiSphAddLookup.set(`${sStr}_${aStr}`, p);
+            }
         }
+
+        const sVal = s ?? 0;
+        const cVal = c ?? 0;
+        const comboKey = `${sVal.toFixed(2)}_${cVal.toFixed(2)}_${ax}`;
+        if (!uiComboKeySet.has(comboKey)) {
+            uiComboKeySet.add(comboKey);
+            uiCombosList.push({ s: sVal, c: cVal, ax });
+        }
+    });
+
+    // Optical sort: Plano (0) first, then positive ascending, then negative descending, then cylinder, then axis
+    uiCombosList.sort((a, b) => {
+        const groupA = a.s === 0 ? 0 : (a.s > 0 ? 1 : 2);
+        const groupB = b.s === 0 ? 0 : (b.s > 0 ? 1 : 2);
+        if (groupA !== groupB) return groupA - groupB;
+
+        if (groupA === 1) {
+            if (a.s !== b.s) return a.s - b.s;
+        } else if (groupA === 2) {
+            if (a.s !== b.s) return b.s - a.s;
+        }
+
+        if (a.c !== b.c) return b.c - a.c;
+
+        const numAxA = parseInt(a.ax, 10) || 0;
+        const numAxB = parseInt(b.ax, 10) || 0;
+        return numAxA - numAxB;
     });
 
     if (uiDetectedSphs.size === 0) uiDetectedSphs.add(0);
@@ -1026,46 +1113,6 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
     const uiAddList = uiDetectedAdds.size > 0
         ? Array.from(new Set([...defaultAdds, ...Array.from(uiDetectedAdds)])).sort((a, b) => a - b)
         : defaultAdds;
-
-    let uiMaxPosSph = 3.00;
-    let uiMaxNegSph = 3.00;
-    uiDetectedSphs.forEach(s => {
-        if (s > uiMaxPosSph) uiMaxPosSph = s;
-        if (s < -uiMaxNegSph) uiMaxNegSph = Math.abs(s);
-    });
-
-    const uiPosSphList = [];
-    for (let s = 0.00; s <= uiMaxPosSph + 0.001; s += 0.25) {
-        uiPosSphList.push(Number(s.toFixed(2)));
-    }
-
-    const uiNegSphList = [];
-    for (let s = 0.00; s <= uiMaxNegSph + 0.001; s += 0.25) {
-        uiNegSphList.push(Number(s.toFixed(2)));
-    }
-
-    const uiHasCylOrAxis = (matrixData?.products || []).some(p => (numPower(p.cyl) !== null && numPower(p.cyl) !== 0) || (p.axis && String(p.axis).trim() !== ""));
-
-    const formatUiDist = (sphVal, isNeg) => {
-        const sStr = isNeg ? (sphVal === 0 ? "0.00" : `-${sphVal.toFixed(2)}`) : `+${sphVal.toFixed(2)}`;
-        if (!uiHasCylOrAxis) return sStr;
-        const targetSph = isNeg ? (sphVal === 0 ? 0 : -sphVal) : sphVal;
-        const matchP = (matrixData?.products || []).find(p => {
-            const s = numPower(p.sph);
-            return s === targetSph && (numPower(p.cyl) !== null || (p.axis && String(p.axis).trim() !== ""));
-        });
-        if (!matchP) return sStr;
-        const c = numPower(matchP.cyl);
-        const ax = matchP.axis ? String(matchP.axis).trim() : "";
-        if (c !== null && c !== 0) {
-            const cStr = c > 0 ? `+${c.toFixed(2)}` : c.toFixed(2);
-            if (ax) return `${sStr} / ${cStr} x ${ax}`;
-            return `${sStr} / ${cStr}`;
-        } else if (ax) {
-            return `${sStr} x ${ax}`;
-        }
-        return sStr;
-    };
 
     const filteredPreviewProducts = previewProducts.filter(p => {
         if (!previewSearch.trim()) return true;
@@ -1479,83 +1526,68 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                                                     </tbody>
                                                                 </table>
                                                             ) : (
-                                                                /* Progressive SPH × ADD Matrix (Dual Side-by-Side Grid) */
-                                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                                                    {/* Left Table: (+) SPH */}
-                                                                    <div className="border border-emerald-200 rounded-xl overflow-hidden shadow-2xs">
-                                                                        <div className="bg-emerald-600 text-white px-3 py-1.5 text-xs font-bold flex items-center justify-between">
-                                                                            <span>SPH (+) vs ADD (+)</span>
-                                                                            <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded">Positive Power Table</span>
+                                                                /* Progressive / Bifocal (SPH / CYL × AXIS) × ADD Unified Matrix */
+                                                                <div className="border border-blue-200 rounded-xl overflow-hidden shadow-2xs">
+                                                                    <div className="bg-[#2980b9] text-white px-3.5 py-2 text-xs font-bold flex items-center justify-between">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <FiLayers size={14} />
+                                                                            <span>Progressive / Bifocal Matrix — (SPH / CYL × AXIS) × ADD</span>
                                                                         </div>
-                                                                        <div className="overflow-x-auto max-h-[320px]">
-                                                                            <table className="w-full border-collapse text-center text-xs">
-                                                                                <thead>
-                                                                                    <tr className="bg-gray-100 text-gray-700 font-bold text-[10px]">
-                                                                                        <th className="p-2 border border-gray-200">{uiHasCylOrAxis ? "SPH/CYL×AXIS (+)" : "SPH (+)"}</th>
-                                                                                        {uiAddList.map(a => (
-                                                                                            <th key={a} className="p-2 border border-gray-200 min-w-[55px]">+{a.toFixed(2)}</th>
-                                                                                        ))}
-                                                                                    </tr>
-                                                                                </thead>
-                                                                                <tbody>
-                                                                                    {uiPosSphList.map(sVal => (
-                                                                                        <tr key={sVal} className="hover:bg-emerald-50/20">
-                                                                                            <td className="bg-gray-50 font-mono font-bold p-1.5 border border-gray-200 text-left pl-2 whitespace-nowrap">
-                                                                                                {formatUiDist(sVal, false)}
-                                                                                            </td>
-                                                                                            {uiAddList.map(a => {
-                                                                                                const key = `${sVal.toFixed(2)}_${a.toFixed(2)}`;
-                                                                                                const item = uiSphAddLookup.get(key);
-                                                                                                return (
-                                                                                                    <td key={a} className={`border border-gray-200 p-1 ${item ? "bg-emerald-50/50" : ""}`}>
-                                                                                                        {item ? (
-                                                                                                            <span className="inline-block px-1.5 py-0.5 rounded bg-emerald-500 text-white font-bold text-[11px]">
-                                                                                                                {previewMetric === "qty" ? item.qty : `₹${item.sellingPrice ?? item.price}`}
-                                                                                                            </span>
-                                                                                                        ) : (
-                                                                                                            <span className="text-gray-300 text-[10px]">—</span>
-                                                                                                        )}
-                                                                                                    </td>
-                                                                                                );
-                                                                                            })}
-                                                                                        </tr>
-                                                                                    ))}
-                                                                                </tbody>
-                                                                            </table>
-                                                                        </div>
+                                                                        <span className="text-[10px] bg-white/20 px-2.5 py-0.5 rounded font-mono font-bold">
+                                                                            {uiCombosList.length} Rx Combinations × {uiAddList.length} Additions
+                                                                        </span>
                                                                     </div>
-
-                                                                    {/* Right Table: (-) SPH */}
-                                                                    <div className="border border-blue-200 rounded-xl overflow-hidden shadow-2xs">
-                                                                        <div className="bg-[#2980b9] text-white px-3 py-1.5 text-xs font-bold flex items-center justify-between">
-                                                                            <span>SPH (-) vs ADD (-)</span>
-                                                                            <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded">Negative Power Table</span>
-                                                                        </div>
-                                                                        <div className="overflow-x-auto max-h-[320px]">
-                                                                            <table className="w-full border-collapse text-center text-xs">
-                                                                                <thead>
-                                                                                    <tr className="bg-gray-100 text-gray-700 font-bold text-[10px]">
-                                                                                        <th className="p-2 border border-gray-200">{uiHasCylOrAxis ? "SPH/CYL×AXIS (-)" : "SPH (-)"}</th>
-                                                                                        {uiAddList.map(a => (
-                                                                                            <th key={a} className="p-2 border border-gray-200 min-w-[55px]">+{a.toFixed(2)}</th>
-                                                                                        ))}
-                                                                                    </tr>
-                                                                                </thead>
-                                                                                <tbody>
-                                                                                    {uiNegSphList.map(sVal => (
-                                                                                        <tr key={sVal} className="hover:bg-blue-50/20">
-                                                                                            <td className="bg-gray-50 font-mono font-bold p-1.5 border border-gray-200 text-left pl-2 whitespace-nowrap">
-                                                                                                {formatUiDist(sVal, true)}
+                                                                    <div className="overflow-x-auto max-h-[360px]">
+                                                                        <table className="w-full border-collapse text-center text-xs">
+                                                                            <thead>
+                                                                                <tr className="bg-gray-100 text-gray-800 font-bold text-[11px]">
+                                                                                    <th className="sticky left-0 z-20 bg-gray-200/90 text-gray-800 font-extrabold px-3 py-2 border border-gray-300 text-left min-w-[130px]">
+                                                                                        sph/cyl*axis
+                                                                                    </th>
+                                                                                    {uiAddList.map(a => (
+                                                                                        <th key={a} className="p-2 border border-gray-200 min-w-[65px] bg-blue-50/70 text-blue-900 font-extrabold">
+                                                                                            +{a.toFixed(2)}
+                                                                                        </th>
+                                                                                    ))}
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody>
+                                                                                {uiCombosList.map((combo) => {
+                                                                                    const rowLabel = formatDistRxCell(combo.s, combo.c, combo.ax);
+                                                                                    return (
+                                                                                        <tr key={`${combo.s}_${combo.c}_${combo.ax}`} className="hover:bg-blue-50/20">
+                                                                                            <td className="sticky left-0 z-10 bg-gray-50 font-mono font-bold p-1.5 border border-gray-200 text-left pl-3 whitespace-nowrap text-gray-800 text-xs">
+                                                                                                {rowLabel}
                                                                                             </td>
                                                                                             {uiAddList.map(a => {
-                                                                                                const key = sVal === 0 ? `0.00_${a.toFixed(2)}` : `-${sVal.toFixed(2)}_${a.toFixed(2)}`;
-                                                                                                const item = uiSphAddLookup.get(key);
+                                                                                                const sStr = combo.s.toFixed(2);
+                                                                                                const cStr = combo.c.toFixed(2);
+                                                                                                const ax = combo.ax;
+                                                                                                const aStr = a.toFixed(2);
+                                                                                                const item = uiSphAddLookup.get(`${sStr}_${cStr}_${ax}_${aStr}`) ||
+                                                                                                             uiSphAddLookup.get(`${sStr}_${cStr}_${aStr}`) ||
+                                                                                                             uiSphAddLookup.get(`${sStr}_${aStr}`);
                                                                                                 return (
-                                                                                                    <td key={a} className={`border border-gray-200 p-1 ${item ? "bg-blue-50/50" : ""}`}>
+                                                                                                    <td
+                                                                                                        key={a}
+                                                                                                        className={`border border-gray-200 p-1 transition ${item ? "bg-emerald-50/40 hover:bg-emerald-100/50" : "bg-white"}`}
+                                                                                                        title={item ? `Code: ${item.productCode}\nRx: ${rowLabel} | ADD: +${aStr}\nStock: ${item.qty} units\nSelling Price: ₹${item.sellingPrice ?? item.price ?? 0}\nBuying Price: ₹${item.buyingPrice ?? item.price ?? 0}\nMRP: ₹${item.mrp ?? 0}` : "No product combination"}
+                                                                                                    >
                                                                                                         {item ? (
-                                                                                                            <span className="inline-block px-1.5 py-0.5 rounded bg-[#2980b9] text-white font-bold text-[11px]">
-                                                                                                                {previewMetric === "qty" ? item.qty : `₹${item.sellingPrice ?? item.price}`}
-                                                                                                            </span>
+                                                                                                            <div className="flex flex-col items-center justify-center">
+                                                                                                                {previewMetric === "qty" ? (
+                                                                                                                    <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded font-bold text-xs ${(item.qty || 0) > 0 ? "bg-emerald-500 text-white shadow-2xs" : "bg-amber-100 text-amber-800"}`}>
+                                                                                                                        {item.qty || 0}
+                                                                                                                    </span>
+                                                                                                                ) : (
+                                                                                                                    <span className="font-mono text-xs font-bold text-[#2980b9]">
+                                                                                                                        ₹{previewMetric === "sellingPrice" ? (item.sellingPrice ?? item.price ?? 0) : previewMetric === "buyingPrice" ? (item.buyingPrice ?? item.price ?? 0) : (item.mrp ?? 0)}
+                                                                                                                    </span>
+                                                                                                                )}
+                                                                                                                <span className="text-[9px] text-gray-400 font-mono mt-0.5">
+                                                                                                                    {previewMetric === "qty" ? `₹${item.sellingPrice ?? item.price ?? 0}` : `${item.qty || 0} pcs`}
+                                                                                                                </span>
+                                                                                                            </div>
                                                                                                         ) : (
                                                                                                             <span className="text-gray-300 text-[10px]">—</span>
                                                                                                         )}
@@ -1563,10 +1595,10 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                                                                                 );
                                                                                             })}
                                                                                         </tr>
-                                                                                    ))}
-                                                                                </tbody>
-                                                                            </table>
-                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                            </tbody>
+                                                                        </table>
                                                                     </div>
                                                                 </div>
                                                             )}
