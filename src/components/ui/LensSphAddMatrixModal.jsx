@@ -482,7 +482,6 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                 const rowData = new Array(totalCols).fill("");
                 const hasLeft = r < posSphs.length;
                 const hasRight = r < negSphs.length;
-                const isRightZero = hasRight && negSphs[r] === 0;
 
                 if (hasLeft) {
                     const sVal = posSphs[r];
@@ -497,13 +496,11 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                 if (hasRight) {
                     const sVal = negSphs[r];
                     rowData[rightSphCol] = sVal === 0 ? "0.00" : sVal.toFixed(2);
-                    if (!isRightZero) {
-                        cylList.forEach((cVal, cIdx) => {
-                            const prod = lookup.get(`${sVal.toFixed(2)}_${cVal.toFixed(2)}`);
-                            const val = getVal(prod);
-                            rowData[rightCylStartCol + cIdx] = val === "" ? "" : val;
-                        });
-                    }
+                    cylList.forEach((cVal, cIdx) => {
+                        const prod = lookup.get(`${sVal.toFixed(2)}_${cVal.toFixed(2)}`);
+                        const val = getVal(prod);
+                        rowData[rightCylStartCol + cIdx] = val === "" ? "" : val;
+                    });
                 }
 
                 rows.push(rowData);
@@ -514,14 +511,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                     }
                     if (hasRight) {
                         styleRange(ws, rowIdx, rightSphCol, rowIdx, rightSphCol, xlStyles.cyanSphCol);
-                        styleRange(
-                            ws,
-                            rowIdx,
-                            rightCylStartCol,
-                            rowIdx,
-                            rEnd,
-                            isRightZero ? xlStyles.blackoutCell : xlStyles.svDataCell
-                        );
+                        styleRange(ws, rowIdx, rightCylStartCol, rowIdx, rEnd, xlStyles.svDataCell);
                     }
                 });
             }
@@ -1066,7 +1056,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                             for (let c = 0; c < row.length; c++) {
                                 const raw = String(row[c] || "").replace(/\+/g, "").trim();
                                 const val = parseFloat(raw);
-                                if (!isNaN(val) && raw !== "" && val >= 0.20 && val <= 6.00) numCount++;
+                                if (!isNaN(val) && raw !== "" && val >= 0.20 && val <= 20.00) numCount++;
                             }
                             if ((hasRxHeader && numCount >= 1) || numCount >= 2) {
                                 progBlockIndices.push(r);
@@ -1114,7 +1104,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                             for (let c = 0; c < subHeaderRow.length; c++) {
                                 const raw = String(subHeaderRow[c] || "").replace(/\+/g, "").trim();
                                 const val = parseFloat(raw);
-                                if (!isNaN(val) && raw !== "" && val >= 0.20 && val <= 6.00) {
+                                if (!isNaN(val) && raw !== "" && val >= 0.20 && val <= 20.00) {
                                     firstAddCol = c;
                                     break;
                                 }
@@ -1965,23 +1955,16 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                                                     </thead>
                                                                     <tbody>
                                                                         {q.sphs.map((sVal) => {
-                                                                            const isBlackoutRow = q.isNegSphSide && sVal === 0;
                                                                             return (
-                                                                                <tr key={`s_${q.id}_${sVal}`} className={isBlackoutRow ? "bg-black" : "hover:bg-blue-50/20"}>
+                                                                                <tr key={`s_${q.id}_${sVal}`} className="hover:bg-blue-50/20">
                                                                                     <td className="sticky left-0 z-10 font-mono font-extrabold p-1.5 text-xs border-r-2 border-b border-gray-900 text-center bg-[#DAEEF3] text-black">
                                                                                         {sVal === 0 ? "0.00" : (sVal > 0 ? `+${sVal.toFixed(2)}` : sVal.toFixed(2))}
                                                                                     </td>
-                                                                                    {isBlackoutRow ? (
-                                                                                        q.cyls.map((cVal) => (
-                                                                                            <td key={`${q.id}_blk_${cVal}`} className="bg-black border border-gray-900 p-1.5" title="0.00 belongs to SPH (+) table" />
-                                                                                        ))
-                                                                                    ) : (
-                                                                                        q.cyls.map((cVal) => {
-                                                                                            const key = `${sVal.toFixed(2)}_${cVal.toFixed(2)}`;
-                                                                                            const item = uiSphCylLookup.get(key);
-                                                                                            return renderPreviewCell(item, `${q.id}_${key}`, `SPH ${sVal > 0 ? '+' : ''}${sVal.toFixed(2)} | CYL ${cVal > 0 ? '+' : ''}${cVal.toFixed(2)}`);
-                                                                                        })
-                                                                                    )}
+                                                                                    {q.cyls.map((cVal) => {
+                                                                                        const key = `${sVal.toFixed(2)}_${cVal.toFixed(2)}`;
+                                                                                        const item = uiSphCylLookup.get(key);
+                                                                                        return renderPreviewCell(item, `${q.id}_${key}`, `SPH ${sVal > 0 ? '+' : ''}${sVal.toFixed(2)} | CYL ${cVal > 0 ? '+' : ''}${cVal.toFixed(2)}`);
+                                                                                    })}
                                                                                 </tr>
                                                                             );
                                                                         })}
