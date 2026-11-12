@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import * as XLSX from "xlsx";
+import XLSX from "xlsx-js-style";
 import {
     FiX,
     FiDownload,
@@ -19,6 +19,129 @@ import {
 import { toast } from "react-toastify";
 import api from "../../services/apiInstance";
 
+// Normalize power numbers (e.g. "+0.25" -> 0.25)
+const numPower = (v) => {
+    if (v === null || v === undefined || v === "") return null;
+    const n = parseFloat(String(v).replace(/\+/g, "").trim());
+    return isNaN(n) ? null : n;
+};
+
+// Shared Single Vision axis builder: uses continuous 0.25 steps for normal ranges,
+// and falls back to default 0.25 range + actual detected values for extreme ranges (e.g. up to 400.00).
+const buildSvAxisValues = (detectedSet, { direction, startAbs, defaultMaxAbs }) => {
+    const sign = direction === "pos" ? 1 : -1;
+    const sideDetected = Array.from(detectedSet)
+        .filter((v) => (direction === "pos" ? (startAbs === 0 ? v >= 0 : v > 0) : v <= 0))
+        .map((v) => Number(v.toFixed(2)));
+    const maxDetectedAbs = sideDetected.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
+    const set = new Set();
+    const stepLimit = maxDetectedAbs <= 16.00 ? Math.max(defaultMaxAbs, maxDetectedAbs) : defaultMaxAbs;
+
+    for (let abs = startAbs; abs <= stepLimit + 0.001; abs += 0.25) {
+        const val = Number((sign * abs).toFixed(2));
+        set.add(Object.is(val, -0) ? 0 : val);
+    }
+    sideDetected.forEach((v) => set.add(Object.is(v, -0) ? 0 : v));
+    if (startAbs === 0) set.add(0);
+
+    return Array.from(set).sort((a, b) => (direction === "pos" ? a - b : b - a));
+};
+
+// Detect if a lens is Single Vision, Progressive, or Bifocal
+const getLensClassification = (item, matrixOverride = null) => {
+    const name = (matrixOverride?.productName || item?.productName || "").toLowerCase();
+    const cat = (matrixOverride?.category || item?.category || "").toLowerCase();
+    const type = (matrixOverride?.type || item?.type || "").toLowerCase();
+
+    if (name.includes("bifocal") || cat.includes("bifocal") || type.includes("bifocal")) {
+        return {
+            type: "Bifocal",
+            label: "Bifocal",
+            format: "SPH_ADD",
+            badgeClass: "bg-purple-100 text-purple-800 border-purple-200",
+            dotColor: "bg-purple-500",
+            tag: "BIFOCAL (SPH × ADD)",
+        };
+    }
+
+    if (name.includes("progressive") || name.includes("prog ") || name.startsWith("prog") || cat.includes("progressive") || type.includes("progressive")) {
+        return {
+            type: "Progressive",
+            label: "Progressive",
+            format: "SPH_ADD",
+            badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-200",
+            dotColor: "bg-emerald-500",
+            tag: "PROGRESSIVE (SPH × ADD)",
+        };
+    }
+
+    // Explicit Single Vision type or name takes precedence over stray/seeded addition fields
+    if (
+        type === "single_vision" ||
+        type === "single vision" ||
+        name.includes("single vision") ||
+        name.includes("single_vision") ||
+        cat.includes("single vision")
+    ) {
+        return {
+            type: "Single Vision",
+            label: "Single Vision",
+            format: "SPH_CYL",
+            badgeClass: "bg-blue-100 text-blue-800 border-blue-200",
+            dotColor: "bg-blue-500",
+            tag: "SINGLE VISION (SPH × CYL)",
+        };
+    }
+
+    const distinctAdds = new Set();
+    if (matrixOverride?.products?.length) {
+        matrixOverride.products.forEach((p) => {
+            const a = numPower(p.addition);
+            if (a !== null && a > 0) distinctAdds.add(a.toFixed(2));
+        });
+    }
+    if (matrixOverride?.additionValues?.length) {
+        matrixOverride.additionValues.forEach((a) => {
+            const n = numPower(a);
+            if (n !== null && n > 0) distinctAdds.add(n.toFixed(2));
+        });
+    }
+
+    const itemHasAdd = Boolean(
+        (item?.additionRange && item.additionRange.trim() !== "" && item.additionRange.trim() !== "to" && item.additionRange.trim() !== "0.00") ||
+        (item?.addition && item.addition !== "0.00" && item.addition !== "") ||
+        (Array.isArray(item?.additions) && item.additions.some((a) => (numPower(a) ?? 0) > 0))
+    );
+
+    // Non-lens categories (e.g. SUNGLASS) or history entries with empty additionRange and <=1 dummy ADD value stay Single Vision
+    const isNonLensCategory = Boolean(cat) && !cat.includes("lens") && !cat.includes("bifocal") && !cat.includes("progressive");
+    const historyMarkedNoAdd = item && Object.prototype.hasOwnProperty.call(item, "additionRange") && (!item.additionRange || item.additionRange.trim() === "" || item.additionRange.trim() === "0.00" || item.additionRange.trim() === "to");
+    const hasRealAddition =
+        distinctAdds.size > 1 ||
+        (distinctAdds.size === 1 && !isNonLensCategory && !historyMarkedNoAdd) ||
+        (distinctAdds.size === 0 && itemHasAdd && !isNonLensCategory);
+
+    if (hasRealAddition) {
+        return {
+            type: "Progressive / Bifocal",
+            label: "Progressive / Bifocal",
+            format: "SPH_ADD",
+            badgeClass: "bg-teal-100 text-teal-800 border-teal-200",
+            dotColor: "bg-teal-500",
+            tag: "PROGRESSIVE / BIFOCAL (SPH × ADD)",
+        };
+    }
+
+    return {
+        type: "Single Vision",
+        label: "Single Vision",
+        format: "SPH_CYL",
+        badgeClass: "bg-blue-100 text-blue-800 border-blue-200",
+        dotColor: "bg-blue-500",
+        tag: "SINGLE VISION (SPH × CYL)",
+    };
+};
+
 export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInventory }) {
     const [activeTab, setActiveTab] = useState("matrix"); // "matrix" | "history"
 
@@ -34,14 +157,14 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
     const [matrixLoading, setMatrixLoading] = useState(false);
     const [matrixData, setMatrixData] = useState(null);
 
-    // ── Action & Format State ──
+    // ── Action State ──
     const [action, setAction] = useState("UPDATE_QTY"); // "UPDATE_QTY" | "UPDATE_PRICE" | "UPDATE_SELLING_PRICE" | "UPDATE_BUYING_PRICE" | "UPDATE_MRP"
-    const [matrixFormat, setMatrixFormat] = useState("AUTO"); // "AUTO" | "SPH_CYL" | "SPH_ADD"
 
     // ── Live UI Matrix & Table Preview State ──
     const [previewViewMode, setPreviewViewMode] = useState("grid"); // "grid" | "table"
-    const [svQuadrantTab, setSvQuadrantTab] = useState("all"); // "all" | "SPH+_CYL-" | "SPH-_CYL-" | "SPH-_CYL+" | "SPH+_CYL+" | "combined"
+    const [svQuadrantTab, setSvQuadrantTab] = useState("all"); // "all" | "SPH+_CYL+" | "SPH-_CYL+" | "SPH+_CYL-" | "SPH-_CYL-"
     const [previewSearch, setPreviewSearch] = useState("");
+    const [gridRxFilter, setGridRxFilter] = useState("");
     const [previewMetric, setPreviewMetric] = useState("qty"); // "qty" | "sellingPrice" | "buyingPrice" | "mrp"
 
     // ── Excel Upload & Parsing State ──
@@ -104,6 +227,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
         setParsedUpdates([]);
         setMatrixStats(null);
         setParseError("");
+        setGridRxFilter("");
 
         setMatrixLoading(true);
         try {
@@ -142,24 +266,22 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
         }
     }, [isOpen, activeTab]);
 
+    const historyCounts = useMemo(() => {
+        let sv = 0, prog = 0, bif = 0;
+        historyList.forEach(h => {
+            const c = getLensClassification(h);
+            if (c.type === "Single Vision") sv++;
+            else if (c.type === "Bifocal") bif++;
+            else prog++;
+        });
+        return { all: historyList.length, sv, prog, bif };
+    }, [historyList]);
+
     if (!isOpen) return null;
 
-    // Helper: Normalize power numbers (e.g. "+0.25" -> 0.25)
-    const numPower = (v) => {
-        if (v === null || v === undefined || v === "") return null;
-        const n = parseFloat(String(v).replace(/\+/g, "").trim());
-        return isNaN(n) ? null : n;
-    };
-
-    // Determine whether selected product is Progressive (SPH x ADD) or Single Vision (SPH x CYL)
-    const hasValidAddition = (matrixData?.products?.some(p => {
-        const a = numPower(p.addition);
-        return a !== null && a > 0;
-    })) || (matrixData?.additionValues && matrixData.additionValues.some(a => parseFloat(a) > 0));
-
-    const effectiveFormat = matrixFormat === "AUTO"
-        ? (hasValidAddition ? "SPH_ADD" : "SPH_CYL")
-        : matrixFormat;
+    // Determine whether selected product is Progressive/Bifocal (sph/cyl*axis × ADD) or Single Vision (SPH × CYL)
+    const selectedClassification = getLensClassification(selectedProduct, matrixData);
+    const effectiveFormat = selectedClassification.format;
 
     // Helper to get value for a cell based on selected action
     const getVal = (prod) => {
@@ -171,8 +293,80 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
         return prod.sellingPrice ?? prod.price ?? "";
     };
 
+    // ── Shared Excel Cell Styling Helpers (xlsx-js-style) ──
+    const thinBlack = { style: "thin", color: { rgb: "000000" } };
+    const medBlack = { style: "medium", color: { rgb: "000000" } };
+    const thinGray = { style: "thin", color: { rgb: "BFBFBF" } };
+
+    const xlStyles = {
+        yellowBanner: {
+            fill: { fgColor: { rgb: "FFFF00" } },
+            font: { name: "Calibri", sz: 12, bold: true, color: { rgb: "000000" } },
+            alignment: { horizontal: "center", vertical: "center" },
+            border: { top: medBlack, bottom: medBlack, left: medBlack, right: medBlack },
+        },
+        groupHeader: {
+            fill: { fgColor: { rgb: "FFFFFF" } },
+            font: { name: "Calibri", sz: 11, bold: true, color: { rgb: "000000" } },
+            alignment: { horizontal: "center", vertical: "center" },
+            border: { top: medBlack, bottom: medBlack, left: medBlack, right: medBlack },
+        },
+        cyanHeader: {
+            fill: { fgColor: { rgb: "DAEEF3" } },
+            font: { name: "Calibri", sz: 10, bold: true, color: { rgb: "000000" } },
+            alignment: { horizontal: "center", vertical: "center" },
+            border: { top: thinBlack, bottom: medBlack, left: thinBlack, right: thinBlack },
+        },
+        cyanSphCol: {
+            fill: { fgColor: { rgb: "DAEEF3" } },
+            font: { name: "Calibri", sz: 10, bold: true, color: { rgb: "000000" } },
+            alignment: { horizontal: "center", vertical: "center" },
+            border: { top: thinBlack, bottom: thinBlack, left: medBlack, right: medBlack },
+        },
+        progRxHeader: {
+            fill: { fgColor: { rgb: "FFFFFF" } },
+            font: { name: "Calibri", sz: 10, bold: true, color: { rgb: "000000" } },
+            alignment: { horizontal: "center", vertical: "center" },
+            border: { top: thinBlack, bottom: medBlack, left: medBlack, right: medBlack },
+        },
+        progRxCell: {
+            fill: { fgColor: { rgb: "FFFFFF" } },
+            font: { name: "Calibri", sz: 10, bold: true, color: { rgb: "000000" } },
+            alignment: { horizontal: "center", vertical: "center" },
+            border: { top: thinBlack, bottom: thinBlack, left: medBlack, right: medBlack },
+        },
+        dataCell: {
+            fill: { fgColor: { rgb: "FFFFFF" } },
+            font: { name: "Calibri", sz: 10, color: { rgb: "000000" } },
+            alignment: { horizontal: "center", vertical: "center" },
+            border: { top: thinGray, bottom: thinGray, left: thinGray, right: thinGray },
+        },
+        svDataCell: {
+            fill: { fgColor: { rgb: "FFFFFF" } },
+            font: { name: "Calibri", sz: 10, color: { rgb: "000000" } },
+            alignment: { horizontal: "center", vertical: "center" },
+            border: { top: thinBlack, bottom: thinBlack, left: thinBlack, right: thinBlack },
+        },
+        blackoutCell: {
+            fill: { fgColor: { rgb: "000000" } },
+            font: { name: "Calibri", sz: 10, color: { rgb: "000000" } },
+            alignment: { horizontal: "center", vertical: "center" },
+            border: { top: thinBlack, bottom: thinBlack, left: thinBlack, right: thinBlack },
+        },
+    };
+
+    const styleRange = (ws, r1, c1, r2, c2, styleObj) => {
+        for (let r = r1; r <= r2; r++) {
+            for (let c = c1; c <= c2; c++) {
+                const addr = XLSX.utils.encode_cell({ r, c });
+                if (!ws[addr]) ws[addr] = { t: "s", v: "" };
+                ws[addr].s = styleObj;
+            }
+        }
+    };
+
     // ════════════════════════════════════════════════════════════════════════
-    // 1A. Export Single Vision SPH × CYL Matrix Grid (Siddhartha's Standard)
+    // 1A. Export Single Vision SPH × CYL Matrix Grid (4 Quadrants: ++, -+, +-, --)
     // ════════════════════════════════════════════════════════════════════════
     const exportSphCylMatrix = () => {
         const prodName = selectedProduct?.productName || (searchTerm.trim().length > 1 ? searchTerm.trim() : "Single_Vision_Matrix");
@@ -207,118 +401,156 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
         if (detectedSphs.size === 0) detectedSphs.add(0);
         if (detectedCyls.size === 0) detectedCyls.add(0);
 
-        let maxPosSph = 0.00;
-        let minNegSph = 0.00;
-        detectedSphs.forEach(s => {
-            if (s > maxPosSph) maxPosSph = s;
-            if (s < minNegSph) minNegSph = s;
-        });
-        if (maxPosSph < 2.00) maxPosSph = 2.00;
-        if (minNegSph > -2.00) minNegSph = -2.00;
+        const posSphs = buildSvAxisValues(detectedSphs, { direction: "pos", startAbs: 0.00, defaultMaxAbs: 3.00 });
+        const negSphs = buildSvAxisValues(detectedSphs, { direction: "neg", startAbs: 0.00, defaultMaxAbs: 3.00 });
+        const posCyls = buildSvAxisValues(detectedCyls, { direction: "pos", startAbs: 0.25, defaultMaxAbs: 2.00 });
+        const negCyls = buildSvAxisValues(detectedCyls, { direction: "neg", startAbs: 0.00, defaultMaxAbs: 2.00 });
 
-        const posSphs = [];
-        for (let s = 0.00; s <= maxPosSph + 0.001; s += 0.25) posSphs.push(Number(s.toFixed(2)));
+        const actionLabel = action === "UPDATE_QTY" ? "Pairs" : (action === "UPDATE_SELLING_PRICE" ? "Selling Price (₹)" : (action === "UPDATE_BUYING_PRICE" ? "Buying Price (₹)" : (action === "UPDATE_MRP" ? "MRP (₹)" : "Pairs")));
 
-        const negSphs = [];
-        for (let s = 0.00; s >= minNegSph - 0.001; s -= 0.25) negSphs.push(Number(s.toFixed(2)));
+        const maxCylCols = Math.max(posCyls.length, negCyls.length);
+        const leftSphCol = 1;
+        const leftCylStartCol = 2;
+        const leftCylEndCol = leftCylStartCol + maxCylCols - 1;
+        const rightSphCol = leftCylEndCol + 1;
+        const rightCylStartCol = rightSphCol + 1;
+        const rightCylEndCol = rightCylStartCol + maxCylCols - 1;
+        const totalCols = rightCylEndCol + 2;
 
-        let minNegCyl = 0.00;
-        let maxPosCyl = 0.00;
-        detectedCyls.forEach(c => {
-            if (c < minNegCyl) minNegCyl = c;
-            if (c > maxPosCyl) maxPosCyl = c;
-        });
-        if (minNegCyl > -2.00) minNegCyl = -2.00;
+        const rows = [];
+        const merges = [];
+        const styleActions = [];
+        const maxRows = Math.max(posSphs.length, negSphs.length);
 
-        const negCyls = [];
-        for (let c = 0.00; c >= minNegCyl - 0.001; c -= 0.25) negCyls.push(Number(c.toFixed(2)));
+        const addDualBlock = (cylGroupTitle, cylList) => {
+            const cLen = cylList.length;
+            const lEnd = leftCylStartCol + cLen - 1;
+            const rEnd = rightCylStartCol + cLen - 1;
 
-        const posCyls = [];
-        if (maxPosCyl > 0) {
-            for (let c = 0.25; c <= maxPosCyl + 0.001; c += 0.25) posCyls.push(Number(c.toFixed(2)));
-        } else {
-            posCyls.push(0.25, 0.50, 0.75, 1.00, 1.25, 1.50, 1.75, 2.00);
-        }
-
-        const allSphs = Array.from(new Set([...posSphs, ...negSphs])).sort((a, b) => b - a);
-        const allCyls = Array.from(new Set([...negCyls, ...posCyls])).sort((a, b) => a - b);
-
-        const actionLabel = action === "UPDATE_QTY" ? "Pairs / Stock Qty" : (action === "UPDATE_SELLING_PRICE" ? "Selling Price (₹)" : (action === "UPDATE_BUYING_PRICE" ? "Buying Price (₹)" : (action === "UPDATE_MRP" ? "MRP (₹)" : "Quantity / Price")));
-
-        const buildSheet = (quadTitle, sphRangeList, cylRangeList) => {
-            const numCylCols = cylRangeList.length;
-            const sphCol = 1;
-            const cylStartCol = 2;
-            const cylEndCol = cylStartCol + numCylCols - 1;
-            const totalCols = cylEndCol + 2;
-
-            const rows = [];
+            // Blank spacer
             rows.push(new Array(totalCols).fill(""));
 
+            // Row A: Yellow Banner
+            const bannerIdx = rows.length;
             const bannerRow = new Array(totalCols).fill("");
-            bannerRow[sphCol] = `${prodName} (${quadTitle})`;
-            bannerRow[cylEndCol] = actionLabel;
+            bannerRow[leftSphCol] = prodName;
+            bannerRow[rightSphCol] = actionLabel;
             rows.push(bannerRow);
-
-            const groupHeaderRow = new Array(totalCols).fill("");
-            groupHeaderRow[sphCol] = "SPH";
-            groupHeaderRow[cylStartCol] = "CYL";
-            rows.push(groupHeaderRow);
-
-            const subHeaderRow = new Array(totalCols).fill("");
-            subHeaderRow[sphCol] = "Power";
-            cylRangeList.forEach((cVal, idx) => {
-                subHeaderRow[cylStartCol + idx] = cVal.toFixed(2);
+            merges.push({ s: { r: bannerIdx, c: leftSphCol }, e: { r: bannerIdx, c: lEnd } });
+            merges.push({ s: { r: bannerIdx, c: rightSphCol }, e: { r: bannerIdx, c: rEnd } });
+            styleActions.push((ws) => {
+                styleRange(ws, bannerIdx, leftSphCol, bannerIdx, lEnd, xlStyles.yellowBanner);
+                styleRange(ws, bannerIdx, rightSphCol, bannerIdx, rEnd, xlStyles.yellowBanner);
             });
-            rows.push(subHeaderRow);
 
-            sphRangeList.forEach(sVal => {
+            // Row B: Group Headers (SPH | Cyl (+) | SPH | Cyl (+))
+            const groupIdx = rows.length;
+            const groupRow = new Array(totalCols).fill("");
+            groupRow[leftSphCol] = "SPH";
+            groupRow[leftCylStartCol] = cylGroupTitle;
+            groupRow[rightSphCol] = "SPH";
+            groupRow[rightCylStartCol] = cylGroupTitle;
+            rows.push(groupRow);
+            merges.push({ s: { r: groupIdx, c: leftCylStartCol }, e: { r: groupIdx, c: lEnd } });
+            merges.push({ s: { r: groupIdx, c: rightCylStartCol }, e: { r: groupIdx, c: rEnd } });
+            styleActions.push((ws) => {
+                styleRange(ws, groupIdx, leftSphCol, groupIdx, leftSphCol, xlStyles.groupHeader);
+                styleRange(ws, groupIdx, leftCylStartCol, groupIdx, lEnd, xlStyles.groupHeader);
+                styleRange(ws, groupIdx, rightSphCol, groupIdx, rightSphCol, xlStyles.groupHeader);
+                styleRange(ws, groupIdx, rightCylStartCol, groupIdx, rEnd, xlStyles.groupHeader);
+            });
+
+            // Row C: Sub-Headers ((+) / CYL values | (-) / CYL values)
+            const subIdx = rows.length;
+            const subRow = new Array(totalCols).fill("");
+            subRow[leftSphCol] = "(+)";
+            subRow[rightSphCol] = "(-)";
+            cylList.forEach((cVal, idx) => {
+                const cLabel = cVal > 0 ? `+${cVal.toFixed(2)}` : cVal.toFixed(2);
+                subRow[leftCylStartCol + idx] = cLabel;
+                subRow[rightCylStartCol + idx] = cLabel;
+            });
+            rows.push(subRow);
+            styleActions.push((ws) => {
+                styleRange(ws, subIdx, leftSphCol, subIdx, lEnd, xlStyles.cyanHeader);
+                styleRange(ws, subIdx, rightSphCol, subIdx, rEnd, xlStyles.cyanHeader);
+            });
+
+            // Data Rows
+            for (let r = 0; r < maxRows; r++) {
+                const rowIdx = rows.length;
                 const rowData = new Array(totalCols).fill("");
-                rowData[sphCol] = sVal.toFixed(2);
+                const hasLeft = r < posSphs.length;
+                const hasRight = r < negSphs.length;
+                const isRightZero = hasRight && negSphs[r] === 0;
 
-                cylRangeList.forEach((cVal, cIdx) => {
-                    const key = `${sVal.toFixed(2)}_${cVal.toFixed(2)}`;
-                    const prod = lookup.get(key);
-                    rowData[cylStartCol + cIdx] = getVal(prod);
-                });
+                if (hasLeft) {
+                    const sVal = posSphs[r];
+                    rowData[leftSphCol] = sVal === 0 ? "0.00" : `+${sVal.toFixed(2)}`;
+                    cylList.forEach((cVal, cIdx) => {
+                        const prod = lookup.get(`${sVal.toFixed(2)}_${cVal.toFixed(2)}`);
+                        const val = getVal(prod);
+                        rowData[leftCylStartCol + cIdx] = val === "" ? "" : val;
+                    });
+                }
+
+                if (hasRight) {
+                    const sVal = negSphs[r];
+                    rowData[rightSphCol] = sVal === 0 ? "0.00" : sVal.toFixed(2);
+                    if (!isRightZero) {
+                        cylList.forEach((cVal, cIdx) => {
+                            const prod = lookup.get(`${sVal.toFixed(2)}_${cVal.toFixed(2)}`);
+                            const val = getVal(prod);
+                            rowData[rightCylStartCol + cIdx] = val === "" ? "" : val;
+                        });
+                    }
+                }
 
                 rows.push(rowData);
-            });
-
-            rows.push(new Array(totalCols).fill(""));
-            rows.push(new Array(totalCols).fill(""));
-
-            const ws = XLSX.utils.aoa_to_sheet(rows);
-            ws["!merges"] = [
-                { s: { r: 1, c: sphCol }, e: { r: 1, c: cylEndCol - 1 } },
-                { s: { r: 2, c: cylStartCol }, e: { r: 2, c: cylEndCol } },
-            ];
-
-            const colWidths = [{ wch: 4 }, { wch: 10 }];
-            for (let i = 0; i < numCylCols; i++) colWidths.push({ wch: 9 });
-            ws["!cols"] = colWidths;
-            return ws;
+                styleActions.push((ws) => {
+                    if (hasLeft) {
+                        styleRange(ws, rowIdx, leftSphCol, rowIdx, leftSphCol, xlStyles.cyanSphCol);
+                        styleRange(ws, rowIdx, leftCylStartCol, rowIdx, lEnd, xlStyles.svDataCell);
+                    }
+                    if (hasRight) {
+                        styleRange(ws, rowIdx, rightSphCol, rowIdx, rightSphCol, xlStyles.cyanSphCol);
+                        styleRange(
+                            ws,
+                            rowIdx,
+                            rightCylStartCol,
+                            rowIdx,
+                            rEnd,
+                            isRightZero ? xlStyles.blackoutCell : xlStyles.svDataCell
+                        );
+                    }
+                });
+            }
         };
 
+        // Top Block: ++ (Left) and -+ (Right)
+        addDualBlock("Cyl (+)", posCyls);
+        // Bottom Block: +- (Left) and -- (Right)
+        addDualBlock("Cyl (-)", negCyls);
+
+        rows.push(new Array(totalCols).fill(""));
+
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        ws["!merges"] = merges;
+        styleActions.forEach(fn => fn(ws));
+
+        const colWidths = [{ wch: 3 }];
+        for (let c = 1; c < totalCols; c++) {
+            colWidths.push({ wch: (c === leftSphCol || c === rightSphCol) ? 9 : 8 });
+        }
+        ws["!cols"] = colWidths;
+
         const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Single Vision 4-Grid");
 
-        // 4 Quadrants sheets
-        const wsQ1 = buildSheet("SPH (+) / CYL (-)", posSphs, negCyls);
-        XLSX.utils.book_append_sheet(wb, wsQ1, "SPH(+) CYL(-)");
-
-        const wsQ2 = buildSheet("SPH (-) / CYL (-)", negSphs, negCyls);
-        XLSX.utils.book_append_sheet(wb, wsQ2, "SPH(-) CYL(-)");
-
-        const wsQ3 = buildSheet("SPH (-) / CYL (+)", negSphs, posCyls);
-        XLSX.utils.book_append_sheet(wb, wsQ3, "SPH(-) CYL(+)");
-
-        const wsQ4 = buildSheet("SPH (+) / CYL (+)", posSphs, posCyls);
-        XLSX.utils.book_append_sheet(wb, wsQ4, "SPH(+) CYL(+)");
-
-        const safeFilename = `${prodName.replace(/[^a-zA-Z0-9_\-]/g, "_")}_SingleVision_4Tables_Matrix.xlsx`;
+        const safeFilename = `${prodName.replace(/[^a-zA-Z0-9_-]/g, "_")}_SingleVision_4Quadrants.xlsx`;
         XLSX.writeFile(wb, safeFilename);
 
-        toast.success(`Exported Single Vision 4 Quadrants matrix for "${prodName}". Fill quantities/rates and upload to apply.`);
+        toast.success(`Exported Single Vision 4 Quadrants (++, -+, +-, --) Excel for "${prodName}".`);
     };
 
     // Helper to clean axis string
@@ -327,11 +559,11 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
         return String(ax).replace(/[°\s]/g, "").trim();
     };
 
-    // Helper to format Distance Power in the first column: SPH / CYL x AXIS
+    // Helper to format Distance Power in the first column: SPH/CYLxAXIS (e.g. 0.00/-0.25x90)
     const formatDistRxCell = (sVal, cVal, axVal) => {
         let sStr = "";
         if (sVal === 0) {
-            sStr = "0";
+            sStr = "0.00";
         } else if (sVal > 0) {
             sStr = `+${sVal.toFixed(2)}`;
         } else {
@@ -350,24 +582,19 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
         } else if (cStr) {
             return `${sStr}/${cStr}`;
         } else if (axClean) {
-            return `${sStr}x${axClean}`;
+            return `${sStr}/0.00x${axClean}`;
         }
         return sStr;
     };
 
-    // ════════════════════════════════════════════════════════════════════════
-    // 1B. Export Progressive SPH × ADD Matrix Grid (Siddhartha's Standard)
-    // ════════════════════════════════════════════════════════════════════════
-    const exportSphAddMatrix = () => {
-        const prodName = selectedProduct?.productName || (searchTerm.trim().length > 1 ? searchTerm.trim() : "Progressive_Lens_Matrix");
-        const allProducts = matrixData?.products || [];
-
+    // Helper: Build exact Progressive/Bifocal table model for a given list of product rows
+    const buildProgressiveTableModel = (productsList = []) => {
         const lookup = new Map();
         const detectedAdds = new Set();
         const comboKeySet = new Set();
         const combosList = [];
 
-        allProducts.forEach(p => {
+        productsList.forEach(p => {
             let s = numPower(p.sph) ?? 0;
             let c = numPower(p.cyl) ?? 0;
             const ax = cleanAxisStr(p.axis);
@@ -378,14 +605,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                 const sStr = s.toFixed(2);
                 const cStr = c.toFixed(2);
                 const aStr = a.toFixed(2);
-
                 lookup.set(`${sStr}_${cStr}_${ax}_${aStr}`, p);
-                if (!lookup.has(`${sStr}_${cStr}_${aStr}`)) {
-                    lookup.set(`${sStr}_${cStr}_${aStr}`, p);
-                }
-                if (!lookup.has(`${sStr}_${aStr}`)) {
-                    lookup.set(`${sStr}_${aStr}`, p);
-                }
             }
 
             const comboKey = `${s.toFixed(2)}_${c.toFixed(2)}_${ax}`;
@@ -396,7 +616,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
         });
 
         if (combosList.length === 0) {
-            const defaultSphs = [0.00, 0.25, 0.50, 0.75, 1.00, 1.25, 1.50, 1.75, 2.00, -0.25, -0.50, -0.75, -1.00, -1.25, -1.50, -1.75, -2.00];
+            const defaultSphs = [0.00, 0.25, 0.50, 0.75, 1.00, -0.25, -0.50, -0.75, -1.00];
             const defaultCyls = [-0.25, -0.50, -0.75, -1.00];
             const defaultAxis = "90";
             defaultSphs.forEach(s => {
@@ -425,78 +645,147 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
         });
 
         const defaultAdds = [1.00, 1.25, 1.50, 1.75, 2.00, 2.25, 2.50, 2.75, 3.00];
+        const hasCustomAddStep = Array.from(detectedAdds).some(
+            a => Math.abs(Math.round(a / 0.25) * 0.25 - a) > 0.001
+        );
         const addList = detectedAdds.size > 0
-            ? Array.from(new Set([...defaultAdds, ...Array.from(detectedAdds)])).sort((a, b) => a - b)
+            ? (hasCustomAddStep
+                ? Array.from(detectedAdds).sort((a, b) => a - b)
+                : Array.from(new Set([...defaultAdds, ...Array.from(detectedAdds)])).sort((a, b) => a - b))
             : defaultAdds;
 
-        const numAddCols = addList.length;
+        return { lookup, combosList, addList };
+    };
+
+    // Helper: Export one or more Progressive/Bifocal product groups into a styled Excel workbook
+    const exportProgressiveGroupsWorkbook = (groups, filename, sheetTabName) => {
         const rxCol = 1;
         const addStartCol = 2;
-        const addEndCol = addStartCol + numAddCols - 1;
-        const totalCols = addEndCol + 2;
+        const maxAddCols = Math.max(
+            9,
+            ...groups.map(g => g.model.addList.length)
+        );
+        const totalCols = addStartCol + maxAddCols + 1;
 
         const rows = [];
-        rows.push(new Array(totalCols).fill(""));
+        const merges = [];
+        const styleActions = [];
+        const actionLabel = action === "UPDATE_QTY" ? "Pairs" : (action === "UPDATE_SELLING_PRICE" ? "Selling Price (₹)" : (action === "UPDATE_BUYING_PRICE" ? "Buying Price (₹)" : (action === "UPDATE_MRP" ? "MRP (₹)" : "Pairs")));
 
-        const bannerRow = new Array(totalCols).fill("");
-        bannerRow[rxCol] = prodName;
-        bannerRow[addEndCol] = action === "UPDATE_QTY" ? "Pairs / Stock Qty" : (action === "UPDATE_SELLING_PRICE" ? "Selling Price (₹)" : (action === "UPDATE_BUYING_PRICE" ? "Buying Price (₹)" : (action === "UPDATE_MRP" ? "MRP (₹)" : "Quantity / Price")));
-        rows.push(bannerRow);
+        groups.forEach((grp) => {
+            const { productName: grpName, model } = grp;
+            const { lookup, combosList, addList } = model;
+            const numAddCols = addList.length;
+            const addEndCol = addStartCol + numAddCols - 1;
 
-        const addHeaderRow = new Array(totalCols).fill("");
-        addHeaderRow[rxCol] = "SPH";
-        addHeaderRow[addStartCol] = "Add (+)";
-        rows.push(addHeaderRow);
+            // Blank spacer above each product table
+            rows.push(new Array(totalCols).fill(""));
 
-        const subHeaderRow = new Array(totalCols).fill("");
-        subHeaderRow[rxCol] = "sph/cyl*axis";
-        addList.forEach((addVal, idx) => {
-            subHeaderRow[addStartCol + idx] = addVal.toFixed(2);
-        });
-        rows.push(subHeaderRow);
-
-        combosList.forEach((combo) => {
-            const rowData = new Array(totalCols).fill("");
-            rowData[rxCol] = formatDistRxCell(combo.s, combo.c, combo.ax);
-
-            addList.forEach((addVal, aIdx) => {
-                const sStr = combo.s.toFixed(2);
-                const cStr = combo.c.toFixed(2);
-                const ax = combo.ax;
-                const aStr = addVal.toFixed(2);
-
-                const prod = lookup.get(`${sStr}_${cStr}_${ax}_${aStr}`) ||
-                             lookup.get(`${sStr}_${cStr}_${aStr}`) ||
-                             lookup.get(`${sStr}_${aStr}`);
-
-                rowData[addStartCol + aIdx] = getVal(prod);
+            // Row 1: Yellow Banner with Product Name centered in visible window
+            const bannerIdx = rows.length;
+            const bannerRow = new Array(totalCols).fill("");
+            const visibleBannerEnd = numAddCols > 10 ? rxCol + 9 : addEndCol;
+            bannerRow[rxCol] = `${grpName} (${actionLabel})`;
+            rows.push(bannerRow);
+            merges.push({ s: { r: bannerIdx, c: rxCol }, e: { r: bannerIdx, c: visibleBannerEnd } });
+            if (numAddCols > 10) {
+                merges.push({ s: { r: bannerIdx, c: visibleBannerEnd + 1 }, e: { r: bannerIdx, c: addEndCol } });
+            }
+            styleActions.push((ws) => {
+                styleRange(ws, bannerIdx, rxCol, bannerIdx, addEndCol, xlStyles.yellowBanner);
             });
 
-            rows.push(rowData);
+            // Row 2: SPH | Add (+) — centered in visible window so it never goes off-screen
+            const groupIdx = rows.length;
+            const addHeaderRow = new Array(totalCols).fill("");
+            const visibleAddEnd = numAddCols > 10 ? addStartCol + 8 : addEndCol;
+            addHeaderRow[rxCol] = "SPH";
+            addHeaderRow[addStartCol] = "Add (+)";
+            if (numAddCols > 10) {
+                addHeaderRow[visibleAddEnd + 1] = "Add (+)";
+            }
+            rows.push(addHeaderRow);
+            merges.push({ s: { r: groupIdx, c: addStartCol }, e: { r: groupIdx, c: visibleAddEnd } });
+            if (numAddCols > 10) {
+                merges.push({ s: { r: groupIdx, c: visibleAddEnd + 1 }, e: { r: groupIdx, c: addEndCol } });
+            }
+            styleActions.push((ws) => {
+                styleRange(ws, groupIdx, rxCol, groupIdx, rxCol, xlStyles.groupHeader);
+                styleRange(ws, groupIdx, addStartCol, groupIdx, addEndCol, xlStyles.groupHeader);
+            });
+
+            // Row 3: sph / cyl * axis | Light Cyan Addition values
+            const subIdx = rows.length;
+            const subHeaderRow = new Array(totalCols).fill("");
+            subHeaderRow[rxCol] = "sph / cyl * axis";
+            addList.forEach((addVal, idx) => {
+                subHeaderRow[addStartCol + idx] = addVal.toFixed(2);
+            });
+            rows.push(subHeaderRow);
+            styleActions.push((ws) => {
+                styleRange(ws, subIdx, rxCol, subIdx, rxCol, xlStyles.progRxHeader);
+                styleRange(ws, subIdx, addStartCol, subIdx, addEndCol, xlStyles.cyanHeader);
+            });
+
+            // Row 4+: Data rows
+            const dataStartIdx = rows.length;
+            combosList.forEach((combo) => {
+                const rowData = new Array(totalCols).fill("");
+                rowData[rxCol] = formatDistRxCell(combo.s, combo.c, combo.ax);
+
+                addList.forEach((addVal, aIdx) => {
+                    const sStr = combo.s.toFixed(2);
+                    const cStr = combo.c.toFixed(2);
+                    const ax = combo.ax;
+                    const aStr = addVal.toFixed(2);
+
+                    const prod = lookup.get(`${sStr}_${cStr}_${ax}_${aStr}`);
+                    rowData[addStartCol + aIdx] = getVal(prod);
+                });
+
+                rows.push(rowData);
+            });
+            const dataEndIdx = rows.length - 1;
+
+            styleActions.push((ws) => {
+                for (let r = dataStartIdx; r <= dataEndIdx; r++) {
+                    styleRange(ws, r, rxCol, r, rxCol, xlStyles.progRxCell);
+                    styleRange(ws, r, addStartCol, r, addEndCol, xlStyles.dataCell);
+                }
+            });
         });
 
-        rows.push(new Array(totalCols).fill(""));
         rows.push(new Array(totalCols).fill(""));
 
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.aoa_to_sheet(rows);
+        ws["!merges"] = merges;
+        styleActions.forEach(fn => fn(ws));
 
-        ws["!merges"] = [
-            { s: { r: 1, c: rxCol }, e: { r: 1, c: addEndCol - 1 } },
-            { s: { r: 2, c: addStartCol }, e: { r: 2, c: addEndCol } },
-        ];
-
-        const colWidths = [{ wch: 4 }, { wch: 18 }];
-        for (let i = 0; i < numAddCols; i++) colWidths.push({ wch: 10 });
+        const colWidths = [{ wch: 3 }, { wch: 20 }];
+        for (let i = 0; i < maxAddCols; i++) colWidths.push({ wch: 10 });
         ws["!cols"] = colWidths;
 
-        const sheetTitle = (prodName || "Progressive_Matrix").substring(0, 31).replace(/[:\\\/\?\*\[\]]/g, "_");
-        XLSX.utils.book_append_sheet(wb, ws, sheetTitle);
+        const cleanTitle = (sheetTabName || "Progressive_Matrix").substring(0, 31).replace(/[:\\/?*[\]]/g, "_");
+        XLSX.utils.book_append_sheet(wb, ws, cleanTitle);
+        XLSX.writeFile(wb, filename);
+    };
 
-        const safeFilename = `${prodName.replace(/[^a-zA-Z0-9_\-]/g, "_")}_Progressive_ADD_Matrix.xlsx`;
-        XLSX.writeFile(wb, safeFilename);
+    // ════════════════════════════════════════════════════════════════════════
+    // 1B. Export Progressive / Bifocal (sph/cyl*axis × ADD) Matrix Grid
+    // ════════════════════════════════════════════════════════════════════════
+    const exportSphAddMatrix = () => {
+        const prodName = selectedProduct?.productName || (searchTerm.trim().length > 1 ? searchTerm.trim() : "Progressive_Lens_Matrix");
+        const allProducts = matrixData?.products || [];
+        const model = buildProgressiveTableModel(allProducts);
+        const safeFilename = `${prodName.replace(/[^a-zA-Z0-9_-]/g, "_")}_Progressive_ADD_Matrix.xlsx`;
 
-        toast.success(`Exported Progressive (SPH/CYL×AXIS) × ADD matrix for "${prodName}". Fill quantities/rates and upload to apply.`);
+        exportProgressiveGroupsWorkbook(
+            [{ productName: prodName, model }],
+            safeFilename,
+            prodName
+        );
+        toast.success(`Exported Progressive / Bifocal (sph/cyl*axis × ADD) Excel for "${prodName}".`);
     };
 
     // Main Export Dispatcher
@@ -538,7 +827,8 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                 const parseDistPower = (str, forceNegative = false) => {
                     if (str === null || str === undefined || str === "") return null;
                     const s = String(str).trim();
-                    if (!s || s === "-" || s.toLowerCase().startsWith("sph/cyl") || s.toLowerCase() === "rx" || s.toLowerCase().startsWith("distance rx")) return null;
+                    const sCompact = s.toLowerCase().replace(/\s+/g, "");
+                    if (!s || s === "-" || sCompact.startsWith("sph/cyl") || sCompact === "rx" || s.toLowerCase().startsWith("distance rx")) return null;
 
                     const match = s.match(/^([+-]?\d+(?:\.\d+)?)(?:\s*\/\s*([+-]?\d+(?:\.\d+)?))?(?:\s*[*xX]\s*(\d+))?/);
                     if (!match) return null;
@@ -566,7 +856,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                 let totalPosCount = 0;
                 let totalNegCount = 0;
 
-                // Process all sheets in the workbook (supports 4 Quadrants sheets + Progressive)
+                // Process all sheets in the workbook (supports 2x2 4-Quadrants Single Vision & Progressive/Bifocal)
                 workbook.SheetNames.forEach(sheetName => {
                     const sheet = workbook.Sheets[sheetName];
                     const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
@@ -577,8 +867,14 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                         const row = rawData[r] || [];
                         for (let c = 0; c < row.length; c++) {
                             const cell = String(row[c]).trim();
-                            if (cell && !["sales order", "sph", "cyl", "add", "(+)", "(-)", "pairs", "price matrix", "power", "distance rx"].includes(cell.toLowerCase())) {
-                                if (cell.toLowerCase().startsWith("sales order -")) {
+                            const lc = cell.toLowerCase();
+                            const lcCompact = lc.replace(/\s+/g, "");
+                            if (
+                                cell &&
+                                !["sales order", "sph", "cyl", "cyl (+)", "cyl (-)", "add", "add (+)", "(+)", "(-)", "pairs", "price matrix", "power", "distance rx", "rx", "selling price (₹)", "buying price (₹)", "mrp (₹)"].includes(lc) &&
+                                !lcCompact.startsWith("sph/cyl")
+                            ) {
+                                if (lc.startsWith("sales order -")) {
                                     const extracted = cell.substring("sales order -".length).replace(/\(.*?\)/g, "").trim();
                                     if (extracted && !detectedProductName) detectedProductName = extracted;
                                     break;
@@ -595,9 +891,10 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                     let isSphCyl = false;
                     let headerRowIdx = -1;
 
+                    // Priority 1: Check explicitly for ADD / sph/cyl*axis vs CYL
                     for (let r = 0; r < Math.min(10, rawData.length); r++) {
                         const row = (rawData[r] || []).map(c => String(c).trim().toLowerCase());
-                        if (row.some(c => c.includes("add")) || (row.some(c => c === "(+)" || c === "+") && row.some(c => c === "(-)" || c === "-"))) {
+                        if (row.some(c => c.includes("add") || c.replace(/\s+/g, "").includes("sph/cyl") || c === "rx")) {
                             isSphAdd = true;
                             headerRowIdx = r;
                             break;
@@ -606,6 +903,18 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                             isSphCyl = true;
                             headerRowIdx = r;
                             break;
+                        }
+                    }
+
+                    // Priority 2: Legacy dual-table ADD check (when neither "cyl" nor "add" label is present)
+                    if (!isSphAdd && !isSphCyl) {
+                        for (let r = 0; r < Math.min(10, rawData.length); r++) {
+                            const row = (rawData[r] || []).map(c => String(c).trim().toLowerCase());
+                            if (row.some(c => c === "(+)" || c === "+") && row.some(c => c === "(-)" || c === "-")) {
+                                isSphAdd = true;
+                                headerRowIdx = r;
+                                break;
+                            }
                         }
                     }
 
@@ -618,191 +927,99 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                         }
                     }
 
-                    // ── A. PARSE SINGLE VISION (SPH × CYL) ──
+                    // ── A. PARSE SINGLE VISION (SPH × CYL — supports 2x2 4-Quadrants & single-table sheets) ──
                     if (isSphCyl) {
                         detectedFormat = "SPH_CYL";
-                        let subHeaderIdx = headerRowIdx >= 0 ? headerRowIdx + 1 : 1;
-                        const groupHeaderRow = rawData[headerRowIdx] || [];
-                        const subHeaderRow = rawData[subHeaderIdx] || [];
 
-                        let sphCol = -1;
-                        for (let c = 0; c < subHeaderRow.length; c++) {
-                            const cell = String(subHeaderRow[c] || "").trim().toLowerCase();
-                            if (cell === "power" || cell === "sph") { sphCol = c; break; }
+                        // Find all group header rows containing CYL in the sheet (handles stacked Top & Bottom blocks)
+                        const blockHeaderIndices = [];
+                        for (let r = 0; r < rawData.length; r++) {
+                            const row = (rawData[r] || []).map(c => String(c).trim().toLowerCase());
+                            if (row.some(c => c === "cyl" || c.startsWith("cyl"))) {
+                                blockHeaderIndices.push(r);
+                            }
                         }
-                        if (sphCol === -1) {
+                        if (blockHeaderIndices.length === 0 && headerRowIdx >= 0) {
+                            blockHeaderIndices.push(headerRowIdx);
+                        }
+
+                        blockHeaderIndices.forEach((grpIdx, bPos) => {
+                            const subHeaderIdx = grpIdx + 1;
+                            const groupHeaderRow = rawData[grpIdx] || [];
+                            const subHeaderRow = rawData[subHeaderIdx] || [];
+                            const blockEndRow = bPos + 1 < blockHeaderIndices.length
+                                ? Math.max(subHeaderIdx + 1, blockHeaderIndices[bPos + 1] - 1)
+                                : rawData.length;
+
+                            // Find all SPH columns in this row (1 for single table, 2 for left/right side-by-side)
+                            const sphCols = [];
                             for (let c = 0; c < groupHeaderRow.length; c++) {
                                 const cell = String(groupHeaderRow[c] || "").trim().toLowerCase();
-                                if (cell === "sph" || cell.startsWith("sph")) { sphCol = c; break; }
+                                if (cell === "sph" || cell.startsWith("sph")) {
+                                    sphCols.push(c);
+                                }
                             }
-                        }
-                        if (sphCol === -1) sphCol = 0;
-
-                        const cylCols = [];
-                        for (let c = sphCol + 1; c < subHeaderRow.length; c++) {
-                            const raw = String(subHeaderRow[c] || "").replace(/\+/g, "").trim();
-                            const val = parseFloat(raw);
-                            if (!isNaN(val) && raw !== "") {
-                                cylCols.push({ colIdx: c, cylVal: val.toFixed(2) });
-                            }
-                        }
-
-                        for (let r = subHeaderIdx + 1; r < rawData.length; r++) {
-                            const row = rawData[r];
-                            if (!row || row.every(c => c === "" || c === undefined)) continue;
-
-                            const rawSph = String(row[sphCol] || "").replace(/\+/g, "").trim();
-                            const sphVal = parseFloat(rawSph);
-                            if (isNaN(sphVal) || rawSph === "") continue;
-                            const sphStr = sphVal.toFixed(2);
-
-                            cylCols.forEach(({ colIdx, cylVal }) => {
-                                const cellRaw = row[colIdx];
-                                if (cellRaw !== "" && cellRaw !== undefined && cellRaw !== "-") {
-                                    const valNum = parseFloat(String(cellRaw).trim());
-                                    if (!isNaN(valNum)) {
-                                        const updateObj = {
-                                            sph: sphStr,
-                                            cyl: cylVal,
-                                            value: valNum,
-                                        };
-                                        if (action === "UPDATE_QTY") updateObj.qty = valNum;
-                                        else if (action === "UPDATE_SELLING_PRICE") updateObj.sellingPrice = valNum;
-                                        else if (action === "UPDATE_BUYING_PRICE") updateObj.buyingPrice = valNum;
-                                        else if (action === "UPDATE_MRP") updateObj.mrp = valNum;
-                                        else {
-                                            updateObj.sellingPrice = valNum;
-                                            updateObj.buyingPrice = valNum;
-                                            updateObj.mrp = valNum;
-                                        }
-
-                                        const key = `${sphStr}_${cylVal}`;
-                                        updatesMap.set(key, updateObj);
+                            if (sphCols.length === 0) {
+                                for (let c = 0; c < subHeaderRow.length; c++) {
+                                    const cell = String(subHeaderRow[c] || "").trim().toLowerCase();
+                                    if (cell === "power" || cell === "sph" || cell === "(+)" || cell === "(-)") {
+                                        sphCols.push(c);
                                     }
                                 }
-                            });
-                        }
-                    }
-
-                    // ── B. PARSE PROGRESSIVE / BIFOCAL (SPH × ADD or (SPH/CYL×AXIS) × ADD) ──
-                    else if (isSphAdd) {
-                        detectedFormat = "SPH_ADD";
-
-                        // Find Addition Sub-Header row (contains numeric addition values >= 0.5 and <= 4.0)
-                        let subHeaderRowIdx = -1;
-                        for (let r = 0; r < Math.min(10, rawData.length); r++) {
-                            const row = rawData[r] || [];
-                            let numCount = 0;
-                            for (let c = 0; c < row.length; c++) {
-                                const raw = String(row[c] || "").replace(/\+/g, "").trim();
-                                const val = parseFloat(raw);
-                                if (!isNaN(val) && raw !== "" && val >= 0.5 && val <= 4.0) numCount++;
                             }
-                            if (numCount >= 2) {
-                                subHeaderRowIdx = r;
-                                break;
-                            }
-                        }
+                            if (sphCols.length === 0) sphCols.push(0);
 
-                        if (subHeaderRowIdx === -1) subHeaderRowIdx = 2;
-                        const subHeaderRow = rawData[subHeaderRowIdx] || [];
+                            const subTables = sphCols.map((sphCol, idx) => {
+                                const nextBoundary = idx + 1 < sphCols.length ? sphCols[idx + 1] : subHeaderRow.length;
+                                const sphHint = String(subHeaderRow[sphCol] || "").trim().toLowerCase();
+                                const isNegSph = sphHint.includes("-");
 
-                        // Find left distance Rx column (column before first addition)
-                        let firstAddCol = -1;
-                        for (let c = 0; c < subHeaderRow.length; c++) {
-                            const raw = String(subHeaderRow[c] || "").replace(/\+/g, "").trim();
-                            const val = parseFloat(raw);
-                            if (!isNaN(val) && raw !== "" && val >= 0.5 && val <= 4.0) {
-                                firstAddCol = c;
-                                break;
-                            }
-                        }
-                        const rxCol = firstAddCol > 0 ? firstAddCol - 1 : 0;
+                                // Check CYL group header sign hint (e.g. "Cyl (-)")
+                                let cylGroupHint = "";
+                                for (let c = sphCol + 1; c < nextBoundary; c++) {
+                                    const gCell = String(groupHeaderRow[c] || "").trim().toLowerCase();
+                                    if (gCell) { cylGroupHint = gCell; break; }
+                                }
+                                const isNegCylGroup = cylGroupHint.includes("(-)");
 
-                        // Check for right table (Dual Table Standard Image 5)
-                        let rightSphCol = -1;
-                        for (let c = firstAddCol + 2; c < subHeaderRow.length; c++) {
-                            const cell = String(subHeaderRow[c] || "").trim().toLowerCase();
-                            if (cell === "(-)" || (cell === "sph" && c > firstAddCol + 5)) {
-                                rightSphCol = c;
-                                break;
-                            }
-                        }
-
-                        const leftAddCols = [];
-                        const rightAddCols = [];
-                        const endLeft = rightSphCol > 0 ? rightSphCol : subHeaderRow.length;
-
-                        for (let c = rxCol + 1; c < endLeft; c++) {
-                            const raw = String(subHeaderRow[c] || "").replace(/\+/g, "").trim();
-                            const val = parseFloat(raw);
-                            if (!isNaN(val) && raw !== "") leftAddCols.push({ colIdx: c, addVal: val.toFixed(2) });
-                        }
-
-                        if (rightSphCol > 0) {
-                            for (let c = rightSphCol + 1; c < subHeaderRow.length; c++) {
-                                const raw = String(subHeaderRow[c] || "").replace(/\+/g, "").trim();
-                                const val = parseFloat(raw);
-                                if (!isNaN(val) && raw !== "") rightAddCols.push({ colIdx: c, addVal: val.toFixed(2) });
-                            }
-                        }
-
-                        for (let r = subHeaderRowIdx + 1; r < rawData.length; r++) {
-                            const row = rawData[r];
-                            if (!row || row.every(c => c === "" || c === undefined)) continue;
-
-                            // Left table (or unified table)
-                            const rawLeft = row[rxCol];
-                            const parsedLeft = parseDistPower(rawLeft, false);
-                            if (parsedLeft) {
-                                leftAddCols.forEach(({ colIdx, addVal }) => {
-                                    const cellRaw = row[colIdx];
-                                    if (cellRaw !== "" && cellRaw !== undefined && cellRaw !== "-") {
-                                        const valNum = parseFloat(String(cellRaw).trim());
-                                        if (!isNaN(valNum)) {
-                                            const updateObj = {
-                                                sph: parsedLeft.sph,
-                                                cyl: parsedLeft.cyl,
-                                                axis: parsedLeft.axis,
-                                                addition: `+${addVal}`,
-                                                value: valNum,
-                                            };
-                                            if (action === "UPDATE_QTY") updateObj.qty = valNum;
-                                            else if (action === "UPDATE_SELLING_PRICE") updateObj.sellingPrice = valNum;
-                                            else if (action === "UPDATE_BUYING_PRICE") updateObj.buyingPrice = valNum;
-                                            else if (action === "UPDATE_MRP") updateObj.mrp = valNum;
-                                            else {
-                                                updateObj.sellingPrice = valNum;
-                                                updateObj.buyingPrice = valNum;
-                                                updateObj.mrp = valNum;
-                                            }
-
-                                            const key = `${parsedLeft.sph}_${parsedLeft.cyl || '0.00'}_${parsedLeft.axis || ''}_${addVal}`;
-                                            updatesMap.set(key, updateObj);
-                                            if (parseFloat(parsedLeft.sph) >= 0) totalPosCount++;
-                                            else totalNegCount++;
-                                        }
+                                const cylCols = [];
+                                for (let c = sphCol + 1; c < nextBoundary; c++) {
+                                    const raw = String(subHeaderRow[c] || "").replace(/\+/g, "").trim();
+                                    const val = parseFloat(raw);
+                                    if (!isNaN(val) && raw !== "") {
+                                        const resolvedCyl = (isNegCylGroup && val > 0) ? -Math.abs(val) : val;
+                                        cylCols.push({ colIdx: c, cylVal: resolvedCyl.toFixed(2) });
                                     }
-                                });
-                            }
+                                }
+                                return { sphCol, isNegSph, cylCols };
+                            });
 
-                            // Right table (Dual Table Standard Image 5)
-                            if (rightSphCol > 0) {
-                                const rawRight = row[rightSphCol];
-                                const parsedRight = parseDistPower(rawRight, true);
-                                if (parsedRight) {
-                                    rightAddCols.forEach(({ colIdx, addVal }) => {
+                            for (let r = subHeaderIdx + 1; r < blockEndRow; r++) {
+                                const row = rawData[r];
+                                if (!row || row.every(c => c === "" || c === undefined)) continue;
+
+                                subTables.forEach(({ sphCol, isNegSph, cylCols }) => {
+                                    if (cylCols.length === 0) return;
+                                    const rawSph = String(row[sphCol] || "").replace(/\+/g, "").trim();
+                                    let sphVal = parseFloat(rawSph);
+                                    if (isNaN(sphVal) || rawSph === "") return;
+
+                                    if (isNegSph && sphVal > 0) {
+                                        sphVal = -Math.abs(sphVal);
+                                    }
+
+                                    const sphStr = sphVal.toFixed(2);
+                                    const sphFormatted = sphVal === 0 ? "0.00" : (sphVal > 0 ? `+${sphVal.toFixed(2)}` : sphVal.toFixed(2));
+
+                                    cylCols.forEach(({ colIdx, cylVal }) => {
                                         const cellRaw = row[colIdx];
                                         if (cellRaw !== "" && cellRaw !== undefined && cellRaw !== "-") {
                                             const valNum = parseFloat(String(cellRaw).trim());
                                             if (!isNaN(valNum)) {
                                                 const updateObj = {
-                                                    sph: parsedRight.sph,
-                                                    cyl: parsedRight.cyl,
-                                                    axis: parsedRight.axis,
-                                                    addition: `+${addVal}`,
+                                                    sph: sphFormatted,
+                                                    cyl: cylVal,
                                                     value: valNum,
-                                                    isPositive: false,
                                                 };
                                                 if (action === "UPDATE_QTY") updateObj.qty = valNum;
                                                 else if (action === "UPDATE_SELLING_PRICE") updateObj.sellingPrice = valNum;
@@ -814,23 +1031,218 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                                     updateObj.mrp = valNum;
                                                 }
 
-                                                const key = `${parsedRight.sph}_${parsedRight.cyl || '0.00'}_${parsedRight.axis || ''}_${addVal}`;
+                                                const key = `${sphStr}_${cylVal}`;
                                                 updatesMap.set(key, updateObj);
-                                                totalNegCount++;
+                                                if (sphVal >= 0) totalPosCount++;
+                                                else totalNegCount++;
+                                            }
+                                        }
+                                    });
+                                });
+                            }
+                        });
+                    }
+
+                    // ── B. PARSE PROGRESSIVE / BIFOCAL (supports 1 or multiple stacked products) ──
+                    else if (isSphAdd) {
+                        detectedFormat = "SPH_ADD";
+
+                        const stripActionSuffix = (str) =>
+                            String(str || "")
+                                .replace(/\s*\((Pairs|Pairs \/ Stock Qty|Selling Price \(₹\)|Buying Price \(₹\)|MRP \(₹\)|Quantity \/ Price)\)\s*$/i, "")
+                                .trim();
+
+                        // Find every sub-header row in the sheet (each block has "sph / cyl * axis" + addition columns)
+                        const progBlockIndices = [];
+                        for (let r = 0; r < rawData.length; r++) {
+                            const row = rawData[r] || [];
+                            const firstNonEmpty = row.find(c => String(c || "").trim() !== "");
+                            if (firstNonEmpty && parseDistPower(firstNonEmpty)) continue;
+
+                            const hasRxHeader = row.some(c =>
+                                String(c || "").trim().toLowerCase().replace(/\s+/g, "").startsWith("sph/cyl")
+                            );
+                            let numCount = 0;
+                            for (let c = 0; c < row.length; c++) {
+                                const raw = String(row[c] || "").replace(/\+/g, "").trim();
+                                const val = parseFloat(raw);
+                                if (!isNaN(val) && raw !== "" && val >= 0.20 && val <= 6.00) numCount++;
+                            }
+                            if (hasRxHeader || numCount >= 2) {
+                                progBlockIndices.push(r);
+                            }
+                        }
+
+                        if (progBlockIndices.length === 0) {
+                            progBlockIndices.push(Math.min(2, rawData.length - 1));
+                        }
+
+                        progBlockIndices.forEach((subHeaderRowIdx, bPos) => {
+                            const subHeaderRow = rawData[subHeaderRowIdx] || [];
+                            const nextBlockStart = bPos + 1 < progBlockIndices.length
+                                ? Math.max(subHeaderRowIdx + 1, progBlockIndices[bPos + 1] - 2)
+                                : rawData.length;
+
+                            // Extract product name from banner row 1-3 rows above this sub-header
+                            let blockProdName = "";
+                            for (let br = Math.max(0, subHeaderRowIdx - 3); br < subHeaderRowIdx; br++) {
+                                const bRow = rawData[br] || [];
+                                for (let bc = 0; bc < bRow.length; bc++) {
+                                    const cell = stripActionSuffix(bRow[bc]);
+                                    const lc = cell.toLowerCase();
+                                    if (
+                                        cell &&
+                                        cell.length > 2 &&
+                                        !["sph", "rx", "add", "add (+)", "add (-)", "(+)", "(-)", "pairs", "power"].includes(lc) &&
+                                        !lc.startsWith("add")
+                                    ) {
+                                        blockProdName = lc.startsWith("sales order -")
+                                            ? cell.substring("sales order -".length).replace(/\(.*?\)/g, "").trim()
+                                            : cell;
+                                        break;
+                                    }
+                                }
+                                if (blockProdName) break;
+                            }
+                            if (!blockProdName) {
+                                blockProdName = stripActionSuffix(detectedProductName) || selectedProduct?.productName || "";
+                            }
+
+                            // Find left distance column (column before first addition)
+                            let firstAddCol = -1;
+                            for (let c = 0; c < subHeaderRow.length; c++) {
+                                const raw = String(subHeaderRow[c] || "").replace(/\+/g, "").trim();
+                                const val = parseFloat(raw);
+                                if (!isNaN(val) && raw !== "" && val >= 0.20 && val <= 6.00) {
+                                    firstAddCol = c;
+                                    break;
+                                }
+                            }
+                            const rxCol = firstAddCol > 0 ? firstAddCol - 1 : 0;
+
+                            // Check for right table (legacy Dual Table)
+                            let rightSphCol = -1;
+                            for (let c = Math.max(0, firstAddCol) + 2; c < subHeaderRow.length; c++) {
+                                const cell = String(subHeaderRow[c] || "").trim().toLowerCase();
+                                if (cell === "(-)" || (cell === "sph" && c > firstAddCol + 5)) {
+                                    rightSphCol = c;
+                                    break;
+                                }
+                            }
+
+                            const leftAddCols = [];
+                            const rightAddCols = [];
+                            const endLeft = rightSphCol > 0 ? rightSphCol : subHeaderRow.length;
+
+                            for (let c = rxCol + 1; c < endLeft; c++) {
+                                const raw = String(subHeaderRow[c] || "").replace(/\+/g, "").trim();
+                                const val = parseFloat(raw);
+                                if (!isNaN(val) && raw !== "") leftAddCols.push({ colIdx: c, addVal: val.toFixed(2) });
+                            }
+
+                            if (rightSphCol > 0) {
+                                for (let c = rightSphCol + 1; c < subHeaderRow.length; c++) {
+                                    const raw = String(subHeaderRow[c] || "").replace(/\+/g, "").trim();
+                                    const val = parseFloat(raw);
+                                    if (!isNaN(val) && raw !== "") rightAddCols.push({ colIdx: c, addVal: val.toFixed(2) });
+                                }
+                            }
+
+                            for (let r = subHeaderRowIdx + 1; r < nextBlockStart; r++) {
+                                const row = rawData[r];
+                                if (!row || row.every(c => c === "" || c === undefined)) continue;
+
+                                const rawLeft = row[rxCol];
+                                const parsedLeft = parseDistPower(rawLeft, false);
+                                if (parsedLeft) {
+                                    leftAddCols.forEach(({ colIdx, addVal }) => {
+                                        const cellRaw = row[colIdx];
+                                        if (cellRaw !== "" && cellRaw !== undefined && cellRaw !== "-") {
+                                            const valNum = parseFloat(String(cellRaw).trim());
+                                            if (!isNaN(valNum)) {
+                                                const updateObj = {
+                                                    productName: blockProdName,
+                                                    sph: parsedLeft.sph,
+                                                    cyl: parsedLeft.cyl,
+                                                    axis: parsedLeft.axis,
+                                                    addition: `+${addVal}`,
+                                                    value: valNum,
+                                                };
+                                                if (action === "UPDATE_QTY") updateObj.qty = valNum;
+                                                else if (action === "UPDATE_SELLING_PRICE") updateObj.sellingPrice = valNum;
+                                                else if (action === "UPDATE_BUYING_PRICE") updateObj.buyingPrice = valNum;
+                                                else if (action === "UPDATE_MRP") updateObj.mrp = valNum;
+                                                else {
+                                                    updateObj.sellingPrice = valNum;
+                                                    updateObj.buyingPrice = valNum;
+                                                    updateObj.mrp = valNum;
+                                                }
+
+                                                const key = `${blockProdName}__${parsedLeft.sph}_${parsedLeft.cyl || '0.00'}_${parsedLeft.axis || ''}_${addVal}`;
+                                                updatesMap.set(key, updateObj);
+                                                if (parseFloat(parsedLeft.sph) >= 0) totalPosCount++;
+                                                else totalNegCount++;
                                             }
                                         }
                                     });
                                 }
+
+                                if (rightSphCol > 0) {
+                                    const rawRight = row[rightSphCol];
+                                    const parsedRight = parseDistPower(rawRight, true);
+                                    if (parsedRight) {
+                                        rightAddCols.forEach(({ colIdx, addVal }) => {
+                                            const cellRaw = row[colIdx];
+                                            if (cellRaw !== "" && cellRaw !== undefined && cellRaw !== "-") {
+                                                const valNum = parseFloat(String(cellRaw).trim());
+                                                if (!isNaN(valNum)) {
+                                                    const updateObj = {
+                                                        productName: blockProdName,
+                                                        sph: parsedRight.sph,
+                                                        cyl: parsedRight.cyl,
+                                                        axis: parsedRight.axis,
+                                                        addition: `+${addVal}`,
+                                                        value: valNum,
+                                                        isPositive: false,
+                                                    };
+                                                    if (action === "UPDATE_QTY") updateObj.qty = valNum;
+                                                    else if (action === "UPDATE_SELLING_PRICE") updateObj.sellingPrice = valNum;
+                                                    else if (action === "UPDATE_BUYING_PRICE") updateObj.buyingPrice = valNum;
+                                                    else if (action === "UPDATE_MRP") updateObj.mrp = valNum;
+                                                    else {
+                                                        updateObj.sellingPrice = valNum;
+                                                        updateObj.buyingPrice = valNum;
+                                                        updateObj.mrp = valNum;
+                                                    }
+
+                                                    const key = `${blockProdName}__${parsedRight.sph}_${parsedRight.cyl || '0.00'}_${parsedRight.axis || ''}_${addVal}`;
+                                                    updatesMap.set(key, updateObj);
+                                                    totalNegCount++;
+                                                }
+                                            }
+                                        });
+                                    }
+                                }
                             }
-                        }
+                        });
                     }
                 });
 
-                if (detectedProductName) {
-                    setSearchTerm(detectedProductName);
-                    if (!selectedProduct || selectedProduct.productName?.toUpperCase() !== detectedProductName.toUpperCase()) {
-                        setSelectedProduct({ productName: detectedProductName });
-                        api.get(`/api/digi/product/lens/matrix-data?productName=${encodeURIComponent(detectedProductName)}`)
+                const cleanDetectedName = detectedProductName
+                    ? detectedProductName
+                        .replace(/\s*\((Pairs|Pairs \/ Stock Qty|Selling Price \(₹\)|Buying Price \(₹\)|MRP \(₹\)|Quantity \/ Price)\)\s*$/i, "")
+                        .trim()
+                    : "";
+
+                const distinctParsedProducts = Array.from(
+                    new Set(Array.from(updatesMap.values()).map(u => u.productName).filter(Boolean))
+                );
+
+                if (distinctParsedProducts.length <= 1 && cleanDetectedName) {
+                    setSearchTerm(cleanDetectedName);
+                    if (!selectedProduct || selectedProduct.productName?.toUpperCase() !== cleanDetectedName.toUpperCase()) {
+                        setSelectedProduct({ productName: cleanDetectedName });
+                        api.get(`/api/digi/product/lens/matrix-data?productName=${encodeURIComponent(cleanDetectedName)}`)
                             .then(res => {
                                 if (res.data?.success) setMatrixData(res.data);
                             })
@@ -846,13 +1258,18 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                 setParsedUpdates(updates);
                 setMatrixStats({
                     totalCells: updates.length,
+                    productCount: distinctParsedProducts.length || 1,
                     format: detectedFormat || "SPH_CYL",
                     formatLabel: detectedFormat === "SPH_ADD"
-                        ? "Progressive / Bifocal ((SPH/CYL×AXIS) × ADD)"
+                        ? (distinctParsedProducts.length > 1
+                            ? `Progressive / Bifocal (${distinctParsedProducts.length} Products)`
+                            : "Progressive / Bifocal ((SPH/CYL×AXIS) × ADD)")
                         : "Single Vision (SPH × CYL)",
                     posCount: totalPosCount,
                     negCount: totalNegCount,
-                    productName: detectedProductName || selectedProduct?.productName,
+                    productName: distinctParsedProducts.length > 1
+                        ? `${distinctParsedProducts.length} Progressive/Bifocal Products`
+                        : (cleanDetectedName || selectedProduct?.productName),
                 });
                 setParseError("");
             } catch (err) {
@@ -870,112 +1287,73 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
 
     // ── 3. Apply Matrix Updates to Database ──
     const handleApplyUpdates = async () => {
-        const prodName = selectedProduct?.productName || matrixStats?.productName || searchTerm.trim();
-        if (!prodName) {
-            return toast.error("Please select a lens product in Step 1 or ensure product name is in Excel row 3.");
-        }
+        const fallbackProdName = selectedProduct?.productName || matrixStats?.productName || searchTerm.trim();
         if (!parsedUpdates || parsedUpdates.length === 0) {
             return toast.error("No valid matrix updates to apply.");
         }
 
+        // Group updates by productName (supports single product & multi-product Progressive sheets)
+        const groupedByProd = new Map();
+        parsedUpdates.forEach((u) => {
+            const pName = (u.productName || fallbackProdName || "").trim();
+            if (!pName) return;
+            if (!groupedByProd.has(pName)) groupedByProd.set(pName, []);
+            groupedByProd.get(pName).push(u);
+        });
+
+        if (groupedByProd.size === 0) {
+            return toast.error("Please select a lens product in Step 1 or ensure product name is in the Excel banner.");
+        }
+
         setSubmitting(true);
         try {
-            const payload = {
-                productName: prodName,
-                action: action, // "UPDATE_QTY" | "UPDATE_PRICE" | "UPDATE_SELLING_PRICE" etc.
-                priceType: action === "UPDATE_SELLING_PRICE" ? "Selling Price" : action === "UPDATE_BUYING_PRICE" ? "Buying Price" : action === "UPDATE_MRP" ? "MRP" : "Buying, Selling & MRP",
-                updates: parsedUpdates,
-            };
+            const priceTypeLabel = action === "UPDATE_SELLING_PRICE" ? "Selling Price" : action === "UPDATE_BUYING_PRICE" ? "Buying Price" : action === "UPDATE_MRP" ? "MRP" : "Buying, Selling & MRP";
+            let successCount = 0;
+            let lastSuccessMsg = "";
 
-            const res = await api.post("/api/digi/product/lens/matrix-update", payload);
-
-            if (res.data?.success) {
-                toast.success(res.data.message || `Successfully updated ${parsedUpdates.length} lens combinations!`);
-                setUploadedFile(null);
-                setParsedUpdates([]);
-                setMatrixStats(null);
-
-                // Reload matrix data & refresh inventory
-                const targetProduct = selectedProduct?.productName
-                    ? selectedProduct
-                    : (prodName ? { productName: prodName } : null);
-
-                if (targetProduct) {
-                    await handleSelectProduct(targetProduct);
+            for (const [pName, prodUpdates] of groupedByProd.entries()) {
+                const payload = {
+                    productName: pName,
+                    action,
+                    priceType: priceTypeLabel,
+                    updates: prodUpdates,
+                };
+                const res = await api.post("/api/digi/product/lens/matrix-update", payload);
+                if (res.data?.success) {
+                    successCount++;
+                    lastSuccessMsg = res.data.message;
+                } else {
+                    throw new Error(res.data?.message || `Failed to update "${pName}"`);
                 }
-                if (typeof onRefreshInventory === "function") {
-                    onRefreshInventory();
-                }
-            } else {
-                toast.error(res.data?.message || "Failed to apply matrix updates");
+            }
+
+            toast.success(
+                groupedByProd.size > 1
+                    ? `Updated ${parsedUpdates.length} combinations across ${successCount} product(s)!`
+                    : (lastSuccessMsg || `Successfully updated ${parsedUpdates.length} lens combinations!`)
+            );
+            setUploadedFile(null);
+            setParsedUpdates([]);
+            setMatrixStats(null);
+
+            const firstProdName = Array.from(groupedByProd.keys())[0];
+            const targetProduct = selectedProduct?.productName
+                ? selectedProduct
+                : (firstProdName ? { productName: firstProdName } : null);
+            if (targetProduct) {
+                await handleSelectProduct(targetProduct);
+            }
+
+            if (typeof onRefreshInventory === "function") {
+                onRefreshInventory();
             }
         } catch (err) {
             console.error("Apply matrix update error:", err);
-            toast.error(err.response?.data?.message || "Failed to update lens combinations");
+            toast.error(err.response?.data?.message || err.message || "Failed to update lens combinations");
         } finally {
             setSubmitting(false);
         }
     };
-
-    // Helper to detect if a lens is Single Vision, Progressive, or Bifocal
-    const getLensClassification = (item) => {
-        const name = (item.productName || "").toLowerCase();
-        const cat = (item.category || "").toLowerCase();
-        const type = (item.type || "").toLowerCase();
-        const hasAdd = Boolean(
-            (item.additionRange && item.additionRange.trim() !== "" && item.additionRange.trim() !== "to" && item.additionRange.trim() !== "0.00") ||
-            (item.addition && item.addition !== "0.00" && item.addition !== "")
-        );
-
-        if (name.includes("bifocal") || cat.includes("bifocal") || type.includes("bifocal")) {
-            return {
-                type: "Bifocal",
-                label: "Bifocal",
-                badgeClass: "bg-purple-100 text-purple-800 border-purple-200",
-                dotColor: "bg-purple-500",
-                tag: "BIFOCAL (SPH × ADD)",
-            };
-        }
-
-        if (name.includes("progressive") || name.includes("prog ") || name.startsWith("prog") || cat.includes("progressive") || type.includes("progressive")) {
-            return {
-                type: "Progressive",
-                label: "Progressive",
-                badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-200",
-                dotColor: "bg-emerald-500",
-                tag: "PROGRESSIVE (SPH × ADD)",
-            };
-        }
-
-        if (hasAdd) {
-            return {
-                type: "Progressive / Bifocal",
-                label: "Progressive / Bifocal",
-                badgeClass: "bg-teal-100 text-teal-800 border-teal-200",
-                dotColor: "bg-teal-500",
-                tag: "PROGRESSIVE / BIFOCAL (SPH × ADD)",
-            };
-        }
-
-        return {
-            type: "Single Vision",
-            label: "Single Vision",
-            badgeClass: "bg-blue-100 text-blue-800 border-blue-200",
-            dotColor: "bg-blue-500",
-            tag: "SINGLE VISION (SPH × CYL)",
-        };
-    };
-
-    const historyCounts = useMemo(() => {
-        let sv = 0, prog = 0, bif = 0;
-        historyList.forEach(h => {
-            const c = getLensClassification(h);
-            if (c.type === "Single Vision") sv++;
-            else if (c.type === "Bifocal") bif++;
-            else prog++;
-        });
-        return { all: historyList.length, sv, prog, bif };
-    }, [historyList]);
 
     // Filter history based on search query & classification filter
     const filteredHistory = historyList.filter(h => {
@@ -1008,12 +1386,10 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
     const uiComboKeySet = new Set();
     const uiCombosList = [];
     let totalStockPreview = 0;
-    let totalValuePreview = 0;
 
     previewProducts.forEach(p => {
         const qtyNum = p.qty || 0;
         totalStockPreview += qtyNum;
-        totalValuePreview += qtyNum * (p.sellingPrice ?? p.price ?? 0);
 
         let s = numPower(p.sph);
         let c = numPower(p.cyl);
@@ -1042,13 +1418,8 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
             const cStr = cVal.toFixed(2);
             const aStr = a.toFixed(2);
 
+            // Exact key only — prevents cross-contamination across cylinders/axes
             uiSphAddLookup.set(`${sStr}_${cStr}_${ax}_${aStr}`, p);
-            if (!uiSphAddLookup.has(`${sStr}_${cStr}_${aStr}`)) {
-                uiSphAddLookup.set(`${sStr}_${cStr}_${aStr}`, p);
-            }
-            if (!uiSphAddLookup.has(`${sStr}_${aStr}`)) {
-                uiSphAddLookup.set(`${sStr}_${aStr}`, p);
-            }
         }
 
         const sVal = s ?? 0;
@@ -1079,129 +1450,81 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
         return numAxA - numAxB;
     });
 
+    const filteredUiCombosList = gridRxFilter.trim()
+        ? uiCombosList.filter((combo) =>
+            formatDistRxCell(combo.s, combo.c, combo.ax)
+                .toLowerCase()
+                .includes(gridRxFilter.trim().toLowerCase())
+        )
+        : uiCombosList;
+
     if (uiDetectedSphs.size === 0) uiDetectedSphs.add(0);
     if (uiDetectedCyls.size === 0) uiDetectedCyls.add(0);
 
-    let uiMinSph = 0.00;
-    let uiMaxSph = 3.00;
-    uiDetectedSphs.forEach(s => {
-        if (s < uiMinSph) uiMinSph = s;
-        if (s > uiMaxSph) uiMaxSph = s;
-    });
-
-    const uiSphList = [];
-    for (let s = uiMinSph; s <= uiMaxSph + 0.001; s += 0.25) {
-        uiSphList.push(Number(s.toFixed(2)));
-    }
-
-    const defaultCyls = [0.00, -0.25, -0.50, -0.75, -1.00, -1.25, -1.50, -1.75, -2.00];
-    const uiCylList = uiDetectedCyls.size > 0 && !(uiDetectedCyls.size === 1 && uiDetectedCyls.has(0))
-        ? Array.from(uiDetectedCyls).sort((a, b) => a - b)
-        : defaultCyls;
-
     const defaultAdds = [1.00, 1.25, 1.50, 1.75, 2.00, 2.25, 2.50, 2.75, 3.00];
+    const hasCustomUiAddStep = Array.from(uiDetectedAdds).some(
+        a => Math.abs(Math.round(a / 0.25) * 0.25 - a) > 0.001
+    );
     const uiAddList = uiDetectedAdds.size > 0
-        ? Array.from(new Set([...defaultAdds, ...Array.from(uiDetectedAdds)])).sort((a, b) => a - b)
+        ? (hasCustomUiAddStep
+            ? Array.from(uiDetectedAdds).sort((a, b) => a - b)
+            : Array.from(new Set([...defaultAdds, ...Array.from(uiDetectedAdds)])).sort((a, b) => a - b))
         : defaultAdds;
 
-    // ── Single Vision 4 Quadrants Range Calculations ──
-    let svMaxPosSph = 0.00;
-    let svMinNegSph = 0.00;
-    uiDetectedSphs.forEach(s => {
-        if (s > svMaxPosSph) svMaxPosSph = s;
-        if (s < svMinNegSph) svMinNegSph = s;
-    });
-    if (svMaxPosSph < 2.00) svMaxPosSph = 2.00;
-    if (svMinNegSph > -2.00) svMinNegSph = -2.00;
-
-    const qPosSphList = [];
-    for (let s = 0.00; s <= svMaxPosSph + 0.001; s += 0.25) qPosSphList.push(Number(s.toFixed(2)));
-
-    const qNegSphList = [];
-    for (let s = 0.00; s >= svMinNegSph - 0.001; s -= 0.25) qNegSphList.push(Number(s.toFixed(2)));
-
-    let svMinNegCyl = 0.00;
-    let svMaxPosCyl = 0.00;
-    uiDetectedCyls.forEach(c => {
-        if (c < svMinNegCyl) svMinNegCyl = c;
-        if (c > svMaxPosCyl) svMaxPosCyl = c;
-    });
-    if (svMinNegCyl > -2.00) svMinNegCyl = -2.00;
-
-    const qNegCylList = [];
-    for (let c = 0.00; c >= svMinNegCyl - 0.001; c -= 0.25) qNegCylList.push(Number(c.toFixed(2)));
-
-    const qPosCylList = [];
-    if (svMaxPosCyl > 0) {
-        for (let c = 0.25; c <= svMaxPosCyl + 0.001; c += 0.25) qPosCylList.push(Number(c.toFixed(2)));
-    } else {
-        qPosCylList.push(0.25, 0.50, 0.75, 1.00, 1.25, 1.50, 1.75, 2.00);
-    }
+    // ── Single Vision 4 Quadrants Range Calculations (++, -+, +-, --) ──
+    const qPosSphList = buildSvAxisValues(uiDetectedSphs, { direction: "pos", startAbs: 0.00, defaultMaxAbs: 3.00 });
+    const qNegSphList = buildSvAxisValues(uiDetectedSphs, { direction: "neg", startAbs: 0.00, defaultMaxAbs: 3.00 });
+    const qNegCylList = buildSvAxisValues(uiDetectedCyls, { direction: "neg", startAbs: 0.00, defaultMaxAbs: 2.00 });
+    const qPosCylList = buildSvAxisValues(uiDetectedCyls, { direction: "pos", startAbs: 0.25, defaultMaxAbs: 2.00 });
 
     const svQuadrants = [
         {
-            id: "SPH+_CYL-",
-            title: "SPH (+) / CYL (-)",
-            shortTitle: "SPH+ CYL-",
-            description: "Plus Sphere × Minus Cylinder",
-            badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-300",
-            headerBg: "bg-[#0f4c3a]",
-            subHeaderBg: "bg-[#16654e]",
-            colHeaderBg: "bg-emerald-50 text-emerald-950 font-bold",
-            rowHeaderBg: "bg-emerald-50/80 text-emerald-950 font-bold",
-            sphs: qPosSphList,
-            cyls: qNegCylList,
-            filter: (p) => (numPower(p.sph) ?? 0) >= 0 && (numPower(p.cyl) ?? 0) <= 0,
-            sphLabel: "SPH (+) (Sphere Power)",
-            cylLabel: "CYLINDER POWER (CYL -)",
-        },
-        {
-            id: "SPH-_CYL-",
-            title: "SPH (-) / CYL (-)",
-            shortTitle: "SPH- CYL-",
-            description: "Minus Sphere × Minus Cylinder",
-            badgeColor: "bg-blue-100 text-blue-800 border-blue-300",
-            headerBg: "bg-[#1e3a5f]",
-            subHeaderBg: "bg-[#254b7a]",
-            colHeaderBg: "bg-blue-50 text-blue-950 font-bold",
-            rowHeaderBg: "bg-blue-50/80 text-blue-950 font-bold",
-            sphs: qNegSphList,
-            cyls: qNegCylList,
-            filter: (p) => (numPower(p.sph) ?? 0) <= 0 && (numPower(p.cyl) ?? 0) <= 0,
-            sphLabel: "SPH (-) (Sphere Power)",
-            cylLabel: "CYLINDER POWER (CYL -)",
-        },
-        {
-            id: "SPH-_CYL+",
-            title: "SPH (-) / CYL (+)",
-            shortTitle: "SPH- CYL+",
-            description: "Minus Sphere × Plus Cylinder",
-            badgeColor: "bg-purple-100 text-purple-800 border-purple-300",
-            headerBg: "bg-[#4a1d6d]",
-            subHeaderBg: "bg-[#60298a]",
-            colHeaderBg: "bg-purple-50 text-purple-950 font-bold",
-            rowHeaderBg: "bg-purple-50/80 text-purple-950 font-bold",
-            sphs: qNegSphList,
-            cyls: qPosCylList,
-            filter: (p) => (numPower(p.sph) ?? 0) <= 0 && (numPower(p.cyl) ?? 0) > 0,
-            sphLabel: "SPH (-) (Sphere Power)",
-            cylLabel: "CYLINDER POWER (CYL +)",
-        },
-        {
             id: "SPH+_CYL+",
-            title: "SPH (+) / CYL (+)",
-            shortTitle: "SPH+ CYL+",
-            description: "Plus Sphere × Plus Cylinder",
-            badgeColor: "bg-amber-100 text-amber-800 border-amber-300",
-            headerBg: "bg-[#7c4a03]",
-            subHeaderBg: "bg-[#9a5b00]",
-            colHeaderBg: "bg-amber-50 text-amber-950 font-bold",
-            rowHeaderBg: "bg-amber-50/80 text-amber-950 font-bold",
+            code: "++",
+            title: "++ | SPH (+) / Cyl (+)",
+            shortTitle: "++ (SPH+ / CYL+)",
+            sphSign: "(+)",
+            cylGroupLabel: "Cyl (+)",
+            isNegSphSide: false,
             sphs: qPosSphList,
             cyls: qPosCylList,
             filter: (p) => (numPower(p.sph) ?? 0) >= 0 && (numPower(p.cyl) ?? 0) > 0,
-            sphLabel: "SPH (+) (Sphere Power)",
-            cylLabel: "CYLINDER POWER (CYL +)",
+        },
+        {
+            id: "SPH-_CYL+",
+            code: "-+",
+            title: "-+ | SPH (-) / Cyl (+)",
+            shortTitle: "-+ (SPH- / CYL+)",
+            sphSign: "(-)",
+            cylGroupLabel: "Cyl (+)",
+            isNegSphSide: true,
+            sphs: qNegSphList,
+            cyls: qPosCylList,
+            filter: (p) => (numPower(p.sph) ?? 0) < 0 && (numPower(p.cyl) ?? 0) > 0,
+        },
+        {
+            id: "SPH+_CYL-",
+            code: "+-",
+            title: "+- | SPH (+) / Cyl (-)",
+            shortTitle: "+- (SPH+ / CYL-)",
+            sphSign: "(+)",
+            cylGroupLabel: "Cyl (-)",
+            isNegSphSide: false,
+            sphs: qPosSphList,
+            cyls: qNegCylList,
+            filter: (p) => (numPower(p.sph) ?? 0) >= 0 && (numPower(p.cyl) ?? 0) <= 0,
+        },
+        {
+            id: "SPH-_CYL-",
+            code: "--",
+            title: "-- | SPH (-) / Cyl (-)",
+            shortTitle: "-- (SPH- / CYL-)",
+            sphSign: "(-)",
+            cylGroupLabel: "Cyl (-)",
+            isNegSphSide: true,
+            sphs: qNegSphList,
+            cyls: qNegCylList,
+            filter: (p) => (numPower(p.sph) ?? 0) < 0 && (numPower(p.cyl) ?? 0) <= 0,
         },
     ];
 
@@ -1266,8 +1589,18 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                 <h2 className="text-base font-extrabold text-gray-900">
                                     Bulk Lens Excel Matrix Manager &amp; History
                                 </h2>
-                                <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-blue-50 text-[#2980b9] uppercase tracking-wider border border-blue-200">
-                                    Single Vision (SPH × CYL) &amp; Progressive (SPH × ADD)
+                                <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider border ${
+                                    selectedProduct && matrixData
+                                        ? (effectiveFormat === "SPH_CYL"
+                                            ? "bg-blue-50 text-[#2980b9] border-blue-200"
+                                            : selectedClassification.badgeClass)
+                                        : "bg-blue-50 text-[#2980b9] border-blue-200"
+                                }`}>
+                                    {selectedProduct && matrixData
+                                        ? (effectiveFormat === "SPH_CYL"
+                                            ? "SINGLE VISION (SPH × CYL)"
+                                            : `${selectedClassification.label.toUpperCase()} (sph/cyl*axis × ADD)`)
+                                        : "SINGLE VISION & PROGRESSIVE / BIFOCAL"}
                                 </span>
                             </div>
                             <p className="text-xs text-gray-500 mt-0.5">
@@ -1397,7 +1730,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                                     ? "bg-blue-100 text-blue-800 border border-blue-200"
                                                     : "bg-emerald-100 text-emerald-800 border border-emerald-200"
                                                     }`}>
-                                                    {effectiveFormat === "SPH_CYL" ? "Single Vision (SPH × CYL Standard)" : "Progressive / Bifocal (SPH × ADD Standard)"}
+                                                    {effectiveFormat === "SPH_CYL" ? "Single Vision (SPH × CYL)" : "Progressive / Bifocal (sph/cyl*axis × ADD)"}
                                                 </span>
                                             </div>
                                             <p className="text-[11px] text-blue-700 mt-1">
@@ -1456,7 +1789,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                     )}
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     {/* Action Selector */}
                                     <div>
                                         <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-1">
@@ -1468,32 +1801,9 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                             className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl outline-none focus:border-[#2980b9] bg-gray-50 text-gray-700 font-semibold"
                                         >
                                             <option value="UPDATE_QTY">Update Stock Quantity</option>
-                                            {/* <option value="UPDATE_PRICE">Update Prices (Buying, Selling &amp; MRP)</option> */}
                                             <option value="UPDATE_SELLING_PRICE">Update Selling Price Only</option>
                                             <option value="UPDATE_BUYING_PRICE">Update Buying Price Only</option>
                                             <option value="UPDATE_MRP">Update MRP Only</option>
-                                        </select>
-                                    </div>
-
-                                    {/* Matrix Format Selector (Siddhartha's Standard) */}
-                                    <div>
-                                        <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-1">
-                                            Matrix Grid Format
-                                        </label>
-                                        <select
-                                            value={matrixFormat}
-                                            onChange={(e) => setMatrixFormat(e.target.value)}
-                                            className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl outline-none focus:border-[#2980b9] bg-gray-50 text-gray-700 font-semibold"
-                                        >
-                                            <option value="AUTO">
-                                                Auto-Detect ({effectiveFormat === "SPH_CYL" ? "Single Vision SPH × CYL" : "Progressive SPH × ADD"})
-                                            </option>
-                                            <option value="SPH_CYL">
-                                                Single Vision (SPH in Col A, CYL in Row 1)
-                                            </option>
-                                            <option value="SPH_ADD">
-                                                Progressive / Bifocal (SPH in Col A, ADD in Row 1)
-                                            </option>
                                         </select>
                                     </div>
 
@@ -1504,7 +1814,9 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-sm"
                                         >
                                             <FiDownload size={14} />
-                                            Export {effectiveFormat === "SPH_CYL" ? "SPH × CYL" : "SPH × ADD"} Excel (.xlsx)
+                                            <span>
+                                                Export {effectiveFormat === "SPH_CYL" ? "SPH × CYL" : "sph/cyl*axis × ADD"} Excel (.xlsx)
+                                            </span>
                                         </button>
                                     </div>
                                 </div>
@@ -1526,7 +1838,20 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                                 <span className="text-xs font-bold text-gray-800">Live Inventory Preview</span><span className="text-xs text-gray-500 font-medium">({totalStockPreview} units)</span>
                                             </div>
 
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                {effectiveFormat === "SPH_ADD" && (
+                                                    <div className="relative">
+                                                        <FiSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
+                                                        <input
+                                                            type="text"
+                                                            value={gridRxFilter}
+                                                            onChange={(e) => setGridRxFilter(e.target.value)}
+                                                            placeholder="Filter Rx (e.g. 0.00, -0.25, x90)..."
+                                                            className="pl-7 pr-2.5 py-1 text-[11px] border border-gray-200 rounded-lg outline-none focus:border-[#2980b9] bg-white text-gray-700 w-48"
+                                                        />
+                                                    </div>
+                                                )}
+
                                                 {/* View Switcher: Grid vs Table */}
                                                 <div className="flex items-center bg-gray-200/80 p-0.5 rounded-xl text-[11px] font-bold">
                                                     <button
@@ -1540,17 +1865,6 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                                         <FiGrid size={12} />
                                                         <span>Visual Grid</span>
                                                     </button>
-                                                    {/* <button
-                                                        type="button"
-                                                        onClick={() => setPreviewViewMode("table")}
-                                                        className={`flex items-center gap-1.5 px-3 py-1 rounded-lg transition ${previewViewMode === "table"
-                                                            ? "bg-white text-[#2980b9] shadow-2xs"
-                                                            : "text-gray-600 hover:text-gray-900"
-                                                            }`}
-                                                    >
-                                                        <FiList size={12} />
-                                                        <span>Table List</span>
-                                                    </button> */}
                                                 </div>
 
                                                 {/* Metric Selector */}
@@ -1574,9 +1888,9 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                                     {previewViewMode === "grid" && (
                                 <div className="p-3 space-y-4">
                                     {effectiveFormat === "SPH_CYL" ? (
-                                        /* Single Vision Tables */
+                                        /* Single Vision 4 Quadrant Tables (++, -+, +-, --) */
                                         <div className="space-y-4">
-                                            {/* Simple Tabs */}
+                                            {/* Quadrant Filter Tabs */}
                                             <div className="flex flex-wrap items-center gap-1.5 bg-gray-100 p-1 rounded-xl text-xs font-medium">
                                                 <button
                                                     type="button"
@@ -1587,7 +1901,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                                             : "text-gray-600 hover:text-gray-900"
                                                     }`}
                                                 >
-                                                    All Tables
+                                                    All 4 Tables (++, -+, +-, --)
                                                 </button>
                                                 {svQuadrants.map(q => (
                                                     <button
@@ -1601,105 +1915,119 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                                         }`}
                                                     >
                                                         <span>{q.title}</span>
-                                                        {q.count > 0 && (
-                                                            <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono bg-blue-100 text-blue-800">
-                                                                {q.count}
-                                                            </span>
-                                                        )}
+                                                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${q.count > 0 ? "bg-blue-100 text-blue-800" : "bg-gray-200 text-gray-600"}`}>
+                                                            {q.count}
+                                                        </span>
                                                     </button>
                                                 ))}
-                                                
                                             </div>
 
-                                            {/* Render 4 Quadrant Tables */}
-                                            {svQuadrants
-                                                .filter(q => svQuadrantTab === "all" ? (q.count > 0 || q.id === "SPH+_CYL-" || q.id === "SPH-_CYL-") : svQuadrantTab === q.id)
-                                                .map(q => (
-                                                    <div key={q.id} className="border border-gray-200 rounded-xl overflow-hidden shadow-2xs bg-white">
-                                                        <div className="bg-[#1e3a5f] text-white px-3.5 py-2 text-xs font-bold flex items-center justify-between">
-                                                            <span>{q.title}</span>
-                                                            <span className="text-[11px] font-mono text-white/80">{q.count} variants</span>
-                                                        </div>
+                                            {/* Render 4 Quadrant Tables (2x2 Grid when All, single full-width when filtered) */}
+                                            <div className={svQuadrantTab === "all" ? "grid grid-cols-1 xl:grid-cols-2 gap-4" : "space-y-4"}>
+                                                {svQuadrants
+                                                    .filter(q => svQuadrantTab === "all" || svQuadrantTab === q.id)
+                                                    .map(q => (
+                                                        <div key={q.id} className="border-2 border-gray-900 rounded-lg overflow-hidden shadow-2xs bg-white">
+                                                            {/* Yellow Banner Header matching Image 1 */}
+                                                            <div className="bg-[#FFFF00] text-black px-3 py-1.5 text-xs font-extrabold flex items-center justify-between border-b-2 border-gray-900">
+                                                                <span>{matrixData?.productName || selectedProduct?.productName} — {q.title}</span>
+                                                                <span className="text-[11px] font-mono bg-white/80 px-2 py-0.5 rounded border border-gray-800">
+                                                                    {q.count} variants
+                                                                </span>
+                                                            </div>
 
-                                                        <div className="overflow-x-auto max-h-[360px]">
-                                                            <table className="w-full border-collapse text-center text-xs">
-                                                                <thead>
-                                                                    {/* Row 1: Represents SPH in rows & CYL in columns */}
-                                                                    <tr className="bg-[#1e3a5f] text-white font-bold text-xs uppercase tracking-wider">
-                                                                        <th className="sticky left-0 z-30 bg-[#162a45] px-3 py-1.5 text-left border-r border-blue-900 min-w-[90px]">
-                                                                            SPH
-                                                                        </th>
-                                                                        <th colSpan={q.cyls.length} className="px-3 py-1.5 text-center border-b border-blue-900">
-                                                                            CYL
-                                                                        </th>
-                                                                    </tr>
-                                                                    {/* Row 2: Specific Power Sub-Headers */}
-                                                                    <tr className="bg-gray-100 text-gray-800 font-bold text-xs border-b border-gray-200">
-                                                                        <th className="sticky left-0 z-20 bg-gray-200 text-gray-800 font-bold px-3 py-2 border border-gray-300 text-left min-w-[90px]">
-                                                                            Power
-                                                                        </th>
-                                                                        {q.cyls.map((cVal) => (
-                                                                            <th key={`c_${q.id}_${cVal}`} className="px-3 py-2 text-xs border border-gray-300 min-w-[65px] bg-gray-50 text-gray-800 font-bold text-center">
-                                                                                {cVal > 0 ? `+${cVal.toFixed(2)}` : cVal.toFixed(2)}
+                                                            <div className="overflow-x-auto max-h-[360px]">
+                                                                <table className="w-full border-collapse text-center text-xs">
+                                                                    <thead className="sticky top-0 z-20">
+                                                                        {/* Row 1: SPH | Cyl (+) or Cyl (-) */}
+                                                                        <tr className="bg-white text-black font-extrabold text-xs">
+                                                                            <th className="sticky left-0 z-30 bg-white px-2.5 py-1.5 text-center border-r-2 border-b border-gray-900 min-w-[75px]">
+                                                                                SPH
                                                                             </th>
-                                                                        ))}
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                    {q.sphs.map((sVal) => (
-                                                                        <tr key={`s_${q.id}_${sVal}`} className="hover:bg-blue-50/20">
-                                                                            <td className="sticky left-0 z-10 font-mono font-bold p-2 text-xs border border-gray-200 text-left pl-3 bg-gray-50 text-gray-800">
-                                                                                {sVal > 0 ? `+${sVal.toFixed(2)}` : sVal.toFixed(2)}
-                                                                            </td>
-                                                                            {q.cyls.map((cVal) => {
-                                                                                const key = `${sVal.toFixed(2)}_${cVal.toFixed(2)}`;
-                                                                                const item = uiSphCylLookup.get(key);
-                                                                                return renderPreviewCell(item, `${q.id}_${key}`, `SPH ${sVal > 0 ? '+' : ''}${sVal.toFixed(2)} | CYL ${cVal > 0 ? '+' : ''}${cVal.toFixed(2)}`);
-                                                                            })}
+                                                                            <th colSpan={q.cyls.length} className="px-3 py-1.5 text-center border-b border-gray-900">
+                                                                                {q.cylGroupLabel}
+                                                                            </th>
                                                                         </tr>
-                                                                    ))}
-                                                                </tbody>
-                                                            </table>
+                                                                        {/* Row 2: (+) / (-) & CYL values with Light Cyan #DAEEF3 */}
+                                                                        <tr className="bg-[#DAEEF3] text-black font-extrabold text-xs">
+                                                                            <th className="sticky left-0 z-30 bg-[#DAEEF3] text-black font-extrabold px-2.5 py-1.5 border-r-2 border-b-2 border-gray-900 text-center min-w-[75px]">
+                                                                                {q.sphSign}
+                                                                            </th>
+                                                                            {q.cyls.map((cVal) => (
+                                                                                <th key={`c_${q.id}_${cVal}`} className="px-2 py-1.5 text-xs border-r border-b-2 border-gray-900 min-w-[56px] bg-[#DAEEF3] text-black font-extrabold text-center">
+                                                                                    {cVal > 0 ? `+${cVal.toFixed(2)}` : cVal.toFixed(2)}
+                                                                                </th>
+                                                                            ))}
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {q.sphs.map((sVal) => {
+                                                                            const isBlackoutRow = q.isNegSphSide && sVal === 0;
+                                                                            return (
+                                                                                <tr key={`s_${q.id}_${sVal}`} className={isBlackoutRow ? "bg-black" : "hover:bg-blue-50/20"}>
+                                                                                    <td className="sticky left-0 z-10 font-mono font-extrabold p-1.5 text-xs border-r-2 border-b border-gray-900 text-center bg-[#DAEEF3] text-black">
+                                                                                        {sVal === 0 ? "0.00" : (sVal > 0 ? `+${sVal.toFixed(2)}` : sVal.toFixed(2))}
+                                                                                    </td>
+                                                                                    {isBlackoutRow ? (
+                                                                                        q.cyls.map((cVal) => (
+                                                                                            <td key={`${q.id}_blk_${cVal}`} className="bg-black border border-gray-900 p-1.5" title="0.00 belongs to SPH (+) table" />
+                                                                                        ))
+                                                                                    ) : (
+                                                                                        q.cyls.map((cVal) => {
+                                                                                            const key = `${sVal.toFixed(2)}_${cVal.toFixed(2)}`;
+                                                                                            const item = uiSphCylLookup.get(key);
+                                                                                            return renderPreviewCell(item, `${q.id}_${key}`, `SPH ${sVal > 0 ? '+' : ''}${sVal.toFixed(2)} | CYL ${cVal > 0 ? '+' : ''}${cVal.toFixed(2)}`);
+                                                                                        })
+                                                                                    )}
+                                                                                </tr>
+                                                                            );
+                                                                        })}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ))}
+                                                    ))}
+                                            </div>
                                         </div>
                                     ) : (
-                                        /* Progressive / Bifocal Simple Matrix */
-                                        <div className="border border-gray-200 rounded-xl overflow-hidden shadow-2xs bg-white">
-                                            <div className="bg-[#1e3a5f] text-white px-3.5 py-2 text-xs font-bold flex items-center justify-between">
-                                                <span>Progressive / Bifocal Matrix</span>
-                                                <span className="text-[11px] font-mono text-white/80">{uiCombosList.length} combinations</span>
+                                        /* Progressive / Bifocal Matrix matching Image 3 */
+                                        <div className="border-2 border-gray-900 rounded-lg overflow-hidden shadow-2xs bg-white">
+                                            <div className="bg-[#FFFF00] text-black px-3.5 py-2 text-xs font-extrabold flex items-center justify-between border-b-2 border-gray-900">
+                                                <span>{matrixData?.productName || selectedProduct?.productName} (Progressive / Bifocal)</span>
+                                                <span className="text-[11px] font-mono bg-white/80 px-2 py-0.5 rounded border border-gray-800">
+                                                    {filteredUiCombosList.length}{gridRxFilter ? ` / ${uiCombosList.length}` : ""} combinations
+                                                </span>
                                             </div>
-                                            <div className="overflow-x-auto max-h-[380px]">
+                                            <div className="overflow-x-auto max-h-[420px]">
                                                 <table className="w-full border-collapse text-center text-xs">
-                                                    <thead>
-                                                        {/* Row 1: Represents Distance Rx in rows & ADD (+) in columns */}
-                                                        <tr className="bg-[#1e3a5f] text-white font-bold text-xs uppercase tracking-wider">
-                                                            <th className="sticky left-0 z-30 bg-[#162a45] px-3.5 py-1.5 text-left border-r border-blue-900 min-w-[130px]">
-                                                                SPH</th>
-                                                            <th colSpan={uiAddList.length} className="px-4 py-1.5 text-center border-b border-blue-900">
-                                                                ADD (+)
+                                                    <thead className="sticky top-0 z-20">
+                                                        {/* Row 1: SPH | Add (+) */}
+                                                        <tr className="bg-white text-black font-extrabold text-xs">
+                                                            <th className="sticky left-0 z-30 bg-white px-3.5 py-1.5 text-center border-r-2 border-b border-gray-900 min-w-[140px]">
+                                                                SPH
+                                                            </th>
+                                                            <th colSpan={uiAddList.length} className="px-4 py-1.5 text-center border-b border-gray-900">
+                                                                Add (+)
                                                             </th>
                                                         </tr>
-                                                        {/* Row 2: Specific Power Sub-Headers */}
-                                                        <tr className="bg-gray-100 text-gray-800 font-bold text-xs border-b border-gray-200">
-                                                            <th className="sticky left-0 z-20 bg-gray-200 text-gray-800 font-bold px-3 py-2 border border-gray-300 text-left min-w-[130px]">
-                                                                sph/cyl*axis
+                                                        {/* Row 2: sph / cyl * axis | Light Cyan ADD values */}
+                                                        <tr className="bg-[#DAEEF3] text-black font-extrabold text-xs">
+                                                            <th className="sticky left-0 z-30 bg-white text-black font-extrabold px-3 py-2 border-r-2 border-b-2 border-gray-900 text-center min-w-[140px]">
+                                                                sph / cyl * axis
                                                             </th>
                                                             {uiAddList.map(a => (
-                                                                <th key={a} className="p-2 border border-gray-300 min-w-[65px] bg-gray-50 text-gray-800 font-bold text-center">
-                                                                    +{a.toFixed(2)}
+                                                                <th key={a} className="p-2 border-r border-b-2 border-gray-900 min-w-[65px] bg-[#DAEEF3] text-black font-extrabold text-center">
+                                                                    {a.toFixed(2)}
                                                                 </th>
                                                             ))}
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        {uiCombosList.map((combo) => {
+                                                        {filteredUiCombosList.map((combo) => {
                                                             const rowLabel = formatDistRxCell(combo.s, combo.c, combo.ax);
                                                             return (
                                                                 <tr key={`${combo.s}_${combo.c}_${combo.ax}`} className="hover:bg-blue-50/20">
-                                                                    <td className="sticky left-0 z-10 bg-gray-50 font-mono font-bold p-2 border border-gray-200 text-left pl-3 whitespace-nowrap text-gray-800 text-xs">
+                                                                    <td className="sticky left-0 z-10 bg-white font-mono font-extrabold p-2 border-r-2 border-b border-gray-900 text-center whitespace-nowrap text-black text-xs">
                                                                         {rowLabel}
                                                                     </td>
                                                                     {uiAddList.map(a => {
@@ -1707,10 +2035,8 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                                                         const cStr = combo.c.toFixed(2);
                                                                         const ax = combo.ax;
                                                                         const aStr = a.toFixed(2);
-                                                                        const item = uiSphAddLookup.get(`${sStr}_${cStr}_${ax}_${aStr}`) ||
-                                                                                     uiSphAddLookup.get(`${sStr}_${cStr}_${aStr}`) ||
-                                                                                     uiSphAddLookup.get(`${sStr}_${aStr}`);
-                                                                        return renderPreviewCell(item, `${combo.s}_${combo.c}_${combo.ax}_${a}`, `${rowLabel} / ADD +${aStr}`);
+                                                                        const item = uiSphAddLookup.get(`${sStr}_${cStr}_${ax}_${aStr}`);
+                                                                        return renderPreviewCell(item, `${combo.s}_${combo.c}_${combo.ax}_${a}`, `${rowLabel} | ADD +${aStr}`);
                                                                     })}
                                                                 </tr>
                                                             );
