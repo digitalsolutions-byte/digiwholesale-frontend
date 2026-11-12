@@ -1491,7 +1491,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
             isNegSphSide: true,
             sphs: qNegSphList,
             cyls: qPosCylList,
-            filter: (p) => (numPower(p.sph) ?? 0) < 0 && (numPower(p.cyl) ?? 0) > 0,
+            filter: (p) => (numPower(p.sph) ?? 0) <= 0 && (numPower(p.cyl) ?? 0) > 0,
         },
         {
             id: "SPH+_CYL-",
@@ -1515,7 +1515,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
             isNegSphSide: true,
             sphs: qNegSphList,
             cyls: qNegCylList,
-            filter: (p) => (numPower(p.sph) ?? 0) < 0 && (numPower(p.cyl) ?? 0) <= 0,
+            filter: (p) => (numPower(p.sph) ?? 0) <= 0 && (numPower(p.cyl) ?? 0) <= 0,
         },
     ];
 
