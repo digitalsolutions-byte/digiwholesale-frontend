@@ -1942,11 +1942,13 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                                                     <thead className="sticky top-0 z-20">
                                                                         {/* Row 1: SPH | Cyl (+) or Cyl (-) */}
                                                                         <tr className="bg-white text-black font-extrabold text-xs">
-                                                                            <th className="sticky left-0 z-30 bg-white px-2.5 py-1.5 text-center border-r-2 border-b border-gray-900 min-w-[75px]">
+                                                                            <th className="sticky left-0 z-30 bg-white px-2.5 py-1.5 text-center border-r-2 border-b border-gray-900 min-w-[75px] w-[75px]">
                                                                                 SPH
                                                                             </th>
-                                                                            <th colSpan={q.cyls.length} className="px-3 py-1.5 text-center border-b border-gray-900">
-                                                                                {q.cylGroupLabel}
+                                                                            <th colSpan={q.cyls.length} className="px-3 py-1.5 text-left border-b border-gray-900">
+                                                                                <span className="sticky left-[85px] inline-block">
+                                                                                    {q.cylGroupLabel}
+                                                                                </span>
                                                                             </th>
                                                                         </tr>
                                                                         {/* Row 2: (+) / (-) & CYL values with Light Cyan #DAEEF3 */}
@@ -2004,11 +2006,13 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                                     <thead className="sticky top-0 z-20">
                                                         {/* Row 1: sph / cyl * axis | Add (+) */}
                                                         <tr className="bg-white text-black font-extrabold text-xs">
-                                                            <th className="sticky left-0 z-30 bg-white px-3.5 py-1.5 text-center border-r-2 border-b border-gray-900 min-w-[140px]">
+                                                            <th className="sticky left-0 z-30 bg-white px-3.5 py-1.5 text-center border-r-2 border-b border-gray-900 min-w-[140px] w-[140px]">
                                                                 sph / cyl * axis
                                                             </th>
-                                                            <th colSpan={uiAddList.length} className="px-4 py-1.5 text-center border-b border-gray-900">
-                                                                Add (+)
+                                                            <th colSpan={uiAddList.length} className="px-4 py-1.5 text-left border-b border-gray-900">
+                                                                <span className="sticky left-[156px] inline-block">
+                                                                    Add (+)
+                                                                </span>
                                                             </th>
                                                         </tr>
                                                         {/* Row 2: empty cell below sph/cyl*axis | Light Cyan ADD values */}
