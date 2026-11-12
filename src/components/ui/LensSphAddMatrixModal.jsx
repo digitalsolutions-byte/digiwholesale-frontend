@@ -695,11 +695,11 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                 styleRange(ws, bannerIdx, rxCol, bannerIdx, addEndCol, xlStyles.yellowBanner);
             });
 
-            // Row 2: SPH | Add (+) — centered in visible window so it never goes off-screen
+            // Row 2: sph / cyl * axis | Add (+) — centered in visible window so it never goes off-screen
             const groupIdx = rows.length;
             const addHeaderRow = new Array(totalCols).fill("");
             const visibleAddEnd = numAddCols > 10 ? addStartCol + 8 : addEndCol;
-            addHeaderRow[rxCol] = "SPH";
+            addHeaderRow[rxCol] = "sph / cyl * axis";
             addHeaderRow[addStartCol] = "Add (+)";
             if (numAddCols > 10) {
                 addHeaderRow[visibleAddEnd + 1] = "Add (+)";
@@ -714,10 +714,10 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                 styleRange(ws, groupIdx, addStartCol, groupIdx, addEndCol, xlStyles.groupHeader);
             });
 
-            // Row 3: sph / cyl * axis | Light Cyan Addition values
+            // Row 3: empty cell below sph/cyl*axis | Light Cyan Addition values
             const subIdx = rows.length;
             const subHeaderRow = new Array(totalCols).fill("");
-            subHeaderRow[rxCol] = "sph / cyl * axis";
+            subHeaderRow[rxCol] = "";
             addList.forEach((addVal, idx) => {
                 subHeaderRow[addStartCol + idx] = addVal.toFixed(2);
             });
@@ -1068,7 +1068,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                 const val = parseFloat(raw);
                                 if (!isNaN(val) && raw !== "" && val >= 0.20 && val <= 6.00) numCount++;
                             }
-                            if (hasRxHeader || numCount >= 2) {
+                            if ((hasRxHeader && numCount >= 1) || numCount >= 2) {
                                 progBlockIndices.push(r);
                             }
                         }
@@ -1094,7 +1094,8 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                         cell &&
                                         cell.length > 2 &&
                                         !["sph", "rx", "add", "add (+)", "add (-)", "(+)", "(-)", "pairs", "power"].includes(lc) &&
-                                        !lc.startsWith("add")
+                                        !lc.startsWith("add") &&
+                                        !lc.replace(/\s+/g, "").startsWith("sph/cyl")
                                     ) {
                                         blockProdName = lc.startsWith("sales order -")
                                             ? cell.substring("sales order -".length).replace(/\(.*?\)/g, "").trim()
@@ -2001,19 +2002,19 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                             <div className="overflow-x-auto max-h-[420px]">
                                                 <table className="w-full border-collapse text-center text-xs">
                                                     <thead className="sticky top-0 z-20">
-                                                        {/* Row 1: SPH | Add (+) */}
+                                                        {/* Row 1: sph / cyl * axis | Add (+) */}
                                                         <tr className="bg-white text-black font-extrabold text-xs">
                                                             <th className="sticky left-0 z-30 bg-white px-3.5 py-1.5 text-center border-r-2 border-b border-gray-900 min-w-[140px]">
-                                                                SPH
+                                                                sph / cyl * axis
                                                             </th>
                                                             <th colSpan={uiAddList.length} className="px-4 py-1.5 text-center border-b border-gray-900">
                                                                 Add (+)
                                                             </th>
                                                         </tr>
-                                                        {/* Row 2: sph / cyl * axis | Light Cyan ADD values */}
+                                                        {/* Row 2: empty cell below sph/cyl*axis | Light Cyan ADD values */}
                                                         <tr className="bg-[#DAEEF3] text-black font-extrabold text-xs">
                                                             <th className="sticky left-0 z-30 bg-white text-black font-extrabold px-3 py-2 border-r-2 border-b-2 border-gray-900 text-center min-w-[140px]">
-                                                                sph / cyl * axis
+                                                                
                                                             </th>
                                                             {uiAddList.map(a => (
                                                                 <th key={a} className="p-2 border-r border-b-2 border-gray-900 min-w-[65px] bg-[#DAEEF3] text-black font-extrabold text-center">
