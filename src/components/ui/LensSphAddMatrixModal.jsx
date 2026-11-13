@@ -835,7 +835,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
 
                     return {
                         sph: sphNum === 0 ? "0.00" : (sphNum > 0 ? `+${sphNum.toFixed(2)}` : sphNum.toFixed(2)),
-                        cyl: cylNum !== null && !isNaN(cylNum) ? cylNum.toFixed(2) : "0.00",
+                        cyl: cylNum !== null && !isNaN(cylNum) ? (cylNum === 0 ? "0.00" : (cylNum > 0 ? `+${cylNum.toFixed(2)}` : cylNum.toFixed(2))) : "0.00",
                         axis: axisStr,
                     };
                 };
@@ -1039,27 +1039,51 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
 
                         const stripActionSuffix = (str) =>
                             String(str || "")
-                                .replace(/\s*\((Pairs|Pairs \/ Stock Qty|Selling Price \(₹\)|Buying Price \(₹\)|MRP \(₹\)|Quantity \/ Price)\)\s*$/i, "")
+                                .replace(/\s*\((Pairs|Pairs \/ Stock Qty|Selling Price \(₹\)|Buying Price \(₹\)|MRP \(₹\)|Quantity \/ Price|Update Stock Quantity|Update Selling Price Only|Update Buying Price Only|Update MRP Only|Progressive \/ Bifocal|Progressive|Bifocal)\)\s*$/i, "")
                                 .trim();
 
-                        // Find every sub-header row in the sheet (each block has "sph / cyl * axis" + addition columns)
-                        const progBlockIndices = [];
-                        for (let r = 0; r < rawData.length; r++) {
-                            const row = rawData[r] || [];
-                            const firstNonEmpty = row.find(c => String(c || "").trim() !== "");
-                            if (firstNonEmpty && parseDistPower(firstNonEmpty)) continue;
-
-                            const hasRxHeader = row.some(c =>
-                                String(c || "").trim().toLowerCase().replace(/\s+/g, "").startsWith("sph/cyl")
-                            );
-                            let numCount = 0;
+                        const countAddCandidates = (row) => {
+                            if (!row) return 0;
+                            let count = 0;
                             for (let c = 0; c < row.length; c++) {
                                 const raw = String(row[c] || "").replace(/\+/g, "").trim();
                                 const val = parseFloat(raw);
-                                if (!isNaN(val) && raw !== "" && val >= 0.20 && val <= 20.00) numCount++;
+                                if (!isNaN(val) && raw !== "" && val >= 0.20 && val <= 20.00) count++;
                             }
-                            if ((hasRxHeader && numCount >= 1) || numCount >= 2) {
-                                progBlockIndices.push(r);
+                            return count;
+                        };
+
+                        // Find every sub-header row in the sheet (each block has "sph / cyl * axis" or "Add (+)" + addition columns)
+                        const progBlockIndices = [];
+                        for (let r = 0; r < rawData.length; r++) {
+                            const row = rawData[r] || [];
+                            const rowStr = row.map(c => String(c || "").trim().toLowerCase()).join(" ");
+                            const rowCompact = rowStr.replace(/\s+/g, "");
+
+                            const isHeaderKeywordRow =
+                                rowCompact.includes("sph/cyl") ||
+                                rowStr.includes("add (+)") ||
+                                rowStr.includes("add(-)") ||
+                                (rowStr.includes("add") && (rowStr.includes("rx") || rowStr.includes("sph") || rowStr.includes("power")));
+
+                            if (isHeaderKeywordRow) {
+                                if (countAddCandidates(row) >= 2) {
+                                    if (!progBlockIndices.includes(r)) progBlockIndices.push(r);
+                                } else if (r + 1 < rawData.length && countAddCandidates(rawData[r + 1]) >= 1) {
+                                    if (!progBlockIndices.includes(r + 1)) progBlockIndices.push(r + 1);
+                                } else if (r + 2 < rawData.length && countAddCandidates(rawData[r + 2]) >= 1) {
+                                    if (!progBlockIndices.includes(r + 2)) progBlockIndices.push(r + 2);
+                                }
+                            }
+                        }
+
+                        // Fallback: If no keyword row matched, find first row with >= 2 addition values
+                        if (progBlockIndices.length === 0) {
+                            for (let r = 0; r < Math.min(10, rawData.length); r++) {
+                                if (countAddCandidates(rawData[r]) >= 2) {
+                                    progBlockIndices.push(r);
+                                    break;
+                                }
                             }
                         }
 
@@ -1099,7 +1123,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                 blockProdName = stripActionSuffix(detectedProductName) || selectedProduct?.productName || "";
                             }
 
-                            // Find left distance column (column before first addition)
+                            // Find left distance column & addition start column
                             let firstAddCol = -1;
                             for (let c = 0; c < subHeaderRow.length; c++) {
                                 const raw = String(subHeaderRow[c] || "").replace(/\+/g, "").trim();
@@ -1109,7 +1133,21 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                     break;
                                 }
                             }
-                            const rxCol = firstAddCol > 0 ? firstAddCol - 1 : 0;
+
+                            // Detect Rx Column (e.g. from "sph / cyl * axis" cell in row above or fallback)
+                            let detectedRxCol = -1;
+                            for (let rCheck = Math.max(0, subHeaderRowIdx - 2); rCheck <= subHeaderRowIdx; rCheck++) {
+                                const rRow = rawData[rCheck] || [];
+                                for (let c = 0; c < rRow.length; c++) {
+                                    const val = String(rRow[c] || "").trim().toLowerCase().replace(/\s+/g, "");
+                                    if (val.startsWith("sph/cyl") || val === "rx" || val.startsWith("distance")) {
+                                        detectedRxCol = c;
+                                        break;
+                                    }
+                                }
+                                if (detectedRxCol >= 0) break;
+                            }
+                            const rxCol = detectedRxCol >= 0 ? detectedRxCol : (firstAddCol > 0 ? firstAddCol - 1 : 0);
 
                             // Check for right table (legacy Dual Table)
                             let rightSphCol = -1;
@@ -1125,7 +1163,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                             const rightAddCols = [];
                             const endLeft = rightSphCol > 0 ? rightSphCol : subHeaderRow.length;
 
-                            for (let c = rxCol + 1; c < endLeft; c++) {
+                            for (let c = firstAddCol; c < endLeft; c++) {
                                 const raw = String(subHeaderRow[c] || "").replace(/\+/g, "").trim();
                                 const val = parseFloat(raw);
                                 if (!isNaN(val) && raw !== "") leftAddCols.push({ colIdx: c, addVal: val.toFixed(2) });
@@ -1143,8 +1181,18 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                 const row = rawData[r];
                                 if (!row || row.every(c => c === "" || c === undefined)) continue;
 
-                                const rawLeft = row[rxCol];
-                                const parsedLeft = parseDistPower(rawLeft, false);
+                                let rawLeft = row[rxCol];
+                                let parsedLeft = parseDistPower(rawLeft, false);
+                                if (!parsedLeft && firstAddCol > 0) {
+                                    for (let c = 0; c < firstAddCol; c++) {
+                                        const p = parseDistPower(row[c], false);
+                                        if (p) {
+                                            parsedLeft = p;
+                                            break;
+                                        }
+                                    }
+                                }
+
                                 if (parsedLeft) {
                                     leftAddCols.forEach(({ colIdx, addVal }) => {
                                         const cellRaw = row[colIdx];
