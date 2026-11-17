@@ -637,7 +637,13 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                 if (a.s !== b.s) return b.s - a.s;
             }
 
-            if (a.c !== b.c) return b.c - a.c;
+            if (a.c !== b.c) {
+                const cGroupA = a.c === 0 ? 0 : (a.c > 0 ? 1 : 2);
+                const cGroupB = b.c === 0 ? 0 : (b.c > 0 ? 1 : 2);
+                if (cGroupA !== cGroupB) return cGroupA - cGroupB;
+                if (cGroupA === 1) return a.c - b.c; // positive cylinder ascending: +0.25, +0.50, +2.00...
+                return b.c - a.c; // negative cylinder: -0.25, -0.50...
+            }
 
             const numAxA = parseInt(a.ax, 10) || 0;
             const numAxB = parseInt(b.ax, 10) || 0;
@@ -1526,7 +1532,13 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
             if (a.s !== b.s) return b.s - a.s;
         }
 
-        if (a.c !== b.c) return b.c - a.c;
+        if (a.c !== b.c) {
+            const cGroupA = a.c === 0 ? 0 : (a.c > 0 ? 1 : 2);
+            const cGroupB = b.c === 0 ? 0 : (b.c > 0 ? 1 : 2);
+            if (cGroupA !== cGroupB) return cGroupA - cGroupB;
+            if (cGroupA === 1) return a.c - b.c; // positive cylinder ascending: +0.25, +0.50, +2.00...
+            return b.c - a.c; // negative cylinder: -0.25, -0.50...
+        }
 
         const numAxA = parseInt(a.ax, 10) || 0;
         const numAxB = parseInt(b.ax, 10) || 0;
