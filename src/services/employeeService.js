@@ -112,3 +112,12 @@ export const getMultipleEmployees = async (employeeIds, department, page = 1, li
     }
 };
 
+export const updateEmployeeContact = async (employeeId, contactData) => {
+    try {
+        const response = await api.patch(`/api/employee/management/update-employee/${employeeId}/contact`, contactData);
+        return response.data;
+    } catch (error) {
+        throw handleServiceError(error, 'Failed to update employee contact');
+    }
+};
+

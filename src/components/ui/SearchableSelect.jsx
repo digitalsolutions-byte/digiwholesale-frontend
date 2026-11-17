@@ -37,6 +37,15 @@ const SearchableSelect = ({
                 onInputChange={(event, newInputValue, reason) => {
                     if (reason === 'input' || reason === 'clear') {
                         if (onSearch) onSearch(newInputValue);
+                        if (props.freeSolo && onChange) {
+                            onChange({
+                                target: {
+                                    name,
+                                    value: newInputValue,
+                                    option: null
+                                }
+                            });
+                        }
                     }
                 }}
                 filterOptions={onSearch ? (x) => x : undefined}
@@ -56,7 +65,8 @@ const SearchableSelect = ({
                         onChange({
                             target: {
                                 name,
-                                value: val
+                                value: val,
+                                option: newValue
                             }
                         });
                     }

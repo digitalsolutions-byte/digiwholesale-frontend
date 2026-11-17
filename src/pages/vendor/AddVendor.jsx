@@ -1,3 +1,4 @@
+import VendorTabNav from '../../components/vendor/VendorTabNav';
 import { useState } from "react";
 import { toast } from "react-toastify";
 import * as vendorService from "../../services/vendorService";
@@ -21,7 +22,7 @@ const Field = ({ label, icon, error, children }) => (
     </div>
 );
 
-const EMPTY = { name: "", firm: "", mobile: "", email: "", address: "", gstNumber: "", paymentTerms: "", notes: "" };
+const EMPTY = { name: "", firm: "", mobile: "", email: "", address: "", gstNumber: "", paymentTerms: "", creditLimit: "", notes: "" };
 
 export default function AddVendor() {
     const [formData, setFormData] = useState(EMPTY);
@@ -69,6 +70,7 @@ export default function AddVendor() {
 
     return (
         <div className="p-2 w-full h-full flex flex-col animate-in fade-in duration-500">
+            <VendorTabNav groupKey="DIRECTORY" />
             <div className="flex justify-between items-center mb-6">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
@@ -142,6 +144,17 @@ export default function AddVendor() {
                                         <option value="Net 30">Net 30 Days</option>
                                         <option value="Advance">Advance Payment</option>
                                     </select>
+                                </Field>
+
+                                <Field label="Credit Limit (₹)" icon="mdi:cash-multiple">
+                                    <input
+                                        type="number"
+                                        name="creditLimit"
+                                        value={formData.creditLimit}
+                                        onChange={handleChange}
+                                        placeholder="e.g. 50000"
+                                        className={inputCls}
+                                    />
                                 </Field>
 
                                 <Field label="Address" icon="mdi:map-marker-outline">

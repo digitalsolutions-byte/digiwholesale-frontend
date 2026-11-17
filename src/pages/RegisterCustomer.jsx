@@ -27,7 +27,8 @@ import {
     salesHeadApproveCustomer,
     financeApproveCustomer,
     getPendingStageCustomers,
-    resubmitCustomerCorrectionFinance
+    resubmitCustomerCorrectionFinance,
+    updateCustomerProfile
 } from '../services/customerService';
 import { uploadImage } from '../services/bucketService';
 import { PATHS } from '../routes/paths';
@@ -51,6 +52,7 @@ export default function RegisterCustomer() {
     const isSalesHead = user?.Department?.name?.toUpperCase() === 'SALES' && user?.EmployeeType?.toUpperCase() === 'ADMIN';
     const isSalesUser = isSalesExecutive || isSalesHead;
     const isFinanceUser = ['FINANCE', 'F&A', 'F&A CFO', 'ACCOUNTING'].includes(user?.Department?.name?.toUpperCase()) || user?.EmployeeType?.toUpperCase() === 'SUPERADMIN';
+    const hasApprovalAccess = user?.EmployeeType?.toUpperCase() === 'SUPERADMIN' || user?.pageAccess?.includes('APPROVALS') || isSalesHead || isFinanceUser;
 
     const steps = useMemo(() => {
         return ['Firm/Company Details', 'Address', 'Business Information', 'Contact Information', 'Overview'];
@@ -80,12 +82,12 @@ export default function RegisterCustomer() {
         }),
         aadharCard: Yup.string().when('gstType', {
             is: (val) => val?.toLowerCase() === 'un-registered' || val?.toLowerCase() === 'unregistered',
-            then: (schema) => schema.matches(/^\d{12}$/, 'Aadhar No. must be 12 digits').required('Aadhar Card No. is required'),
+            then: (schema) => schema.test('aadhar-format', 'Aadhar No. must be 12 digits', val => !val || /^\d{12}$/.test(val)).nullable().optional(),
             otherwise: (schema) => schema.notRequired()
         }),
         panCard: Yup.string().when('gstType', {
             is: (val) => val?.toLowerCase() === 'un-registered' || val?.toLowerCase() === 'unregistered',
-            then: (schema) => schema.matches(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, 'Invalid PAN format (e.g., ABCDE1234F)').required('PAN Card No. is required'),
+            then: (schema) => schema.test('pan-format', 'Invalid PAN format (e.g., ABCDE1234F)', val => !val || /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(val)).nullable().optional(),
             otherwise: (schema) => schema.notRequired()
         }),
         billToAddress: Yup.object().shape({
@@ -117,9 +119,36 @@ export default function RegisterCustomer() {
         ownerName: Yup.string().required('Proprietor/Partner Name is required'),
         mobileNo1: Yup.string().matches(/^\d{10}$/, 'Mobile No. must be 10 digits').required('Mobile No. 1 is required'),
         mobileNo2: Yup.string().matches(/^\d{10}$/, 'Mobile No. must be 10 digits').nullable(),
-        businessEmail: Yup.string().email('Invalid email').nullable(),
+        businessEmail: Yup.string().email('Invalid email').nullable().optional(),
         zoneRefId: Yup.string().required('Zone is required'),
         salesPersonRefId: Yup.string().required('Sales Person is required'),
+        chequeDetails: Yup.array().of(
+            Yup.object().shape({
+                chequeNumber: Yup.string().test(
+                    'cheque-image-required-with-number',
+                    'Cheque photo is required when cheque number is provided',
+                    function (val) {
+                        const { chequeImage } = this.parent || {};
+                        if (val && val.trim() && (!chequeImage || !chequeImage.trim())) {
+                            return false;
+                        }
+                        return true;
+                    }
+                ),
+                chequeImage: Yup.string().test(
+                    'cheque-number-required-with-image',
+                    'Cheque number is required when cheque photo is uploaded',
+                    function (val) {
+                        const { chequeNumber } = this.parent || {};
+                        if (val && val.trim() && (!chequeNumber || !chequeNumber.trim())) {
+                            return false;
+                        }
+                        return true;
+                    }
+                )
+            })
+        ),
+        chequeRemark: Yup.string().optional().nullable(),
     }), []);
 
     const setStep = (step) => {
@@ -166,6 +195,8 @@ export default function RegisterCustomer() {
     const [draftCustomerId, setDraftCustomerId] = useState('');
     const [correctionCustomerId, setCorrectionCustomerId] = useState('');
     const [approvalId, setApprovalId] = useState('');
+    const [editCustomerId, setEditCustomerId] = useState('');
+    const [isEditMode, setIsEditMode] = useState(false);
     const [correctionRequest, setCorrectionRequest] = useState(null);
     const [isApprovalMode, setIsApprovalMode] = useState(false);
     const [isReadOnlyMode, setIsReadOnlyMode] = useState(false);
@@ -189,12 +220,14 @@ export default function RegisterCustomer() {
                 businessType: getLabel(configs.businessTypes || [], values.businessTypeRefId),
                 salesPerson: getLabel(configs.salesPersons, values.salesPersonRefId, 'employeeName'),
                 gstType: getLabel(configs.gstTypes, values.gstTypeRefId),
+                gstTypeRefId: values.gstTypeRefId,
                 gstNumber: values.gstNumber,
                 gstCertificateImg: values.gstCertificateImg,
-                aadharCard: values.aadharCard,
-                aadharCardImg: values.aadharCardImg,
-                panCard: values.panCard,
-                panCardImg: values.panCardImg,
+                businessEmail: values.businessEmail?.trim() || undefined,
+                aadharCard: values.aadharCard?.trim() || undefined,
+                aadharCardImg: values.aadharCardImg || undefined,
+                panCard: values.panCard?.trim() || undefined,
+                panCardImg: values.panCardImg || undefined,
                 zone: getLabel(configs.zones, values.zoneRefId, 'zone'),
                 specificLab: getLabel(configs.specificLabs, values.specificLabRefId),
                 plant: getLabel(configs.plants, values.plantRefId),
@@ -206,8 +239,13 @@ export default function RegisterCustomer() {
                 finalDiscount: Number(values.finalDiscount) || 0,
                 IsGSTRegistered: values.gstType?.toLowerCase() !== 'un-registered' && values.gstType?.toLowerCase() !== 'unregistered',
                 isGSTRegistered: values.gstType?.toLowerCase() !== 'un-registered' && values.gstType?.toLowerCase() !== 'unregistered',
+                isGstRegistered: values.gstType?.toLowerCase() !== 'un-registered' && values.gstType?.toLowerCase() !== 'unregistered',
                 proprietorName: values.proprietorName || values.ownerName,
                 currentlyDealtBrands: values.currentlyDealtBrands || '',
+                brands: (values.brands || []).map(b => ({
+                    brandId: b.brandId || b._id,
+                    brandName: b.brandName || b.name
+                })),
                 billToAddress: values.billToAddress ? {
                     ...values.billToAddress,
                     customerContactName: values.billToAddress.contactPerson,
@@ -265,7 +303,7 @@ export default function RegisterCustomer() {
 
                     correctionFields.forEach(field => {
                         const topKey = field.split(/[.[\]]+/)[0];
-                        if (['address', 'brandCategories'].includes(topKey)) {
+                        if (['address', 'brandCategories', 'brands'].includes(topKey)) {
                             // Send the entire array for complex nested structures
                             filteredPayload[topKey] = values[topKey];
                         } else if (values[field] !== undefined) {
@@ -328,7 +366,7 @@ export default function RegisterCustomer() {
                 } else if (isApprovalMode) {
                     const approvalPayload = {
                         action: 'APPROVE',
-                        remark: 'Done from ' + (isSalesHead ? 'Sales Head' : 'Finance') + ' team',
+                        remark: 'Done from ' + (currentStage === 'salesHead' ? 'Sales Head' : 'Finance') + ' team',
                         ...finalPayload
                     };
                     if (currentStage === 'salesHead') {
@@ -357,12 +395,51 @@ export default function RegisterCustomer() {
                             }
                         );
                     }
+                } else if (editCustomerId || isEditMode) {
+                    finalPayload = {
+                        ...payload,
+                        businessType: getObj(configs.businessTypes || [], values.businessTypeRefId),
+                        salesPerson: getObj(configs.salesPersons, values.salesPersonRefId, 'employeeName'),
+                        gstType: getObj(configs.gstTypes, values.gstTypeRefId),
+                        zone: getObj(configs.zones, values.zoneRefId, 'zone'),
+                        specificLab: getObj(configs.specificLabs, values.specificLabRefId),
+                        plant: getObj(configs.plants, values.plantRefId),
+                        fittingCenter: getObj(configs.fittingCenters, values.fittingCenterRefId),
+                        creditDays: getObj(configs.creditDays, values.creditDaysRefId, 'days'),
+                        courierName: getObj(configs.courierNames, values.courierNameRefId),
+                        courierTime: getObj(configs.courierTimes, values.courierTimeRefId, 'time'),
+                        businessTypeRefId: values.businessTypeRefId,
+                        salesPersonRefId: values.salesPersonRefId,
+                        gstTypeRefId: values.gstTypeRefId,
+                        zoneRefId: values.zoneRefId,
+                        specificLabRefId: values.specificLabRefId,
+                        plantRefId: values.plantRefId,
+                        fittingCenterRefId: values.fittingCenterRefId,
+                        creditDaysRefId: values.creditDaysRefId,
+                        courierNameRefId: values.courierNameRefId,
+                        courierTimeRefId: values.courierTimeRefId,
+                    };
+
+                    const targetId = editCustomerId || searchParams.get('customerId') || searchParams.get('editId');
+                    await toast.promise(
+                        updateCustomerProfile(targetId, finalPayload),
+                        {
+                            pending: 'Updating customer profile...',
+                            success: 'Customer profile updated successfully! 👌',
+                        }
+                    );
+                    navigate(PATHS.CUSTOMER.LIST);
+                    return;
                 } else {
                     await toast.promise(
                         registerCustomer(finalPayload),
                         {
                             pending: 'Registering customer...',
-                            success: 'Customer registered successfully! 👌',
+                            success: {
+                                render({ data }) {
+                                    return data?.data?.message || data?.message || "Customer registered and Pending sales head approval.";
+                                }
+                            },
                         }
                     );
                 }
@@ -449,20 +526,23 @@ export default function RegisterCustomer() {
             lastLoadedIdRef.current = id;
 
             // Derive stage and check permissions
+            const urlStage = searchParams.get('stage');
             const workflow = customer.approvalWorkflow || {};
-            let stage = customer.stage;
+            let stage = urlStage || customer.stage;
             let canApprove = false;
 
-            if (isSalesHead && workflow.salesHeadApprovalStatus === 'PENDING') {
+            if (stage === 'salesHead' || (!stage && workflow.salesHeadApprovalStatus === 'PENDING')) {
+                stage = 'salesHead';
+                canApprove = hasApprovalAccess && workflow.salesHeadApprovalStatus !== 'APPROVED';
+            } else if (stage === 'finance' || (!stage && workflow.financeApprovalStatus === 'PENDING')) {
+                stage = 'finance';
+                canApprove = hasApprovalAccess && workflow.financeApprovalStatus !== 'APPROVED';
+            } else if (hasApprovalAccess && workflow.salesHeadApprovalStatus === 'PENDING') {
                 canApprove = true;
                 stage = 'salesHead';
-            } else if (isFinanceUser && workflow.financeApprovalStatus === 'PENDING') {
+            } else if (hasApprovalAccess && workflow.financeApprovalStatus === 'PENDING') {
                 canApprove = true;
                 stage = 'finance';
-            } else if (!stage && workflow) {
-                // Fallback derivation for UI labels if user can't approve
-                if (workflow.salesHeadApprovalStatus === 'PENDING') stage = 'salesHead';
-                else if (workflow.financeApprovalStatus === 'PENDING') stage = 'finance';
             }
 
             setCurrentStage(stage || '');
@@ -474,14 +554,37 @@ export default function RegisterCustomer() {
                 setIsApprovalMode(false);
                 setIsReadOnlyMode(true);
             }
-            toast.info(canApprove ? 'Approval data loaded. Please complete the registration.' : 'Application details loaded (View Only).');
+            toast.info(canApprove ? `Loaded for ${stage === 'salesHead' ? 'Sales Head' : 'Finance'} approval.` : 'Application details loaded (View Only).');
         } catch (error) {
             console.error('Error loading approval data:', error);
             toast.error('Failed to load approval data');
         } finally {
             setLoadingDraftData(false);
         }
-    }, [isFinanceUser, isSalesHead]);
+    }, [hasApprovalAccess, searchParams]);
+
+    const fetchEditCustomerData = useCallback(async (id, manualConfigs = null) => {
+        setLoadingDraftData(true);
+        setIsApprovalMode(false);
+        setIsReadOnlyMode(false);
+        setIsEditMode(true);
+        try {
+            const response = await getCustomerById(id);
+            const customer = response.data?.customer || response.data || response;
+            const currentConfigs = manualConfigs || configsRef.current;
+            const formValues = mapCustomerToFormValues(customer, currentConfigs);
+
+            formikRef.current.setValues(formValues, false);
+            setEditCustomerId(id);
+            lastLoadedIdRef.current = id;
+            toast.info('Customer details loaded for editing.');
+        } catch (error) {
+            console.error('Error loading customer for edit:', error);
+            toast.error('Failed to load customer details');
+        } finally {
+            setLoadingDraftData(false);
+        }
+    }, []);
 
     useEffect(() => {
         const fetchConfigs = async () => {
@@ -502,6 +605,7 @@ export default function RegisterCustomer() {
                     }
                 });
 
+                let nextConfigs = null;
                 setConfigs(prev => {
                     const next = { ...prev, ...data };
                     next.zones = Array.isArray(zones) ? zones : [];
@@ -510,16 +614,11 @@ export default function RegisterCustomer() {
                             next[key] = [];
                         }
                     });
-
-                    const draftId = searchParams.get('draftId');
-                    const correctionId = searchParams.get('correctionId');
-                    const approvalId = searchParams.get('approvalId');
-
-                    // Initialization moved to separate effect
-
+                    nextConfigs = next;
                     return next;
                 });
                 setConfigsLoaded(true);
+                configsRef.current = nextConfigs;
                 configsLoadedRef.current = true;
             } catch (err) {
                 console.error('Config load error:', err);
@@ -536,8 +635,9 @@ export default function RegisterCustomer() {
         const aId = searchParams.get('approvalId');
         const cId = searchParams.get('correctionId');
         const dId = searchParams.get('draftId');
+        const eId = searchParams.get('editId') || (searchParams.get('mode') === 'edit' ? searchParams.get('customerId') : null);
         // Prioritize workflow IDs over draft IDs to avoid context switching after saves
-        const currentId = aId || cId || dId;
+        const currentId = aId || cId || dId || eId;
 
         // If we have an ID from URL, only fetch if it's different from what we last loaded
         if (currentId) {
@@ -548,21 +648,24 @@ export default function RegisterCustomer() {
             if (dId) loadDraftDataById(dId);
             else if (cId) fetchCorrectionData(cId);
             else if (aId) fetchApprovalData(aId);
+            else if (eId) fetchEditCustomerData(eId);
         } else {
             // New Registration - Reset all modes ONLY if we were previously in a mode
-            if (lastLoadedIdRef.current || draftCustomerId || correctionCustomerId || approvalId) {
+            if (lastLoadedIdRef.current || draftCustomerId || correctionCustomerId || approvalId || editCustomerId) {
                 lastLoadedIdRef.current = null;
                 setDraftCustomerId('');
                 setCorrectionCustomerId('');
                 setApprovalId('');
+                setEditCustomerId('');
                 setIsApprovalMode(false);
                 setIsReadOnlyMode(false);
+                setIsEditMode(false);
                 setCorrectionRequest(null);
                 setCurrentStage('');
                 formik.resetForm();
             }
         }
-    }, [searchParams, configsLoaded, loadDraftDataById, fetchCorrectionData, fetchApprovalData]);
+    }, [searchParams, configsLoaded, loadDraftDataById, fetchCorrectionData, fetchApprovalData, fetchEditCustomerData]);
 
 
 
@@ -595,45 +698,85 @@ export default function RegisterCustomer() {
             return errors;
         };
 
-        const formatLabel = (path) => {
-            return path
+        const formatLabel = (path, message) => {
+            const cleanPath = path.replace(/\[\d+\]/g, '');
+            const fieldName = cleanPath
                 .split('.')
                 .pop()
-                .replace(/\[\d+\]/g, '') // Remove [0] etc
                 .replace(/([A-Z])/g, ' $1')
                 .replace(/^./, str => str.toUpperCase())
                 .trim();
+
+            const shipMatch = path.match(/customerShipToDetails\[(\d+)\]/);
+            const prefix = shipMatch ? `Ship To ${parseInt(shipMatch[1], 10) + 1} - ` : '';
+            const billMatch = path.includes('billToAddress');
+            const billPrefix = billMatch ? 'Bill To - ' : '';
+
+            return `${prefix}${billPrefix}${fieldName}${message ? `: ${message}` : ''}`;
+        };
+
+        const getFieldsForStep = (stepIdx) => {
+            switch (stepIdx) {
+                case 0:
+                    return ['gstType', 'gstTypeRefId', 'firmName', 'gstNumber', 'gstCertificateImg', 'shopName', 'aadharCard', 'aadharCardImg', 'panCard', 'panCardImg', 'customerpassword'];
+                case 1:
+                    return ['billToAddress', 'customerShipToDetails'];
+                case 2:
+                    return ['minSalesValue', 'creditDaysRefId', 'proposedDiscount', 'finalDiscount', 'creditLimit', 'specificLabRefId', 'plantRefId', 'fittingCenterRefId', 'courierNameRefId', 'courierTimeRefId', 'chequeRemark', 'chequeDetails'];
+                case 3:
+                    return ['ownerName', 'mobileNo1', 'mobileNo2', 'businessEmail', 'zoneRefId', 'salesPersonRefId'];
+                default:
+                    return [];
+            }
         };
 
         if (activeStep < steps.length - 1) {
             if (isStepValid(activeStep)) {
                 setStep(activeStep + 1);
-            } else {
-                const errors = await formik.validateForm();
-                const flatErrors = getFlatErrors(errors);
-                const labels = [...new Set(flatErrors.map(e => formatLabel(e.path)))];
-
-                if (labels.length > 0) {
-                    toast.warning(`Please fix the following fields in ${steps[activeStep]}: ${labels.join(', ')}`);
-                }
-
-                // Mark all invalid fields as touched deeply
-                const touched = {};
-                flatErrors.forEach(e => {
-                    // Deep set touched for Formik
-                    const parts = e.path.split(/[.[\]]+/).filter(Boolean);
-                    let current = touched;
-                    parts.forEach((part, i) => {
-                        if (i === parts.length - 1) {
-                            current[part] = true;
-                        } else {
-                            current[part] = current[part] || {};
-                            current = current[part];
-                        }
-                    });
-                });
-                formik.setTouched(touched);
+                return;
             }
+
+            const validationErrors = await formik.validateForm();
+            const flatErrors = getFlatErrors(validationErrors);
+            const stepFields = getFieldsForStep(activeStep);
+            const stepErrors = flatErrors.filter(e => {
+                const rootKey = e.path.split(/[.\[\]]+/)[0];
+                return stepFields.includes(rootKey);
+            });
+
+            // Re-evaluate validity with the freshly calculated validation errors
+            if (stepErrors.length === 0 && isStepValid(activeStep, validationErrors)) {
+                setStep(activeStep + 1);
+                return;
+            }
+
+            const labels = [...new Set(stepErrors.map(e => formatLabel(e.path, e.message)))];
+
+            if (labels.length > 0) {
+                toast.warning(`Please fix: ${labels.join(', ')}`);
+            } else {
+                toast.warning(`Please complete all required fields in ${steps[activeStep]}`);
+            }
+
+            // Mark all invalid fields as touched deeply
+            const touched = { ...formik.touched };
+            flatErrors.forEach(e => {
+                const parts = e.path.split(/[.\[\]]+/).filter(Boolean);
+                let current = touched;
+                parts.forEach((part, i) => {
+                    if (i === parts.length - 1) {
+                        current[part] = true;
+                    } else {
+                        const nextPart = parts[i + 1];
+                        const isNextIndex = /^\d+$/.test(nextPart);
+                        if (!current[part]) {
+                            current[part] = isNextIndex ? [] : {};
+                        }
+                        current = current[part];
+                    }
+                });
+            });
+            formik.setTouched(touched);
         } else {
             if (isReadOnlyMode) {
                 navigate(PATHS.APPROVALS);
@@ -661,7 +804,7 @@ export default function RegisterCustomer() {
                 let serviceCall;
                 const approvalPayload = {
                     action: 'APPROVE',
-                    remark: 'Done from ' + (isSalesHead ? 'Sales Head' : 'Finance') + ' team',
+                    remark: 'Done from ' + (currentStage === 'salesHead' ? 'Sales Head' : 'Finance') + ' team',
                     finnalPayload: finnalPayload
                 };
 
@@ -686,7 +829,7 @@ export default function RegisterCustomer() {
             const errors = await formik.validateForm();
             const flatErrors = getFlatErrors(errors);
             if (flatErrors.length > 0) {
-                const labels = [...new Set(flatErrors.map(e => formatLabel(e.path)))];
+                const labels = [...new Set(flatErrors.map(e => formatLabel(e.path, e.message)))];
                 toast.warning(`Missing/Invalid fields: ${labels.join(', ')}`);
 
                 const touched = {};
@@ -879,11 +1022,12 @@ export default function RegisterCustomer() {
             <div className={`relative ${isCorrectionField ? 'p-1 rounded-2xl bg-red-50/50 border border-red-100 ring-2 ring-red-500/20' : ''}`}>
                 <Component
                     {...rest}
+                    labelPlacement="top"
                     disabled={isFieldDisabled}
                     isVerificationMode={hideVerify ? false : isVerificationMode}
                     isRejected={rejectedFields[props.name]}
                     onToggleRejection={(fieldName) => dispatch(toggleFieldRejection({ fieldName }))}
-                    error={fieldTouched && fieldError ? { message: fieldError } : null}
+                    error={fieldTouched && fieldError ? (typeof fieldError === 'string' ? { message: fieldError } : fieldError) : null}
                     onChange={(e) => {
                         if (customOnChange) customOnChange(e);
                         else formik.handleChange(e);
@@ -900,8 +1044,9 @@ export default function RegisterCustomer() {
         );
     };
 
-    const isStepValid = (stepIdx = activeStep) => {
-        const { values, errors } = formik;
+    const isStepValid = (stepIdx = activeStep, currentErrors = formik.errors) => {
+        const { values } = formik;
+        const errors = currentErrors || {};
 
         switch (stepIdx) {
             case 0: // Firm/Company Details
@@ -911,26 +1056,45 @@ export default function RegisterCustomer() {
                 if (values.gstType?.toLowerCase() !== 'un-registered' && values.gstType?.toLowerCase() !== 'unregistered') {
                     return !!values.firmName && !!values.gstNumber && !!values.gstCertificateImg && !errors.firmName && !errors.gstNumber;
                 }
-                return !!values.shopName && !!values.aadharCard && !!values.aadharCardImg && !!values.panCard && !!values.panCardImg && !errors.shopName && !errors.aadharCard && !errors.panCard;
+                return !!values.shopName && !errors.shopName && !errors.aadharCard && !errors.panCard;
 
             case 1: // Address Details
-                const billFields = ['branchName', 'contactPerson', 'contactNumber', 'city', 'state', 'zipCode'];
-                const billValid = billFields.every(f => !!values.billToAddress?.[f]) && !errors.billToAddress;
+                const billFields = ['branchName', 'contactPerson', 'contactNumber', 'address', 'city', 'state', 'zipCode'];
+                const hasBillErrors = errors.billToAddress && typeof errors.billToAddress === 'object' && Object.keys(errors.billToAddress).length > 0;
+                const billValid = billFields.every(f => !!values.billToAddress?.[f]) && !hasBillErrors;
+
+                if (typeof errors.customerShipToDetails === 'string') return false;
+
                 const shipValid = values.customerShipToDetails?.length > 0 && values.customerShipToDetails.every((addr, idx) => {
                     const hasFields = billFields.every(f => !!addr[f]);
-                    const hasErrors = errors.customerShipToDetails?.[idx] && billFields.some(f => !!errors.customerShipToDetails[idx][f]);
+                    const errObj = Array.isArray(errors.customerShipToDetails) ? errors.customerShipToDetails[idx] : null;
+                    const hasErrors = errObj && typeof errObj === 'object' && Object.keys(errObj).length > 0;
                     return hasFields && !hasErrors;
                 });
                 return billValid && shipValid;
 
-            case 2: // Business Information
-                const bizFields = ['minSalesValue', 'creditDaysRefId'];
+            case 2: { // Business Information
+                const bizFields = ['creditDaysRefId'];
                 const bizValid = bizFields.every(f => !!values[f]) && !errors.minSalesValue && !errors.creditDaysRefId;
-                return bizValid;
+                if (!bizValid) return false;
+
+                if (values.hasBlankCheques) {
+                    const cheques = values.chequeDetails || [];
+                    // Verify no cheque is partially filled (e.g. number without photo or vice-versa)
+                    for (let i = 0; i < Math.min(cheques.length, 3); i++) {
+                        const hasNum = Boolean(cheques[i]?.chequeNumber?.trim());
+                        const hasImg = Boolean(cheques[i]?.chequeImage?.trim());
+                        if ((hasNum && !hasImg) || (!hasNum && hasImg)) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            }
 
             case 3: // Contact Information
                 const contactFields = ['ownerName', 'mobileNo1', 'zoneRefId', 'salesPersonRefId'];
-                return contactFields.every(f => !!values[f]) && !errors.ownerName && !errors.mobileNo1 && !errors.zoneRefId && !errors.salesPersonRefId;
+                return contactFields.every(f => !!values[f]) && !errors.ownerName && !errors.mobileNo1 && !errors.zoneRefId && !errors.salesPersonRefId && !errors.businessEmail;
 
             case 4: // Overview
                 return true;
@@ -972,20 +1136,75 @@ export default function RegisterCustomer() {
     const customerName = formik.values.shopName || 'this customer';
 
     return (
-        <div className="min-h-screen p-6 bg-gray-50/50">
-            {/* Refined Minimal Header */}
+        <div className="min-h-screen bg-gray-50 pb-12">
+            {/* ── Top Header Banner ── */}
+            <div className="bg-white border-b border-gray-200 px-3 sm:px-6 py-3 sm:py-4 mb-4 sm:mb-6 flex items-center justify-between gap-2 sm:gap-4">
+                <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+                    <button
+                        type="button"
+                        onClick={() => navigate(-1)}
+                        className="flex items-center gap-1 text-gray-500 hover:text-gray-800 text-xs sm:text-sm font-semibold transition-colors flex-shrink-0"
+                    >
+                        <Icon icon="mdi:arrow-left" className="text-base sm:text-lg" /> <span className="hidden xs:inline">Go back</span>
+                    </button>
+                    <div className="h-5 w-px bg-gray-200 flex-shrink-0" />
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#2980B9] flex items-center justify-center flex-shrink-0">
+                            <Icon icon="mdi:account-group-outline" className="text-white text-base sm:text-lg" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <h1 className="text-xs sm:text-sm font-black text-gray-800 uppercase tracking-widest truncate">
+                                {isEditMode ? `Edit Customer: ${formik.values.shopName || formik.values.firmName || 'Details'}` : (isApprovalMode ? 'Review Customer Registration' : (correctionCustomerId ? 'Correct Customer Details' : 'Register Customer'))}
+                            </h1>
+                            <p className="text-[10px] sm:text-[11px] text-gray-400 font-medium truncate hidden sm:block">{isEditMode ? 'Update customer information, documents, and configuration' : 'Complete all required steps to submit or update customer account'}</p>
+                        </div>
+                    </div>
+                </div>
+                {!isReadOnlyMode && !isApprovalMode && !isEditMode && (
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                            type="button"
+                            onClick={handleSaveDraft}
+                            disabled={savingDraft || loadingDraftData}
+                            className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg border border-[#2980B9] text-[#2980B9] text-[11px] sm:text-[12px] font-bold hover:bg-blue-50 transition-all disabled:opacity-50"
+                        >
+                            <Icon icon={savingDraft ? "mdi:loading" : "mdi:content-save-outline"} className={savingDraft ? "animate-spin text-xs sm:text-sm" : "text-xs sm:text-sm"} />
+                            <span className="hidden xs:inline">{savingDraft ? 'Saving...' : draftCustomerId ? 'Update Draft' : 'Save Draft'}</span>
+                            <span className="xs:hidden">{savingDraft ? '...' : 'Draft'}</span>
+                        </button>
+                    </div>
+                )}
+            </div>
 
+            <div className="max-w-5xl mx-auto px-4 space-y-4">
             {/* Correction Header */}
             {correctionRequest && (
-                <div className="max-w-6xl mx-auto mb-8 bg-red-50/50 border border-red-100 rounded-2xl p-6 flex items-start gap-6 animate-in slide-in-from-top-4 duration-500 shadow-sm">
-                    <div className="w-12 h-12 rounded-2xl bg-red-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-red-500/20">
-                        <Icon icon="mdi:comment-alert" className="text-2xl" />
+                <div className="bg-red-50/80 border border-red-200 rounded-xl p-4 flex items-start gap-4 shadow-sm">
+                    <div className="w-9 h-9 rounded-lg bg-red-500 text-white flex items-center justify-center shrink-0">
+                        <Icon icon="mdi:comment-alert" className="text-xl" />
                     </div>
                     <div>
                         <h4 className="text-red-800 font-black uppercase tracking-widest text-xs mb-1">Correction Required</h4>
-                        <p className="text-red-700 font-bold text-sm leading-relaxed">{correctionRequest.remark}</p>
-                        <p className="text-red-500 text-[10px] uppercase font-black tracking-widest mt-2 flex items-center gap-2">
+                        <p className="text-red-700 font-medium text-xs leading-relaxed">{correctionRequest.remark}</p>
+                        <p className="text-red-500 text-[10px] uppercase font-bold tracking-widest mt-1">
                             Requested By: {correctionRequest.requestedBy?.employeeName || 'Finance'} • {correctionRequest.requestedAt ? new Date(correctionRequest.requestedAt).toLocaleDateString() : 'Recent'}
+                        </p>
+                    </div>
+                </div>
+            )}
+
+                        {/* Edit Mode Banner */}
+            {isEditMode && (
+                <div className="bg-blue-50/80 border border-[#2980B9]/30 rounded-xl p-4 flex items-start gap-4 shadow-sm mb-4">
+                    <div className="w-9 h-9 rounded-lg bg-[#2980B9] text-white flex items-center justify-center shrink-0">
+                        <Icon icon="mdi:account-edit" className="text-xl" />
+                    </div>
+                    <div className="flex-1">
+                        <h4 className="text-[#2980B9] font-black uppercase tracking-widest text-xs mb-1">
+                            Customer Edit Mode
+                        </h4>
+                        <p className="text-gray-700 font-medium text-xs leading-relaxed">
+                            You are editing an existing customer profile. All 5 registration steps, documents, blank cheques, and operational configurations are available for updating.
                         </p>
                     </div>
                 </div>
@@ -993,48 +1212,44 @@ export default function RegisterCustomer() {
 
             {/* Approval Mode Banner */}
             {isApprovalMode && (
-                <div className="max-w-6xl mx-auto mb-8 bg-erp-accent/5/50 border border-erp-accent/10 rounded-2xl p-6 flex items-start gap-6 animate-in slide-in-from-top-4 duration-500 shadow-sm">
-                    <div className="w-12 h-12 rounded-2xl bg-erp-accent text-white flex items-center justify-center shrink-0 shadow-lg shadow-erp-accent/20">
-                        <Icon icon="mdi:shield-check" className="text-2xl" />
+                <div className="bg-blue-50/80 border border-blue-200 rounded-xl p-4 flex items-start gap-4 shadow-sm">
+                    <div className="w-9 h-9 rounded-lg bg-[#2980B9] text-white flex items-center justify-center shrink-0">
+                        <Icon icon="mdi:shield-check" className="text-xl" />
                     </div>
                     <div className="flex-1">
-                        <h4 className="text-erp-accent font-black uppercase tracking-widest text-xs mb-1">
+                        <h4 className="text-[#2980B9] font-black uppercase tracking-widest text-xs mb-1">
                             {currentStage === 'salesHead' ? 'Sales Head Approval Mode' : 'Finance Approval Mode'}
                         </h4>
-                        <p className="text-erp-accent font-bold text-sm leading-relaxed">
+                        <p className="text-gray-700 font-medium text-xs leading-relaxed">
                             {currentStage === 'salesHead'
                                 ? 'You are reviewing a customer registration as Sales Head. Please verify all details and Approve or Request Redirection.'
-                                : 'You are reviewing a customer registration submitted by Sales. Please verify all details, provide the mandatory Login Details, and click Approve to finalize.'}
+                                : 'You are reviewing a customer registration submitted by Sales. Please verify all details, provide mandatory details, and click Approve to finalize.'}
                         </p>
                     </div>
-                    {(isFinanceUser || isSalesHead) && (activeStep === 0 || activeStep === 1 || activeStep === steps.length - 1) && (
-                        <Button
-                            variant="outlined"
-                            className="bg-white border-erp-accent/20 text-erp-accent hover:bg-erp-accent/10 flex gap-2 align-center justify-center"
-                            onClick={() => {
-                                dispatch(toggleVerificationMode());
-                                // We don't necessarily need to open the modal immediately, 
-                                // the user can click "Needs Correction" at the bottom too.
-                            }}
+                    {hasApprovalAccess && (activeStep === 0 || activeStep === 1 || activeStep === steps.length - 1) && (
+                        <button
+                            type="button"
+                            className="px-3 py-1.5 rounded-lg border border-[#2980B9] text-[#2980B9] text-xs font-bold hover:bg-blue-100/50 transition-all"
+                            onClick={() => dispatch(toggleVerificationMode())}
                         >
                             {isVerificationMode ? 'Cancel Selection' : 'Send for Correction'}
-                        </Button>
+                        </button>
                     )}
                 </div>
             )}
 
             {isReadOnlyMode && (
-                <div className="max-w-6xl mx-auto mb-8 bg-gray-50 border border-gray-100 rounded-2xl p-6 flex items-start gap-6 animate-in slide-in-from-top-4 duration-500 shadow-sm">
-                    <div className="w-12 h-12 rounded-2xl bg-gray-400 text-white flex items-center justify-center shrink-0 shadow-lg shadow-gray-400/20">
-                        <Icon icon="mdi:eye" className="text-2xl" />
+                <div className="bg-gray-100 border border-gray-200 rounded-xl p-4 flex items-start gap-4 shadow-sm">
+                    <div className="w-9 h-9 rounded-lg bg-gray-500 text-white flex items-center justify-center shrink-0">
+                        <Icon icon="mdi:eye" className="text-xl" />
                     </div>
                     <div className="flex-1">
                         <h4 className="text-gray-800 font-black uppercase tracking-widest text-xs mb-1">View Only Mode</h4>
-                        <p className="text-gray-600 font-bold text-sm leading-relaxed">
-                            This registration is currently <span className="text-erp-accent">Pending {currentStage === 'salesHead' ? 'Sales Head' : 'Finance'} Approval</span>. You can review the submitted details, but modifications are restricted at this stage.
+                        <p className="text-gray-600 font-medium text-xs leading-relaxed">
+                            This registration is currently <span className="text-[#2980B9] font-bold">Pending {currentStage === 'salesHead' ? 'Sales Head' : 'Finance'} Approval</span>. Modifications are restricted at this stage.
                         </p>
                     </div>
-                    <div className="px-4 py-2 bg-erp-accent/5 text-erp-accent rounded-xl text-[10px] font-black uppercase tracking-widest border border-erp-accent/10">
+                    <div className="px-3 py-1 bg-gray-200 text-gray-700 rounded-md text-[10px] font-black uppercase tracking-widest">
                         READ ONLY
                     </div>
                 </div>
@@ -1062,73 +1277,72 @@ export default function RegisterCustomer() {
                                 return (
                                     <div
                                         key={idx}
-                                        className={`bg-white rounded-2xl border transition-all duration-300 ${hasError
-                                            ? 'border-red-200 bg-red-50/10 shadow-lg ring-1 ring-red-100'
+                                        className={`bg-white rounded-xl border overflow-hidden transition-all duration-300 ${hasError
+                                            ? 'border-red-300 shadow-sm'
                                             : isActive
-                                                ? 'shadow-2xl ring-1 ring-erp-accent/10 border-erp-accent/20'
-                                                : 'shadow-sm border-gray-100'
+                                                ? 'border-[#2980B9] shadow-md ring-1 ring-[#2980B9]/20'
+                                                : 'border-gray-200 shadow-sm hover:border-gray-300'
                                             }`}
                                     >
                                         {/* Accordion Header */}
                                         <button
                                             type="button"
                                             onClick={() => {
-                                                if (idx <= activeStep || isStepValid(activeStep) || isReadOnlyMode || isApprovalMode) {
+                                                if (idx <= activeStep || isStepValid(activeStep) || isReadOnlyMode || isApprovalMode || isEditMode) {
                                                     setStep(idx);
                                                 } else {
                                                     toast.warning(`Please complete the current step first.`);
                                                 }
                                             }}
-                                            className="w-full flex items-center justify-between p-6 cursor-pointer group"
+                                            className={`w-full flex items-center justify-between px-5 py-3.5 cursor-pointer transition-colors ${isActive ? 'bg-gray-50/80 border-b border-gray-100' : 'bg-white hover:bg-gray-50/50'}`}
                                         >
-                                            <div className="flex items-center gap-4">
-                                                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-300 ${hasError
-                                                    ? 'bg-red-500 text-white shadow-lg scale-110'
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-7 h-7 rounded-md flex items-center justify-center text-xs font-bold transition-all ${hasError
+                                                    ? 'bg-red-500 text-white'
                                                     : isActive
-                                                        ? 'bg-erp-accent text-white shadow-lg rotate-12 scale-110'
+                                                        ? 'bg-[#2980B9] text-white shadow-sm'
                                                         : isCompleted
-                                                            ? 'bg-green-500 text-white'
-                                                            : 'bg-gray-100 text-gray-400 group-hover:bg-erp-accent/5'
+                                                            ? 'bg-emerald-600 text-white'
+                                                            : 'bg-gray-100 text-gray-500'
                                                     }`}>
-                                                    {hasError ? <Icon icon="mdi:alert-circle" className="text-xl" /> : (isCompleted ? <Icon icon="mdi:check" className="text-xl" /> : <span className="font-black italic text-lg">{idx + 1}</span>)}
+                                                    {hasError ? <Icon icon="mdi:alert-circle" className="text-base" /> : (isCompleted ? <Icon icon="mdi:check" className="text-base" /> : idx + 1)}
                                                 </div>
                                                 <div className="text-left">
-                                                    <h3 className={`font-black uppercase tracking-widest text-sm transition-colors ${hasError
+                                                    <h3 className={`font-black uppercase tracking-widest text-xs transition-colors ${hasError
                                                         ? 'text-red-600'
                                                         : isActive
-                                                            ? 'text-erp-accent'
+                                                            ? 'text-[#2980B9]'
                                                             : 'text-gray-700'
                                                         }`}>
                                                         {label}
                                                     </h3>
-                                                    <p className="text-[10px] text-gray-400 font-bold uppercase  ">
-                                                        {hasError ? 'Attention Required' : (isActive ? 'Currently Editing' : isCompleted ? 'Verification Complete' : 'Pending Details')}
+                                                    <p className="text-[10px] text-gray-400 font-medium">
+                                                        {hasError ? 'Attention Required' : (isActive ? 'Currently Editing' : isCompleted ? 'Completed' : 'Pending Details')}
                                                     </p>
                                                 </div>
                                             </div>
-                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-500 ${isActive ? (hasError ? 'bg-red-50 rotate-180' : 'bg-erp-accent/5 rotate-180') : 'bg-gray-50'}`}>
-                                                <Icon icon="mdi:chevron-down" className={`text-xl ${isActive ? (hasError ? 'text-red-500' : 'text-erp-accent') : 'text-gray-400'}`} />
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-transform duration-300 ${isActive ? 'rotate-180 bg-blue-50 text-[#2980B9]' : 'bg-gray-100 text-gray-400'}`}>
+                                                <Icon icon="mdi:chevron-down" className="text-lg" />
                                             </div>
                                         </button>
 
                                         {/* Accordion Content */}
                                         {isActive && (
-                                            <div className="p-8 md:p-12 pt-0 animate-in fade-in slide-in-from-top-4 duration-500">
-                                                <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-100 to-transparent mb-12" />
+                                            <div className="p-6 md:p-8 animate-in fade-in duration-300">
                                                 {renderStepContent(idx)}
 
                                                 {/* Step Footer Navigation */}
                                                 {!isReadOnlyMode && (
-                                                    <div className="mt-12 pt-8 border-t border-gray-50 flex flex-col sm:flex-row items-center justify-between gap-6">
-                                                        <div className="flex items-center gap-3">
-                                                            {!isApprovalMode && (
+                                                    <div className="mt-8 pt-5 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                                        <div className="flex items-center gap-2">
+                                                            {!isApprovalMode && !isEditMode && (
                                                                 <button
                                                                     type="button"
                                                                     onClick={handleSaveDraft}
                                                                     disabled={savingDraft || loadingDraftData}
-                                                                    className="flex items-center px-6 py-3 bg-white border border-gray-200 text-gray-600 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all active:scale-95 disabled:opacity-50 shadow-sm"
+                                                                    className="flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-600 text-[11px] font-bold uppercase tracking-wider rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50"
                                                                 >
-                                                                    <Icon icon={draftCustomerId ? "mdi:cloud-check" : "mdi:content-save"} className="mr-2 text-base text-gray-400" />
+                                                                    <Icon icon={draftCustomerId ? "mdi:cloud-check" : "mdi:content-save"} className="text-sm text-gray-400" />
                                                                     {draftCustomerId ? 'Update Draft' : 'Save Draft'}
                                                                 </button>
                                                             )}
@@ -1137,22 +1351,22 @@ export default function RegisterCustomer() {
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => setStep(activeStep - 1)}
-                                                                    className="flex items-center px-6 py-3 bg-gray-100 text-gray-600 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-gray-200 transition-all active:scale-95 shadow-sm"
+                                                                    className="flex items-center gap-1 px-4 py-2 bg-gray-100 text-gray-600 text-[11px] font-bold uppercase tracking-wider rounded-lg hover:bg-gray-200 transition-all"
                                                                 >
-                                                                    <Icon icon="mdi:chevron-left" className="mr-1 text-base" />
+                                                                    <Icon icon="mdi:chevron-left" className="text-base" />
                                                                     Back
                                                                 </button>
                                                             )}
                                                         </div>
 
-                                                        <div className="flex items-center gap-3 w-full sm:w-auto">
-                                                            {(isFinanceUser || isSalesHead) && isApprovalMode && (
+                                                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                                                            {hasApprovalAccess && isApprovalMode && (
                                                                 <div className="flex gap-2 w-full sm:w-auto">
                                                                     {!isVerificationMode ? (
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => dispatch(toggleVerificationMode())}
-                                                                            className="flex-1 sm:flex-none flex items-center justify-center px-6 py-3 bg-erp-accent/5 border border-erp-accent/20 text-erp-accent text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-erp-accent/10 transition-all shadow-sm"
+                                                                            className="flex-1 sm:flex-none px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold uppercase tracking-wider rounded-lg hover:bg-amber-100 transition-all"
                                                                         >
                                                                             Needs Correction
                                                                         </button>
@@ -1161,7 +1375,7 @@ export default function RegisterCustomer() {
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={() => dispatch(toggleVerificationMode())}
-                                                                                className="flex-1 sm:flex-none px-6 py-3 bg-gray-100 text-gray-600 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-gray-200 transition-all shadow-sm"
+                                                                                className="flex-1 sm:flex-none px-4 py-2 bg-gray-100 text-gray-600 text-[11px] font-bold uppercase tracking-wider rounded-lg hover:bg-gray-200 transition-all"
                                                                             >
                                                                                 Cancel
                                                                             </button>
@@ -1176,7 +1390,7 @@ export default function RegisterCustomer() {
                                                                                     setCorrectionRequest({ fields, remarks: '' });
                                                                                     setIsCorrectionModalOpen(true);
                                                                                 }}
-                                                                                className="flex-1 sm:flex-none px-6 py-3 bg-red-600 text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-red-700 shadow-lg shadow-red-600/20 transition-all"
+                                                                                className="flex-1 sm:flex-none px-4 py-2 bg-red-600 text-white text-[11px] font-bold uppercase tracking-wider rounded-lg hover:bg-red-700 transition-all"
                                                                             >
                                                                                 Confirm Rejection
                                                                             </button>
@@ -1189,25 +1403,25 @@ export default function RegisterCustomer() {
                                                                 type="button"
                                                                 disabled={isVerificationMode}
                                                                 onClick={handleMainAction}
-                                                                className={`flex-1 sm:flex-none flex items-center justify-center px-10 py-3 bg-erp-accent text-white text-[11px] font-black uppercase tracking-widest rounded-xl transition-all duration-300 active:scale-95 gap-2 shadow-lg shadow-erp-accent/20 ${isVerificationMode ? 'opacity-30 cursor-not-allowed grayscale' : 'hover:bg-erp-accent hover:-translate-y-0.5'}`}
+                                                                className={`flex-1 sm:flex-none flex items-center justify-center px-6 py-2 bg-[#2980B9] hover:bg-[#2471a3] text-white text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all gap-1.5 shadow-sm active:scale-95 ${isVerificationMode ? 'opacity-30 cursor-not-allowed grayscale' : ''}`}
                                                             >
                                                                 <span>
                                                                     {activeStep === steps.length - 1
-                                                                        ? (isApprovalMode ? 'Approve' : (correctionCustomerId ? 'Resubmit' : ((user?.EmployeeType === 'SUPERADMIN' || isFinanceUser || isSalesHead) ? 'Register' : 'Submit')))
+                                                                        ? (isEditMode ? 'Update Customer' : (isApprovalMode ? (currentStage === 'salesHead' ? 'Approve as Sales Head' : 'Approve & Finalize (Finance)') : (correctionCustomerId ? 'Resubmit' : (hasApprovalAccess ? 'Register' : 'Submit'))))
                                                                         : 'Next Step'}
                                                                 </span>
-                                                                <Icon icon={activeStep === steps.length - 1 ? "mdi:check-decagram" : "mdi:arrow-right-circle"} className="text-base" />
+                                                                <Icon icon={activeStep === steps.length - 1 ? "mdi:check-decagram" : "mdi:arrow-right-circle"} className="text-sm" />
                                                             </button>
                                                         </div>
                                                     </div>
                                                 )}
 
                                                 {isReadOnlyMode && activeStep === steps.length - 1 && (
-                                                    <div className="mt-12 pt-8 border-t border-gray-50 flex justify-end">
+                                                    <div className="mt-8 pt-5 border-t border-gray-100 flex justify-end">
                                                         <button
                                                             type="button"
                                                             onClick={handleMainAction}
-                                                            className="px-10 py-3 bg-gray-800 text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-gray-900 transition-all active:scale-95 shadow-lg shadow-gray-800/20"
+                                                            className="px-6 py-2 bg-gray-800 text-white text-[11px] font-bold uppercase tracking-wider rounded-lg hover:bg-gray-900 transition-all active:scale-95"
                                                         >
                                                             Close Review
                                                         </button>
@@ -1233,8 +1447,9 @@ export default function RegisterCustomer() {
                 customerName={formik.values.shopName || formik.values.ownerName}
                 initialFields={correctionRequest?.fields || correctionRequest?.fieldsToCorrect || []}
                 loading={saving}
-                showTargetRole={isSalesHead}
+                showTargetRole={currentStage === 'salesHead'}
             />
+            </div>
         </div>
     );
 }

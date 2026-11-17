@@ -74,7 +74,7 @@ const DraftOrders = () => {
     };
 
     return (
-        <div className="p-6 max-w-7xl mx-auto h-full flex flex-col gap-6 animate-in fade-in duration-300">
+        <div className="h-full flex flex-col gap-6 animate-in fade-in duration-300 w-full">
             <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-2xl font-black text-gray-800 flex items-center gap-2 uppercase tracking-tighter">
@@ -101,7 +101,112 @@ const DraftOrders = () => {
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-                <div className="overflow-x-auto">
+                <>
+                    {/* ── Mobile Card View (block md:hidden) ── */}
+                <div className="block md:hidden space-y-3 p-3 bg-gray-50/50">
+                    {loading ? (
+                        <div className="p-10 text-center">
+                            <Icon icon="mdi:loading" className="text-3xl text-erp-accent animate-spin mx-auto mb-2" />
+                            <span className="text-xs text-gray-400">Loading drafts...</span>
+                        </div>
+                    ) : orders.length === 0 ? (
+                        <div className="p-10 text-center text-gray-400">
+                            <Icon icon="mdi:file-search-outline" className="text-5xl mx-auto mb-2 opacity-50" />
+                            <span className="text-xs font-bold uppercase">No draft orders found</span>
+                        </div>
+                    ) : (
+                        orders.map((order) => {
+                            const subOrder = order.orders?.[0] || {};
+                            const totalQty = subOrder.items?.reduce((acc, item) => acc + (Number(item.qty) || 0), 0) || 0;
+                            let orderTotal = Number(subOrder.totalOrderPrice) || Number(subOrder.orderTotal) || Number(subOrder.totalAmount) || Number(subOrder.netPayableTotal) || 0;
+                            if (!orderTotal && subOrder.items) {
+                                subOrder.items.forEach(item => {
+                                    const price = Number(item.price) || 0;
+                                    const qty = Number(item.qty) || 1;
+                                    const gst = Number(item.gst) || 0;
+                                    const disc = Number(item.discountAmount) || 0;
+                                    const taxable = (price * qty) - disc;
+                                    const gstAmt = taxable > 0 ? taxable * (gst / 100) : 0;
+                                    orderTotal += taxable > 0 ? taxable + gstAmt : 0;
+                                });
+                            }
+                            const isExpanded = expandedRows.has(order._id);
+
+                            return (
+                                <div key={order._id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm space-y-3">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div>
+                                            <span className="text-xs font-black text-erp-accent font-mono bg-blue-50 px-2 py-0.5 rounded border border-blue-100 uppercase">
+                                                #{subOrder.orderNumber || order._id?.slice(-8).toUpperCase()}
+                                            </span>
+                                            <h3 className="text-sm font-black text-gray-800 tracking-tight mt-1">{order.customer?.customerName || 'N/A'}</h3>
+                                            <p className="text-[10px] text-gray-400 font-bold uppercase">{order.customer?.customerShipToBranchName || 'N/A'}</p>
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <button
+                                                onClick={() => navigate(PATHS.CUSTOMER_CARE.EDIT_ORDER.replace(':id', order._id))}
+                                                className="px-2.5 py-1 bg-erp-accent text-white rounded-lg text-xs font-bold hover:opacity-90 transition-opacity flex items-center gap-1"
+                                            >
+                                                <span>Continue</span>
+                                                <Icon icon="mdi:arrow-right" className="text-xs" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteClick(order._id)}
+                                                className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                title="Delete Draft"
+                                            >
+                                                <Icon icon="mdi:trash-can-outline" className="text-base" />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-3 gap-2 py-2 border-y border-gray-100 text-[11px]">
+                                        <div>
+                                            <span className="text-[9px] uppercase font-bold text-gray-400 block">Created</span>
+                                            <span className="font-semibold text-gray-700">{dayjs(order.createdAt).format('DD MMM, hh:mm A')}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-[9px] uppercase font-bold text-gray-400 block">Qty</span>
+                                            <span className="font-semibold text-gray-700">{totalQty} Pcs</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-[9px] uppercase font-bold text-gray-400 block">Total</span>
+                                            <span className="font-bold text-erp-accent">₹{orderTotal}</span>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={() => toggleRow(order._id)}
+                                        className="w-full flex items-center justify-center gap-1.5 pt-1 text-xs font-bold text-erp-accent hover:text-blue-700"
+                                    >
+                                        <span>{isExpanded ? 'Hide Items' : 'View Draft Items'}</span>
+                                        <Icon icon="lucide:chevron-down" className={`text-xs transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                                    </button>
+
+                                    {isExpanded && (
+                                        <div className="pt-2 space-y-2 animate-in fade-in duration-200">
+                                            {subOrder.items?.map((item, idx) => (
+                                                <div key={idx} className="flex justify-between items-center p-2.5 bg-gray-50 rounded-lg border border-gray-100 text-xs">
+                                                    <div>
+                                                        <span className="font-bold text-gray-800 block">{item.itemName || 'Unnamed Item'}</span>
+                                                        <span className="text-[10px] text-gray-400 uppercase font-semibold">{item.category} • {item.orderType}</span>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className="text-xs font-bold text-erp-accent block">₹{item.price}</span>
+                                                        <span className="text-[10px] text-gray-500">Qty: {item.qty}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+
+                {/* ── Desktop Table View (hidden md:block) ── */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 uppercase text-xs font-semibold">
@@ -134,19 +239,29 @@ const DraftOrders = () => {
                                 orders.map((order) => {
                                     const subOrder = order.orders?.[0] || {};
                                     const totalQty = subOrder.items?.reduce((acc, item) => acc + (Number(item.qty) || 0), 0) || 0;
-                                    const orderTotal = subOrder.totalOrderPrice || 0;
+                                    let orderTotal = Number(subOrder.totalOrderPrice) || Number(subOrder.orderTotal) || Number(subOrder.totalAmount) || Number(subOrder.netPayableTotal) || 0;
+                                    if (!orderTotal && subOrder.items) {
+                                        subOrder.items.forEach(item => {
+                                            const price = Number(item.price) || 0;
+                                            const qty = Number(item.qty) || 1;
+                                            const gst = Number(item.gst) || 0;
+                                            const disc = Number(item.discountAmount) || 0;
+                                            const taxable = (price * qty) - disc;
+                                            const gstAmt = taxable > 0 ? taxable * (gst / 100) : 0;
+                                            orderTotal += taxable > 0 ? taxable + gstAmt : 0;
+                                        });
+                                    }
 
                                     return (
                                         <React.Fragment key={order._id}>
-                                            <tr 
-                                                className={`border-b border-gray-100 hover:bg-gray-50/50 cursor-pointer transition-colors ${
-                                                    expandedRows.has(order._id) ? 'bg-gray-50' : ''
-                                                }`}
+                                            <tr
+                                                className={`border-b border-gray-100 hover:bg-gray-50/50 cursor-pointer transition-colors ${expandedRows.has(order._id) ? 'bg-gray-50' : ''
+                                                    }`}
                                                 onClick={() => toggleRow(order._id)}
                                             >
                                                 <td className="p-4 text-center">
-                                                    <Icon 
-                                                        icon={expandedRows.has(order._id) ? "mdi:chevron-up" : "mdi:chevron-down"} 
+                                                    <Icon
+                                                        icon={expandedRows.has(order._id) ? "mdi:chevron-up" : "mdi:chevron-down"}
                                                         className="text-lg text-gray-400"
                                                     />
                                                 </td>
@@ -217,6 +332,7 @@ const DraftOrders = () => {
                         </tbody>
                     </table>
                 </div>
+            </>
 
                 {/* Pagination Controls */}
                 {totalPages > 1 && (

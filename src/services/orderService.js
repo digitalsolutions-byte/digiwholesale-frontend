@@ -28,18 +28,66 @@ export const updateOrderStatus = async (id, status) => {
     }
 };
 
-export const getOrderProductConfigs = async () => {
+export const getOrderProductConfigs = async (brand = '', category = '') => {
     try {
-        const fields = ['brand', 'category', 'treatment', 'index', 'productType', 'coating'];
-        const responses = await Promise.all(
-            fields.map(field => api.get(`/api/order/product-fields/${field}`).catch(() => ({ data: { data: [] } })))
+        const coatingParams = new URLSearchParams();
+        if (brand) coatingParams.append('brand', brand);
+        if (category) coatingParams.append('category', category);
+        const coatingQuery = coatingParams.toString() ? `?${coatingParams.toString()}` : '';
+
+        const categoryQuery = brand ? `?brand=${encodeURIComponent(brand)}` : '';
+
+        const [
+            tintsRes,
+            frameTypesRes,
+            brandsRes,
+            categoriesRes,
+            treatmentsRes,
+            indexesRes,
+            productTypesRes,
+            coatingsRes,
+            plantsRes,
+            labsRes,
+            fittingCentersRes,
+            courierNamesRes,
+            specificLabsRes
+        ] = await Promise.all([
+            api.get('/api/order/product/get-tint').catch(() => ({ data: { data: [] } })),
+            api.get('/api/order/product/get-frame-types').catch(() => ({ data: { data: [] } })),
+            api.get('/api/order/product-fields/brand').catch(() => ({ data: { data: [] } })),
+            api.get(`/api/order/product-fields/category${categoryQuery}`).catch(() => ({ data: { data: [] } })),
+            api.get('/api/order/product-fields/treatment').catch(() => ({ data: { data: [] } })),
+            api.get('/api/order/product-fields/index').catch(() => ({ data: { data: [] } })),
+            api.get('/api/order/product-fields/productType').catch(() => ({ data: { data: [] } })),
+            api.get(`/api/order/product-fields/coating${coatingQuery}`).catch(() => ({ data: { data: [] } })),
+            api.get('/api/product/plants').catch(() => ({ data: { data: [] } })),
+            api.get('/api/product/labs').catch(() => ({ data: { data: [] } })),
+            api.get('/api/product/fitting-centers').catch(() => ({ data: { data: [] } })),
+            api.get('/api/product/courier-names').catch(() => ({ data: { data: [] } })),
+            api.get('/api/product/specific-labs').catch(() => ({ data: { data: [] } })),
+        ]);
+
+        const formatOptions = (arr) => (Array.isArray(arr) ? arr : []).map(item =>
+            typeof item === 'string'
+                ? { _id: item, name: item, value: item }
+                : { ...item, _id: item._id || item.id || item.name || item.value, name: item.name || item.label || item.value || item._id, value: item.value ?? item.name ?? item._id }
         );
 
-        const configs = {};
-        fields.forEach((field, index) => {
-            configs[field] = responses[index]?.data?.data || [];
-        });
-        return configs;
+        return {
+            tints: formatOptions(tintsRes?.data?.data || tintsRes?.data),
+            frameTypes: formatOptions(frameTypesRes?.data?.data || frameTypesRes?.data),
+            brand: formatOptions(brandsRes?.data?.data || brandsRes?.data),
+            category: formatOptions(categoriesRes?.data?.data || categoriesRes?.data),
+            treatment: formatOptions(treatmentsRes?.data?.data || treatmentsRes?.data),
+            index: formatOptions(indexesRes?.data?.data || indexesRes?.data),
+            productType: formatOptions(productTypesRes?.data?.data || productTypesRes?.data),
+            coating: formatOptions(coatingsRes?.data?.data || coatingsRes?.data),
+            plants: formatOptions(plantsRes?.data?.data || plantsRes?.data),
+            labs: formatOptions(labsRes?.data?.data || labsRes?.data),
+            fittingCenters: formatOptions(fittingCentersRes?.data?.data || fittingCentersRes?.data),
+            courierNames: formatOptions(courierNamesRes?.data?.data || courierNamesRes?.data),
+            specificLabs: formatOptions(specificLabsRes?.data?.data || specificLabsRes?.data),
+        };
     } catch (error) {
         console.error('Error fetching order product configs:', error);
         return {};
@@ -49,7 +97,7 @@ export const getOrderProductConfigs = async () => {
 export const getTints = async () => {
     try {
         const response = await api.get('/api/order/product/get-tint');
-        return response.data?.data || [];
+        return response.data?.data || response.data || [];
     } catch (error) {
         console.error('Error fetching tints:', error);
         return [];
@@ -59,21 +107,20 @@ export const getTints = async () => {
 export const getFrameTypes = async () => {
     try {
         const response = await api.get('/api/order/product/get-frame-types');
-        return response.data?.data || [];
+        return response.data?.data || response.data || [];
     } catch (error) {
         console.error('Error fetching frame types:', error);
         return [];
     }
 };
 
-export const getProductNames = async (search = '', page = 1, limit = 10) => {
+export const getProductNames = async (search = '', page = 1, limit = 100, brand = '', category = '') => {
     try {
-        const queryParams = new URLSearchParams({
-            search,
-            page,
-            limit
-        });
-        const response = await api.get(`/api/digi/product/names?${queryParams.toString()}`);
+        const queryParams = new URLSearchParams({ page, limit });
+        if (search) queryParams.append('search', search);
+        if (brand) queryParams.append('brand', brand);
+        if (category) queryParams.append('category', category);
+        const response = await api.get(`/api/order/product-names?${queryParams.toString()}`);
         return response.data;
     } catch (error) {
         console.error('Error fetching product names:', error);
@@ -91,12 +138,27 @@ export const getProductById = async (id) => {
     }
 };
 
-export const getCategoriesByBrand = async (brandName) => {
+export const getCategoriesByBrand = async (brandName = '') => {
     try {
-        const response = await api.get(`/api/order/product-fields/category?brand=${encodeURIComponent(brandName)}`);
-        return response.data?.data || [];
+        const url = brandName ? `/api/order/product-fields/category?brand=${encodeURIComponent(brandName)}` : '/api/order/product-fields/category';
+        const response = await api.get(url);
+        return response.data?.data || response.data || [];
     } catch (error) {
         console.error('Error fetching categories by brand:', error);
+        return [];
+    }
+};
+
+export const getCoatingsByFilter = async (brand = '', category = '') => {
+    try {
+        const params = new URLSearchParams();
+        if (brand) params.append('brand', brand);
+        if (category) params.append('category', category);
+        const q = params.toString() ? `?${params.toString()}` : '';
+        const response = await api.get(`/api/order/product-fields/coating${q}`);
+        return response.data?.data || response.data || [];
+    } catch (error) {
+        console.error('Error fetching coatings by filter:', error);
         return [];
     }
 };
@@ -197,12 +259,23 @@ export const getRxOrders = async (search = '') => {
 
 
 
-export const updateBulkOrderStatus = async (orderId, status, orderNumber = null) => {
+export const updateBulkOrderStatus = async (orderId, status, orderNumber = null, remarks = '') => {
     try {
-        const payload = orderNumber ? { orderNumber, status } : { status };
+        const payload = { status };
+        if (orderNumber) payload.orderNumber = orderNumber;
+        if (remarks) payload.remarks = remarks;
         const response = await api.patch(`/api/order/bulk-orders/${orderId}/status`, payload);
         return response.data;
     } catch (error) {
         throw handleServiceError(error, 'Failed to update order status');
+    }
+};
+
+export const updateOrderTracking = async (orderId, payload) => {
+    try {
+        const response = await api.patch(`/api/order/bulk-orders/${orderId}/tracking`, payload);
+        return response.data;
+    } catch (error) {
+        throw handleServiceError(error, 'Failed to update order tracking details');
     }
 };

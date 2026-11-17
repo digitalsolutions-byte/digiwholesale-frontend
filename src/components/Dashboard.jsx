@@ -1,10 +1,19 @@
+import useSubscriptionExpiry from '../hooks/useSubscriptionExpiry';
+import SubscriptionExpiryBanner from './subscription/SubscriptionExpiryBanner';
+import SubscriptionRenewalModal from './subscription/SubscriptionRenewalModal';
 import React, { useState, useEffect } from 'react';
 import api from '../services/apiInstance';
 import { Icon } from '@iconify/react';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+    BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
     PieChart, Pie, Legend
 } from 'recharts';
+
+import { useSelector } from 'react-redux';
+import { selectCurrentUser } from '../store/slices/authSlice';
+import PlatformOwnerDashboard from './PlatformOwnerDashboard';
+import { Link } from 'react-router-dom';
+import { PATHS } from '../routes/paths';
 
 const STATUS_CONFIG = {
     Active: { color: '#2980B9', bg: 'bg-blue-50', text: 'text-blue-700' },
@@ -53,8 +62,15 @@ const OrderStatusRow = ({ label, value, color }) => {
 };
 
 const Dashboard = () => {
+    const user = useSelector(selectCurrentUser);
     const [analytics, setAnalytics] = useState(null);
     const [loading, setLoading] = useState(true);
+    const expiryMeta = useSubscriptionExpiry();
+    const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
+
+    if (user?.EmployeeType === 'PLATFORM_OWNER') {
+        return <PlatformOwnerDashboard />;
+    }
 
     useEffect(() => {
         const fetchAnalytics = async () => {
@@ -129,6 +145,10 @@ const Dashboard = () => {
                         </span>
                     </p>
                 </div>
+                <Link to={PATHS.SETTINGS} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl shadow-xs text-xs font-bold transition-all">
+                    <Icon icon="lucide:settings" className="text-lg text-gray-500" />
+                    Settings
+                </Link>
             </header>
 
             {/* Top Metric Cards */}
@@ -160,68 +180,120 @@ const Dashboard = () => {
             </div>
 
             {/* Secondary Metrics Row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-                {[
-                    { label: 'Submitted', value: ord.submitted, icon: 'lucide:send', ...STATUS_CONFIG.Submitted },
-                    { label: 'Processing', value: ord.processing, icon: 'lucide:loader-2', ...STATUS_CONFIG.Processing },
-                    { label: 'QC', value: ord.qc, icon: 'lucide:shield-check', ...STATUS_CONFIG.QC },
-                    { label: 'Ready Dispatch', value: ord.readyToDispatch, icon: 'lucide:truck', ...STATUS_CONFIG.ReadyToDispatch },
-                    { label: 'Dispatched', value: ord.dispatched, icon: 'lucide:package-open', ...STATUS_CONFIG.Dispatched },
-                    { label: 'Delivered', value: ord.delivered, icon: 'lucide:package-check', ...STATUS_CONFIG.Delivered },
-                    { label: 'Completed', value: ord.completed, icon: 'lucide:check-circle-2', ...STATUS_CONFIG.Completed },
-                    { label: 'Cancelled', value: ord.cancelled, icon: 'lucide:x-circle', ...STATUS_CONFIG.Cancelled },
-                ].map((item, idx) => (
-                    <div key={idx} className={`${item.bg} rounded-xl px-3 py-3 flex flex-col items-center gap-1 border border-white shadow-sm hover:shadow-md transition-shadow`}>
-                        <Icon icon={item.icon} className={`${item.text} text-base`} />
-                        <span className={`text-xl font-black ${item.text}`}>{item.value ?? 0}</span>
-                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider text-center leading-tight">{item.label}</span>
-                    </div>
-                ))}
+
+
+            {/* Order Summary */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <h2 className="text-sm font-bold text-gray-800 mb-5 flex items-center gap-2">
+                    <Icon icon="lucide:clipboard-list" className="text-[#2980B9]" />
+                    Order Summary
+                </h2>
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+                    {[
+                        { label: 'Total Orders', value: ord.totalOrders, icon: 'lucide:shopping-bag', bg: 'bg-[#2980B9]', text: 'text-white' },
+                        { label: 'Active', value: ord.active, icon: 'lucide:activity', bg: 'bg-blue-50', text: 'text-blue-700' },
+                        { label: 'Processing', value: ord.inProgress ?? ord.processing ?? 0, icon: 'lucide:loader-2', bg: 'bg-amber-50', text: 'text-amber-700' },
+                        { label: 'Ready to Dispatch', value: ord.readyToDispatch, icon: 'lucide:package-check', bg: 'bg-cyan-50', text: 'text-cyan-700' },
+                        { label: 'Dispatched', value: ord.dispatched, icon: 'lucide:truck', bg: 'bg-emerald-50', text: 'text-emerald-700' },
+                        { label: 'Completed', value: ord.completed, icon: 'lucide:check-circle-2', bg: 'bg-green-50', text: 'text-green-700' },
+                        { label: 'Cancelled', value: ord.cancelled, icon: 'lucide:x-circle', bg: 'bg-red-50', text: 'text-red-600' },
+                    ].map((item, idx) => (
+                        <div key={idx} className={`${item.bg} rounded-2xl p-3.5 flex flex-col gap-2 hover:shadow-md transition-shadow`}>
+                            <div className="flex items-center justify-between">
+                                <Icon icon={item.icon} className={`${item.text} text-lg`} />
+                            </div>
+                            <p className={`text-2xl font-black ${item.text} tabular-nums`}>{item.value ?? 0}</p>
+                            <p className={`text-[10px] font-bold uppercase tracking-wider ${item.text} opacity-70`}>{item.label}</p>
+                        </div>
+                    ))}
+                </div>
             </div>
 
-            {/* Charts */}
+            {/* Charts Section */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                {/* Bar Chart — takes up 3/5 */}
-                <div className="lg:col-span-3 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                    <h2 className="text-sm font-bold text-gray-800 mb-5 flex items-center gap-2">
-                        <Icon icon="lucide:bar-chart-3" className="text-[#2980B9]" />
-                        Order Volume by Status
-                    </h2>
-                    <div className="h-56">
+                {/* Smooth Line / Area Chart — takes up 3/5 with bigger height */}
+                <div className="lg:col-span-3 bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                            <Icon icon="lucide:trending-up" className="text-[#2980B9] text-base" />
+                            Order Volume Trend & Status Breakdown
+                        </h2>
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-[#2980B9] px-2.5 py-1 rounded-full border border-blue-100">
+                            Live Trend
+                        </span>
+                    </div>
+
+                    <div className="w-full h-80 sm:h-96">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={barData} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 10, fontWeight: 600 }} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 10 }} />
-                                <Tooltip
-                                    cursor={{ fill: '#eaf4fb', opacity: 0.5, radius: 6 }}
-                                    contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}
+                            <AreaChart data={barData} margin={{ top: 15, right: 20, left: -20, bottom: 10 }}>
+                                <defs>
+                                    <linearGradient id="dashboardAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#2980B9" stopOpacity={0.4} />
+                                        <stop offset="95%" stopColor="#2980B9" stopOpacity={0.0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis
+                                    dataKey="name"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fill: '#64748B', fontSize: 11, fontWeight: 700 }}
+                                    dy={8}
                                 />
-                                <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={40}>
-                                    {barData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
+                                <YAxis
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fill: '#94A3B8', fontSize: 11, fontWeight: 600 }}
+                                />
+                                <Tooltip
+                                    cursor={{ stroke: '#2980B9', strokeWidth: 1.5, strokeDasharray: '4 4' }}
+                                    content={({ active, payload, label }) => {
+                                        if (active && payload && payload.length) {
+                                            const item = payload[0].payload;
+                                            return (
+                                                <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-xl space-y-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                                                        <span className="text-xs font-bold text-gray-800">{label}</span>
+                                                    </div>
+                                                    <p className="text-lg font-black text-gray-900">{item.value} <span className="text-[10px] text-gray-400 font-semibold uppercase">Orders</span></p>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    }}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="value"
+                                    stroke="#2980B9"
+                                    strokeWidth={3}
+                                    fillOpacity={1}
+                                    fill="url(#dashboardAreaGrad)"
+                                    activeDot={{ r: 7, stroke: '#FFFFFF', strokeWidth: 2.5, fill: '#2980B9' }}
+                                />
+                            </AreaChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
 
                 {/* Status breakdown — takes up 2/5 */}
-                <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                    <h2 className="text-sm font-bold text-gray-800 mb-5 flex items-center gap-2">
-                        <Icon icon="lucide:list-checks" className="text-[#2980B9]" />
-                        Status Breakdown
-                    </h2>
-                    <div className="divide-y divide-gray-50">
-                        {barData.map((s, i) => (
-                            <OrderStatusRow key={i} label={s.name} value={s.value} color={s.color} />
-                        ))}
+                <div className="lg:col-span-2 bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <h2 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <Icon icon="lucide:list-checks" className="text-[#2980B9] text-base" />
+                            Status Breakdown
+                        </h2>
+                        <div className="divide-y divide-gray-50">
+                            {barData.map((s, i) => (
+                                <OrderStatusRow key={i} label={s.name} value={s.value} color={s.color} />
+                            ))}
+                        </div>
                     </div>
                     {/* Total pill */}
-                    <div className="mt-4 bg-[#eaf4fb] rounded-xl px-4 py-2.5 flex justify-between items-center">
+                    <div className="mt-4 bg-[#eaf4fb] rounded-xl px-4 py-3 flex justify-between items-center border border-blue-100/60">
                         <span className="text-xs font-bold text-[#1F618D]">Total Orders</span>
-                        <span className="text-lg font-black text-[#1F618D]">{ord.totalOrders ?? 0}</span>
+                        <span className="text-xl font-black text-[#1F618D]">{ord.totalOrders ?? 0}</span>
                     </div>
                 </div>
             </div>

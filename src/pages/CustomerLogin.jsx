@@ -48,6 +48,8 @@ const CustomerLogin = () => {
                         user: response.data.user,
                         token: response.data.tokens.accessToken
                     }));
+                    localStorage.removeItem('digioptics_demo_acknowledged');
+                    if (response.data?.tenant?.demoMode || response.data?.tenant?.featureFlags?.demoMode || response.data?.user?.demoMode) { localStorage.setItem('digioptics_demo_mode', 'true'); } else { localStorage.removeItem('digioptics_demo_mode'); }
                     toast.success('Login Successful');
                     navigate('/customer-portal', { replace: true });
                 } else {
@@ -60,21 +62,25 @@ const CustomerLogin = () => {
     });
 
     return (
-        <Box sx={{ 
-            minHeight: '100vh', 
-            display: 'flex', 
+        <>
+
+        <Box sx={{
+            minHeight: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             background: 'linear-gradient(135deg, #eaf2f8 0%, #d4e6f1 100%)',
             position: 'relative'
         }}>
-            <Container maxWidth="lg" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4 }}>
+            <Container maxWidth="lg" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: { xs: 3, sm: 6 }, px: { xs: 2, sm: 3 } }}>
                 <Paper
                     elevation={0}
                     sx={{
                         display: 'flex',
                         width: '100%',
                         maxWidth: 1000,
-                        minHeight: 600,
-                        borderRadius: '32px',
+                        minHeight: { xs: 'auto', md: 600 },
+                        borderRadius: { xs: '24px', sm: '32px' },
                         overflow: 'hidden',
                         boxShadow: '0 20px 80px rgba(31, 97, 141, 0.12)',
                         border: '1px solid rgba(31, 97, 141, 0.08)'
@@ -97,7 +103,7 @@ const CustomerLogin = () => {
                         }}
                     >
                         <Box sx={{ position: 'absolute', inset: 0, right: 0 }} />
- 
+
                         {/* Speech Bubble */}
                         <Box
                             sx={{
@@ -120,7 +126,7 @@ const CustomerLogin = () => {
                                 Access your orders & history.
                             </Typography>
                         </Box>
- 
+
                         <Box
                             component="img"
                             src={mascot}
@@ -132,21 +138,31 @@ const CustomerLogin = () => {
                             }}
                         />
                     </Box>
- 
+
                     {/* Right Side: Form */}
                     <Box
                         sx={{
                             width: { xs: '100%', md: '50%' },
-                            p: { xs: 4, md: 8 },
+                            p: { xs: 3, sm: 5, md: 8 },
                             display: 'flex',
                             flexDirection: 'column',
                             justifyContent: 'center',
                             bgcolor: '#ffffff'
                         }}
                     >
-                        <Box sx={{ mb: 4, textAlign: 'center' }}>
-                            <img src={logo} alt="Logo" style={{ height: '160px', marginBottom: '12px' }} className='mx-auto' />
-                            <Typography variant="h5" fontWeight={800} sx={{ color: '#1f618d', mt: 1, letterSpacing: '0.03em', textTransform: 'uppercase', fontSize: '1.25rem' }}>
+                        <Box sx={{ mb: { xs: 3, sm: 4 }, textAlign: 'center' }}>
+                            <Box
+                                component="img"
+                                src={logo}
+                                alt="Logo"
+                                sx={{
+                                    height: { xs: '95px', sm: '130px', md: '150px' },
+                                    width: 'auto',
+                                    mx: 'auto',
+                                    display: 'block'
+                                }}
+                            />
+                            <Typography variant="h5" fontWeight={800} sx={{ color: '#1f618d', mt: 1, letterSpacing: '0.03em', textTransform: 'uppercase', fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
                                 Customer Login
                             </Typography>
                         </Box>
@@ -190,15 +206,19 @@ const CustomerLogin = () => {
                                 variant="primary"
                                 className="w-full"
                                 disabled={formik.isSubmitting}
-                                sx={{ py: 2 }}
+                                sx={{ py: 1.8 }}
                             >
                                 {formik.isSubmitting ? 'Verifying...' : 'Portal Login'}
                             </Button>
                         </Stack>
                     </Box>
                 </Paper>
+                <Typography variant="h6" sx={{ mt: 3, textAlign: 'center', color: '#1f618d', fontWeight: 400, fontSize: { xs: '0.9rem', sm: '1.15rem' }, zIndex: 1 }}>
+                    India's <Box component="span" sx={{ color: '#2980b9', fontWeight: 700 }}>Premier AI - Enabled</Box> Optical Software
+                </Typography>
             </Container>
         </Box>
+        </>
     );
 };
 

@@ -41,46 +41,47 @@ const ConfirmationModal = ({
     const theme = themes[type] || themes.danger;
 
     return createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200 font-sans">
             <div 
-                className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100"
+                className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-[92vw] sm:max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-100"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="p-8 pb-10 flex flex-col items-center text-center">
-                    <div className={`w-20 h-20 ${theme.bg} rounded-full flex items-center justify-center mb-6`}>
-                        <Icon icon={theme.icon} className={`text-4xl ${theme.color}`} />
+                <div className="p-5 sm:p-8 pb-6 flex flex-col items-center text-center">
+                    <div className={`w-14 h-14 sm:w-16 sm:h-16 ${theme.bg} rounded-2xl flex items-center justify-center mb-4 sm:mb-5 shadow-xs`}>
+                        <Icon icon={theme.icon} className={`text-3xl sm:text-4xl ${theme.color}`} />
                     </div>
                     
-                    <h2 className="text-2xl font-black text-gray-800 uppercase tracking-tight mb-2">
+                    <h2 className="text-lg sm:text-xl font-bold text-slate-800 tracking-tight mb-1.5">
                         {title}
                     </h2>
                     
-                    <p className="text-gray-500 font-medium leading-relaxed px-4">
+                    <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed px-1 sm:px-4">
                         {message}
                     </p>
                     
                     {children && (
-                        <div className="w-full mt-6 px-4">
+                        <div className="w-full mt-4 sm:mt-5 text-left">
                             {children}
                         </div>
                     )}
                 </div>
 
-                <div className="flex gap-4 p-8 pt-0">
-                    <Button 
-                        variant="outlined" 
+                <div className="flex items-center gap-3 p-4 sm:p-6 pt-0">
+                    <button 
+                        type="button"
                         onClick={onClose}
                         disabled={loading}
-                        className="rounded-2xl border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-gray-300"
+                        className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
                     >
                         {cancelText}
-                    </Button>
+                    </button>
                     <button
+                        type="button"
                         onClick={onConfirm}
                         disabled={loading}
-                        className={`w-full py-3 px-6 font-bold rounded-2xl text-white transition-all focus:outline-none flex items-center justify-center gap-2 ${theme.button} ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`flex-1 py-2.5 px-4 text-xs sm:text-sm font-semibold rounded-xl text-white transition-all focus:outline-none flex items-center justify-center gap-2 ${theme.button} ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
-                        {loading && <Icon icon="mdi:loading" className="animate-spin text-xl" />}
+                        {loading && <Icon icon="mdi:loading" className="animate-spin text-lg" />}
                         {confirmText}
                     </button>
                 </div>

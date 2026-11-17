@@ -26,8 +26,59 @@ export const CustomerRegn = ({ wrapInput, configs, formValues, formik, dispatch,
             <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <h3 className="text-lg font-bold text-gray-800 uppercase tracking-tight flex items-center gap-2">
-                        <Icon icon="mdi:tag-multiple" className="text-[#F59E0B]" /> Brand & Category Selection*
+                        <Icon icon="mdi:tag-multiple" className="text-[#2980B9]" /> Brand Selection*
                     </h3>
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-4">
+                    <Select
+                        label="Add Brand"
+                        name="brandSelect"
+                        placeholder="Select Brand to Add"
+                        disabled={isReadOnlyMode}
+                        options={(configs.brands || [])
+                            .filter(b => !(formik.values.brands || []).some(sb => sb.brandId === b._id))
+                            .map(b => ({ value: b._id, label: b.name }))}
+                        onChange={(e) => {
+                            const brandId = e.target.value;
+                            if (!brandId) return;
+                            const brand = (configs.brands || []).find(b => b._id === brandId);
+                            if (brand) {
+                                const currentBrands = formik.values.brands || [];
+                                formik.setFieldValue('brands', [
+                                    ...currentBrands,
+                                    { brandId: brand._id, brandName: brand.name }
+                                ]);
+                            }
+                            e.target.value = '';
+                        }}
+                    />
+
+                    {/* Selected Brands Chips */}
+                    <div className="flex flex-wrap gap-2 pt-2">
+                        {(formik.values.brands || []).length > 0 ? (
+                            formik.values.brands.map((b, index) => (
+                                <div key={b.brandId || index} className="flex items-center gap-2 px-3 py-1.5 bg-[#2980B9]/10 text-[#2980B9] border border-[#2980B9]/20 rounded-lg text-xs font-bold uppercase tracking-wider">
+                                    <Icon icon="mdi:tag-outline" className="text-sm" />
+                                    <span>{b.brandName || b.name}</span>
+                                    {!isReadOnlyMode && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const updated = (formik.values.brands || []).filter((_, i) => i !== index);
+                                                formik.setFieldValue('brands', updated);
+                                            }}
+                                            className="hover:bg-[#2980B9]/20 p-0.5 rounded-full transition-colors"
+                                        >
+                                            <Icon icon="mdi:close" className="text-sm" />
+                                        </button>
+                                    )}
+                                </div>
+                            ))
+                        ) : (
+                            <span className="text-xs text-gray-400 font-medium italic">No brands selected yet. Select brands from the dropdown above.</span>
+                        )}
+                    </div>
                 </div>
 
                 <FieldArray name="brandCategories">
@@ -49,9 +100,9 @@ export const CustomerRegn = ({ wrapInput, configs, formValues, formik, dispatch,
                                 <Button
                                     variant="outlined"
                                     onClick={() => push({ brandId: '', brandName: '', categories: [] })}
-                                    className="bg-gray-50 border-dashed border-2 border-gray-200 text-gray-500 hover:border-[#F59E0B] hover:text-[#F59E0B] w-full py-4 rounded-2xl flex items-center justify-center gap-2"
+                                    className="bg-gray-50 border-dashed border-2 border-gray-200 text-gray-500 hover:border-[#2980B9] hover:text-[#2980B9] w-full py-4 rounded-2xl flex items-center justify-center gap-2"
                                 >
-                                    <Icon icon="mdi:plus-circle" /> Add Another Brand
+                                    <Icon icon="mdi:plus-circle" /> Add Brand & Category Pair
                                 </Button>
                             )}
                         </div>

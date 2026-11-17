@@ -3,33 +3,14 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, NavLink } from 'react-router-dom';
 import { useState, useEffect, useMemo } from 'react';
 import { Icon } from '@iconify/react';
-import {
-    Box,
-    Drawer,
-    List,
-    ListItem,
-    ListItemButton,
-    useMediaQuery,
-    ListItemIcon,
-    ListItemText,
-    Collapse,
-    Typography,
-    IconButton,
-    Tooltip,
-    Divider,
-    Avatar,
-    useTheme,
-    alpha
-} from '@mui/material';
+import { Box, Drawer, List, ListItem, ListItemButton, useMediaQuery, ListItemIcon, ListItemText, Collapse, Typography, IconButton, useTheme, alpha } from '@mui/material';
 import { logoutUser } from '../../services/authService';
-import { logOut, selectCurrentUser } from '../../store/slices/authSlice';
+import { logOut, selectCurrentUser, selectCurrentTenant } from '../../store/slices/authSlice';
 import usePermissions from '../../hooks/usePermissions';
 import { resetRegistration } from '../../store/slices/customerRegistrationSlice';
 import logo from '../../assets/logo.png';
+import { useFeatureFlags } from '../../context/FeatureFlagsContext';
 
-// ── Nav item definitions ─────────────────────────────────────────────────────
-// `page` must match a pageAccess[] key from the backend login response.
-// Items without a `page` key are visible to all authenticated users.
 const navItems = [
     { label: 'Dashboard', icon: 'lucide:layout-dashboard', path: PATHS.ROOT, page: 'DASHBOARD' },
     {
@@ -63,6 +44,7 @@ const navItems = [
         subItems: [
             { label: 'New Order', path: PATHS.CUSTOMER_CARE.NEW_ORDER, page: 'NEW_ORDER', isBold: true },
             { label: 'All Orders', path: PATHS.CUSTOMER_CARE.ALL_ORDERS, page: 'ALL_ORDERS' },
+            { label: 'Retailer Orders', path: PATHS.CUSTOMER_CARE.RETAILER_ORDERS, page: 'ALL_ORDERS' },
             { label: 'Draft Orders', path: PATHS.CUSTOMER_CARE.DRAFT_ORDERS, page: 'ALL_ORDERS' },
             { label: 'RX Orders', path: PATHS.CUSTOMER_CARE.RX_ORDERS, page: 'ALL_ORDERS' },
             { label: 'Processing Orders', path: PATHS.CUSTOMER_CARE.PENDING_ORDERS, page: 'PENDING_ORDERS' },
@@ -85,59 +67,136 @@ const navItems = [
         subItems: [
             { label: 'Daily Report', path: PATHS.REPORTS.DAILY, page: 'DAILY_REPORT' },
             { label: 'Main Report', path: PATHS.REPORTS.MAIN, page: 'MAIN_REPORT' },
+            { label: 'GST Reports', path: PATHS.REPORTS.GST, page: 'MAIN_REPORT' },
         ],
     },
+    // {
+    //     label: 'Repair',
+    //     icon: 'lucide:tool-case',
+    //     subItems: [
+    //         { label: 'Add Repair', path: PATHS.REPAIR.ADD, page: 'ADD_REPAIR' },
+    //         { label: 'Repair List', path: PATHS.REPAIR.LIST, page: 'REPAIR_LIST' },
+    //     ],
+    // },
     {
-        label: 'Repair',
-        icon: 'lucide:tool-case',
+        label: 'Buy Products',
+        icon: 'lucide:shopping-cart',
         subItems: [
-            { label: 'Add Repair', path: PATHS.REPAIR.ADD, page: 'ADD_REPAIR' },
-            { label: 'Repair List', path: PATHS.REPAIR.LIST, page: 'REPAIR_LIST' },
+            { label: 'Create RFQ', path: PATHS.VENDOR.PROPOSAL_CREATE, page: 'VENDOR_LIST' },
+            { label: 'Proposals / RFQs', path: PATHS.VENDOR.PROPOSAL_LIST, page: 'VENDOR_LIST' },
         ],
     },
     {
         label: 'Vendor',
         icon: 'lucide:truck',
         subItems: [
-            { label: 'Add Vendor', path: PATHS.VENDOR.ADD, page: 'ADD_VENDOR' },
-            { label: 'Vendor List', path: PATHS.VENDOR.LIST, page: 'VENDOR_LIST' },
-            // { label: 'Vendor Order', path: PATHS.VENDOR.ORDER, page: 'VENDOR_ORDER' },
-            { label: 'Purchase Orders', path: PATHS.VENDOR.PURCHASE_ITEMS, page: 'VENDOR_LIST' },
-            { label: 'Pending Inward', path: PATHS.VENDOR.PENDING_INWARD, page: 'VENDOR_LIST' },
-            { label: 'Purchase Inwarded', path: PATHS.VENDOR.INWARD_LIST, page: 'VENDOR_LIST' },
-            { label: 'All Inwarded Items', path: PATHS.VENDOR.ALL_INWARDED_ITEMS, page: 'VENDOR_LIST' },
-            { label: 'QC Pending', path: PATHS.VENDOR.QC_PENDING, page: 'VENDOR_LIST' },
-            { label: 'Purchase QC done', path: PATHS.VENDOR.QC_LIST, page: 'VENDOR_LIST' },
-            { label: 'QC Passed', path: PATHS.VENDOR.QC_PASSED, page: 'VENDOR_LIST' },
-            // { label: 'QC Failed Report', path: PATHS.VENDOR.QC_FAILED_REPORT, page: 'VENDOR_LIST' },
-            { label: 'QC Failed (Awaiting Replacement)', path: PATHS.VENDOR.PURCHASE_RETURNS, page: 'VENDOR_LIST' },
-            { label: 'Replacement Orders', path: PATHS.VENDOR.REPLACEMENT_ORDERS, page: 'VENDOR_LIST' },
+            {
+                label: 'Vendors Directory',
+                path: PATHS.VENDOR.LIST,
+                paths: [PATHS.VENDOR.LIST, PATHS.VENDOR.ADD],
+                page: 'VENDOR_LIST'
+            },
+            {
+                label: 'Purchases & Inward',
+                path: PATHS.VENDOR.PURCHASE_ITEMS,
+                paths: [PATHS.VENDOR.PURCHASE_ITEMS, PATHS.VENDOR.PENDING_INWARD, PATHS.VENDOR.ALL_INWARDED_ITEMS, PATHS.VENDOR.INWARD_LIST],
+                page: 'VENDOR_LIST'
+            },
+            {
+                label: 'Quality Check(QC)',
+                path: PATHS.VENDOR.QC_PENDING,
+                paths: [PATHS.VENDOR.QC_PENDING, PATHS.VENDOR.QC_PASSED, PATHS.VENDOR.PURCHASE_RETURNS, PATHS.VENDOR.QC_LIST, PATHS.VENDOR.QC_FAILED_REPORT],
+                page: 'VENDOR_LIST'
+            },
+            {
+                label: 'Replacements & Losses',
+                path: PATHS.VENDOR.REPLACEMENT_ORDERS,
+                paths: [PATHS.VENDOR.REPLACEMENT_ORDERS, PATHS.VENDOR.DAMAGED_ITEMS, PATHS.VENDOR.SHRINKAGE_ITEMS],
+                page: 'VENDOR_LIST'
+            },
         ],
     },
     // { label: 'Quality', icon: 'lucide:badge-check', path: PATHS.OPERATIONS.QC, page: 'QUALITY' },
     // { label: 'Fitting', icon: 'lucide:ruler', path: PATHS.OPERATIONS.FITTING, page: 'FITTING' },
-    // { label: 'Shipping', icon: 'lucide:send', path: PATHS.OPERATIONS.DISPATCH, page: 'SHIPPING' },
+    {
+        label: 'Ecommerce',
+        icon: 'lucide:store',
+        subItems: [
+            { label: 'Sunglasses', path: PATHS.ECOMMERCE.SUNGLASSES },
+            { label: 'Frames', path: PATHS.ECOMMERCE.FRAMES },
+        ],
+    },
+    {
+        label: 'Accounts & Payments',
+        icon: 'lucide:coins',
+        subItems: [
+            { label: 'Customer Ledgers', path: PATHS.ACCOUNTING.CUSTOMER_LEDGERS },
+            { label: 'Vendor Ledgers', path: PATHS.ACCOUNTING.VENDOR_LEDGERS },
+        ],
+    },
+    { label: 'Notifications', icon: 'lucide:bell', path: PATHS.NOTIFICATIONS },
     { label: 'Inventory', icon: 'lucide:package-search', path: PATHS.INVENTORY, page: 'INVENTORY' },
+    { label: 'Settings', icon: 'lucide:settings', path: PATHS.SETTINGS },
+];
+
+const platformOwnerNavItems = [
+    { label: ' Dashboard', icon: 'lucide:layout-dashboard', path: PATHS.ROOT },
+    {
+        label: 'Wholesalers',
+        icon: 'lucide:building-2',
+        subItems: [
+            { label: 'Register Wholesaler ', path: PATHS.TENANTS.REGISTER },
+            { label: 'Wholesalers List', path: PATHS.TENANTS.LIST },
+        ],
+    },
 ];
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
     const dispatch = useDispatch();
     const location = useLocation();
     const user = useSelector(selectCurrentUser);
+    const tenant = useSelector(selectCurrentTenant);
     const { hasPageAccess } = usePermissions();
     const theme = useTheme();
     const [openSubmenus, setOpenSubmenus] = useState({});
+    const { flags } = useFeatureFlags();
 
     // Filter nav items using user.pageAccess[] only.
-    // Items without a `page` key are always shown.
-    // Parent groups are hidden when ALL their children are hidden.
+    // Platform Owner gets dedicated store management menu items.
+    const deptName = (user?.Department?.name || '').toLowerCase();
+    const isSalesDept = deptName.includes('sales');
+    const isFinanceDept = deptName.includes('finance');
+
+    const effectiveFlags = useMemo(() => {
+        return {
+            ...flags,
+            ...(tenant?.featureFlags || {}),
+            ...(user?.tenant?.featureFlags || {})
+        };
+    }, [flags, tenant, user]);
+
     const filteredNavItems = useMemo(() => {
+        if (user?.EmployeeType === 'PLATFORM_OWNER') {
+            return platformOwnerNavItems;
+        }
         return navItems
             .map(item => {
+                // Hide the Ecommerce group when the feature flag is disabled
+                if (item.label === 'Ecommerce' && !effectiveFlags?.ecomFramesSunglasses) {
+                    return null;
+                }
                 if (item.subItems) {
-                    const filteredSubs = item.subItems.filter(sub =>
-                        sub.page ? hasPageAccess(sub.page) : true
-                    );
+                    const filteredSubs = item.subItems
+                        .filter(sub => (sub.page ? hasPageAccess(sub.page) : true))
+                        .map(sub => {
+                            if (sub.path === PATHS.APPROVALS) {
+                                let label = 'Pending Approvals';
+                                if (isSalesDept) label = 'Sales Head Approvals';
+                                else if (isFinanceDept) label = 'Finance Approvals';
+                                return { ...sub, label };
+                            }
+                            return sub;
+                        });
                     if (filteredSubs.length === 0) return null;
                     return { ...item, subItems: filteredSubs };
                 }
@@ -145,7 +204,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             })
             .filter(Boolean);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user]);  // re-filter whenever the stored user changes
+    }, [user, isSalesDept, isFinanceDept, effectiveFlags, hasPageAccess]);  // re-filter whenever stored user, department, or feature flags change
 
     useEffect(() => {
         const newOpenSubmenus = {};
@@ -178,17 +237,17 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
     const isParentActive = (item) => {
-        return item.subItems?.some(sub => sub.path === location.pathname);
+        return item.subItems?.some(sub => sub.path === location.pathname || (sub.paths && sub.paths.includes(location.pathname)));
     };
 
-    const drawerWidth = 280;
+    const drawerWidth = 269;
 
     const renderNavIcon = (icon, active) => (
-        <ListItemIcon sx={{ minWidth: 40 }}>
+        <ListItemIcon sx={{ minWidth: 36 }}>
             <Icon
                 icon={icon}
                 style={{
-                    fontSize: '22px',
+                    fontSize: '20px',
                     color: active ? '#FFFFFF' : '#636e72'
                 }}
             />
@@ -220,9 +279,14 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                     },
                 }}
             >
-                {/* Logo Area */}
-                <Box sx={{ p: 4, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                    <img src={logo} alt="DigiOptics" style={{ width: '100%', maxWidth: '160px', objectFit: 'contain' }} />
+                {/* Logo & Brand Header Area */}
+                <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <img
+                        src={logo}
+                        alt="DigiOptics Wholesale"
+                        style={{ width: '100%', maxWidth: '200px', objectFit: 'contain' }}
+                        onError={(e) => { e.target.onerror = null; e.target.src = logo; }}
+                    />
                 </Box>
 
                 {/* Nav Items */}
@@ -258,7 +322,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
                                                     primaryTypographyProps={{
                                                         fontWeight: isActive ? 700 : 500,
-                                                        fontSize: '0.95rem',
+                                                        fontSize: '0.875rem',
                                                         color: isActive ? "white" : "text.primary"
                                                     }}
                                                 />
@@ -312,7 +376,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                                         <Collapse in={isOpenSub} timeout="auto" unmountOnExit>
                                             <List component="div" disablePadding sx={{ ml: 2, borderLeft: '1px solid', borderColor: 'divider', my: 1 }}>
                                                 {item.subItems.map((sub) => {
-                                                    const isSubActive = location.pathname === sub.path;
+                                                    const isSubActive = location.pathname === sub.path || (sub.paths && sub.paths.includes(location.pathname));
                                                     return (
                                                         <ListItemButton
                                                             key={sub.path}
@@ -338,7 +402,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                                                             <ListItemText
                                                                 primary={sub.label}
                                                                 primaryTypographyProps={{
-                                                                    fontSize: '0.85rem',
+                                                                    fontSize: '0.8125rem',
                                                                     fontWeight: isSubActive ? 700 : 500
                                                                 }}
                                                             />
@@ -367,7 +431,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                         <ListItemIcon sx={{ minWidth: 40 }}>
                             <Icon icon="lucide:log-out" style={{ fontSize: '20px', color: theme.palette.error.main }} />
                         </ListItemIcon>
-                        <ListItemText primary="Logout" primaryTypographyProps={{ fontWeight: 600, fontSize: '0.9rem' }} />
+                        <ListItemText primary="Logout" primaryTypographyProps={{ fontWeight: 600, fontSize: '0.875rem' }} />
                     </ListItemButton>
                 </Box>
             </Drawer>

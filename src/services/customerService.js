@@ -32,7 +32,7 @@ export const getCustomerConfigs = async () => {
             states: responses[8]?.data?.data || [],
             billingCurrencies: responses[9]?.data?.data || [],
             salesPersons: responses[10]?.data?.data || [],
-            brands: responses[11]?.data?.data || [],
+            brands: (responses[11]?.data?.data || []).map(b => typeof b === 'string' ? { _id: b, name: b } : { _id: b._id || b.brandId || b.name, name: b.name || b.brandName || b._id }),
             categories: responses[12]?.data?.data || []
         };
     } catch (error) {
@@ -324,5 +324,23 @@ export const updateShipToDetails = async (customerId, shipToData) => {
         return response.data;
     } catch (error) {
         throw handleServiceError(error, 'Failed to update ship-to details');
+    }
+};
+
+export const updateCustomerContact = async (customerId, contactData) => {
+    try {
+        const response = await api.patch(`/api/customer/management/update-contact/${customerId}`, contactData);
+        return response.data;
+    } catch (error) {
+        throw handleServiceError(error, 'Failed to update customer contact');
+    }
+};
+
+export const updateCustomerProfile = async (customerId, profileData) => {
+    try {
+        const response = await api.put(`/api/customer/management/update-profile/${customerId}`, profileData);
+        return response.data;
+    } catch (error) {
+        throw handleServiceError(error, 'Failed to update customer details');
     }
 };

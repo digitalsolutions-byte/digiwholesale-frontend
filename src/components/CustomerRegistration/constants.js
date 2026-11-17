@@ -35,17 +35,19 @@ export const INITIAL_FORM_VALUES = {
     discountPercent: '',
     minSalesValue: '',
     currentlyDealtBrands: '',
+    brands: [],
     creditLimit: '',
     creditDays: '',
     creditDaysRefId: '',
     billingCycle: '7_days', // 7_days, 15_days, end_of_month
     billingMode: 'Direct', // Direct, DC
+    hasBlankCheques: true,
     chequeDetails: [
         { chequeImage: '', chequeNumber: '' },
         { chequeImage: '', chequeNumber: '' },
         { chequeImage: '', chequeNumber: '' }
     ],
-    chequeRemark: '', // If not submitted
+    chequeRemark: '',
 
     // 4. Contact Information
     ownerName: '', // Name Of Proprietor/Partner*

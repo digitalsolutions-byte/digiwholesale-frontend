@@ -1,3 +1,6 @@
+import useSubscriptionExpiry from '../../hooks/useSubscriptionExpiry';
+import GoogleStyleLoginReminder from '../subscription/GoogleStyleLoginReminder';
+import SubscriptionRenewalModal from '../subscription/SubscriptionRenewalModal';
 import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
@@ -20,11 +23,13 @@ const MainLayout = () => {
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobile);
     const navigate = useNavigate();
+    const expiryMeta = useSubscriptionExpiry();
+    const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
 
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
     useEffect(() => {
-        document.documentElement.style.setProperty('--sidebar-width', isSidebarOpen && !isMobile ? '280px' : '0px');
+        document.documentElement.style.setProperty('--sidebar-width', isSidebarOpen && !isMobile ? '269px' : '0px');
     }, [isSidebarOpen, isMobile]);
 
     return (
@@ -119,7 +124,7 @@ const MainLayout = () => {
                                     background: '#FFFFFF',
                                     boxShadow: '0 12px 48px rgba(0,0,0,0.04)',
                                     minHeight: 'calc(100vh - 280px)',
-                                    overflow: 'hidden'
+                                    overflow: 'visible'
                                 }}
                             >
                                 <Outlet />
@@ -129,6 +134,7 @@ const MainLayout = () => {
                 </Container>
             </Box>
 
+            
             {/* Floating Action Button (New Order) */}
             <Tooltip title="Create New Order" placement="left">
                 <Fab
@@ -137,19 +143,22 @@ const MainLayout = () => {
                     onClick={() => navigate('/new-order')}
                     sx={{
                         position: 'fixed',
-                        bottom: { xs: 20, md: 40 },
-                        right: { xs: 20, md: 40 },
-                        bgcolor: 'primary.main',
+                        bottom: { xs: 16, sm: 24, md: 40 },
+                        right: { xs: 16, sm: 24, md: 40 },
+                        width: { xs: 46, sm: 52, md: 56 },
+                        height: { xs: 46, sm: 52, md: 56 },
+                        minHeight: 'unset',
+                        bgcolor: '#2980B9',
                         '&:hover': {
-                            bgcolor: 'accent.dark',
-                            transform: 'scale(1.1)',
+                            bgcolor: '#1F618D',
+                            transform: 'scale(1.08)',
                         },
                         transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                        boxShadow: '0 8px 32px rgba(0, 140, 255, 0.4)',
+                        boxShadow: '0 6px 24px rgba(41, 128, 185, 0.35)',
                         zIndex: 1000
                     }}
                 >
-                    <Icon icon="lucide:plus" style={{ fontSize: '28px', color: 'white' }} />
+                    <Icon icon="lucide:plus" style={{ fontSize: '24px', color: 'white' }} />
                 </Fab>
             </Tooltip>
         </Box>

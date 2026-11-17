@@ -77,7 +77,9 @@ api.interceptors.response.use(
 
             if (!refreshToken) {
                 store.dispatch(logOut());
-                window.location.href = '/login';
+                if (!window.location.pathname.startsWith('/orders/status')) {
+                    window.location.href = '/login';
+                }
                 return Promise.reject(error);
             }
 
@@ -98,10 +100,25 @@ api.interceptors.response.use(
             } catch (refreshError) {
                 processQueue(refreshError, null);
                 store.dispatch(logOut());
-                window.location.href = '/login';
+                if (!window.location.pathname.startsWith('/orders/status')) {
+                    window.location.href = '/login';
+                }
                 return Promise.reject(refreshError);
             } finally {
                 isRefreshing = false;
+            }
+        }
+
+        // Handle subscription expiration: auto-logout and redirect to login
+        if (error.response && error.response.status === 403) {
+            const errCode = error.response.data?.error?.code || error.response.data?.code;
+            if (errCode === 'SUBSCRIPTION_EXPIRED' || errCode === 'DEMO_EXPIRED') {
+                const msg = error.response.data?.error?.message || error.response.data?.message || 'Your workspace subscription has expired. Please renew your plan to log in.';
+                sessionStorage.setItem('digioptics_expired_login_message', msg);
+                store.dispatch(logOut());
+                if (!window.location.pathname.startsWith('/login')) {
+                    window.location.href = '/login';
+                }
             }
         }
 

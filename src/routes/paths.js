@@ -24,13 +24,17 @@ export const PATHS = {
     CUSTOMER: {
         REGISTER: '/customer/register',
         LIST: '/customer/list',
+        PROFILE: '/customer/profile/:id',
         SHIP_TO: '/customer/ship-to',
+        APPROVALS: '/approvals',
+        CORRECTIONS: '/corrections',
     },
 
     // CUSTOMER CARE / ORDERS
     CUSTOMER_CARE: {
         NEW_ORDER: '/new-order',
         ALL_ORDERS: '/orders/all',
+        RETAILER_ORDERS: '/orders/retailer-orders',
         RX_ORDERS: '/orders/rx',
         PENDING_ORDERS: '/orders/pending',
         ORDER_STATUS: '/orders/status',
@@ -40,6 +44,7 @@ export const PATHS = {
         UPDATE_CUSTOMERS: '/customer/list',
         EDIT_ORDER: '/order/edit/:id',
         ORDER_DETAILS: '/order/view/:id',
+        ORDER_DETAILS_ALT: '/orders/:id',
         DRAFT_ORDERS: '/orders/draft-list',
     },
 
@@ -95,6 +100,11 @@ export const PATHS = {
         QC_PASSED: '/vendor/qc-passed',
         REPLACEMENT_ORDERS: '/vendor/replacement-orders',
         REPLACEMENT_ORDER_DETAILS: '/vendor/replacement-orders/:id',
+        PROPOSAL_CREATE: '/vendor/proposal/create',
+        PROPOSAL_LIST: '/vendor/proposal/list',
+        PROPOSAL_DETAILS: '/vendor/proposal/view/:id',
+        DAMAGED_ITEMS: '/vendor/damaged-items',
+        SHRINKAGE_ITEMS: '/vendor/shrinkage-items',
     },
 
     // SALES MODULE
@@ -106,5 +116,40 @@ export const PATHS = {
     REPORTS: {
         DAILY: '/reports/daily',
         MAIN: '/reports/main',
-    }
+        GST: '/reports/gst',
+    },
+
+    // TENANT MODULE (PLATFORM OWNER)
+    TENANTS: {
+        REGISTER: '/tenants/register',
+        LIST: '/tenants/list',
+        DETAILS: '/tenants/view/:id',
+        EDIT: '/tenants/edit/:id',
+        SETTINGS: '/owner/wholesalers/:id/settings',
+    },
+    // E-COMMERCE MODULE
+    ECOMMERCE: {
+        SUNGLASSES: '/ecommerce/sunglasses',
+        FRAMES: '/ecommerce/frames',
+    },
+        // ACCOUNTING & PAYMENTS MODULE
+    ACCOUNTING: {
+        CUSTOMER_LEDGERS: '/accounting/customer-ledgers',
+        CUSTOMER_STATEMENT: '/accounting/customer-statement/:customerId',
+        VENDOR_LEDGERS: '/accounting/vendor-ledgers',
+        VENDOR_STATEMENT: '/accounting/vendor-statement/:vendorId',
+        PAYMENTS: '/accounting/payments',
+        CHEQUES: '/accounting/cheques',
+        COA: '/accounting/chart-of-accounts',
+        AGING: '/accounting/aging-report',
+        GST_REPORT: '/accounting/gst-report',
+        NOTIFICATIONS: '/notifications',
+    },
+    NOTIFICATIONS: '/notifications',
+    SETTINGS: '/settings',
+
+    // EXTERNAL / CROSS-PLATFORM MODULE
+    EXTERNAL: {
+        RETAILER_ORDERS: '/external/retailer-orders',
+    },
 };

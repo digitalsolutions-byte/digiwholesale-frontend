@@ -5,7 +5,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { PATHS } from '../routes/paths';
 import { getFirstAllowedRoute } from '../routes/config';
 import { useSelector } from 'react-redux';
-import { selectCurrentUser } from '../store/slices/authSlice';
+import { selectCurrentUser, selectCurrentTenant, selectIsAuthenticated } from '../store/slices/authSlice';
+
 import {
     Box,
     Typography,
@@ -22,7 +23,24 @@ const Welcome = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const theme = useTheme();
+    const isAuthenticated = useSelector(selectIsAuthenticated);
     const user = useSelector(selectCurrentUser);
+    const tenant = useSelector(selectCurrentTenant);
+
+    // Show only for authenticated non-PLATFORM_OWNER employees
+    // when either the employee OR their tenant has demoMode: true
+    const isPlatformOwner = user?.EmployeeType === 'PLATFORM_OWNER';
+    const isDemoMode = isAuthenticated && !isPlatformOwner && Boolean(
+        user?.demoMode ||
+        tenant?.demoMode ||
+        tenant?.featureFlags?.demoMode
+    );
+
+    const [demoAccepted, setDemoAccepted] = useState(() => {
+        if (!isDemoMode) return true;
+        return localStorage.getItem('digioptics_demo_acknowledged') === 'true';
+    });
+
     const [message] = useState(() => {
         if (location.state?.from === 'register') return 'User Registered Successfully!';
         if (location.state?.from === 'customer-register') return 'Registration Complete!';
@@ -30,7 +48,24 @@ const Welcome = () => {
         return 'Welcome Back!';
     });
 
+    // Continuously check demo acceptance if demo mode is active
     useEffect(() => {
+        if (!isDemoMode) {
+            setDemoAccepted(true);
+            return;
+        }
+        const interval = setInterval(() => {
+            if (localStorage.getItem('digioptics_demo_acknowledged') === 'true') {
+                setDemoAccepted(true);
+            }
+        }, 300);
+        return () => clearInterval(interval);
+    }, [isDemoMode]);
+
+    // Auto-redirect ONLY after demo agreement is accepted or when demo mode is off
+    useEffect(() => {
+        if (isDemoMode && !demoAccepted) return;
+
         const timer = setTimeout(() => {
             const redirectPath = location.state?.from === 'register'
                 ? PATHS.STAFF.LIST
@@ -41,7 +76,7 @@ const Welcome = () => {
         }, 3000);
 
         return () => clearTimeout(timer);
-    }, [navigate, location, user]);
+    }, [navigate, location, user, demoAccepted, isDemoMode]);
 
     return (
         <Box
@@ -147,8 +182,7 @@ const Welcome = () => {
                                 Go to Home
                             </Button>
                         </Box>
-                    )
-                    }
+                    )}
 
                 </Paper>
             </Fade>
@@ -157,5 +191,3 @@ const Welcome = () => {
 };
 
 export default Welcome;
-
-

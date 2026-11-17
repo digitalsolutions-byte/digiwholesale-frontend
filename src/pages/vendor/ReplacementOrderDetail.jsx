@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { getReplacementOrderDetail, createPurchaseInward, createPurchaseQC } from '../../services/vendorOrderService';
@@ -25,6 +26,11 @@ const ReplacementOrderDetail = () => {
     const [vendorRefId, setVendorRefId] = useState('');
     const [inwardRemarks, setInwardRemarks] = useState('');
     const [submittingInward, setSubmittingInward] = useState(false);
+
+    // Receipt tracking fields
+    const [inwardReceivedBy, setInwardReceivedBy]     = useState('');
+    const [inwardReceivedOn, setInwardReceivedOn]     = useState('');
+    const [inwardReceivedFrom, setInwardReceivedFrom] = useState('');
 
     // QC Modal State
     const [selectedQCItem, setSelectedQCItem] = useState(null);
@@ -63,6 +69,9 @@ const ReplacementOrderDetail = () => {
         setInwardCondition('GOOD');
         setVendorRefId(item.vendorRefId || '');
         setInwardRemarks('');
+        setInwardReceivedBy('');
+        setInwardReceivedOn(new Date().toISOString().split('T')[0]);
+        setInwardReceivedFrom('');
     };
 
     const handleSubmitInward = async () => {
@@ -72,11 +81,19 @@ const ReplacementOrderDetail = () => {
             return;
         }
 
+        if (!inwardReceivedBy.trim()) {
+            toast.error('Please enter Received By (Name of receiver)');
+            return;
+        }
+
         setSubmittingInward(true);
         try {
             const payload = {
                 purchaseOrderId: detail.replacementOrder._id,
                 remarks: inwardRemarks || `Inward for replacement PO item ${selectedInwardItem.itemName}`,
+                receivedBy:   inwardReceivedBy.trim()   || null,
+                receivedOn:   inwardReceivedOn          || new Date().toISOString().split('T')[0],
+                receivedFrom: inwardReceivedFrom.trim() || null,
                 items: [{
                     itemId: selectedInwardItem.itemId || selectedInwardItem._id,
                     receivedQty: Number(receivedQty),
@@ -389,8 +406,8 @@ const ReplacementOrderDetail = () => {
             </div>
 
             {/* Inward Modal */}
-            {selectedInwardItem && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {selectedInwardItem && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center">
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSelectedInwardItem(null)} />
                     <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
                         
@@ -454,6 +471,47 @@ const ReplacementOrderDetail = () => {
                                 />
                             </div>
 
+                            {/* Receipt Details */}
+                            <div className="bg-[#eaf4fb]/40 border border-[#2980B9]/15 rounded-xl p-3 space-y-3">
+                                <p className="text-[11px] font-bold text-[#1F618D] uppercase tracking-wider flex items-center gap-1.5">
+                                    <Icon icon="lucide:clipboard-list" className="text-sm" />
+                                    Receipt Details
+                                </p>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Received By <span className="text-red-400">*</span></label>
+                                    <input
+                                        type="text"
+                                        value={inwardReceivedBy}
+                                        onChange={e => setInwardReceivedBy(e.target.value)}
+                                        placeholder="Name of person who received the goods"
+                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Received On <span className="text-red-400">*</span></label>
+                                    <input
+                                        type="date"
+                                        value={inwardReceivedOn}
+                                        max={new Date().toISOString().split('T')[0]}
+                                        onChange={e => setInwardReceivedOn(e.target.value)}
+                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Received From</label>
+                                    <input
+                                        type="text"
+                                        value={inwardReceivedFrom}
+                                        onChange={e => setInwardReceivedFrom(e.target.value)}
+                                        placeholder="Vendor rep / courier / delivery person"
+                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2980B9]/20 focus:border-[#2980B9]"
+                                    />
+                                </div>
+                            </div>
+
                             <div>
                                 <label className="block text-xs font-semibold text-gray-600 mb-1.5">Remarks</label>
                                 <textarea
@@ -481,12 +539,13 @@ const ReplacementOrderDetail = () => {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* QC Check Modal */}
-            {selectedQCItem && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {selectedQCItem && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center">
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSelectedQCItem(null)} />
                     <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
                         
@@ -541,13 +600,21 @@ const ReplacementOrderDetail = () => {
                             {failedQty > 0 && (
                                 <div>
                                     <label className="block text-xs font-semibold text-gray-[#E74C3C] mb-1.5">Failure Reason *</label>
-                                    <input
-                                        type="text"
+                                    <select
                                         value={failureReason}
                                         onChange={e => setFailureReason(e.target.value)}
-                                        placeholder="Reason for failure"
-                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#E74C3C]/20 focus:border-[#E74C3C]"
-                                    />
+                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#E74C3C]/20 focus:border-[#E74C3C] bg-white cursor-pointer"
+                                    >
+                                        <option value="">Select Problem Reason...</option>
+                                        <option value="Damaged / Broken">Damaged / Broken</option>
+                                        <option value="Scratched Lens / Surface">Scratched Lens / Surface</option>
+                                        <option value="Wrong Power / Coating">Wrong Power / Coating</option>
+                                        <option value="Manufacturing Defect">Manufacturing Defect</option>
+                                        <option value="Color / Spec Mismatch">Color / Spec Mismatch</option>
+                                        <option value="Missing Parts / Accessories">Missing Parts / Accessories</option>
+                                        <option value="Expired / Seal Broken">Expired / Seal Broken</option>
+                                        <option value="Other">Other Reason</option>
+                                    </select>
                                 </div>
                             )}
 
@@ -591,7 +658,8 @@ const ReplacementOrderDetail = () => {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
