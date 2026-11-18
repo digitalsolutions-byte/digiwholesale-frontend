@@ -1152,6 +1152,10 @@ const makeEmptyRangeRow = () => ({
     additionFrom: "", additionTo: "",
     axis: "",
     sphStep: "0.25", cylStep: "0.25", addStep: "0.25",
+    buyingPrice: "",
+    sellingPrice: "",
+    mrp: "",
+    qty: "",
     errors: {},
 });
 
@@ -1222,6 +1226,10 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
         setRangeRows(prev => prev.map(row => {
             if (row.id !== rowId) return row;
             const errors = { ...row.errors };
+
+            if (field === "buyingPrice" || field === "sellingPrice" || field === "mrp" || field === "qty") {
+                return { ...row, [field]: value };
+            }
 
             if (field === "sphStep" || field === "cylStep" || field === "addStep") {
                 const num = parseFloat(value);
@@ -1302,7 +1310,7 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
     };
 
     const handleRangeRowBlur = (rowId, field, value) => {
-        if (field === "axis") return;
+        if (field === "axis" || field === "buyingPrice" || field === "sellingPrice" || field === "mrp" || field === "qty") return;
         const row = rangeRows.find(r => r.id === rowId);
         if (!row) return;
         const stepField = field.startsWith("sph") ? "sphStep"
@@ -1437,14 +1445,19 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
             const combos = generateRowCombinations(row);
             if (!combos || combos.length === 0)
                 return toast.error(`Row ${ri + 1}: Check SPH/CYL range — values must be valid multiples of their steps.`);
+            const rowBuyingPrice = row.buyingPrice !== "" && row.buyingPrice !== undefined ? row.buyingPrice : form.buyingPrice;
+            const rowSellingPrice = row.sellingPrice !== "" && row.sellingPrice !== undefined ? row.sellingPrice : form.sellingPrice;
+            const rowMrp = row.mrp !== "" && row.mrp !== undefined ? row.mrp : form.mrp;
+            const rowQty = row.qty !== "" && row.qty !== undefined ? row.qty : form.qty;
+
             combos.forEach(c => allCombos.push({
                 ...c, rowIndex: ri,
                 axis: c.axis || row.axis || form.axis || "",
-                buyingPrice: form.buyingPrice,
-                sellingPrice: form.sellingPrice,
-                price: form.buyingPrice || form.price,
-                mrp: form.mrp,
-                qty: form.qty
+                buyingPrice: rowBuyingPrice,
+                sellingPrice: rowSellingPrice,
+                price: rowBuyingPrice || form.price,
+                mrp: rowMrp,
+                qty: rowQty
             }));
         }
         if (allCombos.length === 0) return toast.error("No combinations generated. Fill at least one range row.");
@@ -1883,11 +1896,18 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
                                                     <h3 className="text-sm font-semibold text-gray-800">
                                                         Range Configuration ({form.lensType === "SINGLE_VISION" ? "Single Vision SPH × CYL" : form.lensType === "PROGRESSIVE" ? "Progressive SPH × CYL × ADD & Axis" : "Bifocal SPH × CYL × ADD & Axis"})
                                                     </h3>
-                                                    {rowCombos !== null && rowCombos.length > 0 && (
-                                                        <p className="text-[11px] text-blue-600 font-medium">
-                                                            {rowCombos.length} combinations generated
-                                                        </p>
-                                                    )}
+                                                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                                                        {rowCombos !== null && rowCombos.length > 0 && (
+                                                            <p className="text-[11px] text-blue-600 font-medium">
+                                                                {rowCombos.length} combinations generated
+                                                            </p>
+                                                        )}
+                                                        {(row.buyingPrice || row.sellingPrice || row.mrp) && (
+                                                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md border border-emerald-200">
+                                                                ₹{row.sellingPrice || form.sellingPrice || 0} Sell / ₹{row.buyingPrice || form.buyingPrice || 0} Buy
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                             <button
@@ -1952,6 +1972,84 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
                                                             />
                                                         </div>
                                                     ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Range Pricing & Stock Override */}
+                                            <div>
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-1.5 h-5 rounded-full bg-emerald-500" />
+                                                        <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700">
+                                                            Range Pricing &amp; Stock
+                                                        </h4>
+                                                        <span className="text-[10px] text-gray-400 font-medium normal-case">
+                                                            (Optional — leave blank to use Default Pricing above)
+                                                        </span>
+                                                    </div>
+                                                    {(row.buyingPrice || row.sellingPrice || row.mrp || row.qty) && (
+                                                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                                            Custom Price for Range {ri + 1}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-emerald-50/20 border border-emerald-100 rounded-2xl p-3.5">
+                                                    <div>
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">
+                                                            Buying Price (₹)
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="any"
+                                                            placeholder={form.buyingPrice ? `Default: ₹${form.buyingPrice}` : "0"}
+                                                            value={row.buyingPrice || ""}
+                                                            onChange={e => handleRangeRowChange(row.id, "buyingPrice", e.target.value)}
+                                                            className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg outline-none transition bg-white text-gray-800 font-medium focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">
+                                                            Selling Price (₹)
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="any"
+                                                            placeholder={form.sellingPrice ? `Default: ₹${form.sellingPrice}` : "0"}
+                                                            value={row.sellingPrice || ""}
+                                                            onChange={e => handleRangeRowChange(row.id, "sellingPrice", e.target.value)}
+                                                            className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg outline-none transition bg-white text-gray-800 font-medium focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">
+                                                            MRP (₹)
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="any"
+                                                            placeholder={form.mrp ? `Default: ₹${form.mrp}` : "0"}
+                                                            value={row.mrp || ""}
+                                                            onChange={e => handleRangeRowChange(row.id, "mrp", e.target.value)}
+                                                            className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg outline-none transition bg-white text-gray-800 font-medium focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">
+                                                            Qty per product
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="1"
+                                                            placeholder={form.qty ? `Default: ${form.qty}` : "0"}
+                                                            value={row.qty || ""}
+                                                            onChange={e => handleRangeRowChange(row.id, "qty", e.target.value)}
+                                                            className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg outline-none transition bg-white text-gray-800 font-medium focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                                                        />
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
