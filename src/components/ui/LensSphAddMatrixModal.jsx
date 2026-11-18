@@ -31,7 +31,7 @@ const numPower = (v) => {
 const buildSvAxisValues = (detectedSet, { direction, startAbs, defaultMaxAbs }) => {
     const sign = direction === "pos" ? 1 : -1;
     const sideDetected = Array.from(detectedSet)
-        .filter((v) => (direction === "pos" ? (startAbs === 0 ? v >= 0 : v > 0) : v <= 0))
+        .filter((v) => (direction === "pos" ? (startAbs === 0 ? v >= 0 : v > 0) : (startAbs === 0 ? v <= 0 : v < 0)))
         .map((v) => Number(v.toFixed(2)));
     const maxDetectedAbs = sideDetected.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
     const set = new Set();
@@ -482,6 +482,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                 const rowData = new Array(totalCols).fill("");
                 const hasLeft = r < posSphs.length;
                 const hasRight = r < negSphs.length;
+                const isRightZero = hasRight && negSphs[r] === 0;
 
                 if (hasLeft) {
                     const sVal = posSphs[r];
@@ -496,11 +497,13 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                 if (hasRight) {
                     const sVal = negSphs[r];
                     rowData[rightSphCol] = sVal === 0 ? "0.00" : sVal.toFixed(2);
-                    cylList.forEach((cVal, cIdx) => {
-                        const prod = lookup.get(`${sVal.toFixed(2)}_${cVal.toFixed(2)}`);
-                        const val = getVal(prod);
-                        rowData[rightCylStartCol + cIdx] = val === "" ? "" : val;
-                    });
+                    if (!isRightZero) {
+                        cylList.forEach((cVal, cIdx) => {
+                            const prod = lookup.get(`${sVal.toFixed(2)}_${cVal.toFixed(2)}`);
+                            const val = getVal(prod);
+                            rowData[rightCylStartCol + cIdx] = val === "" ? "" : val;
+                        });
+                    }
                 }
 
                 rows.push(rowData);
@@ -511,7 +514,14 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                     }
                     if (hasRight) {
                         styleRange(ws, rowIdx, rightSphCol, rowIdx, rightSphCol, xlStyles.cyanSphCol);
-                        styleRange(ws, rowIdx, rightCylStartCol, rowIdx, rEnd, xlStyles.svDataCell);
+                        styleRange(
+                            ws,
+                            rowIdx,
+                            rightCylStartCol,
+                            rowIdx,
+                            rEnd,
+                            isRightZero ? xlStyles.blackoutCell : xlStyles.svDataCell
+                        );
                     }
                 });
             }
@@ -627,7 +637,13 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                 if (a.s !== b.s) return b.s - a.s;
             }
 
-            if (a.c !== b.c) return b.c - a.c;
+            if (a.c !== b.c) {
+                const cGroupA = a.c === 0 ? 0 : (a.c > 0 ? 1 : 2);
+                const cGroupB = b.c === 0 ? 0 : (b.c > 0 ? 1 : 2);
+                if (cGroupA !== cGroupB) return cGroupA - cGroupB;
+                if (cGroupA === 1) return a.c - b.c; // positive cylinder ascending: +0.25, +0.50, +2.00...
+                return b.c - a.c; // negative cylinder: -0.25, -0.50...
+            }
 
             const numAxA = parseInt(a.ax, 10) || 0;
             const numAxB = parseInt(b.ax, 10) || 0;
@@ -996,6 +1012,40 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
 
                                     if (isNegSph && sphVal > 0) {
                                         sphVal = -Math.abs(sphVal);
+                                    }
+
+                                    // 0.00 is Plano (SPH +). If isNegSph is true and sphVal === 0,
+                                    // only allow it if the positive table hasn't already provided this combination,
+                                    // so the negative table never overwrites the positive table's 0.00 row!
+                                    if (isNegSph && sphVal === 0) {
+                                        cylCols.forEach(({ colIdx, cylVal }) => {
+                                            const cellRaw = row[colIdx];
+                                            if (cellRaw !== "" && cellRaw !== undefined && cellRaw !== "-") {
+                                                const key = `0.00_${cylVal}`;
+                                                if (!updatesMap.has(key)) {
+                                                    const valNum = parseFloat(String(cellRaw).trim());
+                                                    if (!isNaN(valNum)) {
+                                                        const updateObj = {
+                                                            sph: "0.00",
+                                                            cyl: cylVal,
+                                                            value: valNum,
+                                                        };
+                                                        if (action === "UPDATE_QTY") updateObj.qty = valNum;
+                                                        else if (action === "UPDATE_SELLING_PRICE") updateObj.sellingPrice = valNum;
+                                                        else if (action === "UPDATE_BUYING_PRICE") updateObj.buyingPrice = valNum;
+                                                        else if (action === "UPDATE_MRP") updateObj.mrp = valNum;
+                                                        else {
+                                                            updateObj.sellingPrice = valNum;
+                                                            updateObj.buyingPrice = valNum;
+                                                            updateObj.mrp = valNum;
+                                                        }
+                                                        updatesMap.set(key, updateObj);
+                                                        totalPosCount++;
+                                                    }
+                                                }
+                                            }
+                                        });
+                                        return;
                                     }
 
                                     const sphStr = sphVal.toFixed(2);
@@ -1482,7 +1532,13 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
             if (a.s !== b.s) return b.s - a.s;
         }
 
-        if (a.c !== b.c) return b.c - a.c;
+        if (a.c !== b.c) {
+            const cGroupA = a.c === 0 ? 0 : (a.c > 0 ? 1 : 2);
+            const cGroupB = b.c === 0 ? 0 : (b.c > 0 ? 1 : 2);
+            if (cGroupA !== cGroupB) return cGroupA - cGroupB;
+            if (cGroupA === 1) return a.c - b.c; // positive cylinder ascending: +0.25, +0.50, +2.00...
+            return b.c - a.c; // negative cylinder: -0.25, -0.50...
+        }
 
         const numAxA = parseInt(a.ax, 10) || 0;
         const numAxB = parseInt(b.ax, 10) || 0;
@@ -1512,7 +1568,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
 
     // ── Single Vision 4 Quadrants Range Calculations (++, -+, +-, --) ──
     const qPosSphList = buildSvAxisValues(uiDetectedSphs, { direction: "pos", startAbs: 0.00, defaultMaxAbs: 3.00 });
-    const qNegSphList = buildSvAxisValues(uiDetectedSphs, { direction: "neg", startAbs: 0.00, defaultMaxAbs: 3.00 });
+    const qNegSphList = buildSvAxisValues(uiDetectedSphs, { direction: "neg", startAbs: 0.25, defaultMaxAbs: 3.00 });
     const qNegCylList = buildSvAxisValues(uiDetectedCyls, { direction: "neg", startAbs: 0.00, defaultMaxAbs: 2.00 });
     const qPosCylList = buildSvAxisValues(uiDetectedCyls, { direction: "pos", startAbs: 0.25, defaultMaxAbs: 2.00 });
 
@@ -1539,7 +1595,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
             isNegSphSide: true,
             sphs: qNegSphList,
             cyls: qPosCylList,
-            filter: (p) => (numPower(p.sph) ?? 0) <= 0 && (numPower(p.cyl) ?? 0) > 0,
+            filter: (p) => (numPower(p.sph) ?? 0) < 0 && (numPower(p.cyl) ?? 0) > 0,
         },
         {
             id: "SPH+_CYL-",
@@ -1563,7 +1619,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
             isNegSphSide: true,
             sphs: qNegSphList,
             cyls: qNegCylList,
-            filter: (p) => (numPower(p.sph) ?? 0) <= 0 && (numPower(p.cyl) ?? 0) <= 0,
+            filter: (p) => (numPower(p.sph) ?? 0) < 0 && (numPower(p.cyl) ?? 0) <= 0,
         },
     ];
 
