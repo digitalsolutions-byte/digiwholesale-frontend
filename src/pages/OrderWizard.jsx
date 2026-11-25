@@ -1179,8 +1179,7 @@ const OrderWizard = () => {
             const discountAmount = parseFloat(prod.discount) || 0;
             const price = parseFloat(prod.price) || 0;
             const qty = parseInt(prod.qty) || 1;
-            const unitMultiplier = prod.unit === 'pair' ? 2 : prod.unit === 'box' ? 10 : 1;
-            const totalBeforeDiscount = price * qty * unitMultiplier;
+            const totalBeforeDiscount = price * qty;
             const discountPercent = totalBeforeDiscount > 0 ? parseFloat(((discountAmount / totalBeforeDiscount) * 100).toFixed(2)) : 0;
 
             const rxVendor = getFieldData('vendors', prod.vendorId) || (configs.vendors || []).find(v => v._id === prod.vendorId || v.vendorNumber === prod.vendorId || v.name === prod.vendorId);
@@ -3250,8 +3249,7 @@ const OrderWizard = () => {
                                             );
                                         };
 
-                                        const unitMultiplier = product.unit === 'pair' ? 2 : product.unit === 'box' ? 10 : 1;
-                                        const taxableAmount = (Number(product.price || 0) * Number(product.qty || 0) * unitMultiplier) - Number(product.discount || 0);
+                                        const taxableAmount = (Number(product.price || 0) * Number(product.qty || 0)) - Number(product.discount || 0);
                                         const gstPercent = Number(product.gstDetails?.gstPercent || 0);
                                         const gstAmt = taxableAmount > 0 ? taxableAmount * (gstPercent / 100) : 0;
                                         const totalAmount = taxableAmount > 0 ? taxableAmount + gstAmt : 0;
@@ -3881,8 +3879,7 @@ const OrderWizard = () => {
                             const catUpper = categoryName.toUpperCase();
                             const isLensItem = !catUpper || catUpper.includes('LENS') || catUpper.includes('GLASS') || catUpper.includes('RX') || product.orderType === 'rx';
 
-                            const unitMultiplier = product.unit === 'pair' ? 2 : product.unit === 'box' ? 10 : 1;
-                            const taxableAmount = (Number(product.price || 0) * Number(product.qty || 0) * unitMultiplier) - Number(product.discount || 0);
+                            const taxableAmount = (Number(product.price || 0) * Number(product.qty || 0)) - Number(product.discount || 0);
                             const gstPercent = Number(product.gstDetails?.gstPercent || 0);
                             const gstAmt = taxableAmount > 0 ? taxableAmount * (gstPercent / 100) : 0;
                             const totalAmount = taxableAmount > 0 ? taxableAmount + gstAmt : 0;
@@ -4483,23 +4480,27 @@ const OrderWizard = () => {
                                         <span className="text-sm text-gray-500">Subtotal</span>
                                         <span className="text-sm font-bold text-gray-800">
                                             ₹{formik.values.products.reduce((acc, curr) => {
-                                                const multiplier = curr.unit === 'pair' ? 2 : curr.unit === 'box' ? 10 : 1;
-                                                return acc + ((parseFloat(curr.price) || 0) * (parseFloat(curr.qty) || 1) * multiplier);
+                                                return acc + ((parseFloat(curr.price) || 0) * (parseFloat(curr.qty) || 1));
                                             }, 0).toFixed(2)}
                                         </span>
                                     </div>
 
-                                    <div className="border-t border-gray-100" />
-
-                                    {/* Gross Total */}
-                                    <div className="flex justify-between items-center py-2">
-                                        <span className="text-sm text-gray-500">Gross Total</span>
-                                        <span className="text-sm font-bold text-gray-800">
-                                            ₹{formik.values.products.reduce((acc, curr) =>
-                                                acc + (parseFloat(curr.price) || 0) * (parseFloat(curr.qty) || 1), 0
-                                            ).toFixed(2)}
-                                        </span>
-                                    </div>
+                                    {/* Total Discount (if applicable) */}
+                                    {(() => {
+                                        const totalDiscount = formik.values.products.reduce((acc, curr) => acc + (parseFloat(curr.discount) || 0), 0);
+                                        if (totalDiscount > 0) {
+                                            return (
+                                                <>
+                                                    <div className="border-t border-gray-100" />
+                                                    <div className="flex justify-between items-center py-2">
+                                                        <span className="text-sm text-gray-500">Total Discount</span>
+                                                        <span className="text-sm font-bold text-rose-600">-₹{totalDiscount.toFixed(2)}</span>
+                                                    </div>
+                                                </>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
 
                                     <div className="border-t border-gray-100" />
 
@@ -4510,11 +4511,10 @@ const OrderWizard = () => {
                                         formik.values.products.forEach(prod => {
                                             const price = parseFloat(prod.price) || 0;
                                             const qty = parseFloat(prod.qty) || 1;
-                                            const mult = prod.unit === 'pair' ? 2 : prod.unit === 'box' ? 10 : 1;
                                             const discount = parseFloat(prod.discount) || 0;
                                             const gstPct = parseFloat(prod.gstDetails?.gstPercent) || 0;
 
-                                            const taxableAmount = (price * qty * mult) - discount;
+                                            const taxableAmount = (price * qty) - discount;
                                             const gstAmt = taxableAmount > 0 ? taxableAmount * (gstPct / 100) : 0;
 
                                             overallGST += gstAmt;
