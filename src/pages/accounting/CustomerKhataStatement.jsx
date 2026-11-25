@@ -1773,7 +1773,7 @@ const CustomerKhataStatement = () => {
   };
 
   return (
-    <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 1320, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 2, sm: 3 }, width: '100%' }}>
       {/* Top Header Bar */}
       <Box
         sx={{

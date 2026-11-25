@@ -13,6 +13,7 @@ import SearchableSelect from '../components/ui/SearchableSelect';
 import CustomToggle from '../components/ui/CustomToggle';
 import ConfirmationModal from '../components/ui/ConfirmationModal';
 import OrderLensRangeModal from '../components/ui/OrderLensRangeModal';
+import OrderMatrixQuickOrderModal from '../components/ui/OrderMatrixQuickOrderModal';
 
 import { getAllCustomers, getCustomerById } from '../services/customerService';
 import {
@@ -260,6 +261,27 @@ const OrderWizard = () => {
     const user = useSelector((state) => state.auth.user);
     const [activeStep, setActiveStep] = useState(0);
     const [isLensRangeModalOpen, setIsLensRangeModalOpen] = useState(false);
+    const [isMatrixOrderModalOpen, setIsMatrixOrderModalOpen] = useState(false);
+    const [matrixOrderTargetRow, setMatrixOrderTargetRow] = useState(null);
+    const [matrixOrderInitialProduct, setMatrixOrderInitialProduct] = useState(null);
+
+    const checkIsLens = (product) => {
+        if (!product) return false;
+        const catName = (product.category || configs.category?.find(c => c._id === product.categoryId)?.name || '').toUpperCase();
+        const prodName = (product.productName || product.itemName || '').toUpperCase();
+        return catName.includes('LENS') || catName.includes('GLASS') || catName.includes('CONTACT') ||
+            !!product.sph || !!product.cyl || (product.productName && !checkIsFrame(product));
+    };
+
+    const handleOpenMatrixForRow = (index, product) => {
+        setMatrixOrderTargetRow(index);
+        setMatrixOrderInitialProduct({
+            productName: product.productName || product.itemName || '',
+            category: product.category,
+            brand: product.brand,
+        });
+        setIsMatrixOrderModalOpen(true);
+    };
     const [deleteModalState, setDeleteModalState] = useState({ isOpen: false, indexToRemove: null });
     const [customers, setCustomers] = useState([]);
     const [configs, setConfigs] = useState({});
@@ -1002,6 +1024,69 @@ const OrderWizard = () => {
         }
     }, [id]);
 
+    const handleAddProductsFromMatrix = (newProducts, targetRowIndex = null) => {
+        if (!newProducts || newProducts.length === 0) return;
+
+        const currentProducts = [...(formik.values.products || [])];
+        const sanitizedNewProducts = newProducts.map(p => ({
+            color: p.color?.trim() || 'BLACK',
+            ...p,
+            powerTable: p.powerTable || {
+                R: { sph: p.sph || '', cyl: p.cyl || '', axis: p.axis || '', add: p.addition || '', dia: '70' },
+                L: { sph: p.sph || '', cyl: p.cyl || '', axis: p.axis || '', add: p.addition || '', dia: '70' }
+            },
+            prismTable: p.prismTable || {
+                R: { prism: '', base: '' },
+                L: { prism: '', base: '' }
+            },
+            centrationData: p.centrationData || {
+                R: { pd: '', corridor: '', fittingHeight: '' },
+                L: { pd: '', corridor: '', fittingHeight: '' }
+            }
+        }));
+
+        if (targetRowIndex !== null && targetRowIndex !== undefined && targetRowIndex >= 0 && targetRowIndex < currentProducts.length) {
+            currentProducts.splice(targetRowIndex, 1, ...sanitizedNewProducts);
+        } else {
+            const substantial = currentProducts.filter(p => {
+                return !!(p.productName || p.brandId || p.categoryId || p.brand || p.productId);
+            });
+            currentProducts.length = 0;
+            currentProducts.push(...substantial, ...sanitizedNewProducts);
+        }
+
+        formik.setFieldValue('products', currentProducts);
+        setActiveProductIndex(Math.max(0, (targetRowIndex ?? currentProducts.length - 1)));
+
+        sanitizedNewProducts.forEach(prod => {
+            setProductNames(prev => {
+                if (prev.some(p => p.value === prod.productId)) return prev;
+                return [...prev, {
+                    value: prod.productId,
+                    label: prod.productName,
+                    raw: {
+                        _id: prod.productId,
+                        productName: prod.productName,
+                        category: prod.category,
+                        brand: prod.brand,
+                        price: prod.price,
+                        sellingPrice: prod.sellingPrice,
+                        buyingPrice: prod.buyingPrice,
+                        mrp: prod.MRP || prod.mrp,
+                        gst: parseFloat(prod.gstDetails?.gstPercent) || 12,
+                        hsnSac: prod.HSNSAC || prod.hsnSac || '9001',
+                        brandId: prod.brandId,
+                        categoryId: prod.categoryId,
+                        sph: prod.powerTable?.R?.sph,
+                        cyl: prod.powerTable?.R?.cyl,
+                        addition: prod.powerTable?.R?.add,
+                        axis: prod.powerTable?.R?.axis,
+                    }
+                }];
+            });
+        });
+    };
+
     const handleAddBulkProducts = (newProducts) => {
         const currentProducts = formik.values.products || [];
         const substantial = currentProducts.filter(p => {
@@ -1094,8 +1179,7 @@ const OrderWizard = () => {
             const discountAmount = parseFloat(prod.discount) || 0;
             const price = parseFloat(prod.price) || 0;
             const qty = parseInt(prod.qty) || 1;
-            const unitMultiplier = prod.unit === 'pair' ? 2 : prod.unit === 'box' ? 10 : 1;
-            const totalBeforeDiscount = price * qty * unitMultiplier;
+            const totalBeforeDiscount = price * qty;
             const discountPercent = totalBeforeDiscount > 0 ? parseFloat(((discountAmount / totalBeforeDiscount) * 100).toFixed(2)) : 0;
 
             const rxVendor = getFieldData('vendors', prod.vendorId) || (configs.vendors || []).find(v => v._id === prod.vendorId || v.vendorNumber === prod.vendorId || v.name === prod.vendorId);
@@ -3165,8 +3249,7 @@ const OrderWizard = () => {
                                             );
                                         };
 
-                                        const unitMultiplier = product.unit === 'pair' ? 2 : product.unit === 'box' ? 10 : 1;
-                                        const taxableAmount = (Number(product.price || 0) * Number(product.qty || 0) * unitMultiplier) - Number(product.discount || 0);
+                                        const taxableAmount = (Number(product.price || 0) * Number(product.qty || 0)) - Number(product.discount || 0);
                                         const gstPercent = Number(product.gstDetails?.gstPercent || 0);
                                         const gstAmt = taxableAmount > 0 ? taxableAmount * (gstPercent / 100) : 0;
                                         const totalAmount = taxableAmount > 0 ? taxableAmount + gstAmt : 0;
@@ -3244,6 +3327,20 @@ const OrderWizard = () => {
                                                                 </div>
                                                             );
                                                         })()}
+
+                                                        {checkIsLens(product) && (product.productName || product.itemName) && (
+                                                            <div className="mt-1.5 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleOpenMatrixForRow(index, product)}
+                                                                    className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-[11px] font-bold shadow-xs transition-all active:scale-95"
+                                                                    title="Open lens combinations matrix to enter quantities with live stock and range pricing"
+                                                                >
+                                                                    <Icon icon="mdi:grid" className="text-sm" />
+                                                                    <span>Lens Combination Selection</span>
+                                                                </button>
+                                                            </div>
+                                                        )}
                                                     </td>
 
 ﻿                                                    {/* Specs Group (Category, Availability, Vendor, Order Type) */}
@@ -3782,8 +3879,7 @@ const OrderWizard = () => {
                             const catUpper = categoryName.toUpperCase();
                             const isLensItem = !catUpper || catUpper.includes('LENS') || catUpper.includes('GLASS') || catUpper.includes('RX') || product.orderType === 'rx';
 
-                            const unitMultiplier = product.unit === 'pair' ? 2 : product.unit === 'box' ? 10 : 1;
-                            const taxableAmount = (Number(product.price || 0) * Number(product.qty || 0) * unitMultiplier) - Number(product.discount || 0);
+                            const taxableAmount = (Number(product.price || 0) * Number(product.qty || 0)) - Number(product.discount || 0);
                             const gstPercent = Number(product.gstDetails?.gstPercent || 0);
                             const gstAmt = taxableAmount > 0 ? taxableAmount * (gstPercent / 100) : 0;
                             const totalAmount = taxableAmount > 0 ? taxableAmount + gstAmt : 0;
@@ -4297,6 +4393,19 @@ const OrderWizard = () => {
 
                             <button
                                 type="button"
+                                onClick={() => {
+                                    setMatrixOrderTargetRow(null);
+                                    setMatrixOrderInitialProduct(null);
+                                    setIsMatrixOrderModalOpen(true);
+                                }}
+                                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:opacity-95 transition-all text-xs font-bold shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1.5 active:scale-95"
+                            >
+                                <Icon icon="mdi:grid" className="text-base" />
+                                <span>Matrix Quick Order</span>
+                            </button>
+
+                            <button
+                                type="button"
                                 onClick={() => setIsLensRangeModalOpen(true)}
                                 className="w-full sm:w-auto px-4 py-2 rounded-xl bg-gradient-to-r from-[#2980B9] to-blue-600 text-white hover:opacity-95 transition-all text-xs font-bold shadow-md shadow-blue-500/20 flex items-center justify-center gap-1.5 active:scale-95"
                             >
@@ -4371,23 +4480,27 @@ const OrderWizard = () => {
                                         <span className="text-sm text-gray-500">Subtotal</span>
                                         <span className="text-sm font-bold text-gray-800">
                                             ₹{formik.values.products.reduce((acc, curr) => {
-                                                const multiplier = curr.unit === 'pair' ? 2 : curr.unit === 'box' ? 10 : 1;
-                                                return acc + ((parseFloat(curr.price) || 0) * (parseFloat(curr.qty) || 1) * multiplier);
+                                                return acc + ((parseFloat(curr.price) || 0) * (parseFloat(curr.qty) || 1));
                                             }, 0).toFixed(2)}
                                         </span>
                                     </div>
 
-                                    <div className="border-t border-gray-100" />
-
-                                    {/* Gross Total */}
-                                    <div className="flex justify-between items-center py-2">
-                                        <span className="text-sm text-gray-500">Gross Total</span>
-                                        <span className="text-sm font-bold text-gray-800">
-                                            ₹{formik.values.products.reduce((acc, curr) =>
-                                                acc + (parseFloat(curr.price) || 0) * (parseFloat(curr.qty) || 1), 0
-                                            ).toFixed(2)}
-                                        </span>
-                                    </div>
+                                    {/* Total Discount (if applicable) */}
+                                    {(() => {
+                                        const totalDiscount = formik.values.products.reduce((acc, curr) => acc + (parseFloat(curr.discount) || 0), 0);
+                                        if (totalDiscount > 0) {
+                                            return (
+                                                <>
+                                                    <div className="border-t border-gray-100" />
+                                                    <div className="flex justify-between items-center py-2">
+                                                        <span className="text-sm text-gray-500">Total Discount</span>
+                                                        <span className="text-sm font-bold text-rose-600">-₹{totalDiscount.toFixed(2)}</span>
+                                                    </div>
+                                                </>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
 
                                     <div className="border-t border-gray-100" />
 
@@ -4398,11 +4511,10 @@ const OrderWizard = () => {
                                         formik.values.products.forEach(prod => {
                                             const price = parseFloat(prod.price) || 0;
                                             const qty = parseFloat(prod.qty) || 1;
-                                            const mult = prod.unit === 'pair' ? 2 : prod.unit === 'box' ? 10 : 1;
                                             const discount = parseFloat(prod.discount) || 0;
                                             const gstPct = parseFloat(prod.gstDetails?.gstPercent) || 0;
 
-                                            const taxableAmount = (price * qty * mult) - discount;
+                                            const taxableAmount = (price * qty) - discount;
                                             const gstAmt = taxableAmount > 0 ? taxableAmount * (gstPct / 100) : 0;
 
                                             overallGST += gstAmt;
@@ -4695,6 +4807,18 @@ const OrderWizard = () => {
                 title="Remove Product"
                 message="Are you sure you want to remove this product?"
                 confirmText="Remove"
+            />
+
+            <OrderMatrixQuickOrderModal
+                isOpen={isMatrixOrderModalOpen}
+                onClose={() => {
+                    setIsMatrixOrderModalOpen(false);
+                    setMatrixOrderTargetRow(null);
+                    setMatrixOrderInitialProduct(null);
+                }}
+                onAddProducts={handleAddProductsFromMatrix}
+                initialProduct={matrixOrderInitialProduct}
+                targetRowIndex={matrixOrderTargetRow}
             />
 
             <OrderLensRangeModal

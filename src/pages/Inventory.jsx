@@ -445,7 +445,7 @@ export default function Inventory() {
         }
 
         copy[rowIndex].colors = colorsCopy;
-        
+
         const totalQty = colorsCopy.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
         if (totalQty > 0 || colorsCopy.some(item => item.qty !== "")) {
             copy[rowIndex].qty = totalQty;
@@ -610,13 +610,13 @@ export default function Inventory() {
                             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white border border-blue-300 hover:bg-blue-50 text-blue-600 text-xs font-semibold rounded-xl transition shadow-sm">
                             <FiPlus size={13} /> Lens Range
                         </button>
-                        <button onClick={() => setShowLensMatrixModal(true)}
+                        {/* <button onClick={() => setShowLensMatrixModal(true)}
                             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-xl transition shadow-sm">
                             <FiGrid size={13} /> Lens Matrix & History
-                        </button>
+                        </button> */}
                         <button onClick={() => setShowLensSphAddModal(true)}
                             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white border border-indigo-300 hover:bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-xl transition shadow-sm">
-                            <FiGrid size={13} /> Lens SPH × ADD Matrix
+                            <FiGrid size={13} /> Lens Matrix & History
                         </button>
                     </div>
 
@@ -813,79 +813,77 @@ export default function Inventory() {
                                                             </span>
                                                             <div
                                                                 onClick={() => handleChange(i, 'allocateBatch', !row.allocateBatch)}
-                                                                className={`relative w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer ${
-                                                                    row.allocateBatch ? 'bg-[#2980b9]' : 'bg-gray-300'
-                                                                }`}
+                                                                className={`relative w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer ${row.allocateBatch ? 'bg-[#2980b9]' : 'bg-gray-300'
+                                                                    }`}
                                                             >
-                                                                <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${
-                                                                    row.allocateBatch ? 'translate-x-4' : 'translate-x-0'
-                                                                }`} />
+                                                                <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${row.allocateBatch ? 'translate-x-4' : 'translate-x-0'
+                                                                    }`} />
                                                             </div>
                                                         </label>
                                                     </div>
                                                     {row.allocateBatch && (
-                                                       <>
-                                                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                                            <FieldInput label="Batch Number">
-                                                                <input
-                                                                    type="text"
-                                                                    value={row.batchNumber}
-                                                                    className={inputCls}
-                                                                    placeholder="Auto-generated if blank"
-                                                                    onChange={e => handleChange(i, 'batchNumber', e.target.value)}
-                                                                />
-                                                            </FieldInput>
-                                                            <FieldInput label={`Batch Qty (Max: ${row.qty || 0})`}>
-                                                                <input
-                                                                    type="number"
-                                                                    min="1"
-                                                                    max={row.qty || undefined}
-                                                                    value={row.batchQty}
-                                                                    className={inputCls}
-                                                                    placeholder={`Default: full qty (${row.qty || 0})`}
-                                                                    onChange={e => handleChange(i, 'batchQty', e.target.value)}
-                                                                />
-                                                            </FieldInput>
-                                                            <FieldInput label="Batch Remarks">
-                                                                <input
-                                                                    type="text"
-                                                                    value={row.batchRemarks}
-                                                                    className={inputCls}
-                                                                    placeholder="e.g. Initial stock"
-                                                                    onChange={e => handleChange(i, 'batchRemarks', e.target.value)}
-                                                                />
-                                                            </FieldInput>
-                                                        </div>
-                                                    {/* Invoice / Challan Upload */}
-                                                    <div className="mt-3">
-                                                            <label className="text-[10px] font-bold text-gray-600 uppercase tracking-wide block mb-1.5 flex items-center gap-1.5">
-                                                                <FiFileText size={11} className="text-[#2980b9]" /> Invoice / Challan (optional, max 5)
-                                                            </label>
-                                                            <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#eaf4fb] hover:bg-[#d5eaf6] border border-[#2980b9]/30 text-[#1F618D] text-[11px] font-semibold rounded-lg cursor-pointer transition">
-                                                                <FiUpload size={11} />
-                                                                Attach Files
-                                                                <input type="file" multiple accept="application/pdf,image/*" className="hidden"
-                                                                    onChange={e => {
-                                                                        const newFiles = Array.from(e.target.files || []);
-                                                                        handleChange(i, 'invoices', [...(row.invoices || []), ...newFiles].slice(0, 5));
-                                                                        e.target.value = '';
-                                                                    }}
-                                                                />
-                                                            </label>
-                                                            {(row.invoices || []).length > 0 && (
-                                                                <div className="flex flex-wrap gap-1.5 mt-2">
-                                                                    {row.invoices.map((f, fi) => (
-                                                                        <span key={fi} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-medium rounded-full">
-                                                                            <FiFileText size={9} />
-                                                                            {f.name.length > 18 ? f.name.slice(0, 15) + '…' : f.name}
-                                                                            <button type="button" onClick={() => handleChange(i, 'invoices', row.invoices.filter((_, idx) => idx !== fi))} className="text-blue-400 hover:text-red-500 ml-0.5">×</button>
-                                                                        </span>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                                        <>
+                                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                                <FieldInput label="Batch Number">
+                                                                    <input
+                                                                        type="text"
+                                                                        value={row.batchNumber}
+                                                                        className={inputCls}
+                                                                        placeholder="Auto-generated if blank"
+                                                                        onChange={e => handleChange(i, 'batchNumber', e.target.value)}
+                                                                    />
+                                                                </FieldInput>
+                                                                <FieldInput label={`Batch Qty (Max: ${row.qty || 0})`}>
+                                                                    <input
+                                                                        type="number"
+                                                                        min="1"
+                                                                        max={row.qty || undefined}
+                                                                        value={row.batchQty}
+                                                                        className={inputCls}
+                                                                        placeholder={`Default: full qty (${row.qty || 0})`}
+                                                                        onChange={e => handleChange(i, 'batchQty', e.target.value)}
+                                                                    />
+                                                                </FieldInput>
+                                                                <FieldInput label="Batch Remarks">
+                                                                    <input
+                                                                        type="text"
+                                                                        value={row.batchRemarks}
+                                                                        className={inputCls}
+                                                                        placeholder="e.g. Initial stock"
+                                                                        onChange={e => handleChange(i, 'batchRemarks', e.target.value)}
+                                                                    />
+                                                                </FieldInput>
+                                                            </div>
+                                                            {/* Invoice / Challan Upload */}
+                                                            <div className="mt-3">
+                                                                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-wide block mb-1.5 flex items-center gap-1.5">
+                                                                    <FiFileText size={11} className="text-[#2980b9]" /> Invoice / Challan (optional, max 5)
+                                                                </label>
+                                                                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#eaf4fb] hover:bg-[#d5eaf6] border border-[#2980b9]/30 text-[#1F618D] text-[11px] font-semibold rounded-lg cursor-pointer transition">
+                                                                    <FiUpload size={11} />
+                                                                    Attach Files
+                                                                    <input type="file" multiple accept="application/pdf,image/*" className="hidden"
+                                                                        onChange={e => {
+                                                                            const newFiles = Array.from(e.target.files || []);
+                                                                            handleChange(i, 'invoices', [...(row.invoices || []), ...newFiles].slice(0, 5));
+                                                                            e.target.value = '';
+                                                                        }}
+                                                                    />
+                                                                </label>
+                                                                {(row.invoices || []).length > 0 && (
+                                                                    <div className="flex flex-wrap gap-1.5 mt-2">
+                                                                        {row.invoices.map((f, fi) => (
+                                                                            <span key={fi} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-medium rounded-full">
+                                                                                <FiFileText size={9} />
+                                                                                {f.name.length > 18 ? f.name.slice(0, 15) + '…' : f.name}
+                                                                                <button type="button" onClick={() => handleChange(i, 'invoices', row.invoices.filter((_, idx) => idx !== fi))} className="text-blue-400 hover:text-red-500 ml-0.5">×</button>
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         </>
-                                                        )}
+                                                    )}
 
                                                     {!row.allocateBatch && (
                                                         <p className="text-[11px] text-gray-400 mt-1">
@@ -1154,6 +1152,10 @@ const makeEmptyRangeRow = () => ({
     additionFrom: "", additionTo: "",
     axis: "",
     sphStep: "0.25", cylStep: "0.25", addStep: "0.25",
+    buyingPrice: "",
+    sellingPrice: "",
+    mrp: "",
+    qty: "",
     errors: {},
 });
 
@@ -1224,6 +1226,10 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
         setRangeRows(prev => prev.map(row => {
             if (row.id !== rowId) return row;
             const errors = { ...row.errors };
+
+            if (field === "buyingPrice" || field === "sellingPrice" || field === "mrp" || field === "qty") {
+                return { ...row, [field]: value };
+            }
 
             if (field === "sphStep" || field === "cylStep" || field === "addStep") {
                 const num = parseFloat(value);
@@ -1304,7 +1310,7 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
     };
 
     const handleRangeRowBlur = (rowId, field, value) => {
-        if (field === "axis") return;
+        if (field === "axis" || field === "buyingPrice" || field === "sellingPrice" || field === "mrp" || field === "qty") return;
         const row = rangeRows.find(r => r.id === rowId);
         if (!row) return;
         const stepField = field.startsWith("sph") ? "sphStep"
@@ -1439,14 +1445,19 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
             const combos = generateRowCombinations(row);
             if (!combos || combos.length === 0)
                 return toast.error(`Row ${ri + 1}: Check SPH/CYL range — values must be valid multiples of their steps.`);
+            const rowBuyingPrice = row.buyingPrice !== "" && row.buyingPrice !== undefined ? row.buyingPrice : form.buyingPrice;
+            const rowSellingPrice = row.sellingPrice !== "" && row.sellingPrice !== undefined ? row.sellingPrice : form.sellingPrice;
+            const rowMrp = row.mrp !== "" && row.mrp !== undefined ? row.mrp : form.mrp;
+            const rowQty = row.qty !== "" && row.qty !== undefined ? row.qty : form.qty;
+
             combos.forEach(c => allCombos.push({
                 ...c, rowIndex: ri,
                 axis: c.axis || row.axis || form.axis || "",
-                buyingPrice: form.buyingPrice,
-                sellingPrice: form.sellingPrice,
-                price: form.buyingPrice || form.price,
-                mrp: form.mrp,
-                qty: form.qty
+                buyingPrice: rowBuyingPrice,
+                sellingPrice: rowSellingPrice,
+                price: rowBuyingPrice || form.price,
+                mrp: rowMrp,
+                qty: rowQty
             }));
         }
         if (allCombos.length === 0) return toast.error("No combinations generated. Fill at least one range row.");
@@ -1781,11 +1792,10 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
                                                 setForm(prev => ({ ...prev, lensType: type.id }));
                                                 setShowPreview(false);
                                             }}
-                                            className={`p-3.5 rounded-2xl border text-left transition relative flex flex-col justify-between ${
-                                                active
+                                            className={`p-3.5 rounded-2xl border text-left transition relative flex flex-col justify-between ${active
                                                     ? "bg-white border-[#2980b9] ring-2 ring-[#2980b9]/15 shadow-sm"
                                                     : "bg-white/70 border-gray-200 hover:border-gray-300 hover:bg-white"
-                                            }`}
+                                                }`}
                                         >
                                             <div className="flex items-center justify-between">
                                                 <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
@@ -1886,11 +1896,18 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
                                                     <h3 className="text-sm font-semibold text-gray-800">
                                                         Range Configuration ({form.lensType === "SINGLE_VISION" ? "Single Vision SPH × CYL" : form.lensType === "PROGRESSIVE" ? "Progressive SPH × CYL × ADD & Axis" : "Bifocal SPH × CYL × ADD & Axis"})
                                                     </h3>
-                                                    {rowCombos !== null && rowCombos.length > 0 && (
-                                                        <p className="text-[11px] text-blue-600 font-medium">
-                                                            {rowCombos.length} combinations generated
-                                                        </p>
-                                                    )}
+                                                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                                                        {rowCombos !== null && rowCombos.length > 0 && (
+                                                            <p className="text-[11px] text-blue-600 font-medium">
+                                                                {rowCombos.length} combinations generated
+                                                            </p>
+                                                        )}
+                                                        {(row.buyingPrice || row.sellingPrice || row.mrp) && (
+                                                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md border border-emerald-200">
+                                                                ₹{row.sellingPrice || form.sellingPrice || 0} Sell / ₹{row.buyingPrice || form.buyingPrice || 0} Buy
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                             <button
@@ -1955,6 +1972,84 @@ export function LensRangeModal({ settings, vendors, onClose, onSuccess }) {
                                                             />
                                                         </div>
                                                     ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Range Pricing & Stock Override */}
+                                            <div>
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-1.5 h-5 rounded-full bg-emerald-500" />
+                                                        <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700">
+                                                            Range Pricing &amp; Stock
+                                                        </h4>
+                                                        <span className="text-[10px] text-gray-400 font-medium normal-case">
+                                                            (Optional — leave blank to use Default Pricing above)
+                                                        </span>
+                                                    </div>
+                                                    {(row.buyingPrice || row.sellingPrice || row.mrp || row.qty) && (
+                                                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                                            Custom Price for Range {ri + 1}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-emerald-50/20 border border-emerald-100 rounded-2xl p-3.5">
+                                                    <div>
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">
+                                                            Buying Price (₹)
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="any"
+                                                            placeholder={form.buyingPrice ? `Default: ₹${form.buyingPrice}` : "0"}
+                                                            value={row.buyingPrice || ""}
+                                                            onChange={e => handleRangeRowChange(row.id, "buyingPrice", e.target.value)}
+                                                            className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg outline-none transition bg-white text-gray-800 font-medium focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">
+                                                            Selling Price (₹)
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="any"
+                                                            placeholder={form.sellingPrice ? `Default: ₹${form.sellingPrice}` : "0"}
+                                                            value={row.sellingPrice || ""}
+                                                            onChange={e => handleRangeRowChange(row.id, "sellingPrice", e.target.value)}
+                                                            className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg outline-none transition bg-white text-gray-800 font-medium focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">
+                                                            MRP (₹)
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="any"
+                                                            placeholder={form.mrp ? `Default: ₹${form.mrp}` : "0"}
+                                                            value={row.mrp || ""}
+                                                            onChange={e => handleRangeRowChange(row.id, "mrp", e.target.value)}
+                                                            className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg outline-none transition bg-white text-gray-800 font-medium focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">
+                                                            Qty per product
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="1"
+                                                            placeholder={form.qty ? `Default: ${form.qty}` : "0"}
+                                                            value={row.qty || ""}
+                                                            onChange={e => handleRangeRowChange(row.id, "qty", e.target.value)}
+                                                            className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg outline-none transition bg-white text-gray-800 font-medium focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                                                        />
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -2329,14 +2424,14 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                 remarks: batchFormData.remarks
             });
             toast.success(res?.message || "Batch allocated successfully!");
-            setBatchFormData({ 
-                batchNumber: '', 
-                qty: 0, 
-                costPrice: bPrice, 
-                buyingPrice: bPrice, 
-                sellingPrice: sPrice, 
-                mrp: mPrice, 
-                remarks: '' 
+            setBatchFormData({
+                batchNumber: '',
+                qty: 0,
+                costPrice: bPrice,
+                buyingPrice: bPrice,
+                sellingPrice: sPrice,
+                mrp: mPrice,
+                remarks: ''
             });
             fetchBatchesForSelectedProduct(batchProduct._id);
         } catch (err) {
@@ -2564,9 +2659,9 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                 (bulkProducts?.[i]?.category) ||
                 "";
             if (isContactLens(productCategory)) {
-                if (!row.coating?.trim())       return `Coating is required for Contact Lens (Row ${i + 1})`;
+                if (!row.coating?.trim()) return `Coating is required for Contact Lens (Row ${i + 1})`;
                 if (!row.disposability?.trim()) return `Disposability is required for Contact Lens (Row ${i + 1})`;
-                if (!row.expiry)                return `Expiry Date is required for Contact Lens (Row ${i + 1})`;
+                if (!row.expiry) return `Expiry Date is required for Contact Lens (Row ${i + 1})`;
             }
         }
         return null;
@@ -3096,11 +3191,10 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                     <button
                         type="button"
                         onClick={() => setExpandedGroups({ powers: false, specs: false })}
-                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                            !expandedGroups.powers && !expandedGroups.specs
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${!expandedGroups.powers && !expandedGroups.specs
                                 ? 'bg-erp-accent text-white shadow-sm ring-2 ring-erp-accent/30'
                                 : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
-                        }`}
+                            }`}
                     >
                         <Icon icon="mdi:view-compact-outline" className="text-sm" />
                         Compact Mode (Zero Scroll)
@@ -3108,11 +3202,10 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                     <button
                         type="button"
                         onClick={() => setExpandedGroups({ powers: true, specs: true })}
-                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                            expandedGroups.powers && expandedGroups.specs
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${expandedGroups.powers && expandedGroups.specs
                                 ? 'bg-erp-accent text-white shadow-sm ring-2 ring-erp-accent/30'
                                 : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
-                        }`}
+                            }`}
                     >
                         <Icon icon="mdi:table-eye" className="text-sm" />
                         Full Table (All Columns)
@@ -3124,11 +3217,10 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                     <button
                         type="button"
                         onClick={() => toggleGroup('powers')}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all flex items-center gap-1 cursor-pointer ${
-                            expandedGroups.powers
+                        className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all flex items-center gap-1 cursor-pointer ${expandedGroups.powers
                                 ? 'bg-blue-100 text-erp-accent border-erp-accent/40 font-semibold'
                                 : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
-                        }`}
+                            }`}
                         title="Expand / Collapse SPH, CYL, Axis, Add columns"
                     >
                         Powers {expandedGroups.powers ? '▴ (Expanded)' : '▸ (Collapsed)'}
@@ -3136,11 +3228,10 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                     <button
                         type="button"
                         onClick={() => toggleGroup('specs')}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all flex items-center gap-1 cursor-pointer ${
-                            expandedGroups.specs
+                        className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all flex items-center gap-1 cursor-pointer ${expandedGroups.specs
                                 ? 'bg-blue-100 text-erp-accent border-erp-accent/40 font-semibold'
                                 : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
-                        }`}
+                            }`}
                         title="Expand / Collapse Dimensions, Material, Coating, Expiry"
                     >
                         Specs {expandedGroups.specs ? '▴ (Expanded)' : '▸ (Collapsed)'}
@@ -3217,8 +3308,8 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                         {table.getRowModel().rows.map((row, rIdx) => {
                             const isChecked = !!selectedRows[row.original._id];
                             const isEven = rIdx % 2 === 0;
-                            const rowBgClass = isChecked 
-                                ? "bg-blue-50/90 hover:bg-blue-100/90 shadow-[inset_3px_0_0_0_#2980b9]" 
+                            const rowBgClass = isChecked
+                                ? "bg-blue-50/90 hover:bg-blue-100/90 shadow-[inset_3px_0_0_0_#2980b9]"
                                 : (isEven ? "bg-white hover:bg-blue-50/40" : "bg-gray-50/30 hover:bg-blue-50/40");
 
                             return (
@@ -3336,11 +3427,10 @@ function InventoryTable({ fromDate, setFromDate, toDate, setToDate, keyword, set
                                     <button
                                         key={p}
                                         onClick={() => handlePageChange(p)}
-                                        className={`w-8 h-8 text-xs rounded-lg font-semibold transition ${
-                                            p === page
+                                        className={`w-8 h-8 text-xs rounded-lg font-semibold transition ${p === page
                                                 ? "bg-[#2980b9] text-white shadow-sm"
                                                 : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
-                                        }`}
+                                            }`}
                                     >
                                         {p}
                                     </button>
@@ -3468,7 +3558,7 @@ function EditProductModal({ product, settings, onClose, onSuccess }) {
     useEffect(() => {
         api.get("/api/vendor", { params: { page: 1, limit: 1000 } })
             .then(res => { if (res.data.success) setVendors(res.data.vendors || []); })
-            .catch(() => {});
+            .catch(() => { });
     }, []);
     useEffect(() => {
         if (!vendors.length) return;
@@ -3484,7 +3574,7 @@ function EditProductModal({ product, settings, onClose, onSuccess }) {
 
     useEffect(() => {
         if (product) {
-            const initialColor = product.color 
+            const initialColor = product.color
                 || (Array.isArray(product.colors) && product.colors.find(c => c?.color)?.color)
                 || (Array.isArray(product.colors) && product.colors[0]?.color)
                 || "";
@@ -4278,14 +4368,12 @@ const ProductDetailsHistoryModal = ({ product, vendors = [], onClose, onOpenEdit
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <div className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 ${
-                        stockQty > 10 ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
-                        stockQty > 0 ? "bg-amber-50 text-amber-700 border border-amber-200" :
-                        "bg-red-50 text-red-700 border border-red-200"
-                    }`}>
-                        <span className={`w-2 h-2 rounded-full ${
-                            stockQty > 10 ? "bg-emerald-500" : stockQty > 0 ? "bg-amber-500" : "bg-red-500"
-                        }`} />
+                    <div className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 ${stockQty > 10 ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
+                            stockQty > 0 ? "bg-amber-50 text-amber-700 border border-amber-200" :
+                                "bg-red-50 text-red-700 border border-red-200"
+                        }`}>
+                        <span className={`w-2 h-2 rounded-full ${stockQty > 10 ? "bg-emerald-500" : stockQty > 0 ? "bg-amber-500" : "bg-red-500"
+                            }`} />
                         <span>{stockQty > 0 ? `In Stock: ${stockQty} Units` : "Out of Stock"}</span>
                     </div>
 
@@ -4381,17 +4469,15 @@ const ProductDetailsHistoryModal = ({ product, vendors = [], onClose, onOpenEdit
                         <button
                             type="button"
                             onClick={() => setActiveTab("RECEIVING")}
-                            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
-                                activeTab === "RECEIVING"
+                            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${activeTab === "RECEIVING"
                                     ? "bg-[#2980b9] text-white shadow-sm"
                                     : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-                            }`}
+                                }`}
                         >
                             <FiTruck size={14} />
                             <span>Receiving History</span>
-                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                                activeTab === "RECEIVING" ? "bg-white/25 text-white" : "bg-gray-200 text-gray-700"
-                            }`}>
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${activeTab === "RECEIVING" ? "bg-white/25 text-white" : "bg-gray-200 text-gray-700"
+                                }`}>
                                 {receivingHistory.length}
                             </span>
                         </button>
@@ -4399,17 +4485,15 @@ const ProductDetailsHistoryModal = ({ product, vendors = [], onClose, onOpenEdit
                         <button
                             type="button"
                             onClick={() => setActiveTab("BATCHES")}
-                            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
-                                activeTab === "BATCHES"
+                            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${activeTab === "BATCHES"
                                     ? "bg-[#2980b9] text-white shadow-sm"
                                     : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-                            }`}
+                                }`}
                         >
                             <FiLayers size={14} />
                             <span>Assigned Batches</span>
-                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                                activeTab === "BATCHES" ? "bg-white/25 text-white" : "bg-gray-200 text-gray-700"
-                            }`}>
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${activeTab === "BATCHES" ? "bg-white/25 text-white" : "bg-gray-200 text-gray-700"
+                                }`}>
                                 {batches.length}
                             </span>
                         </button>
@@ -4417,11 +4501,10 @@ const ProductDetailsHistoryModal = ({ product, vendors = [], onClose, onOpenEdit
                         <button
                             type="button"
                             onClick={() => setActiveTab("SPECS")}
-                            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
-                                activeTab === "SPECS"
+                            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${activeTab === "SPECS"
                                     ? "bg-[#2980b9] text-white shadow-sm"
                                     : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-                            }`}
+                                }`}
                         >
                             <FiTag size={14} />
                             <span>Product Specifications</span>
@@ -4513,11 +4596,10 @@ const ProductDetailsHistoryModal = ({ product, vendors = [], onClose, onOpenEdit
 
                                                         {/* Batch Stock (Remaining) */}
                                                         <td className="px-4 py-3 text-center whitespace-nowrap">
-                                                            <span className={`px-2.5 py-1 rounded-lg text-xs font-extrabold inline-flex items-center gap-1.5 ${
-                                                                (item.availableQty != null ? item.availableQty : item.receivedQty) > 0
+                                                            <span className={`px-2.5 py-1 rounded-lg text-xs font-extrabold inline-flex items-center gap-1.5 ${(item.availableQty != null ? item.availableQty : item.receivedQty) > 0
                                                                     ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                                                     : "bg-red-50 text-red-600 border border-red-200"
-                                                            }`}>
+                                                                }`}>
                                                                 <span>{item.availableQty != null ? item.availableQty : item.receivedQty}</span>
                                                                 <span className="text-[10px] font-normal text-gray-500">
                                                                     avail
@@ -4540,11 +4622,10 @@ const ProductDetailsHistoryModal = ({ product, vendors = [], onClose, onOpenEdit
                                                         {/* QC Passed */}
                                                         <td className="px-4 py-3 text-center whitespace-nowrap">
                                                             {item.passedQty != null ? (
-                                                                <span className={`px-2 py-0.5 rounded-full text-xs font-bold inline-flex items-center gap-1 ${
-                                                                    Number(item.passedQty) > 0
+                                                                <span className={`px-2 py-0.5 rounded-full text-xs font-bold inline-flex items-center gap-1 ${Number(item.passedQty) > 0
                                                                         ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                                                         : "text-gray-400"
-                                                                }`}>
+                                                                    }`}>
                                                                     <FiCheckCircle size={11} className={Number(item.passedQty) > 0 ? "text-emerald-600" : "text-gray-400"} />
                                                                     <span>{item.passedQty}</span>
                                                                 </span>
@@ -4602,11 +4683,10 @@ const ProductDetailsHistoryModal = ({ product, vendors = [], onClose, onOpenEdit
 
                                                         {/* Condition */}
                                                         <td className="px-4 py-3 text-center whitespace-nowrap">
-                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                                                item.condition === "GOOD" ? "bg-emerald-50 text-emerald-700" :
-                                                                item.condition === "DAMAGED" ? "bg-red-50 text-red-700" :
-                                                                "bg-amber-50 text-amber-700"
-                                                            }`}>
+                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${item.condition === "GOOD" ? "bg-emerald-50 text-emerald-700" :
+                                                                    item.condition === "DAMAGED" ? "bg-red-50 text-red-700" :
+                                                                        "bg-amber-50 text-amber-700"
+                                                                }`}>
                                                                 {item.condition || "GOOD"}
                                                             </span>
                                                         </td>
@@ -4699,9 +4779,8 @@ const ProductDetailsHistoryModal = ({ product, vendors = [], onClose, onOpenEdit
                                                             ₹{b.mrp != null ? b.mrp : (curr.mrp || 0)}
                                                         </td>
                                                         <td className="px-4 py-3 text-center">
-                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
-                                                                b.status === "OPEN" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"
-                                                            }`}>
+                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${b.status === "OPEN" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"
+                                                                }`}>
                                                                 {b.status}
                                                             </span>
                                                         </td>
@@ -6483,34 +6562,34 @@ function BulkUploadModal({ onClose }) {
                                         <tr key={i} className={`border-b border-gray-50 ${i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`}>
                                             <td className="px-3 py-2 text-center text-gray-400">{i + 1}</td>
                                             <td className="px-3 py-1 font-mono font-semibold whitespace-nowrap">
-                                                <input 
-                                                    type="text" 
-                                                    value={row.productCode || ""} 
+                                                <input
+                                                    type="text"
+                                                    value={row.productCode || ""}
                                                     onChange={e => handleFieldChange(i, "productCode", e.target.value)}
                                                     placeholder={`auto-${activePrefix}`}
                                                     className="w-full bg-transparent border-0 focus:ring-1 focus:ring-[#2980b9]/40 rounded px-1 py-0.5 text-xs text-gray-800 focus:bg-white outline-none"
                                                 />
                                             </td>
                                             <td className="px-3 py-1 text-gray-700 max-w-[160px]">
-                                                <input 
-                                                    type="text" 
-                                                    value={row.productName || ""} 
+                                                <input
+                                                    type="text"
+                                                    value={row.productName || ""}
                                                     onChange={e => handleFieldChange(i, "productName", e.target.value)}
                                                     className="w-full bg-transparent border-0 focus:ring-1 focus:ring-[#2980b9]/40 rounded px-1 py-0.5 text-xs text-gray-800 focus:bg-white outline-none"
                                                 />
                                             </td>
                                             <td className="px-3 py-1 text-gray-650">
-                                                <input 
-                                                    type="text" 
-                                                    value={row.category || ""} 
+                                                <input
+                                                    type="text"
+                                                    value={row.category || ""}
                                                     onChange={e => handleFieldChange(i, "category", e.target.value)}
                                                     className="w-full bg-transparent border-0 focus:ring-1 focus:ring-[#2980b9]/40 rounded px-1 py-0.5 text-xs text-gray-800 focus:bg-white outline-none"
                                                 />
                                             </td>
                                             <td className="px-3 py-1 text-gray-650">
-                                                <input 
-                                                    type="text" 
-                                                    value={row.brand || ""} 
+                                                <input
+                                                    type="text"
+                                                    value={row.brand || ""}
                                                     onChange={e => handleFieldChange(i, "brand", e.target.value)}
                                                     className="w-full bg-transparent border-0 focus:ring-1 focus:ring-[#2980b9]/40 rounded px-1 py-0.5 text-xs text-gray-800 focus:bg-white outline-none"
                                                 />
@@ -6518,9 +6597,9 @@ function BulkUploadModal({ onClose }) {
                                             <td className="px-3 py-1 text-center text-gray-750">
                                                 <div className="flex items-center justify-center">
                                                     <span className="text-[10px] text-gray-400 mr-0.5">₹</span>
-                                                    <input 
-                                                        type="number" 
-                                                        value={row.price} 
+                                                    <input
+                                                        type="number"
+                                                        value={row.price}
                                                         onChange={e => handleFieldChange(i, "price", e.target.value)}
                                                         className="w-16 bg-transparent border-0 focus:ring-1 focus:ring-[#2980b9]/40 rounded px-1 py-0.5 text-xs text-gray-800 text-center focus:bg-white outline-none"
                                                     />
@@ -6529,27 +6608,27 @@ function BulkUploadModal({ onClose }) {
                                             <td className="px-3 py-1 text-center text-gray-750">
                                                 <div className="flex items-center justify-center">
                                                     <span className="text-[10px] text-gray-400 mr-0.5">₹</span>
-                                                    <input 
-                                                        type="number" 
-                                                        value={row.mrp} 
+                                                    <input
+                                                        type="number"
+                                                        value={row.mrp}
                                                         onChange={e => handleFieldChange(i, "mrp", e.target.value)}
                                                         className="w-16 bg-transparent border-0 focus:ring-1 focus:ring-[#2980b9]/40 rounded px-1 py-0.5 text-xs text-gray-800 text-center focus:bg-white outline-none"
                                                     />
                                                 </div>
                                             </td>
                                             <td className="px-3 py-1 text-center text-gray-750">
-                                                <input 
-                                                    type="number" 
-                                                    value={row.qty} 
+                                                <input
+                                                    type="number"
+                                                    value={row.qty}
                                                     onChange={e => handleFieldChange(i, "qty", e.target.value)}
                                                     className="w-12 bg-transparent border-0 focus:ring-1 focus:ring-[#2980b9]/40 rounded px-1 py-0.5 text-xs text-gray-800 text-center focus:bg-white outline-none"
                                                 />
                                             </td>
                                             <td className="px-3 py-1 text-center text-gray-550">
                                                 <div className="flex items-center justify-center">
-                                                    <input 
-                                                        type="number" 
-                                                        value={row.gst} 
+                                                    <input
+                                                        type="number"
+                                                        value={row.gst}
                                                         onChange={e => handleFieldChange(i, "gst", e.target.value)}
                                                         className="w-12 bg-transparent border-0 focus:ring-1 focus:ring-[#2980b9]/40 rounded px-1 py-0.5 text-xs text-gray-800 text-center focus:bg-white outline-none"
                                                     />
@@ -6557,17 +6636,17 @@ function BulkUploadModal({ onClose }) {
                                                 </div>
                                             </td>
                                             <td className="px-3 py-1 text-gray-550">
-                                                <input 
-                                                    type="text" 
-                                                    value={row.color || ""} 
+                                                <input
+                                                    type="text"
+                                                    value={row.color || ""}
                                                     onChange={e => handleFieldChange(i, "color", e.target.value)}
                                                     className="w-full bg-transparent border-0 focus:ring-1 focus:ring-[#2980b9]/40 rounded px-1 py-0.5 text-xs text-gray-800 focus:bg-white outline-none"
                                                 />
                                             </td>
                                             <td className="px-3 py-1 text-gray-550">
-                                                <input 
-                                                    type="text" 
-                                                    value={row.type || ""} 
+                                                <input
+                                                    type="text"
+                                                    value={row.type || ""}
                                                     onChange={e => handleFieldChange(i, "type", e.target.value)}
                                                     className="w-full bg-transparent border-0 focus:ring-1 focus:ring-[#2980b9]/40 rounded px-1 py-0.5 text-xs text-gray-800 focus:bg-white outline-none"
                                                 />

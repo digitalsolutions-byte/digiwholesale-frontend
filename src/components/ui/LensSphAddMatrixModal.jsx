@@ -48,6 +48,31 @@ const buildSvAxisValues = (detectedSet, { direction, startAbs, defaultMaxAbs }) 
 };
 
 // Detect if a lens is Single Vision, Progressive, or Bifocal
+const renderPriceRangeCell = (ranges, fallbackPrice, textColorCls = "text-gray-700") => {
+    if (Array.isArray(ranges) && ranges.length > 1) {
+        return (
+            <div className="flex flex-col gap-1 items-end py-0.5 min-w-[120px]">
+                {ranges.map((r, i) => (
+                    <div key={i} className="flex items-center gap-1.5 justify-end font-mono leading-tight">
+                        <span className="text-[10px] text-gray-600 bg-gray-100/90 px-1.5 py-0.5 rounded border border-gray-200 whitespace-nowrap" title={`${r.count} combinations in this range`}>
+                            {r.sphRange ? `SPH ${r.sphRange}` : ''}{r.cylRange && r.cylRange !== '0.00 to 0.00' && r.cylRange !== 'Plano (0.00)' ? ` | CYL ${r.cylRange}` : ''}{r.additionRange ? ` | ADD ${r.additionRange}` : ''}
+                        </span>
+                        <span className={`font-bold text-xs font-mono ${textColorCls}`}>
+                            ₹{r.price}
+                        </span>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+    const singlePrice = (Array.isArray(ranges) && ranges.length === 1) ? ranges[0].price : fallbackPrice;
+    return (
+        <span className={`font-bold text-xs font-mono ${textColorCls}`}>
+            ₹{singlePrice ?? 0}
+        </span>
+    );
+};
+
 const getLensClassification = (item, matrixOverride = null) => {
     const name = (matrixOverride?.productName || item?.productName || "").toLowerCase();
     const cat = (matrixOverride?.category || item?.category || "").toLowerCase();
@@ -166,6 +191,29 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
     const [previewSearch, setPreviewSearch] = useState("");
     const [gridRxFilter, setGridRxFilter] = useState("");
     const [previewMetric, setPreviewMetric] = useState("qty"); // "qty" | "sellingPrice" | "buyingPrice" | "mrp"
+
+    // Helper to keep Select Update Action and Live Preview Cell metric 100% in sync
+    const handleActionChange = (newAction) => {
+        setAction(newAction);
+        const metricMap = {
+            UPDATE_QTY: "qty",
+            UPDATE_SELLING_PRICE: "sellingPrice",
+            UPDATE_BUYING_PRICE: "buyingPrice",
+            UPDATE_MRP: "mrp",
+        };
+        setPreviewMetric(metricMap[newAction] || "qty");
+    };
+
+    const handlePreviewMetricChange = (newMetric) => {
+        setPreviewMetric(newMetric);
+        const actionMap = {
+            qty: "UPDATE_QTY",
+            sellingPrice: "UPDATE_SELLING_PRICE",
+            buyingPrice: "UPDATE_BUYING_PRICE",
+            mrp: "UPDATE_MRP",
+        };
+        setAction(actionMap[newMetric] || "UPDATE_QTY");
+    };
 
     // ── Excel Upload & Parsing State ──
     const [uploadedFile, setUploadedFile] = useState(null);
@@ -1684,13 +1732,12 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                 <h2 className="text-base font-extrabold text-gray-900">
                                     Bulk Lens Excel Matrix Manager &amp; History
                                 </h2>
-                                <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider border ${
-                                    selectedProduct && matrixData
+                                <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider border ${selectedProduct && matrixData
                                         ? (effectiveFormat === "SPH_CYL"
                                             ? "bg-blue-50 text-[#2980b9] border-blue-200"
                                             : selectedClassification.badgeClass)
                                         : "bg-blue-50 text-[#2980b9] border-blue-200"
-                                }`}>
+                                    }`}>
                                     {selectedProduct && matrixData
                                         ? (effectiveFormat === "SPH_CYL"
                                             ? "SINGLE VISION (SPH × CYL)"
@@ -1892,7 +1939,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                         </label>
                                         <select
                                             value={action}
-                                            onChange={(e) => setAction(e.target.value)}
+                                            onChange={(e) => handleActionChange(e.target.value)}
                                             className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl outline-none focus:border-[#2980b9] bg-gray-50 text-gray-700 font-semibold"
                                         >
                                             <option value="UPDATE_QTY">Update Stock Quantity</option>
@@ -1916,7 +1963,7 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                     </div>
                                 </div>
 
-                                
+
 
                                 {/* ── LIVE INTERACTIVE INVENTORY DATA TABLE & MATRIX PREVIEW ── */}
                                 {matrixLoading ? (
@@ -1963,11 +2010,11 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                                 </div>
 
                                                 {/* Metric Selector */}
-                                                <div className="flex items-center gap-1 bg-gray-100 border border-gray-200 px-2 py-1 rounded-xl text-[11px]">
+                                                {/* <div className="flex items-center gap-1 bg-gray-100 border border-gray-200 px-2 py-1 rounded-xl text-[11px]">
                                                     <span className="text-gray-400 font-semibold text-[10px] uppercase">Cell:</span>
                                                     <select
                                                         value={previewMetric}
-                                                        onChange={(e) => setPreviewMetric(e.target.value)}
+                                                        onChange={(e) => handlePreviewMetricChange(e.target.value)}
                                                         className="bg-transparent text-gray-700 font-bold outline-none cursor-pointer text-xs"
                                                     >
                                                         <option value="qty">Stock Quantity (Units)</option>
@@ -1975,173 +2022,171 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                                         <option value="buyingPrice">Buying Price (₹)</option>
                                                         <option value="mrp">MRP (₹)</option>
                                                     </select>
-                                                </div>
+                                                </div> */}
                                             </div>
                                         </div>
 
                                         {/* View 1: Visual Matrix Grid */}
-                                                    {previewViewMode === "grid" && (
-                                <div className="p-3 space-y-4">
-                                    {effectiveFormat === "SPH_CYL" ? (
-                                        /* Single Vision 4 Quadrant Tables (++, -+, +-, --) */
-                                        <div className="space-y-4">
-                                            {/* Quadrant Filter Tabs */}
-                                            <div className="flex flex-wrap items-center gap-1.5 bg-gray-100 p-1 rounded-xl text-xs font-medium">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setSvQuadrantTab("all")}
-                                                    className={`px-3 py-1 rounded-lg transition ${
-                                                        svQuadrantTab === "all"
-                                                            ? "bg-white text-blue-700 font-bold shadow-xs"
-                                                            : "text-gray-600 hover:text-gray-900"
-                                                    }`}
-                                                >
-                                                    All 4 Tables (++, -+, +-, --)
-                                                </button>
-                                                {svQuadrants.map(q => (
-                                                    <button
-                                                        key={q.id}
-                                                        type="button"
-                                                        onClick={() => setSvQuadrantTab(q.id)}
-                                                        className={`px-3 py-1 rounded-lg transition flex items-center gap-1.5 ${
-                                                            svQuadrantTab === q.id
-                                                                ? "bg-white text-blue-700 font-bold shadow-xs"
-                                                                : "text-gray-600 hover:text-gray-900"
-                                                        }`}
-                                                    >
-                                                        <span>{q.title}</span>
-                                                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${q.count > 0 ? "bg-blue-100 text-blue-800" : "bg-gray-200 text-gray-600"}`}>
-                                                            {q.count}
-                                                        </span>
-                                                    </button>
-                                                ))}
-                                            </div>
-
-                                            {/* Render 4 Quadrant Tables (2x2 Grid when All, single full-width when filtered) */}
-                                            <div className={svQuadrantTab === "all" ? "grid grid-cols-1 xl:grid-cols-2 gap-4" : "space-y-4"}>
-                                                {svQuadrants
-                                                    .filter(q => svQuadrantTab === "all" || svQuadrantTab === q.id)
-                                                    .map(q => (
-                                                        <div key={q.id} className="border-2 border-gray-900 rounded-lg overflow-hidden shadow-2xs bg-white">
-                                                            {/* Yellow Banner Header matching Image 1 */}
-                                                            <div className="bg-[#FFFF00] text-black px-3 py-1.5 text-xs font-extrabold flex items-center justify-between border-b-2 border-gray-900">
-                                                                <span>{matrixData?.productName || selectedProduct?.productName} — {q.title}</span>
-                                                                <span className="text-[11px] font-mono bg-white/80 px-2 py-0.5 rounded border border-gray-800">
-                                                                    {q.count} variants
-                                                                </span>
-                                                            </div>
-
-                                                            <div className="overflow-x-auto max-h-[360px]">
-                                                                <table className="w-full border-collapse text-center text-xs">
-                                                                    <thead className="sticky top-0 z-20">
-                                                                        {/* Row 1: SPH | Cyl (+) or Cyl (-) */}
-                                                                        <tr className="bg-white text-black font-extrabold text-xs">
-                                                                            <th className="sticky left-0 z-30 bg-white px-2.5 py-1.5 text-center border-r-2 border-b border-gray-900 min-w-[75px] w-[75px]">
-                                                                                SPH
-                                                                            </th>
-                                                                            <th colSpan={q.cyls.length} className="px-3 py-1.5 text-left border-b border-gray-900">
-                                                                                <span className="sticky left-[85px] inline-block">
-                                                                                    {q.cylGroupLabel}
-                                                                                </span>
-                                                                            </th>
-                                                                        </tr>
-                                                                        {/* Row 2: (+) / (-) & CYL values with Light Cyan #DAEEF3 */}
-                                                                        <tr className="bg-[#DAEEF3] text-black font-extrabold text-xs">
-                                                                            <th className="sticky left-0 z-30 bg-[#DAEEF3] text-black font-extrabold px-2.5 py-1.5 border-r-2 border-b-2 border-gray-900 text-center min-w-[75px]">
-                                                                                {q.sphSign}
-                                                                            </th>
-                                                                            {q.cyls.map((cVal) => (
-                                                                                <th key={`c_${q.id}_${cVal}`} className="px-2 py-1.5 text-xs border-r border-b-2 border-gray-900 min-w-[56px] bg-[#DAEEF3] text-black font-extrabold text-center">
-                                                                                    {cVal > 0 ? `+${cVal.toFixed(2)}` : cVal.toFixed(2)}
-                                                                                </th>
-                                                                            ))}
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        {q.sphs.map((sVal) => {
-                                                                            return (
-                                                                                <tr key={`s_${q.id}_${sVal}`} className="hover:bg-blue-50/20">
-                                                                                    <td className="sticky left-0 z-10 font-mono font-extrabold p-1.5 text-xs border-r-2 border-b border-gray-900 text-center bg-[#DAEEF3] text-black">
-                                                                                        {sVal === 0 ? "0.00" : (sVal > 0 ? `+${sVal.toFixed(2)}` : sVal.toFixed(2))}
-                                                                                    </td>
-                                                                                    {q.cyls.map((cVal) => {
-                                                                                        const key = `${sVal.toFixed(2)}_${cVal.toFixed(2)}`;
-                                                                                        const item = uiSphCylLookup.get(key);
-                                                                                        return renderPreviewCell(item, `${q.id}_${key}`, `SPH ${sVal > 0 ? '+' : ''}${sVal.toFixed(2)} | CYL ${cVal > 0 ? '+' : ''}${cVal.toFixed(2)}`);
-                                                                                    })}
-                                                                                </tr>
-                                                                            );
-                                                                        })}
-                                                                    </tbody>
-                                                                </table>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        /* Progressive / Bifocal Matrix matching Image 3 */
-                                        <div className="border-2 border-gray-900 rounded-lg overflow-hidden shadow-2xs bg-white">
-                                            <div className="bg-[#FFFF00] text-black px-3.5 py-2 text-xs font-extrabold flex items-center justify-between border-b-2 border-gray-900">
-                                                <span>{matrixData?.productName || selectedProduct?.productName} (Progressive / Bifocal)</span>
-                                                <span className="text-[11px] font-mono bg-white/80 px-2 py-0.5 rounded border border-gray-800">
-                                                    {filteredUiCombosList.length}{gridRxFilter ? ` / ${uiCombosList.length}` : ""} combinations
-                                                </span>
-                                            </div>
-                                            <div className="overflow-x-auto max-h-[420px]">
-                                                <table className="w-full border-collapse text-center text-xs">
-                                                    <thead className="sticky top-0 z-20">
-                                                        {/* Row 1: sph / cyl * axis | Add (+) */}
-                                                        <tr className="bg-white text-black font-extrabold text-xs">
-                                                            <th className="sticky left-0 z-30 bg-white px-3.5 py-1.5 text-center border-r-2 border-b border-gray-900 min-w-[140px] w-[140px]">
-                                                                sph / cyl * axis
-                                                            </th>
-                                                            <th colSpan={uiAddList.length} className="px-4 py-1.5 text-left border-b border-gray-900">
-                                                                <span className="sticky left-[156px] inline-block">
-                                                                    Add (+)
-                                                                </span>
-                                                            </th>
-                                                        </tr>
-                                                        {/* Row 2: empty cell below sph/cyl*axis | Light Cyan ADD values */}
-                                                        <tr className="bg-[#DAEEF3] text-black font-extrabold text-xs">
-                                                            <th className="sticky left-0 z-30 bg-white text-black font-extrabold px-3 py-2 border-r-2 border-b-2 border-gray-900 text-center min-w-[140px]">
-                                                                
-                                                            </th>
-                                                            {uiAddList.map(a => (
-                                                                <th key={a} className="p-2 border-r border-b-2 border-gray-900 min-w-[65px] bg-[#DAEEF3] text-black font-extrabold text-center">
-                                                                    {a.toFixed(2)}
-                                                                </th>
+                                        {previewViewMode === "grid" && (
+                                            <div className="p-3 space-y-4">
+                                                {effectiveFormat === "SPH_CYL" ? (
+                                                    /* Single Vision 4 Quadrant Tables (++, -+, +-, --) */
+                                                    <div className="space-y-4">
+                                                        {/* Quadrant Filter Tabs */}
+                                                        <div className="flex flex-wrap items-center gap-1.5 bg-gray-100 p-1 rounded-xl text-xs font-medium">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setSvQuadrantTab("all")}
+                                                                className={`px-3 py-1 rounded-lg transition ${svQuadrantTab === "all"
+                                                                        ? "bg-white text-blue-700 font-bold shadow-xs"
+                                                                        : "text-gray-600 hover:text-gray-900"
+                                                                    }`}
+                                                            >
+                                                                All 4 Tables (++, -+, +-, --)
+                                                            </button>
+                                                            {svQuadrants.map(q => (
+                                                                <button
+                                                                    key={q.id}
+                                                                    type="button"
+                                                                    onClick={() => setSvQuadrantTab(q.id)}
+                                                                    className={`px-3 py-1 rounded-lg transition flex items-center gap-1.5 ${svQuadrantTab === q.id
+                                                                            ? "bg-white text-blue-700 font-bold shadow-xs"
+                                                                            : "text-gray-600 hover:text-gray-900"
+                                                                        }`}
+                                                                >
+                                                                    <span>{q.title}</span>
+                                                                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${q.count > 0 ? "bg-blue-100 text-blue-800" : "bg-gray-200 text-gray-600"}`}>
+                                                                        {q.count}
+                                                                    </span>
+                                                                </button>
                                                             ))}
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {filteredUiCombosList.map((combo) => {
-                                                            const rowLabel = formatDistRxCell(combo.s, combo.c, combo.ax);
-                                                            return (
-                                                                <tr key={`${combo.s}_${combo.c}_${combo.ax}`} className="hover:bg-blue-50/20">
-                                                                    <td className="sticky left-0 z-10 bg-white font-mono font-extrabold p-2 border-r-2 border-b border-gray-900 text-center whitespace-nowrap text-black text-xs">
-                                                                        {rowLabel}
-                                                                    </td>
-                                                                    {uiAddList.map(a => {
-                                                                        const sStr = combo.s.toFixed(2);
-                                                                        const cStr = combo.c.toFixed(2);
-                                                                        const ax = combo.ax;
-                                                                        const aStr = a.toFixed(2);
-                                                                        const item = uiSphAddLookup.get(`${sStr}_${cStr}_${ax}_${aStr}`);
-                                                                        return renderPreviewCell(item, `${combo.s}_${combo.c}_${combo.ax}_${a}`, `${rowLabel} | ADD +${aStr}`);
-                                                                    })}
-                                                                </tr>
-                                                            );
-                                                        })}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                                                        </div>
 
-                            {/* View 2: Detailed Combination Table */}
+                                                        {/* Render 4 Quadrant Tables (2x2 Grid when All, single full-width when filtered) */}
+                                                        <div className={svQuadrantTab === "all" ? "grid grid-cols-1 xl:grid-cols-2 gap-4" : "space-y-4"}>
+                                                            {svQuadrants
+                                                                .filter(q => svQuadrantTab === "all" || svQuadrantTab === q.id)
+                                                                .map(q => (
+                                                                    <div key={q.id} className="border-2 border-gray-900 rounded-lg overflow-hidden shadow-2xs bg-white">
+                                                                        {/* Yellow Banner Header matching Image 1 */}
+                                                                        <div className="bg-[#FFFF00] text-black px-3 py-1.5 text-xs font-extrabold flex items-center justify-between border-b-2 border-gray-900">
+                                                                            <span>{matrixData?.productName || selectedProduct?.productName} — {q.title}</span>
+                                                                            <span className="text-[11px] font-mono bg-white/80 px-2 py-0.5 rounded border border-gray-800">
+                                                                                {q.count} variants
+                                                                            </span>
+                                                                        </div>
+
+                                                                        <div className="overflow-x-auto max-h-[360px]">
+                                                                            <table className="w-full border-collapse text-center text-xs">
+                                                                                <thead className="sticky top-0 z-20">
+                                                                                    {/* Row 1: SPH | Cyl (+) or Cyl (-) */}
+                                                                                    <tr className="bg-white text-black font-extrabold text-xs">
+                                                                                        <th className="sticky left-0 z-30 bg-white px-2.5 py-1.5 text-center border-r-2 border-b border-gray-900 min-w-[75px] w-[75px]">
+                                                                                            SPH
+                                                                                        </th>
+                                                                                        <th colSpan={q.cyls.length} className="px-3 py-1.5 text-left border-b border-gray-900">
+                                                                                            <span className="sticky left-[85px] inline-block">
+                                                                                                {q.cylGroupLabel}
+                                                                                            </span>
+                                                                                        </th>
+                                                                                    </tr>
+                                                                                    {/* Row 2: (+) / (-) & CYL values with Light Cyan #DAEEF3 */}
+                                                                                    <tr className="bg-[#DAEEF3] text-black font-extrabold text-xs">
+                                                                                        <th className="sticky left-0 z-30 bg-[#DAEEF3] text-black font-extrabold px-2.5 py-1.5 border-r-2 border-b-2 border-gray-900 text-center min-w-[75px]">
+                                                                                            {q.sphSign}
+                                                                                        </th>
+                                                                                        {q.cyls.map((cVal) => (
+                                                                                            <th key={`c_${q.id}_${cVal}`} className="px-2 py-1.5 text-xs border-r border-b-2 border-gray-900 min-w-[56px] bg-[#DAEEF3] text-black font-extrabold text-center">
+                                                                                                {cVal > 0 ? `+${cVal.toFixed(2)}` : cVal.toFixed(2)}
+                                                                                            </th>
+                                                                                        ))}
+                                                                                    </tr>
+                                                                                </thead>
+                                                                                <tbody>
+                                                                                    {q.sphs.map((sVal) => {
+                                                                                        return (
+                                                                                            <tr key={`s_${q.id}_${sVal}`} className="hover:bg-blue-50/20">
+                                                                                                <td className="sticky left-0 z-10 font-mono font-extrabold p-1.5 text-xs border-r-2 border-b border-gray-900 text-center bg-[#DAEEF3] text-black">
+                                                                                                    {sVal === 0 ? "0.00" : (sVal > 0 ? `+${sVal.toFixed(2)}` : sVal.toFixed(2))}
+                                                                                                </td>
+                                                                                                {q.cyls.map((cVal) => {
+                                                                                                    const key = `${sVal.toFixed(2)}_${cVal.toFixed(2)}`;
+                                                                                                    const item = uiSphCylLookup.get(key);
+                                                                                                    return renderPreviewCell(item, `${q.id}_${key}`, `SPH ${sVal > 0 ? '+' : ''}${sVal.toFixed(2)} | CYL ${cVal > 0 ? '+' : ''}${cVal.toFixed(2)}`);
+                                                                                                })}
+                                                                                            </tr>
+                                                                                        );
+                                                                                    })}
+                                                                                </tbody>
+                                                                            </table>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    /* Progressive / Bifocal Matrix matching Image 3 */
+                                                    <div className="border-2 border-gray-900 rounded-lg overflow-hidden shadow-2xs bg-white">
+                                                        <div className="bg-[#FFFF00] text-black px-3.5 py-2 text-xs font-extrabold flex items-center justify-between border-b-2 border-gray-900">
+                                                            <span>{matrixData?.productName || selectedProduct?.productName} (Progressive / Bifocal)</span>
+                                                            <span className="text-[11px] font-mono bg-white/80 px-2 py-0.5 rounded border border-gray-800">
+                                                                {filteredUiCombosList.length}{gridRxFilter ? ` / ${uiCombosList.length}` : ""} combinations
+                                                            </span>
+                                                        </div>
+                                                        <div className="overflow-x-auto max-h-[420px]">
+                                                            <table className="w-full border-collapse text-center text-xs">
+                                                                <thead className="sticky top-0 z-20">
+                                                                    {/* Row 1: sph / cyl * axis | Add (+) */}
+                                                                    <tr className="bg-white text-black font-extrabold text-xs">
+                                                                        <th className="sticky left-0 z-30 bg-white px-3.5 py-1.5 text-center border-r-2 border-b border-gray-900 min-w-[140px] w-[140px]">
+                                                                            sph / cyl * axis
+                                                                        </th>
+                                                                        <th colSpan={uiAddList.length} className="px-4 py-1.5 text-left border-b border-gray-900">
+                                                                            <span className="sticky left-[156px] inline-block">
+                                                                                Add (+)
+                                                                            </span>
+                                                                        </th>
+                                                                    </tr>
+                                                                    {/* Row 2: empty cell below sph/cyl*axis | Light Cyan ADD values */}
+                                                                    <tr className="bg-[#DAEEF3] text-black font-extrabold text-xs">
+                                                                        <th className="sticky left-0 z-30 bg-white text-black font-extrabold px-3 py-2 border-r-2 border-b-2 border-gray-900 text-center min-w-[140px]">
+
+                                                                        </th>
+                                                                        {uiAddList.map(a => (
+                                                                            <th key={a} className="p-2 border-r border-b-2 border-gray-900 min-w-[65px] bg-[#DAEEF3] text-black font-extrabold text-center">
+                                                                                {a.toFixed(2)}
+                                                                            </th>
+                                                                        ))}
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {filteredUiCombosList.map((combo) => {
+                                                                        const rowLabel = formatDistRxCell(combo.s, combo.c, combo.ax);
+                                                                        return (
+                                                                            <tr key={`${combo.s}_${combo.c}_${combo.ax}`} className="hover:bg-blue-50/20">
+                                                                                <td className="sticky left-0 z-10 bg-white font-mono font-extrabold p-2 border-r-2 border-b border-gray-900 text-center whitespace-nowrap text-black text-xs">
+                                                                                    {rowLabel}
+                                                                                </td>
+                                                                                {uiAddList.map(a => {
+                                                                                    const sStr = combo.s.toFixed(2);
+                                                                                    const cStr = combo.c.toFixed(2);
+                                                                                    const ax = combo.ax;
+                                                                                    const aStr = a.toFixed(2);
+                                                                                    const item = uiSphAddLookup.get(`${sStr}_${cStr}_${ax}_${aStr}`);
+                                                                                    return renderPreviewCell(item, `${combo.s}_${combo.c}_${combo.ax}_${a}`, `${rowLabel} | ADD +${aStr}`);
+                                                                                })}
+                                                                            </tr>
+                                                                        );
+                                                                    })}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* View 2: Detailed Combination Table */}
                                         {previewViewMode === "table" && (
                                             <div>
                                                 <div className="p-2.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between gap-3">
@@ -2401,58 +2446,50 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                             <div className="flex flex-wrap items-center gap-2 pt-1">
                                 <button
                                     onClick={() => setHistoryCategoryFilter("ALL")}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border ${
-                                        historyCategoryFilter === "ALL"
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border ${historyCategoryFilter === "ALL"
                                             ? "bg-[#2980b9] text-white border-[#2980b9] shadow-2xs"
                                             : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                                    }`}
+                                        }`}
                                 >
                                     <span>All Lenses</span>
-                                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                                        historyCategoryFilter === "ALL" ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"
-                                    }`}>{historyCounts.all}</span>
+                                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${historyCategoryFilter === "ALL" ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"
+                                        }`}>{historyCounts.all}</span>
                                 </button>
                                 <button
                                     onClick={() => setHistoryCategoryFilter("SINGLE_VISION")}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border ${
-                                        historyCategoryFilter === "SINGLE_VISION"
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border ${historyCategoryFilter === "SINGLE_VISION"
                                             ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
                                             : "bg-white text-blue-800 border-blue-200 hover:bg-blue-50/60"
-                                    }`}
+                                        }`}
                                 >
                                     <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                                     <span>Single Vision (SPH × CYL)</span>
-                                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                                        historyCategoryFilter === "SINGLE_VISION" ? "bg-white/20 text-white" : "bg-blue-100 text-blue-800"
-                                    }`}>{historyCounts.sv}</span>
+                                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${historyCategoryFilter === "SINGLE_VISION" ? "bg-white/20 text-white" : "bg-blue-100 text-blue-800"
+                                        }`}>{historyCounts.sv}</span>
                                 </button>
                                 <button
                                     onClick={() => setHistoryCategoryFilter("PROGRESSIVE")}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border ${
-                                        historyCategoryFilter === "PROGRESSIVE"
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border ${historyCategoryFilter === "PROGRESSIVE"
                                             ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
                                             : "bg-white text-emerald-800 border-emerald-200 hover:bg-emerald-50/60"
-                                    }`}
+                                        }`}
                                 >
                                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                                     <span>Progressive</span>
-                                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                                        historyCategoryFilter === "PROGRESSIVE" ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-800"
-                                    }`}>{historyCounts.prog}</span>
+                                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${historyCategoryFilter === "PROGRESSIVE" ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-800"
+                                        }`}>{historyCounts.prog}</span>
                                 </button>
                                 <button
                                     onClick={() => setHistoryCategoryFilter("BIFOCAL")}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border ${
-                                        historyCategoryFilter === "BIFOCAL"
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border ${historyCategoryFilter === "BIFOCAL"
                                             ? "bg-purple-600 text-white border-purple-600 shadow-2xs"
                                             : "bg-white text-purple-800 border-purple-200 hover:bg-purple-50/60"
-                                    }`}
+                                        }`}
                                 >
                                     <span className="w-2 h-2 rounded-full bg-purple-500"></span>
                                     <span>Bifocal</span>
-                                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                                        historyCategoryFilter === "BIFOCAL" ? "bg-white/20 text-white" : "bg-purple-100 text-purple-800"
-                                    }`}>{historyCounts.bif}</span>
+                                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${historyCategoryFilter === "BIFOCAL" ? "bg-white/20 text-white" : "bg-purple-100 text-purple-800"
+                                        }`}>{historyCounts.bif}</span>
                                 </button>
                             </div>
 
@@ -2475,9 +2512,9 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                                 <th className="px-3 py-3 text-center min-w-[80px]">Combinations</th>
                                                 <th className="px-3 py-3 text-center min-w-[80px]">Total Stock</th>
                                                 <th className="px-3 py-3 min-w-[180px]">Power Ranges</th>
-                                                <th className="px-3 py-3 text-right min-w-[90px]">Buying Price</th>
-                                                <th className="px-3 py-3 text-right min-w-[90px]">Selling Price</th>
-                                                <th className="px-3 py-3 text-right min-w-[85px]">MRP</th>
+                                                <th className="px-3 py-3 text-right min-w-[120px]">Buying Price</th>
+                                                <th className="px-3 py-3 text-right min-w-[120px]">Selling Price</th>
+                                                <th className="px-3 py-3 text-right min-w-[110px]">MRP</th>
                                                 <th className="px-4 py-3 min-w-[130px]">Date &amp; Time</th>
                                                 <th className="px-4 py-3 text-center min-w-[105px]">Action</th>
                                             </tr>
@@ -2541,18 +2578,25 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                                             ) : (
                                                                 <div>CYL: Plano (0.00)</div>
                                                             )}
-                                                            <span className={`inline-block mt-1 px-1.5 py-0.5 text-[9px] font-bold rounded border ${classification.badgeClass}`}>
-                                                                {classification.tag}
-                                                            </span>
+                                                            <div className="flex flex-wrap items-center gap-1 mt-1">
+                                                                <span className={`inline-block px-1.5 py-0.5 text-[9px] font-bold rounded border ${classification.badgeClass}`}>
+                                                                    {classification.tag}
+                                                                </span>
+                                                                {item.sellingPriceRanges && item.sellingPriceRanges.length > 1 && (
+                                                                    <span className="inline-block px-1.5 py-0.5 text-[9px] font-extrabold rounded bg-emerald-50 text-emerald-800 border border-emerald-300">
+                                                                        {item.sellingPriceRanges.length} Price Ranges
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         </td>
-                                                        <td className="px-3 py-3 text-right font-medium text-gray-700">
-                                                            ₹{item.buyingPrice ?? 0}
+                                                        <td className="px-3 py-3 text-right">
+                                                            {renderPriceRangeCell(item.buyingPriceRanges, item.buyingPrice, "text-gray-700")}
                                                         </td>
-                                                        <td className="px-3 py-3 text-right font-semibold text-blue-700">
-                                                            ₹{item.sellingPrice ?? 0}
+                                                        <td className="px-3 py-3 text-right">
+                                                            {renderPriceRangeCell(item.sellingPriceRanges, item.sellingPrice, "text-blue-700 font-extrabold")}
                                                         </td>
-                                                        <td className="px-3 py-3 text-right font-medium text-gray-600">
-                                                            ₹{item.mrp ?? 0}
+                                                        <td className="px-3 py-3 text-right">
+                                                            {renderPriceRangeCell(item.mrpRanges, item.mrp, "text-gray-600")}
                                                         </td>
                                                         <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-[11px]">
                                                             {item.timestamp ? new Date(item.timestamp).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" }) : (item.createdAt ? new Date(item.createdAt).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" }) : "—")}

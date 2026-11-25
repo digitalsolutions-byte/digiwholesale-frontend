@@ -19,6 +19,31 @@ import {
 import { toast } from "react-toastify";
 import api from "../../services/apiInstance";
 
+const renderPriceRangeCell = (ranges, fallbackPrice, textColorCls = "text-gray-700") => {
+    if (Array.isArray(ranges) && ranges.length > 1) {
+        return (
+            <div className="flex flex-col gap-1 items-end py-0.5 min-w-[120px]">
+                {ranges.map((r, i) => (
+                    <div key={i} className="flex items-center gap-1.5 justify-end font-mono leading-tight">
+                        <span className="text-[10px] text-gray-600 bg-gray-100/90 px-1.5 py-0.5 rounded border border-gray-200 whitespace-nowrap" title={`${r.count} combinations in this range`}>
+                            {r.sphRange ? `SPH ${r.sphRange}` : ''}{r.cylRange && r.cylRange !== '0.00 to 0.00' && r.cylRange !== 'Plano (0.00)' ? ` | CYL ${r.cylRange}` : ''}{r.additionRange ? ` | ADD ${r.additionRange}` : ''}
+                        </span>
+                        <span className={`font-bold text-xs font-mono ${textColorCls}`}>
+                            ₹{r.price}
+                        </span>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+    const singlePrice = (Array.isArray(ranges) && ranges.length === 1) ? ranges[0].price : fallbackPrice;
+    return (
+        <span className={`font-bold text-xs font-mono ${textColorCls}`}>
+            ₹{singlePrice ?? 0}
+        </span>
+    );
+};
+
 export default function LensMatrixModal({ isOpen, onClose, onRefreshInventory }) {
     const [activeTab, setActiveTab] = useState("matrix"); // "matrix" | "history"
 
@@ -813,14 +838,14 @@ export default function LensMatrixModal({ isOpen, onClose, onRefreshInventory })
                                                         {item.cylRange ? <div>CYL: {item.cylRange}</div> : null}
                                                         {!item.sphRange && !item.cylRange && "—"}
                                                     </td>
-                                                    <td className="px-3 py-3 text-right font-medium text-gray-700">
-                                                        ₹{item.buyingPrice ?? 0}
+                                                    <td className="px-3 py-3 text-right">
+                                                        {renderPriceRangeCell(item.buyingPriceRanges, item.buyingPrice, "text-gray-700")}
                                                     </td>
-                                                    <td className="px-3 py-3 text-right font-semibold text-blue-700">
-                                                        ₹{item.sellingPrice ?? 0}
+                                                    <td className="px-3 py-3 text-right">
+                                                        {renderPriceRangeCell(item.sellingPriceRanges, item.sellingPrice, "text-blue-700 font-extrabold")}
                                                     </td>
-                                                    <td className="px-3 py-3 text-right font-medium text-gray-600">
-                                                        ₹{item.mrp ?? 0}
+                                                    <td className="px-3 py-3 text-right">
+                                                        {renderPriceRangeCell(item.mrpRanges, item.mrp, "text-gray-600")}
                                                     </td>
                                                     <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-[11px]">
                                                         {item.timestamp ? new Date(item.timestamp).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" }) : "—"}
