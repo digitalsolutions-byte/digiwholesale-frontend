@@ -48,6 +48,31 @@ const buildSvAxisValues = (detectedSet, { direction, startAbs, defaultMaxAbs }) 
 };
 
 // Detect if a lens is Single Vision, Progressive, or Bifocal
+const renderPriceRangeCell = (ranges, fallbackPrice, textColorCls = "text-gray-700") => {
+    if (Array.isArray(ranges) && ranges.length > 1) {
+        return (
+            <div className="flex flex-col gap-1 items-end py-0.5 min-w-[120px]">
+                {ranges.map((r, i) => (
+                    <div key={i} className="flex items-center gap-1.5 justify-end font-mono leading-tight">
+                        <span className="text-[10px] text-gray-600 bg-gray-100/90 px-1.5 py-0.5 rounded border border-gray-200 whitespace-nowrap" title={`${r.count} combinations in this range`}>
+                            {r.sphRange ? `SPH ${r.sphRange}` : ''}{r.cylRange && r.cylRange !== '0.00 to 0.00' && r.cylRange !== 'Plano (0.00)' ? ` | CYL ${r.cylRange}` : ''}{r.additionRange ? ` | ADD ${r.additionRange}` : ''}
+                        </span>
+                        <span className={`font-bold text-xs font-mono ${textColorCls}`}>
+                            ₹{r.price}
+                        </span>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+    const singlePrice = (Array.isArray(ranges) && ranges.length === 1) ? ranges[0].price : fallbackPrice;
+    return (
+        <span className={`font-bold text-xs font-mono ${textColorCls}`}>
+            ₹{singlePrice ?? 0}
+        </span>
+    );
+};
+
 const getLensClassification = (item, matrixOverride = null) => {
     const name = (matrixOverride?.productName || item?.productName || "").toLowerCase();
     const cat = (matrixOverride?.category || item?.category || "").toLowerCase();
@@ -2487,9 +2512,9 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                                 <th className="px-3 py-3 text-center min-w-[80px]">Combinations</th>
                                                 <th className="px-3 py-3 text-center min-w-[80px]">Total Stock</th>
                                                 <th className="px-3 py-3 min-w-[180px]">Power Ranges</th>
-                                                <th className="px-3 py-3 text-right min-w-[90px]">Buying Price</th>
-                                                <th className="px-3 py-3 text-right min-w-[90px]">Selling Price</th>
-                                                <th className="px-3 py-3 text-right min-w-[85px]">MRP</th>
+                                                <th className="px-3 py-3 text-right min-w-[120px]">Buying Price</th>
+                                                <th className="px-3 py-3 text-right min-w-[120px]">Selling Price</th>
+                                                <th className="px-3 py-3 text-right min-w-[110px]">MRP</th>
                                                 <th className="px-4 py-3 min-w-[130px]">Date &amp; Time</th>
                                                 <th className="px-4 py-3 text-center min-w-[105px]">Action</th>
                                             </tr>
@@ -2553,18 +2578,25 @@ export default function LensSphAddMatrixModal({ isOpen, onClose, onRefreshInvent
                                                             ) : (
                                                                 <div>CYL: Plano (0.00)</div>
                                                             )}
-                                                            <span className={`inline-block mt-1 px-1.5 py-0.5 text-[9px] font-bold rounded border ${classification.badgeClass}`}>
-                                                                {classification.tag}
-                                                            </span>
+                                                            <div className="flex flex-wrap items-center gap-1 mt-1">
+                                                                <span className={`inline-block px-1.5 py-0.5 text-[9px] font-bold rounded border ${classification.badgeClass}`}>
+                                                                    {classification.tag}
+                                                                </span>
+                                                                {item.sellingPriceRanges && item.sellingPriceRanges.length > 1 && (
+                                                                    <span className="inline-block px-1.5 py-0.5 text-[9px] font-extrabold rounded bg-emerald-50 text-emerald-800 border border-emerald-300">
+                                                                        {item.sellingPriceRanges.length} Price Ranges
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         </td>
-                                                        <td className="px-3 py-3 text-right font-medium text-gray-700">
-                                                            ₹{item.buyingPrice ?? 0}
+                                                        <td className="px-3 py-3 text-right">
+                                                            {renderPriceRangeCell(item.buyingPriceRanges, item.buyingPrice, "text-gray-700")}
                                                         </td>
-                                                        <td className="px-3 py-3 text-right font-semibold text-blue-700">
-                                                            ₹{item.sellingPrice ?? 0}
+                                                        <td className="px-3 py-3 text-right">
+                                                            {renderPriceRangeCell(item.sellingPriceRanges, item.sellingPrice, "text-blue-700 font-extrabold")}
                                                         </td>
-                                                        <td className="px-3 py-3 text-right font-medium text-gray-600">
-                                                            ₹{item.mrp ?? 0}
+                                                        <td className="px-3 py-3 text-right">
+                                                            {renderPriceRangeCell(item.mrpRanges, item.mrp, "text-gray-600")}
                                                         </td>
                                                         <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-[11px]">
                                                             {item.timestamp ? new Date(item.timestamp).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" }) : (item.createdAt ? new Date(item.createdAt).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" }) : "—")}
