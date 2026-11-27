@@ -290,7 +290,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                 </Box>
 
                 {/* Nav Items */}
-                <Box sx={{ flexGrow: 1, overflowY: 'auto', px: 2, pb: 2 }} className="custom-scrollbar">
+                <Box data-tour="sidebar-nav" sx={{ flexGrow: 1, overflowY: 'auto', px: 2, pb: 2 }} className="custom-scrollbar">
                     <List component="nav" sx={{ gap: 0.5, display: 'flex', flexDirection: 'column' }}>
                         {filteredNavItems.map((item) => {
                             const hasSub = !!item.subItems;

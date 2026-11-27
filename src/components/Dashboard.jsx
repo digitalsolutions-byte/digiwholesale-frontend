@@ -152,7 +152,7 @@ const Dashboard = () => {
             </header>
 
             {/* Top Metric Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div data-tour="dashboard-metrics" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <MetricCard
                     label="Active Customers"
                     value={analytics?.customers?.activeUsers}

@@ -215,6 +215,42 @@ const Topbar = ({ onMenuClick }) => {
             {/* ── Right: actions ────────────────────────────────────────── */}
             <Stack direction="row" alignItems="center" spacing={1}>
 
+                {/* Dr. Specs Walkthrough Guide Trigger */}
+                <Tooltip title="Dr. Specs: Interactive Platform Guide & Tour" placement="bottom">
+                    <Box
+                        data-tour="topbar-guide-btn"
+                        onClick={() => window.dispatchEvent(new CustomEvent('open-dr-specs-hub'))}
+                        sx={{
+                            px: 1.5,
+                            py: '5px',
+                            borderRadius: '10px',
+                            bgcolor: 'rgba(255, 255, 255, 0.15)',
+                            color: '#FFFFFF',
+                            border: '1px solid rgba(255, 255, 255, 0.35)',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            letterSpacing: '0.03em',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.8,
+                            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+                            transition: 'all .2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                            '&:hover': {
+                                bgcolor: 'rgba(255, 255, 255, 0.28)',
+                                transform: 'scale(1.04)',
+                                borderColor: 'rgba(255, 255, 255, 0.6)'
+                            },
+                            '&:active': {
+                                transform: 'scale(0.96)'
+                            }
+                        }}
+                    >
+                        <Icon icon="lucide:glasses" style={{ fontSize: '16px', color: '#FDE047' }} />
+                        <span style={{ fontWeight: 800 }}>Dr. Specs Guide</span>
+                    </Box>
+                </Tooltip>
+
                 {/* Confidential Demo Access NDA Button — only visible for demo-mode users */}
                 {showDemoNdaButton && (
                     <Tooltip title="View Confidential Demo Access Agreement" placement="bottom">

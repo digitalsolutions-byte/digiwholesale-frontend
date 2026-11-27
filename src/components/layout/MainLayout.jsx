@@ -17,6 +17,7 @@ import {
     Tooltip
 } from '@mui/material';
 import GoBackButton from '../navigation/GoBackButton';
+import DrSpecsAssistant from '../walkthrough/DrSpecsAssistant';
 
 const MainLayout = () => {
     const theme = useTheme();
@@ -138,6 +139,7 @@ const MainLayout = () => {
             {/* Floating Action Button (New Order) */}
             <Tooltip title="Create New Order" placement="left">
                 <Fab
+                    data-tour="new-order-fab"
                     color="primary"
                     aria-label="add"
                     onClick={() => navigate('/new-order')}
@@ -161,6 +163,9 @@ const MainLayout = () => {
                     <Icon icon="lucide:plus" style={{ fontSize: '24px', color: 'white' }} />
                 </Fab>
             </Tooltip>
+
+            {/* Dr. Specs Interactive Walkthrough Assistant */}
+            <DrSpecsAssistant />
         </Box>
     );
 };
