@@ -448,6 +448,11 @@ const OrderDetails = () => {
                                                                 Batch: {item.batchNumber}
                                                             </span>
                                                         )}
+                                                        {item.powerRangeSummary && (
+                                                            <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded font-bold">
+                                                                Range: {item.powerRangeSummary}
+                                                            </span>
+                                                        )}
                                                         {vendorObj?.name && (
                                                             <span className="px-1.5 py-0.5 bg-blue-50 text-[#2980B9] rounded border border-blue-100">
                                                                 Vendor: {vendorObj.name}

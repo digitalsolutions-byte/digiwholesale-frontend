@@ -273,12 +273,170 @@ const OrderWizard = () => {
             !!product.sph || !!product.cyl || (product.productName && !checkIsFrame(product));
     };
 
+    const [expandedVariantRows, setExpandedVariantRows] = useState({});
+    const toggleVariantRow = (index) => {
+        setExpandedVariantRows(prev => ({
+            ...prev,
+            [index]: !prev[index]
+        }));
+    };
+
+    const formatPowerRangeSummary = (variants) => {
+        if (!variants || variants.length === 0) return '';
+        const sphNums = [];
+        const cylNums = [];
+        const addNums = [];
+        const axisVals = [];
+
+        variants.forEach(v => {
+            if (v.items && Array.isArray(v.items) && v.items.length > 0) {
+                v.items.forEach(it => {
+                    const s = parseFloat(it.sph);
+                    const c = parseFloat(it.cyl);
+                    const a = parseFloat(it.addition);
+                    if (!isNaN(s)) sphNums.push(s);
+                    if (!isNaN(c)) cylNums.push(c);
+                    if (!isNaN(a) && a > 0) addNums.push(a);
+                    if (it.axis && it.axis !== '0' && it.axis !== '') axisVals.push(it.axis);
+                });
+            } else {
+                const s = parseFloat(v.sph);
+                const c = parseFloat(v.cyl);
+                const a = parseFloat(v.addition);
+                if (!isNaN(s)) sphNums.push(s);
+                if (!isNaN(c)) cylNums.push(c);
+                if (!isNaN(a) && a > 0) addNums.push(a);
+                if (v.minSec !== undefined) {
+                    if (v.isProg) {
+                        addNums.push(v.minSec, v.maxSec);
+                    } else {
+                        cylNums.push(v.minSec, v.maxSec);
+                    }
+                }
+                if (v.axis && v.axis !== '0' && v.axis !== '') axisVals.push(v.axis);
+            }
+        });
+
+        const parts = [];
+        const fmt = (n) => (n > 0 ? `+${n.toFixed(2)}` : n.toFixed(2));
+
+        if (sphNums.length > 0) {
+            const minS = Math.min(...sphNums);
+            const maxS = Math.max(...sphNums);
+            parts.push(minS === maxS ? `SPH: ${fmt(minS)}` : `SPH: ${fmt(minS)} to ${fmt(maxS)}`);
+        }
+        if (cylNums.length > 0) {
+            const minC = Math.min(...cylNums);
+            const maxC = Math.max(...cylNums);
+            parts.push(minC === maxC ? `CYL: ${fmt(minC)}` : `CYL: ${fmt(minC)} to ${fmt(maxC)}`);
+        }
+        if (addNums.length > 0) {
+            const minA = Math.min(...addNums);
+            const maxA = Math.max(...addNums);
+            parts.push(minA === maxA ? `ADD: +${minA.toFixed(2)}` : `ADD: +${minA.toFixed(2)} to +${maxA.toFixed(2)}`);
+        }
+        if (axisVals.length > 0) {
+            const uniqueAxes = Array.from(new Set(axisVals));
+            parts.push(`AXIS: ${uniqueAxes.join(', ')}°`);
+        }
+
+        return parts.length > 0 ? parts.join(' | ') : 'Standard Power';
+    };
+
+    const handleUpdateVariantQty = (productIndex, variantIndex, delta) => {
+        const prods = [...formik.values.products];
+        const prod = { ...prods[productIndex] };
+        if (!prod.groupedVariants) return;
+        const variants = [...prod.groupedVariants];
+        const target = { ...variants[variantIndex] };
+        const currentQty = Number(target.qty || 1);
+        const nextQty = Math.max(1, currentQty + delta);
+        target.qty = nextQty;
+
+        if (target.items && Array.isArray(target.items) && target.items.length > 0) {
+            const baseSum = target.items.reduce((s, it) => s + (parseInt(it.qty) || 1), 0) || 1;
+            const factor = nextQty / baseSum;
+            let remaining = nextQty;
+            target.items = target.items.map((it, idx) => {
+                let q;
+                if (idx === target.items.length - 1) {
+                    q = Math.max(1, remaining);
+                } else {
+                    const b = parseInt(it.qty) || 1;
+                    q = Math.max(1, Math.round(b * factor));
+                    remaining = Math.max(1, remaining - q);
+                }
+                return { ...it, qty: q };
+            });
+        }
+
+        variants[variantIndex] = target;
+        prod.groupedVariants = variants;
+        prod.qty = variants.reduce((sum, v) => sum + Number(v.qty || 0), 0);
+        prods[productIndex] = prod;
+        formik.setFieldValue('products', prods);
+    };
+
+    const handleSetVariantQty = (productIndex, variantIndex, val) => {
+        const num = parseInt(val, 10);
+        const prods = [...formik.values.products];
+        const prod = { ...prods[productIndex] };
+        if (!prod.groupedVariants) return;
+        const variants = [...prod.groupedVariants];
+        const target = { ...variants[variantIndex] };
+        const nextQty = isNaN(num) || num < 1 ? 1 : num;
+        target.qty = nextQty;
+
+        if (target.items && Array.isArray(target.items) && target.items.length > 0) {
+            const baseSum = target.items.reduce((s, it) => s + (parseInt(it.qty) || 1), 0) || 1;
+            const factor = nextQty / baseSum;
+            let remaining = nextQty;
+            target.items = target.items.map((it, idx) => {
+                let q;
+                if (idx === target.items.length - 1) {
+                    q = Math.max(1, remaining);
+                } else {
+                    const b = parseInt(it.qty) || 1;
+                    q = Math.max(1, Math.round(b * factor));
+                    remaining = Math.max(1, remaining - q);
+                }
+                return { ...it, qty: q };
+            });
+        }
+
+        variants[variantIndex] = target;
+        prod.groupedVariants = variants;
+        prod.qty = variants.reduce((sum, v) => sum + Number(v.qty || 0), 0);
+        prods[productIndex] = prod;
+        formik.setFieldValue('products', prods);
+    };
+
+    const handleRemoveVariant = (productIndex, variantIndex) => {
+        const prods = [...formik.values.products];
+        const prod = { ...prods[productIndex] };
+        if (!prod.groupedVariants) return;
+        const variants = prod.groupedVariants.filter((_, idx) => idx !== variantIndex);
+        if (variants.length === 0) {
+            if (formik.values.products.length > 1) {
+                const filtered = formik.values.products.filter((_, idx) => idx !== productIndex);
+                formik.setFieldValue('products', filtered);
+            }
+            return;
+        }
+        prod.groupedVariants = variants;
+        prod.qty = variants.reduce((sum, v) => sum + Number(v.qty || 0), 0);
+        prod.powerRangeSummary = formatPowerRangeSummary(variants);
+        prods[productIndex] = prod;
+        formik.setFieldValue('products', prods);
+    };
+
     const handleOpenMatrixForRow = (index, product) => {
         setMatrixOrderTargetRow(index);
         setMatrixOrderInitialProduct({
             productName: product.productName || product.itemName || '',
             category: product.category,
             brand: product.brand,
+            groupedVariants: product.groupedVariants || null,
         });
         setIsMatrixOrderModalOpen(true);
     };
@@ -921,6 +1079,52 @@ const OrderWizard = () => {
                                 }
                                 return prodMapped;
                             });
+
+                            // Group lens variants of the same product and price break into consolidated rows
+                            if (products.length > 1) {
+                                const consolidated = [];
+                                const groups = new Map();
+                                products.forEach(p => {
+                                    const isLens = checkIsLens(p) && p.orderType === 'stock';
+                                    if (isLens && p.productName) {
+                                        const key = `${p.productName}_${Number(p.price || 0).toFixed(2)}`;
+                                        if (!groups.has(key)) {
+                                            groups.set(key, []);
+                                        }
+                                        groups.get(key).push(p);
+                                    } else {
+                                        consolidated.push(p);
+                                    }
+                                });
+
+                                groups.forEach(groupItems => {
+                                    if (groupItems.length === 1) {
+                                        consolidated.push(groupItems[0]);
+                                    } else {
+                                        const primary = { ...groupItems[0] };
+                                        const groupedVariants = groupItems.map(gi => ({
+                                            productId: gi.productId,
+                                            productCode: gi.code,
+                                            sph: gi.sph || gi.powerTable?.R?.sph || '',
+                                            cyl: gi.cyl || gi.powerTable?.R?.cyl || '',
+                                            axis: gi.axis || gi.powerTable?.R?.axis || '',
+                                            addition: gi.add || gi.powerTable?.R?.add || '',
+                                            qty: Number(gi.qty || 1),
+                                            price: Number(gi.price || 0),
+                                            sellingPrice: Number(gi.sellingPrice || gi.price || 0),
+                                            buyingPrice: Number(gi.buyingPrice || 0),
+                                            mrp: Number(gi.MRP || 0),
+                                            availableStock: gi.availableStock ?? 0,
+                                        }));
+                                        primary.isGroupedVariant = true;
+                                        primary.groupedVariants = groupedVariants;
+                                        primary.qty = groupedVariants.reduce((sum, v) => sum + Number(v.qty || 0), 0);
+                                        primary.powerRangeSummary = formatPowerRangeSummary(groupedVariants);
+                                        consolidated.push(primary);
+                                    }
+                                });
+                                products = consolidated;
+                            }
                         } else {
                             // Fallback to single product from root (legacy)
                             const singleProd = {
@@ -1164,7 +1368,8 @@ const OrderWizard = () => {
         });
         const finalProducts = activeProducts.length > 0 ? activeProducts : [(values.products || [])[0]];
 
-        const items = finalProducts.map(prod => {
+        const items = [];
+        finalProducts.forEach(prod => {
             const brandData = getFieldData('brand', prod.brandId);
             const categoryData = getFieldData('category', prod.categoryId);
             const productData = getProductNameData(prod.productName);
@@ -1361,7 +1566,51 @@ const OrderWizard = () => {
                 };
             }
 
-            return baseItem;
+            if (prod.isGroupedVariant && Array.isArray(prod.groupedVariants) && prod.groupedVariants.length > 0) {
+                prod.groupedVariants.forEach(rangeGroup => {
+                    const subItems = (rangeGroup.items && Array.isArray(rangeGroup.items) && rangeGroup.items.length > 0)
+                        ? rangeGroup.items
+                        : [rangeGroup];
+
+                    const sumSubQty = subItems.reduce((acc, it) => acc + (parseInt(it.qty) || 1), 0) || 1;
+                    const groupQty = parseInt(rangeGroup.qty) || sumSubQty;
+                    const factor = groupQty / sumSubQty;
+
+                    let remainingQty = groupQty;
+                    subItems.forEach((variant, vIdx) => {
+                        let vQty;
+                        if (vIdx === subItems.length - 1) {
+                            vQty = Math.max(1, remainingQty);
+                        } else {
+                            const baseQ = parseInt(variant.qty) || 1;
+                            vQty = Math.max(1, Math.round(baseQ * factor));
+                            remainingQty = Math.max(1, remainingQty - vQty);
+                        }
+
+                        const vPrice = parseFloat(variant.price || rangeGroup.price || prod.price) || 0;
+                        const variantItem = {
+                            ...baseItem,
+                            productId: variant.productId || rangeGroup.productId || prod.productId || undefined,
+                            code: variant.productCode || rangeGroup.productCode || prod.code || '',
+                            qty: vQty,
+                            unit: (prod.unit || 'pair').toUpperCase(),
+                            price: vPrice,
+                            sellingPrice: parseFloat(variant.sellingPrice || rangeGroup.sellingPrice || prod.sellingPrice || vPrice) || vPrice,
+                            buyingPrice: parseFloat(variant.buyingPrice || rangeGroup.buyingPrice || prod.buyingPrice) || 0,
+                            mrp: parseFloat(variant.mrp || rangeGroup.mrp || prod.MRP) || 0,
+                            sph: parseFloat(variant.sph) || 0,
+                            cyl: parseFloat(variant.cyl) || 0,
+                            axis: parseFloat(variant.axis) || 0,
+                            add: parseFloat(variant.addition) || 0,
+                            powerRangeSummary: prod.powerRangeSummary || '',
+                            isGroupedVariant: true,
+                        };
+                        items.push(variantItem);
+                    });
+                });
+            } else {
+                items.push(baseItem);
+            }
         });
 
         // Compute overall order metrics
@@ -3329,17 +3578,51 @@ const OrderWizard = () => {
                                                         })()}
 
                                                         {checkIsLens(product) && (product.productName || product.itemName) && (
-                                                            <div className="mt-1.5 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleOpenMatrixForRow(index, product)}
-                                                                    className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-[11px] font-bold shadow-xs transition-all active:scale-95"
-                                                                    title="Open lens combinations matrix to enter quantities with live stock and range pricing"
-                                                                >
-                                                                    <Icon icon="mdi:grid" className="text-sm" />
-                                                                    <span>Lens Combination Selection</span>
-                                                                </button>
-                                                            </div>
+                                                            product.groupedVariants?.length > 0 ? (
+                                                                <div className="mt-1.5 flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
+                                                                    <div className="flex items-center justify-between gap-1 flex-wrap">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => toggleVariantRow(index)}
+                                                                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold transition-all shadow-2xs border ${
+                                                                                expandedVariantRows[index]
+                                                                                    ? 'bg-indigo-600 text-white border-indigo-700'
+                                                                                    : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200'
+                                                                            }`}
+                                                                            title="Click to view/hide individual power combinations breakdown"
+                                                                        >
+                                                                            <Icon icon={expandedVariantRows[index] ? "mdi:chevron-up" : "mdi:chevron-down"} className="text-xs" />
+                                                                            <span>{product.groupedVariants.length} Variations ({product.qty} Pairs)</span>
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleOpenMatrixForRow(index, product)}
+                                                                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-bold transition-all"
+                                                                            title="Re-open matrix to change quantities"
+                                                                        >
+                                                                            <Icon icon="mdi:grid" className="text-xs" />
+                                                                            <span>Matrix</span>
+                                                                        </button>
+                                                                    </div>
+                                                                    {product.powerRangeSummary && (
+                                                                        <div className="text-[10px] font-semibold text-slate-700 bg-slate-100/90 px-1.5 py-0.5 rounded border border-slate-200 truncate" title={product.powerRangeSummary}>
+                                                                            <span className="text-erp-accent font-bold">Range:</span> {product.powerRangeSummary}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="mt-1.5 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleOpenMatrixForRow(index, product)}
+                                                                        className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-[11px] font-bold shadow-xs transition-all active:scale-95"
+                                                                        title="Open lens combinations matrix to enter quantities with live stock and range pricing"
+                                                                    >
+                                                                        <Icon icon="mdi:grid" className="text-sm" />
+                                                                        <span>Lens Combination Selection</span>
+                                                                    </button>
+                                                                </div>
+                                                            )
                                                         )}
                                                     </td>
 
@@ -3605,16 +3888,40 @@ const OrderWizard = () => {
                                                         ) : (
                                                             <>
                                                                 <td className="px-1.5 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap border-r border-gray-100 min-w-[85px]">
-                                                                    {renderEditablePowerCell('sph')}
+                                                                    {product.groupedVariants?.length > 0 ? (
+                                                                        <span className="inline-block px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold text-[11px] border border-indigo-200" title={product.powerTable?.R?.sph}>
+                                                                            {product.powerTable?.R?.sph || '-'}
+                                                                        </span>
+                                                                    ) : (
+                                                                        renderEditablePowerCell('sph')
+                                                                    )}
                                                                 </td>
                                                                 <td className="px-1.5 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap border-r border-gray-100 min-w-[85px]">
-                                                                    {renderEditablePowerCell('cyl')}
+                                                                    {product.groupedVariants?.length > 0 ? (
+                                                                        <span className="inline-block px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold text-[11px] border border-indigo-200" title={product.powerTable?.R?.cyl}>
+                                                                            {product.powerTable?.R?.cyl || '-'}
+                                                                        </span>
+                                                                    ) : (
+                                                                        renderEditablePowerCell('cyl')
+                                                                    )}
                                                                 </td>
                                                                 <td className="px-1.5 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap border-r border-gray-100 min-w-[85px]">
-                                                                    {renderEditablePowerCell('axis')}
+                                                                    {product.groupedVariants?.length > 0 ? (
+                                                                        <span className="inline-block px-1.5 py-0.5 rounded bg-gray-50 text-gray-700 font-medium text-[11px]">
+                                                                            {product.powerTable?.R?.axis || '-'}
+                                                                        </span>
+                                                                    ) : (
+                                                                        renderEditablePowerCell('axis')
+                                                                    )}
                                                                 </td>
                                                                 <td className="px-1.5 py-2 text-xs font-semibold text-gray-700 text-center whitespace-nowrap border-r border-gray-100 min-w-[85px]">
-                                                                    {renderEditablePowerCell('add')}
+                                                                    {product.groupedVariants?.length > 0 ? (
+                                                                        <span className="inline-block px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold text-[11px] border border-indigo-200" title={product.powerTable?.R?.add}>
+                                                                            {product.powerTable?.R?.add || '-'}
+                                                                        </span>
+                                                                    ) : (
+                                                                        renderEditablePowerCell('add')
+                                                                    )}
                                                                 </td>
                                                             </>
                                                         )
@@ -3660,7 +3967,24 @@ const OrderWizard = () => {
                                                                     </div>
                                                                 );
                                                             })() : (
-                                                                product.orderType === 'rx' ? (() => {
+                                                                product.groupedVariants?.length > 0 ? (
+                                                                    <div
+                                                                        className="flex flex-col items-center justify-center gap-0.5 cursor-pointer py-0.5 px-1 rounded hover:bg-indigo-50/50 transition-colors"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            toggleVariantRow(index);
+                                                                        }}
+                                                                        title="Click to view/hide variations breakdown"
+                                                                    >
+                                                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200/80 max-w-[170px] truncate">
+                                                                            <Icon icon="mdi:layers-outline" className="text-xs flex-shrink-0" />
+                                                                            <span className="truncate">{product.powerRangeSummary || 'Matrix Range'}</span>
+                                                                        </span>
+                                                                        <span className="text-[9px] font-bold text-slate-500">
+                                                                            {product.groupedVariants.length} {product.groupedVariants.length === 1 ? 'range' : 'ranges'} · {product.qty} pcs
+                                                                        </span>
+                                                                    </div>
+                                                                ) : product.orderType === 'rx' ? (() => {
                                                                     const rSph = product.powerTable?.R?.sph;
                                                                     const rCyl = product.powerTable?.R?.cyl;
                                                                     const lSph = product.powerTable?.L?.sph;
@@ -3862,6 +4186,180 @@ const OrderWizard = () => {
                                                         </div>
                                                     </td>
                                                 </tr>
+                                                {expandedVariantRows[index] && product.groupedVariants?.length > 0 && (
+                                                    <tr className="bg-gradient-to-b from-indigo-50/60 to-slate-50/90 border-y-2 border-indigo-200">
+                                                        <td colSpan={10 + (expandedGroups.specs ? 4 : 1) + (expandedGroups.powers ? 4 : 1) + (expandedGroups.tax ? 3 : 1)} className="p-3">
+                                                            <div className="bg-white rounded-xl border border-indigo-200/80 shadow-xs p-3">
+                                                                {/* Header of Breakdown */}
+                                                                <div className="flex items-center justify-between gap-3 mb-2.5 pb-2 border-b border-gray-100 flex-wrap">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="p-1.5 rounded-lg bg-indigo-100 text-indigo-700">
+                                                                            <Icon icon="mdi:format-list-bulleted-type" className="text-base" />
+                                                                        </span>
+                                                                        <div>
+                                                                            <h5 className="text-xs font-bold text-gray-900 flex items-center gap-2">
+                                                                                <span>{product.productName || 'Lens'} — Variations Breakdown</span>
+                                                                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
+                                                                                    {product.groupedVariants.length} {product.groupedVariants.length === 1 ? 'Range / Entry' : 'Ranges / Entries'} · {product.qty} Total Pairs
+                                                                                </span>
+                                                                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                                                                    @ ₹{product.price}/pair
+                                                                                </span>
+                                                                            </h5>
+                                                                            <p className="text-[11px] text-gray-500 mt-0.5">
+                                                                                Power range: <strong className="text-indigo-900">{product.powerRangeSummary}</strong>
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleOpenMatrixForRow(index, product)}
+                                                                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold shadow-2xs transition-all active:scale-95"
+                                                                            title="Open full interactive matrix modal for this product"
+                                                                        >
+                                                                            <Icon icon="mdi:grid" className="text-sm" />
+                                                                            <span>Edit in Matrix Modal</span>
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => toggleVariantRow(index)}
+                                                                            className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 text-sm"
+                                                                            title="Close Breakdown"
+                                                                        >
+                                                                            <Icon icon="mdi:close" />
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Variants Table */}
+                                                                <div className="overflow-x-auto rounded-lg border border-gray-100 max-h-60 overflow-y-auto">
+                                                                    <table className="w-full text-left text-xs">
+                                                                        <thead className="bg-slate-100 text-slate-700 uppercase text-[10px] tracking-wider sticky top-0 z-1">
+                                                                            <tr>
+                                                                                <th className="px-3 py-2 text-center w-10 font-bold">#</th>
+                                                                                <th className="px-3 py-2 font-bold">Power Combination</th>
+                                                                                <th className="px-3 py-2 font-bold">Product Code</th>
+                                                                                <th className="px-3 py-2 text-center font-bold">Stock Avail</th>
+                                                                                <th className="px-3 py-2 text-center font-bold">Ordered Qty</th>
+                                                                                <th className="px-3 py-2 text-right font-bold">Unit Price</th>
+                                                                                <th className="px-3 py-2 text-right font-bold">Subtotal</th>
+                                                                                <th className="px-2 py-2 text-center w-12 font-bold">Action</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody className="divide-y divide-gray-100">
+                                                                            {product.groupedVariants.map((v, vIdx) => {
+                                                                                const vSubtotal = (Number(v.qty) || 0) * (Number(v.price) || Number(product.price) || 0);
+                                                                                return (
+                                                                                    <tr key={`v-${index}-${vIdx}`} className="hover:bg-indigo-50/40 transition-colors">
+                                                                                        <td className="px-3 py-2 text-center text-gray-400 font-semibold">{vIdx + 1}</td>
+                                                                                        <td className="px-3 py-2 font-bold text-slate-800">
+                                                                                            <div className="flex flex-col gap-1">
+                                                                                                <span className="inline-flex items-center gap-1.5 bg-white px-2.5 py-1 rounded border border-gray-200 shadow-2xs text-xs">
+                                                                                                    {v.label ? (
+                                                                                                        <span className="font-bold text-indigo-950">{v.label}</span>
+                                                                                                    ) : (
+                                                                                                        <>
+                                                                                                            <span>SPH: {v.sph ? (typeof v.sph === 'string' && (v.sph.includes('to') || v.sph.startsWith('+') || v.sph.startsWith('-')) ? v.sph : (Number(v.sph) > 0 ? `+${Number(v.sph).toFixed(2)}` : Number(v.sph).toFixed(2))) : '0.00'}</span>
+                                                                                                            <span className="text-gray-300">/</span>
+                                                                                                            <span>CYL: {v.cyl ? (typeof v.cyl === 'string' && (v.cyl.includes('to') || v.cyl.startsWith('+') || v.cyl.startsWith('-')) ? v.cyl : (Number(v.cyl) > 0 ? `+${Number(v.cyl).toFixed(2)}` : Number(v.cyl).toFixed(2))) : '0.00'}</span>
+                                                                                                            {v.addition && v.addition !== '0.00' && (
+                                                                                                                <>
+                                                                                                                    <span className="text-gray-300">/</span>
+                                                                                                                    <span>ADD: {typeof v.addition === 'string' && v.addition.includes('to') ? v.addition : `+${Number(v.addition).toFixed(2)}`}</span>
+                                                                                                                </>
+                                                                                                            )}
+                                                                                                            {v.axis && v.axis !== '0' && (
+                                                                                                                <span className="text-gray-500 font-normal">Ax:{v.axis}°</span>
+                                                                                                            )}
+                                                                                                        </>
+                                                                                                    )}
+                                                                                                    {v.isRange && (
+                                                                                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-indigo-100 text-indigo-700 tracking-wide uppercase">
+                                                                                                            Range ({v.variantsCount || v.items?.length || 2} items)
+                                                                                                        </span>
+                                                                                                    )}
+                                                                                                </span>
+                                                                                                {v.items && v.items.length > 1 && (
+                                                                                                    <div className="flex flex-wrap items-center gap-1 text-[10px] text-gray-500 pl-1">
+                                                                                                        <span className="font-semibold text-gray-400">Items:</span>
+                                                                                                        {v.items.map((it, itIdx) => {
+                                                                                                            const itSph = it.sph ? (Number(it.sph) > 0 ? `+${Number(it.sph).toFixed(2)}` : Number(it.sph).toFixed(2)) : '0.00';
+                                                                                                            const itCyl = it.cyl ? (Number(it.cyl) > 0 ? `+${Number(it.cyl).toFixed(2)}` : Number(it.cyl).toFixed(2)) : '0.00';
+                                                                                                            const itAdd = it.addition && it.addition !== '0.00' ? ` / ADD: +${Number(it.addition).toFixed(2)}` : '';
+                                                                                                            return (
+                                                                                                                <span key={itIdx} className="bg-slate-100 px-1.5 py-0.5 rounded border border-gray-200 text-slate-700 font-medium">
+                                                                                                                    SPH: {itSph} / CYL: {itCyl}{itAdd} ({it.qty} {it.qty > 1 ? 'pairs' : 'pair'})
+                                                                                                                </span>
+                                                                                                            );
+                                                                                                        })}
+                                                                                                    </div>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </td>
+                                                                                        <td className="px-3 py-2 font-mono text-[11px] text-gray-500">
+                                                                                            {v.productCode || '-'}
+                                                                                        </td>
+                                                                                        <td className="px-3 py-2 text-center">
+                                                                                            <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold ${
+                                                                                                (v.availableStock ?? 0) > 0
+                                                                                                    ? 'bg-emerald-100 text-emerald-800'
+                                                                                                    : 'bg-rose-100 text-rose-700'
+                                                                                            }`}>
+                                                                                                {v.availableStock ?? 0} pcs
+                                                                                            </span>
+                                                                                        </td>
+                                                                                        <td className="px-3 py-2 text-center">
+                                                                                            <div className="inline-flex items-center justify-center border border-gray-300 rounded-lg overflow-hidden bg-white shadow-2xs">
+                                                                                                <button
+                                                                                                    type="button"
+                                                                                                    onClick={() => handleUpdateVariantQty(index, vIdx, -1)}
+                                                                                                    className="px-2 py-1 text-gray-600 hover:bg-gray-100 hover:text-black font-black text-xs transition-colors"
+                                                                                                >
+                                                                                                    -
+                                                                                                </button>
+                                                                                                <input
+                                                                                                    type="number"
+                                                                                                    value={v.qty}
+                                                                                                    onChange={(e) => handleSetVariantQty(index, vIdx, e.target.value)}
+                                                                                                    className="w-12 text-center text-xs font-bold outline-none border-x border-gray-200 py-1"
+                                                                                                    min="1"
+                                                                                                />
+                                                                                                <button
+                                                                                                    type="button"
+                                                                                                    onClick={() => handleUpdateVariantQty(index, vIdx, 1)}
+                                                                                                    className="px-2 py-1 text-gray-600 hover:bg-gray-100 hover:text-black font-black text-xs transition-colors"
+                                                                                                >
+                                                                                                    +
+                                                                                                </button>
+                                                                                            </div>
+                                                                                        </td>
+                                                                                        <td className="px-3 py-2 text-right font-semibold text-slate-700">
+                                                                                            ₹{Number(v.price || product.price).toFixed(2)}
+                                                                                        </td>
+                                                                                        <td className="px-3 py-2 text-right font-bold text-erp-accent">
+                                                                                            ₹{vSubtotal.toFixed(2)}
+                                                                                        </td>
+                                                                                        <td className="px-2 py-2 text-center">
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                onClick={() => handleRemoveVariant(index, vIdx)}
+                                                                                                className="p-1 rounded text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                                                                                title="Remove combination"
+                                                                                            >
+                                                                                                <Icon icon="mdi:trash-can-outline" className="text-sm" />
+                                                                                            </button>
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                );
+                                                                            })}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                )}
                                             </React.Fragment>
                                         );
                                     })}

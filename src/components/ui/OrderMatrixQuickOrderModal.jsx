@@ -78,20 +78,83 @@ export default function OrderMatrixQuickOrderModal({
     const [orderQtyMap, setOrderQtyMap] = useState({});
 
     // ── Fetch Matrix Data for a product name ──
-    const fetchMatrixForProductName = async (prodName) => {
+    const fetchMatrixForProductName = async (prodName, prefillVariants = null) => {
         if (!prodName || !prodName.trim()) return;
         const cleanName = prodName.trim();
         setSelectedProduct({ productName: cleanName });
         setSearchTerm(cleanName);
         setShowSuggestions(false);
-        setOrderQtyMap({});
         setGridRxFilter("");
 
         setMatrixLoading(true);
         try {
             const res = await api.get(`/api/digi/product/lens/matrix-data?productName=${encodeURIComponent(cleanName)}`);
             if (res.data?.success) {
-                setMatrixData(res.data);
+                const data = res.data;
+                setMatrixData(data);
+
+                // Pre-populate quantities if prefillVariants are provided
+                if (prefillVariants && Array.isArray(prefillVariants) && prefillVariants.length > 0) {
+                    const initMap = {};
+                    const productsList = data.products || [];
+
+                    const flatList = [];
+                    prefillVariants.forEach(v => {
+                        if (v.items && Array.isArray(v.items) && v.items.length > 0) {
+                            flatList.push(...v.items);
+                        } else {
+                            flatList.push(v);
+                        }
+                    });
+
+                    flatList.forEach(variant => {
+                        const s = numPower(variant.sph) ?? 0;
+                        const c = numPower(variant.cyl) ?? 0;
+                        const a = numPower(variant.addition);
+                        const ax = variant.axis || "";
+                        const qty = Number(variant.qty || 1);
+
+                        const matchedItem = productsList.find(p => {
+                            const ps = numPower(p.sph) ?? 0;
+                            const pc = numPower(p.cyl) ?? 0;
+                            const pa = numPower(p.addition);
+                            const pax = p.axis || "";
+                            if (a !== null && a > 0) {
+                                return ps === s && pc === c && pa === a && pax === ax;
+                            }
+                            return ps === s && pc === c;
+                        });
+
+                        if (a !== null && a > 0) {
+                            const cellKey = `${s.toFixed(2)}_${c.toFixed(2)}_${ax}_${a.toFixed(2)}`;
+                            initMap[cellKey] = {
+                                qty,
+                                item: matchedItem || variant,
+                                sph: s.toFixed(2),
+                                cyl: c.toFixed(2),
+                                axis: ax,
+                                addition: a.toFixed(2)
+                            };
+                        } else {
+                            const qId = s >= 0
+                                ? (c > 0 ? "SPH+_CYL+" : "SPH+_CYL-")
+                                : (c > 0 ? "SPH-_CYL+" : "SPH-_CYL-");
+                            const key = `${s.toFixed(2)}_${c.toFixed(2)}`;
+                            const cellKey = `${qId}_${key}`;
+                            initMap[cellKey] = {
+                                qty,
+                                item: matchedItem || variant,
+                                sph: s.toFixed(2),
+                                cyl: c.toFixed(2),
+                                axis: ax,
+                                addition: ""
+                            };
+                        }
+                    });
+                    setOrderQtyMap(initMap);
+                } else {
+                    setOrderQtyMap({});
+                }
             } else {
                 toast.error(res.data?.message || "Failed to load lens matrix data");
             }
@@ -108,7 +171,7 @@ export default function OrderMatrixQuickOrderModal({
         if (isOpen) {
             const initName = initialProduct?.productName || initialProduct?.itemName || (typeof initialProduct === "string" ? initialProduct : "");
             if (initName) {
-                fetchMatrixForProductName(initName);
+                fetchMatrixForProductName(initName, initialProduct?.groupedVariants);
             } else {
                 setSearchTerm("");
                 setSelectedProduct(null);
@@ -405,18 +468,297 @@ export default function OrderMatrixQuickOrderModal({
         return sum + (itemPrice * (e.qty || 0));
     }, 0);
 
-    // ── Final: Construct Order Wizard Rows and Add to Order ──
+    // ── Helper to format optical range summary ──
+    const formatRangeSummary = (entries) => {
+        const sphNums = [];
+        const cylNums = [];
+        const addNums = [];
+        const axisVals = [];
+
+        entries.forEach(e => {
+            const s = numPower(e.sph);
+            const c = numPower(e.cyl);
+            const a = numPower(e.addition);
+            if (s !== null) sphNums.push(s);
+            if (c !== null) cylNums.push(c);
+            if (a !== null && a > 0) addNums.push(a);
+            if (e.axis && e.axis !== "0" && e.axis !== "") axisVals.push(e.axis);
+        });
+
+        const parts = [];
+        const fmt = (n) => (n > 0 ? `+${n.toFixed(2)}` : n.toFixed(2));
+
+        if (sphNums.length > 0) {
+            const minS = Math.min(...sphNums);
+            const maxS = Math.max(...sphNums);
+            parts.push(minS === maxS ? `SPH: ${fmt(minS)}` : `SPH: ${fmt(minS)} to ${fmt(maxS)}`);
+        }
+        if (cylNums.length > 0) {
+            const minC = Math.min(...cylNums);
+            const maxC = Math.max(...cylNums);
+            parts.push(minC === maxC ? `CYL: ${fmt(minC)}` : `CYL: ${fmt(minC)} to ${fmt(maxC)}`);
+        }
+        if (addNums.length > 0) {
+            const minA = Math.min(...addNums);
+            const maxA = Math.max(...addNums);
+            parts.push(minA === maxA ? `ADD: +${minA.toFixed(2)}` : `ADD: +${minA.toFixed(2)} to +${maxA.toFixed(2)}`);
+        }
+        if (axisVals.length > 0) {
+            const uniqueAxes = Array.from(new Set(axisVals));
+            parts.push(`AXIS: ${uniqueAxes.join(", ")}°`);
+        }
+
+        return parts.length > 0 ? parts.join(" | ") : "Standard Power";
+    };
+
+    // ── Build Range Groups for contiguous combinations on same row / power ──
+    // ── Build 2D Range Groups for contiguous combinations (both SPH & CYL/ADD) ──
+    const build2DChunkRangeObj = (block) => {
+        const fmt = (n) => (n > 0 ? `+${n.toFixed(2)}` : n.toFixed(2));
+        const allEntries = block.flatMap(r => r.chunk);
+        const totalQty = allEntries.reduce((sum, e) => sum + Number(e.qty || 1), 0);
+        const first = allEntries[0];
+        const firstItem = first.item;
+
+        const isProg = block[0].isProg;
+        const c = block[0].c;
+        const ax = block[0].ax;
+        const price = block[0].price;
+        const minSec = block[0].minSec;
+        const maxSec = block[0].maxSec;
+
+        const allS = block.map(r => r.s);
+        const minS = Math.min(...allS);
+        const maxS = Math.max(...allS);
+
+        const sStr = minS === maxS ? fmt(minS) : `${fmt(minS)} to ${fmt(maxS)}`;
+        const sphLabel = `SPH: ${sStr}`;
+
+        let secLabel = "";
+        if (isProg) {
+            secLabel = minSec === maxSec ? `ADD: +${minSec.toFixed(2)}` : `ADD: +${minSec.toFixed(2)} to +${maxSec.toFixed(2)}`;
+        } else {
+            secLabel = minSec === maxSec ? `CYL: ${fmt(minSec)}` : `CYL: ${fmt(minSec)} to ${fmt(maxSec)}`;
+        }
+
+        const axStr = ax && ax !== "0" ? ` x${ax}°` : "";
+        const cStr = isProg && c !== 0 ? ` / CYL: ${fmt(c)}` : "";
+        const label = `${sphLabel}${cStr} / ${secLabel}${axStr}`;
+
+        const items = allEntries.map(e => ({
+            productId: e.item?._id || e.item?.id || e.productId || "",
+            productCode: e.item?.productCode || e.item?.code || e.productCode || "",
+            sph: e.sph !== undefined ? e.sph : (e.sNum !== undefined ? fmt(e.sNum) : ""),
+            cyl: e.cyl !== undefined ? e.cyl : (e.cNum !== undefined ? fmt(e.cNum) : ""),
+            axis: e.axis || "",
+            addition: e.addition !== undefined ? e.addition : (e.aNum !== undefined ? `+${Number(e.aNum).toFixed(2)}` : ""),
+            qty: Number(e.qty || 1),
+            price: Number(e.unitPrice || price),
+            sellingPrice: Number(e.sVal || e.item?.sellingPrice || e.item?.price || price),
+            buyingPrice: Number(e.bVal || e.item?.buyingPrice || e.item?.price || price),
+            mrp: Number(e.mrpVal || e.item?.mrp || 0),
+            availableStock: Number(e.item?.qty ?? e.availableStock ?? 0),
+        }));
+
+        return {
+            id: `range_${minS.toFixed(2)}_${maxS.toFixed(2)}_${minSec.toFixed(2)}_${maxSec.toFixed(2)}`,
+            label,
+            isProg,
+            sph: sStr,
+            cyl: !isProg ? (minSec === maxSec ? fmt(minSec) : `${fmt(minSec)} to ${fmt(maxSec)}`) : (c !== 0 ? fmt(c) : "0.00"),
+            addition: isProg ? (minSec === maxSec ? `+${minSec.toFixed(2)}` : `+${minSec.toFixed(2)} to +${maxSec.toFixed(2)}`) : "",
+            axis: ax || "",
+            minS,
+            maxS,
+            minSec,
+            maxSec,
+            price,
+            sellingPrice: Number(first.sVal || firstItem?.sellingPrice || firstItem?.price || price),
+            buyingPrice: Number(first.bVal || firstItem?.buyingPrice || firstItem?.price || price),
+            mrp: Number(first.mrpVal || firstItem?.mrp || 0),
+            qty: totalQty,
+            variantsCount: allEntries.length,
+            isRange: allEntries.length > 1,
+            availableStock: Math.min(...allEntries.map(e => Number(e.item?.qty ?? e.availableStock ?? 0))),
+            productCode: firstItem?.productCode || firstItem?.code || first.productCode || "",
+            items,
+        };
+    };
+
+    const buildRangeGroups = (entries) => {
+        if (!entries || entries.length === 0) return [];
+
+        const sphGroups = new Map();
+
+        entries.forEach(entry => {
+            const s = numPower(entry.sph) ?? 0;
+            const c = numPower(entry.cyl) ?? 0;
+            const a = numPower(entry.addition);
+            const ax = entry.axis || "";
+            const price = Number(entry.unitPrice || entry.price || 0);
+            const isProg = a !== null && a > 0;
+
+            const groupKey = isProg
+                ? `PROG_${s.toFixed(2)}_${c.toFixed(2)}_${ax}_${price.toFixed(2)}`
+                : `SV_${s.toFixed(2)}_${ax}_${price.toFixed(2)}`;
+
+            if (!sphGroups.has(groupKey)) {
+                sphGroups.set(groupKey, {
+                    isProg,
+                    s,
+                    c,
+                    ax,
+                    price,
+                    entries: [],
+                });
+            }
+            sphGroups.get(groupKey).entries.push({
+                ...entry,
+                sNum: s,
+                cNum: c,
+                aNum: a,
+                ax,
+            });
+        });
+
+        // 1) First pass: group contiguous secondary powers (CYL or ADD) for each SPH row
+        const rowChunks = [];
+
+        sphGroups.forEach(group => {
+            const { isProg, s, c, ax, price, entries: grpEntries } = group;
+
+            if (isProg) {
+                grpEntries.sort((x, y) => (x.aNum ?? 0) - (y.aNum ?? 0));
+                let chunk = [grpEntries[0]];
+
+                for (let i = 1; i < grpEntries.length; i++) {
+                    const prev = grpEntries[i - 1].aNum ?? 0;
+                    const curr = grpEntries[i].aNum ?? 0;
+                    if (Math.abs(curr - prev) <= 0.26) {
+                        chunk.push(grpEntries[i]);
+                    } else {
+                        const addVals = chunk.map(e => e.aNum ?? 0);
+                        rowChunks.push({
+                            isProg: true,
+                            s,
+                            c,
+                            ax,
+                            price,
+                            minSec: Math.min(...addVals),
+                            maxSec: Math.max(...addVals),
+                            chunk
+                        });
+                        chunk = [grpEntries[i]];
+                    }
+                }
+                if (chunk.length > 0) {
+                    const addVals = chunk.map(e => e.aNum ?? 0);
+                    rowChunks.push({
+                        isProg: true,
+                        s,
+                        c,
+                        ax,
+                        price,
+                        minSec: Math.min(...addVals),
+                        maxSec: Math.max(...addVals),
+                        chunk
+                    });
+                }
+            } else {
+                grpEntries.sort((x, y) => (x.cNum ?? 0) - (y.cNum ?? 0));
+                let chunk = [grpEntries[0]];
+
+                for (let i = 1; i < grpEntries.length; i++) {
+                    const prev = grpEntries[i - 1].cNum ?? 0;
+                    const curr = grpEntries[i].cNum ?? 0;
+                    if (Math.abs(curr - prev) <= 0.26) {
+                        chunk.push(grpEntries[i]);
+                    } else {
+                        const cylVals = chunk.map(e => e.cNum ?? 0);
+                        rowChunks.push({
+                            isProg: false,
+                            s,
+                            c: 0,
+                            ax,
+                            price,
+                            minSec: Math.min(...cylVals),
+                            maxSec: Math.max(...cylVals),
+                            chunk
+                        });
+                        chunk = [grpEntries[i]];
+                    }
+                }
+                if (chunk.length > 0) {
+                    const cylVals = chunk.map(e => e.cNum ?? 0);
+                    rowChunks.push({
+                        isProg: false,
+                        s,
+                        c: 0,
+                        ax,
+                        price,
+                        minSec: Math.min(...cylVals),
+                        maxSec: Math.max(...cylVals),
+                        chunk
+                    });
+                }
+            }
+        });
+
+        // 2) Second pass: merge row chunks across contiguous SPH values that share identical secondary ranges & price
+        const secGroups = new Map();
+
+        rowChunks.forEach(rc => {
+            const secKey = `${rc.isProg}_${(rc.c ?? 0).toFixed(2)}_${rc.ax}_${rc.price.toFixed(2)}_${rc.minSec.toFixed(2)}_${rc.maxSec.toFixed(2)}`;
+            if (!secGroups.has(secKey)) {
+                secGroups.set(secKey, []);
+            }
+            secGroups.get(secKey).push(rc);
+        });
+
+        const rangeGroups = [];
+
+        secGroups.forEach(chunksForSec => {
+            // Sort chunks by SPH ascending
+            chunksForSec.sort((a, b) => a.s - b.s);
+
+            let block = [chunksForSec[0]];
+            for (let i = 1; i < chunksForSec.length; i++) {
+                const prevS = chunksForSec[i - 1].s;
+                const currS = chunksForSec[i].s;
+                if (Math.abs(currS - prevS) <= 0.26) {
+                    block.push(chunksForSec[i]);
+                } else {
+                    rangeGroups.push(build2DChunkRangeObj(block));
+                    block = [chunksForSec[i]];
+                }
+            }
+            if (block.length > 0) {
+                rangeGroups.push(build2DChunkRangeObj(block));
+            }
+        });
+
+        rangeGroups.sort((a, b) => {
+            if (a.minS !== b.minS) return a.minS - b.minS;
+            return (a.minSec ?? 0) - (b.minSec ?? 0);
+        });
+
+        return rangeGroups;
+    };
+
+    // ── Final: Construct Order Wizard Rows and Add to Order (Grouped by Price Break) ──
     const handleAddSelectedToOrder = () => {
         if (selectedEntries.length === 0 || totalSelectedQty <= 0) {
             return toast.error("Please enter quantity for at least one lens power.");
         }
 
-        const newOrderProducts = selectedEntries.map(({ qty, item, sph, cyl, axis, addition }) => {
-            const prodName = matrixData?.productName || item?.productName || "Lens";
+        // Group selected entries by price break (unitPrice)
+        const groupsMap = new Map();
+
+        selectedEntries.forEach(entry => {
+            const { qty, item, sph, cyl, axis, addition } = entry;
             const sVal = Number(item?.sellingPrice ?? item?.price ?? matrixData?.minSellingPrice ?? 0);
             const bVal = Number(item?.buyingPrice ?? item?.price ?? matrixData?.minBuyingPrice ?? 0);
             const mrpVal = Number(item?.mrp ?? sVal ?? 0);
-            const prodCode = item?.productCode || item?.code || "";
 
             const unitPrice = priceMetric === "buyingPrice"
                 ? (bVal > 0 ? bVal : sVal)
@@ -424,25 +766,79 @@ export default function OrderMatrixQuickOrderModal({
                 ? (mrpVal > 0 ? mrpVal : sVal)
                 : (sVal > 0 ? sVal : bVal);
 
+            // Group key by unit price (price break)
+            const groupKey = `price_${unitPrice.toFixed(2)}`;
+
+            if (!groupsMap.has(groupKey)) {
+                groupsMap.set(groupKey, {
+                    unitPrice,
+                    sellingPrice: sVal,
+                    buyingPrice: bVal,
+                    mrp: mrpVal,
+                    entries: [],
+                });
+            }
+            groupsMap.get(groupKey).entries.push({
+                ...entry,
+                sVal,
+                bVal,
+                mrpVal,
+                unitPrice,
+            });
+        });
+
+        const newOrderProducts = Array.from(groupsMap.values()).map(group => {
+            const totalGroupQty = group.entries.reduce((sum, e) => sum + Number(e.qty || 0), 0);
+            const prodName = matrixData?.productName || group.entries[0]?.item?.productName || "Lens";
+            const brandVal = matrixData?.brand || group.entries[0]?.item?.brand || "";
+            const catVal = matrixData?.category || group.entries[0]?.item?.category || "LENS";
+            const firstItem = group.entries[0]?.item;
+            const rangeSummary = formatRangeSummary(group.entries);
+
+            // Build range-grouped variants list (groups contiguous powers on the same SPH)
+            const groupedVariants = buildRangeGroups(group.entries);
+
+            // Representative power values
+            const sphNums = group.entries.map(e => numPower(e.sph)).filter(n => n !== null);
+            const cylNums = group.entries.map(e => numPower(e.cyl)).filter(n => n !== null);
+            const addNums = group.entries.map(e => numPower(e.addition)).filter(n => n !== null && n > 0);
+            const axisVals = group.entries.map(e => e.axis).filter(Boolean);
+
+            const minS = sphNums.length > 0 ? Math.min(...sphNums) : 0;
+            const maxS = sphNums.length > 0 ? Math.max(...sphNums) : 0;
+            const minC = cylNums.length > 0 ? Math.min(...cylNums) : 0;
+            const maxC = cylNums.length > 0 ? Math.max(...cylNums) : 0;
+            const minA = addNums.length > 0 ? Math.min(...addNums) : 0;
+            const maxA = addNums.length > 0 ? Math.max(...addNums) : 0;
+
+            const fmtP = (n) => (n > 0 ? `+${n.toFixed(2)}` : n.toFixed(2));
+            const repSph = minS === maxS ? fmtP(minS) : `${fmtP(minS)} to ${fmtP(maxS)}`;
+            const repCyl = minC === maxC ? fmtP(minC) : `${fmtP(minC)} to ${fmtP(maxC)}`;
+            const repAdd = addNums.length > 0 ? (minA === maxA ? `+${minA.toFixed(2)}` : `+${minA.toFixed(2)} to +${maxA.toFixed(2)}`) : "";
+
             return {
-                qty: Number(qty),
+                qty: totalGroupQty,
                 unit: "pair",
-                price: unitPrice,
-                buyingPrice: bVal,
-                sellingPrice: sVal,
-                mrp: mrpVal,
+                price: group.unitPrice,
+                basePrice: group.unitPrice,
+                buyingPrice: group.buyingPrice,
+                sellingPrice: group.sellingPrice,
+                mrp: group.mrp,
                 discount: 0,
-                brand: matrixData?.brand || item?.brand || "",
-                category: matrixData?.category || item?.category || "LENS",
+                brand: brandVal,
+                category: catVal,
                 photos: [],
                 powerMode: "both",
                 productMode: "stock",
                 orderType: "stock",
-                availability: (item?.qty ?? 0) > 0 ? "in-house" : "order",
+                availability: group.entries.some(e => (e.item?.qty ?? 0) > 0) ? "in-house" : "order",
                 hasPrism: "no",
+                isGroupedVariant: true,
+                powerRangeSummary: rangeSummary,
+                groupedVariants,
                 powerTable: {
-                    R: { sph: sph || "", cyl: cyl || "", axis: axis || "", add: addition || "", dia: "70" },
-                    L: { sph: sph || "", cyl: cyl || "", axis: axis || "", add: addition || "", dia: "70" },
+                    R: { sph: repSph, cyl: repCyl, axis: axisVals[0] || "", add: repAdd, dia: "70" },
+                    L: { sph: repSph, cyl: repCyl, axis: axisVals[0] || "", add: repAdd, dia: "70" },
                 },
                 selectedSide: "both",
                 prismTable: {
@@ -453,19 +849,19 @@ export default function OrderMatrixQuickOrderModal({
                     R: { pd: "", corridor: "", fittingHeight: "" },
                     L: { pd: "", corridor: "", fittingHeight: "" },
                 },
-                gst: Number(item?.gst || 12),
-                hsnSac: item?.hsnSac || "9001",
-                productId: item?._id || item?.id || "",
+                gst: Number(firstItem?.gst || 12),
+                hsnSac: firstItem?.hsnSac || "9001",
+                productId: firstItem?._id || firstItem?.id || "",
                 productName: prodName,
                 itemName: prodName,
-                productCode: prodCode,
-                code: prodCode,
+                productCode: firstItem?.productCode || firstItem?.code || "",
+                code: firstItem?.productCode || firstItem?.code || "",
             };
         });
 
         if (typeof onAddProducts === "function") {
             onAddProducts(newOrderProducts, targetRowIndex);
-            toast.success(`Successfully applied ${newOrderProducts.length} power combinations (${totalSelectedQty} pairs) to order!`);
+            toast.success(`Successfully applied ${selectedEntries.length} power combinations (${totalSelectedQty} pairs across ${newOrderProducts.length} price break item${newOrderProducts.length > 1 ? 's' : ''}) to order!`);
         }
 
         onClose();
